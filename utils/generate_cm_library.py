@@ -38,8 +38,8 @@ def convert_fasta_to_stockholm(fasta):
                    lines = f_input.readlines()
                    f_output.write('# STOCKHOLM 1.0\n')
                    f_output.write('\n')
-                   f_output.write('{0}{1}\n'.format(model_id.ljust(25), lines[1].strip()))
-                   f_output.write('{0}{1}\n'.format('#=GC SS_cons'.ljust(25), lines[2].strip()))
+                   f_output.write('{0}{1}\n'.format(model_id.ljust(60), lines[1].strip()))
+                   f_output.write('{0}{1}\n'.format('#=GC SS_cons'.ljust(60), lines[2].strip()))
                    f_output.write('//\n')
     return stockholm
 
