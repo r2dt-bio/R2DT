@@ -4,8 +4,9 @@ from sys import argv
 
 
 CM_LIBRARY = '/rna/data/cms'
-CRW_PS_LIBRARY = '/rna/data/crw-ps'
-CRW_FASTA_LIBRARY = '/rna/data/crw-fasta'
+
+CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
+CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta'
 
 
 fasta_input = argv[1]  # /rna/examples/examples.fasta
@@ -13,7 +14,7 @@ output_folder = argv[2]  # output-test
 
 
 def get_ribotyper_output():
-    ribotyper_long_out = os.path.join(output_folder, output_folder + '.ribotyper.long.out')
+    ribotyper_long_out = os.path.join(output_folder, os.path.basename(output_folder) + '.ribotyper.long.out')
     if not os.path.exists(ribotyper_long_out):
         cmd = 'perl /rna/ribotyper-v1/ribotyper.pl -i {CM_LIBRARY}/all.modelinfo.txt -f {fasta_input} {output_folder}'.format(
             CM_LIBRARY=CM_LIBRARY,
@@ -59,8 +60,6 @@ def main():
             )
             print cmd
             os.system(cmd)
-
-    os.system('rm temp.fasta temp.sto temp.stk')
 
 
 if __name__ == '__main__':
