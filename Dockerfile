@@ -36,4 +36,9 @@ ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/e
 ENV PERL5LIB="$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 
+# Install jiffy infernal hmmer scripts
+RUN git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && cd jiffy-infernal-hmmer-scripts && git checkout 45d4937385a6b694eac2d7d538e131b59527ce06
+
+COPY examples examples/
+
 ENTRYPOINT ["/bin/bash"]
