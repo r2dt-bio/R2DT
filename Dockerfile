@@ -41,4 +41,13 @@ RUN git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && c
 
 COPY examples examples/
 
+# Install RNAStructure
+RUN \
+    wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
+    tar -xvzf RNAstructureSource.tgz && \
+    cd RNAstructure && \
+    make all
+
+ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
+
 ENTRYPOINT ["/bin/bash"]

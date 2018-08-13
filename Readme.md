@@ -21,6 +21,7 @@ perl ribotyper.pl -i data/cms/all.modelinfo.txt -f data/pdb.fasta data/test-auto
 
 ## Acknowledgements
 
-- Robin Gutell
-- Eric Nawrocki
-- David Hoksza
+- [Eric Nawrocki](https://github.com/nawrockie)
+- [David Hoksza](https://github.com/davidhoksza)
+- [Robin Gutell](http://www.rna.ccbb.utexas.edu)
+- [RNAStructure package](http://rna.urmc.rochester.edu/RNAstructure.html)
