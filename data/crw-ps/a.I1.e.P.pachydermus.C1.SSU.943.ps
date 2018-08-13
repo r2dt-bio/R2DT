@@ -1,0 +1,732 @@
+%!
+/lwline {newpath moveto lineto stroke} def
+/lwbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto stroke} def
+/lwfbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto fill} def
+/lwgrayline {setgray newpath moveto lineto stroke} def
+/m4showpage {showpage} def
+/lwarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc stroke grestore} def
+/lwfarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc fill grestore} def
+/lwenclosegrayarc {/cypos exch def /cxpos exch def /cscale exch def /crad exch def /clinewidth exch def /cgrayval exch def newpath gsave cgrayval cgrayval cgrayval setrgbcolor cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc fill grestore newpath gsave 0.0 0.0 0.0 setrgbcolor clinewidth setlinewidth cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc stroke grestore} def
+/lwarcbox {newpath gsave translate scale /rad0 exch def
+  /rad1 exch def /ang0 exch def /ang1 exch def /grayval exch def
+  grayval setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn 0.0 0.0 rad0 ang0 ang1 arc closepath fill
+  0.0 setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn
+  0.0 0.0 rad0 ang0 ang1 arc closepath stroke grestore} def
+/lwcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc stroke grestore} def
+/lwfcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwfgcircle {newpath gsave setgray translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwtriangle {newpath gsave translate scale rotate moveto lineto lineto lineto stroke grestore} def
+/lwftriangle {newpath gsave translate scale rotate moveto lineto lineto lineto fill grestore} def
+/lwfrect {1.0 setgray newpath moveto lineto lineto lineto lineto fill} def
+/lwflinerect {setrgbcolor /r0x exch def /r0y exch def /r1x exch def /r1y exch def /r2x exch def /r2y exch def /r3x exch def /r3y exch def newpath r0x r0y moveto r1x r1y lineto r2x r2y lineto r3x r3y lineto r0x r0y lineto fill 0.0 setgray newpath r0x r0y moveto r1x r1y lineto stroke r2x r2y moveto r3x r3y lineto stroke} def
+/lwflinetriangle {setrgbcolor /t0x exch def /t0y exch def /t1x exch def /t1y exch def /t2x exch def /t2y exch def newpath t0x t0y moveto t1x t1y lineto t2x t2y lineto t0x t0y lineto fill 0.0 setgray newpath t1x t1y moveto t2x t2y lineto stroke} def
+/lwstring {moveto show} def
+/lwlabel {gsave translate rotate 0.0 0.0 moveto show grestore} def
+/lwarrow {gsave translate scale rotate moveto lineto lineto lineto stroke 0.0 0.0 lwline grestore} def
+/lwfarrow {gsave translate scale rotate moveto lineto lineto lineto
+  fill lwline grestore} def
+/lwgraystring {setgray moveto show} def
+/getboxshow {false charpath flattenpath pathbbox stroke} def
+/getbox {false charpath flattenpath pathbbox} def
+/drawbox {newpath moveto getboxshow newpath
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	llx lly moveto llx ury lineto urx ury lineto urx lly lineto
+	llx lly lineto stroke} def
+/getstrmidpt {
+	/cury exch def /curx exch def curx cury moveto getbox
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	2.0 curx mul llx urx add 2.0 div sub 2.0 cury
+  mul lly ury add 2.0 div sub translate
+	} def
+[] 0 setdash
+0.00 0.00 0.00 setrgbcolor
+/Helvetica-Bold findfont 80.00 scalefont setfont
+1 setlinejoin
+0.05 setlinewidth
+0 setlinecap
+newpath
+gsave
+306.00 396.00 translate
+%m4rotate
+0.75 0.75 scale
+%m4scale
+-364.50 370.00 translate
+%m4translate
+2.00 setlinewidth
+516.00 -94.60 534.70 -94.60 lwline
+540.15 -165.00 540.15 -120.00 lwline
+0.00 setlinewidth
+newpath
+404.00 -222.00 moveto
+414.00 -222.00 lineto
+414.00 -188.00 lineto
+404.00 -188.00 lineto
+404.00 -222.00 lineto
+stroke
+2.00 setlinewidth
+218.00 -136.00 218.00 -158.00 lwline
+1.00 setlinewidth
+newpath
+298.00 -154.00 moveto
+298.00 -150.30 lineto
+289.00 -154.00 lineto
+298.00 -157.70 lineto
+298.00 -154.00 lineto
+fill
+298.00 -154.00 300.00 -154.00 lwline
+newpath
+521.00 -146.00 moveto
+521.00 -142.30 lineto
+512.00 -146.00 lineto
+521.00 -149.70 lineto
+521.00 -146.00 lineto
+fill
+521.00 -146.00 523.00 -146.00 lwline
+newpath
+258.00 -137.00 moveto
+258.00 -140.70 lineto
+267.00 -137.00 lineto
+258.00 -133.30 lineto
+258.00 -137.00 lineto
+fill
+258.00 -137.00 256.00 -137.00 lwline
+newpath
+521.00 -165.00 moveto
+521.00 -161.30 lineto
+512.00 -165.00 lineto
+521.00 -168.70 lineto
+521.00 -165.00 lineto
+fill
+521.00 -165.00 523.00 -165.00 lwline
+newpath
+384.00 -363.00 moveto
+380.30 -363.00 lineto
+384.00 -372.00 lineto
+387.70 -363.00 lineto
+384.00 -363.00 lineto
+fill
+384.00 -363.00 384.00 -361.00 lwline
+newpath
+489.00 -403.00 moveto
+492.70 -403.00 lineto
+489.00 -394.00 lineto
+485.30 -403.00 lineto
+489.00 -403.00 lineto
+fill
+489.00 -403.00 489.00 -405.00 lwline
+newpath
+420.00 -287.00 moveto
+420.00 -290.70 lineto
+429.00 -287.00 lineto
+420.00 -283.30 lineto
+420.00 -287.00 lineto
+fill
+420.00 -287.00 418.00 -287.00 lwline
+newpath
+425.00 -330.00 moveto
+425.00 -326.30 lineto
+416.00 -330.00 lineto
+425.00 -333.70 lineto
+425.00 -330.00 lineto
+fill
+425.00 -330.00 427.00 -330.00 lwline
+2.00 setlinewidth
+511.00 -377.00 524.00 -388.00 lwline
+511.00 -284.00 523.00 -275.00 lwline
+548.75 -221.00 532.45 -221.00 lwline
+548.00 -288.00 548.00 -277.00 lwline
+548.00 -370.00 548.00 -385.00 lwline
+524.00 -365.00 513.00 -365.00 lwline
+488.00 -308.00 502.00 -308.00 lwline
+[1 2] 0 setdash
+501.00 -365.00 514.00 -365.00 lwline
+502.00 -308.00 517.00 -308.00 lwline
+[] 0 setdash
+238.00 -278.00 238.00 -299.00 lwline
+238.00 -227.00 238.00 -245.00 lwline
+259.00 -154.00 306.00 -154.00 lwline
+305.00 -153.00 305.00 -160.00 lwline
+285.00 -136.00 285.00 -151.00 lwline
+332.00 -287.00 381.00 -287.00 lwline
+310.00 -309.00 307.00 -306.00 lwline
+320.00 -318.00 314.00 -312.00 lwline
+320.00 -299.00 307.00 -317.00 lwline
+387.00 -287.00 447.00 -287.00 lwline
+528.00 -167.00 528.00 -197.00 lwline
+502.00 -146.00 529.00 -146.00 lwline
+528.00 -145.00 528.00 -162.00 lwline
+521.00 -221.00 525.00 -221.00 lwline
+387.00 -330.00 490.00 -330.00 lwline
+381.00 -330.00 332.00 -330.00 lwline
+508.00 -164.00 508.00 -174.00 lwline
+528.70 -221.85 528.70 -227.95 lwline
+524.50 -308.00 513.50 -308.00 lwline
+489.00 -364.00 488.00 -434.00 lwline
+541.00 -165.00 507.00 -165.00 lwline
+434.00 -434.00 490.00 -434.00 lwline
+502.00 -365.00 490.00 -365.00 lwline
+548.00 -228.00 548.00 -220.00 lwline
+405.00 -444.00 383.00 -444.00 lwline
+405.00 -266.00 383.00 -266.00 lwline
+503.00 -147.00 503.00 -120.00 lwline
+217.00 -137.00 286.00 -137.00 lwline
+285.00 -160.00 285.00 -156.00 lwline
+521.00 -221.00 446.00 -287.00 lwline
+411.00 -423.00 427.00 -455.00 lwline
+384.00 -445.00 384.00 -265.00 lwline
+489.00 -307.00 489.00 -331.00 lwline
+285.00 -318.00 285.00 -306.00 lwline
+0.00 setlinewidth
+414.00 -200.00 486.00 -200.00 lwline
+newpath
+496.85 -230.57 moveto
+499.42 -232.12 lineto
+502.00 -222.00 lineto
+494.28 -229.03 lineto
+496.85 -230.57 lineto
+fill
+496.85 -230.57 492.83 -237.26 lwline
+newpath
+440.51 -225.11 moveto
+441.44 -222.26 lineto
+431.00 -222.00 lineto
+439.57 -227.96 lineto
+440.51 -225.11 lineto
+fill
+440.51 -225.11 446.78 -227.16 lwline
+newpath
+486.00 -222.00 moveto
+496.00 -222.00 lineto
+496.00 -188.00 lineto
+486.00 -188.00 lineto
+486.00 -222.00 lineto
+stroke
+/Helvetica-Oblique findfont 14.00 scalefont setfont
+(5') 436.00 -264.00 lwstring
+(3') 487.00 -185.00 lwstring
+(Protomyces pachydermus SSU rRNA (943) [i1]) 48.00 -466.00 lwstring
+(GenBank# D85142) 48.00 -484.00 lwstring
+(Eucarya, Fungi, Ascomycota (IC1)) 48.00 -502.00 lwstring
+(Jul 1, 1996) 48.00 -520.00 lwstring
+/Helvetica-Bold findfont 12.00 scalefont setfont
+(Citation and related information available at http://www.rna.ccbb.utexas.edu) 150.00 -650.00 lwstring
+1.00 setlinewidth
+415.67 -258.00 422.33 -258.00 lwline
+415.67 -250.00 422.33 -250.00 lwline
+415.67 -242.00 422.33 -242.00 lwline
+415.67 -234.00 422.33 -234.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 419.00 -226.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+415.67 -218.00 422.33 -218.00 lwline
+422.33 -468.00 415.67 -468.00 lwline
+422.33 -476.00 415.67 -476.00 lwline
+422.33 -484.00 415.67 -484.00 lwline
+404.00 -504.33 404.00 -497.67 lwline
+396.00 -504.33 396.00 -497.67 lwline
+388.00 -504.33 388.00 -497.67 lwline
+380.00 -504.33 380.00 -497.67 lwline
+372.00 -504.33 372.00 -497.67 lwline
+422.33 -519.00 415.67 -519.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 419.00 -527.00 lwfarc
+360.00 0.00 1.00 1.00 1.00 419.00 -535.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+422.33 -418.00 415.67 -418.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 419.00 -410.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+422.33 -402.00 415.67 -402.00 lwline
+422.33 -394.00 415.67 -394.00 lwline
+422.33 -386.00 415.67 -386.00 lwline
+541.33 -365.00 534.67 -365.00 lwline
+541.33 -357.00 534.67 -357.00 lwline
+541.33 -349.00 534.67 -349.00 lwline
+541.33 -341.00 534.67 -341.00 lwline
+541.33 -333.00 534.67 -333.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 538.00 -325.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+541.33 -317.00 534.67 -317.00 lwline
+291.67 -302.00 298.33 -302.00 lwline
+291.67 -294.00 298.33 -294.00 lwline
+291.67 -286.00 298.33 -286.00 lwline
+291.67 -278.00 298.33 -278.00 lwline
+291.67 -270.00 298.33 -270.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 295.00 -262.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+291.67 -205.00 298.33 -205.00 lwline
+291.67 -197.00 298.33 -197.00 lwline
+291.67 -189.00 298.33 -189.00 lwline
+224.67 -162.00 231.33 -162.00 lwline
+224.67 -170.00 231.33 -170.00 lwline
+224.67 -178.00 231.33 -178.00 lwline
+224.67 -186.00 231.33 -186.00 lwline
+224.67 -202.00 231.33 -202.00 lwline
+224.67 -210.00 231.33 -210.00 lwline
+224.66 -222.00 231.32 -222.00 lwline
+224.67 -249.00 231.33 -249.00 lwline
+224.67 -257.00 231.33 -257.00 lwline
+224.67 -265.00 231.33 -265.00 lwline
+224.67 -304.00 231.33 -304.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 228.00 -312.00 lwfarc
+360.00 0.00 1.00 1.00 1.00 228.00 -320.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+224.67 -328.00 231.33 -328.00 lwline
+224.67 -344.00 231.33 -344.00 lwline
+224.67 -352.00 231.33 -352.00 lwline
+224.67 -360.00 231.33 -360.00 lwline
+224.67 -368.00 231.33 -368.00 lwline
+224.67 -376.00 231.33 -376.00 lwline
+187.00 -285.67 187.00 -292.33 lwline
+179.00 -285.67 179.00 -292.33 lwline
+171.00 -285.67 171.00 -292.33 lwline
+163.00 -285.67 163.00 -292.33 lwline
+155.00 -285.67 155.00 -292.33 lwline
+147.00 -285.67 147.00 -292.33 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 295.00 -322.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+298.33 -330.00 291.67 -330.00 lwline
+298.33 -338.00 291.67 -338.00 lwline
+298.33 -371.00 291.67 -371.00 lwline
+298.33 -379.00 291.67 -379.00 lwline
+298.33 -395.00 291.67 -395.00 lwline
+298.33 -403.00 291.67 -403.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 295.00 -411.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+534.67 -233.00 541.33 -233.00 lwline
+534.67 -241.00 541.33 -241.00 lwline
+534.67 -249.00 541.33 -249.00 lwline
+534.67 -257.00 541.33 -257.00 lwline
+534.67 -265.00 541.33 -265.00 lwline
+534.67 -273.00 541.33 -273.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 538.00 -390.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+534.67 -398.00 541.33 -398.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 538.00 -406.00 lwfarc
+360.00 0.00 1.00 1.00 1.00 538.00 -414.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+534.67 -422.00 541.33 -422.00 lwline
+534.67 -430.00 541.33 -430.00 lwline
+534.67 -438.00 541.33 -438.00 lwline
+534.67 -446.00 541.33 -446.00 lwline
+534.67 -454.00 541.33 -454.00 lwline
+534.67 -462.00 541.33 -462.00 lwline
+534.67 -470.00 541.33 -470.00 lwline
+534.67 -478.00 541.33 -478.00 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 538.00 -486.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+534.67 -494.00 541.33 -494.00 lwline
+514.67 -210.00 521.33 -210.00 lwline
+514.67 -202.00 521.33 -202.00 lwline
+503.00 -101.67 503.00 -108.33 lwline
+495.00 -101.67 495.00 -108.33 lwline
+487.00 -101.67 487.00 -108.33 lwline
+471.00 -101.67 471.00 -108.33 lwline
+463.00 -101.67 463.00 -108.33 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 455.00 -105.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+447.00 -101.67 447.00 -108.33 lwline
+539.00 -108.33 539.00 -101.67 lwline
+547.00 -108.33 547.00 -101.67 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 555.00 -105.00 lwfarc
+/Helvetica findfont 8.00 scalefont setfont
+(g) 426.50 -261.00 lwstring
+(g) 426.50 -253.00 lwstring
+(a) 426.50 -244.50 lwstring
+(g) 426.50 -237.00 lwstring
+(u) 427.00 -228.50 lwstring
+(A) 426.00 -221.00 lwstring
+(A) 434.00 -220.00 lwstring
+(A) 442.00 -218.00 lwstring
+(C) 450.00 -216.00 lwstring
+(G) 458.00 -213.00 lwstring
+(U) 464.00 -208.00 lwstring
+(U) 468.00 -200.00 lwstring
+(U) 470.00 -192.00 lwstring
+(A) 470.00 -183.00 lwstring
+(U) 468.00 -175.00 lwstring
+(G) 463.00 -167.00 lwstring
+(U) 457.00 -161.00 lwstring
+(C) 450.00 -157.00 lwstring
+(G) 442.00 -154.00 lwstring
+(C) 433.00 -154.00 lwstring
+(A) 425.00 -156.00 lwstring
+(G) 418.00 -159.00 lwstring
+(U) 412.00 -165.00 lwstring
+(U) 408.00 -172.00 lwstring
+(A) 406.00 -180.20 lwstring
+(A) 406.00 -187.40 lwstring
+(C) 406.00 -196.60 lwstring
+(U) 406.00 -204.80 lwstring
+(C) 406.00 -213.00 lwstring
+(U) 406.00 -221.00 lwstring
+(G) 406.00 -229.00 lwstring
+(C) 406.00 -237.00 lwstring
+(U) 406.00 -245.00 lwstring
+(C) 406.00 -253.00 lwstring
+(C) 406.00 -261.00 lwstring
+(G) 406.00 -269.16 lwstring
+(A) 406.00 -447.00 lwstring
+(A) 406.00 -455.00 lwstring
+(A) 406.00 -463.00 lwstring
+(A) 406.00 -471.00 lwstring
+(G) 406.00 -479.00 lwstring
+(C) 406.00 -487.00 lwstring
+(C) 401.00 -494.00 lwstring
+(A) 393.00 -494.00 lwstring
+(C) 385.00 -494.00 lwstring
+(U) 377.00 -494.00 lwstring
+(C) 369.00 -494.00 lwstring
+(G) 361.00 -494.00 lwstring
+(A) 356.00 -500.00 lwstring
+(A) 356.00 -508.00 lwstring
+(A) 361.00 -514.00 lwstring
+(G) 369.00 -514.00 lwstring
+(A) 377.00 -514.00 lwstring
+(G) 385.00 -514.00 lwstring
+(U) 393.00 -514.00 lwstring
+(G) 401.00 -514.00 lwstring
+(U) 406.00 -522.00 lwstring
+(G) 406.00 -530.00 lwstring
+(G) 406.00 -538.00 lwstring
+(U) 404.00 -546.00 lwstring
+(G) 408.00 -553.00 lwstring
+(U) 416.00 -556.00 lwstring
+(C) 424.00 -553.00 lwstring
+(C) 428.00 -546.00 lwstring
+(U) 426.00 -538.00 lwstring
+(U) 426.00 -530.00 lwstring
+(A) 426.00 -522.00 lwstring
+(G) 433.00 -514.00 lwstring
+(A) 436.00 -504.00 lwstring
+(G) 433.00 -494.00 lwstring
+(G) 426.00 -487.00 lwstring
+(C) 426.00 -479.00 lwstring
+(U) 426.00 -471.00 lwstring
+(A) 426.00 -463.00 lwstring
+(G) 406.00 -421.00 lwstring
+(U) 406.00 -413.00 lwstring
+(C) 406.00 -405.00 lwstring
+(A) 406.00 -397.00 lwstring
+(G) 406.00 -389.00 lwstring
+(U) 406.00 -381.00 lwstring
+(C) 412.00 -375.00 lwstring
+(C) 420.00 -375.00 lwstring
+(G) 426.00 -381.00 lwstring
+(C) 426.00 -389.00 lwstring
+(U) 426.00 -397.00 lwstring
+(G) 426.00 -405.00 lwstring
+(G) 426.00 -413.00 lwstring
+(C) 426.00 -421.00 lwstring
+(A) 426.00 -429.00 lwstring
+(A) 426.00 -437.00 lwstring
+(C) 525.00 -368.00 lwstring
+(A) 525.00 -360.00 lwstring
+(C) 525.00 -352.00 lwstring
+(A) 525.00 -344.00 lwstring
+(A) 525.00 -336.00 lwstring
+(U) 525.00 -328.00 lwstring
+(C) 525.00 -320.00 lwstring
+(A) 525.00 -311.00 lwstring
+(A) 325.00 -333.00 lwstring
+(A) 317.00 -333.00 lwstring
+(U) 317.00 -325.00 lwstring
+(U) 302.00 -305.00 lwstring
+(G) 302.00 -297.00 lwstring
+(C) 302.00 -289.00 lwstring
+(G) 302.00 -281.00 lwstring
+(G) 302.00 -273.00 lwstring
+(G) 302.00 -265.00 lwstring
+(A) 308.00 -255.00 lwstring
+(A) 311.00 -243.00 lwstring
+(A) 311.00 -231.00 lwstring
+(C) 308.00 -219.00 lwstring
+(U) 302.00 -208.00 lwstring
+(C) 302.00 -200.00 lwstring
+(C) 302.00 -192.00 lwstring
+(U) 302.00 -184.00 lwstring
+(U) 302.00 -176.00 lwstring
+(A) 302.00 -168.00 lwstring
+(G) 251.00 -157.00 lwstring
+(A) 243.00 -157.00 lwstring
+(G) 235.00 -157.00 lwstring
+(C) 235.00 -165.00 lwstring
+(U) 235.00 -173.00 lwstring
+(C) 235.00 -181.00 lwstring
+(A) 235.00 -189.00 lwstring
+(A) 237.00 -197.00 lwstring
+(G) 235.00 -205.00 lwstring
+(C) 235.00 -213.00 lwstring
+(U) 234.99 -225.00 lwstring
+(A) 235.00 -252.00 lwstring
+(C) 235.00 -260.00 lwstring
+(C) 235.00 -268.00 lwstring
+(G) 234.97 -276.00 lwstring
+(C) 235.00 -307.00 lwstring
+(U) 235.00 -315.00 lwstring
+(G) 235.00 -323.00 lwstring
+(C) 235.00 -331.00 lwstring
+(U) 237.00 -339.00 lwstring
+(G) 235.00 -347.00 lwstring
+(C) 235.00 -355.00 lwstring
+(C) 235.00 -363.00 lwstring
+(C) 235.00 -371.00 lwstring
+(A) 235.00 -379.00 lwstring
+(G) 235.00 -387.33 lwstring
+(A) 229.13 -393.19 lwstring
+(G) 220.83 -393.17 lwstring
+(A) 214.98 -387.29 lwstring
+(U) 215.00 -379.00 lwstring
+(G) 215.00 -371.00 lwstring
+(G) 215.00 -363.00 lwstring
+(G) 215.00 -355.00 lwstring
+(C) 215.00 -347.00 lwstring
+(U) 213.00 -339.00 lwstring
+(G) 215.00 -331.00 lwstring
+(U) 215.00 -323.00 lwstring
+(G) 215.00 -315.00 lwstring
+(G) 215.00 -307.00 lwstring
+(C) 205.21 -304.92 lwstring
+(A) 195.33 -303.29 lwstring
+(C) 184.00 -302.00 lwstring
+(C) 176.00 -302.00 lwstring
+(A) 168.00 -302.00 lwstring
+(G) 160.00 -302.00 lwstring
+(G) 152.00 -302.00 lwstring
+(U) 144.00 -302.00 lwstring
+(U) 136.03 -303.65 lwstring
+(A) 128.86 -299.69 lwstring
+(A) 126.00 -292.02 lwstring
+(C) 128.83 -284.34 lwstring
+(G) 135.98 -280.36 lwstring
+(A) 144.00 -282.00 lwstring
+(C) 152.00 -282.00 lwstring
+(C) 160.00 -282.00 lwstring
+(U) 168.00 -282.00 lwstring
+(C) 172.00 -274.98 lwstring
+(G) 176.00 -282.00 lwstring
+(G) 184.00 -282.00 lwstring
+(G) 189.97 -275.99 lwstring
+(U) 197.98 -272.99 lwstring
+(A) 206.98 -273.00 lwstring
+(U) 214.97 -276.00 lwstring
+(G) 215.00 -268.00 lwstring
+(G) 215.00 -260.00 lwstring
+(U) 215.00 -252.00 lwstring
+(A) 207.98 -249.00 lwstring
+(A) 203.98 -243.00 lwstring
+(C) 203.98 -235.00 lwstring
+(A) 207.99 -228.00 lwstring
+(A) 214.99 -225.00 lwstring
+(C) 209.99 -219.00 lwstring
+(G) 215.00 -213.00 lwstring
+(C) 215.00 -205.00 lwstring
+(C) 213.00 -197.00 lwstring
+(U) 215.00 -189.00 lwstring
+(G) 215.00 -181.00 lwstring
+(A) 215.00 -173.00 lwstring
+(G) 215.00 -165.00 lwstring
+(A) 282.00 -168.00 lwstring
+(U) 282.00 -176.00 lwstring
+(U) 282.00 -184.00 lwstring
+(G) 282.00 -192.00 lwstring
+(G) 282.00 -200.00 lwstring
+(A) 282.00 -208.00 lwstring
+(C) 276.00 -222.00 lwstring
+(A) 274.00 -236.00 lwstring
+(A) 276.00 -251.00 lwstring
+(U) 282.00 -265.00 lwstring
+(C) 282.00 -273.00 lwstring
+(C) 282.00 -281.00 lwstring
+(G) 282.00 -289.00 lwstring
+(C) 282.00 -297.00 lwstring
+(A) 282.00 -305.00 lwstring
+(G) 282.00 -325.00 lwstring
+(C) 282.00 -333.00 lwstring
+(C) 282.00 -341.00 lwstring
+(A) 276.81 -348.53 lwstring
+(A) 274.99 -357.50 lwstring
+(G) 276.81 -366.46 lwstring
+(C) 282.00 -374.00 lwstring
+(U) 282.00 -382.00 lwstring
+(C) 280.00 -390.00 lwstring
+(C) 282.00 -398.00 lwstring
+(C) 282.00 -406.00 lwstring
+(U) 282.00 -414.00 lwstring
+(C) 285.00 -422.00 lwstring
+(A) 292.00 -425.00 lwstring
+(U) 299.00 -422.00 lwstring
+(G) 302.00 -414.00 lwstring
+(G) 302.00 -406.00 lwstring
+(G) 302.00 -398.00 lwstring
+(A) 304.00 -390.00 lwstring
+(A) 302.00 -382.00 lwstring
+(G) 302.00 -374.00 lwstring
+(A) 306.39 -363.37 lwstring
+(A) 306.44 -351.88 lwstring
+(G) 302.00 -341.00 lwstring
+(G) 302.00 -333.00 lwstring
+(U) 302.00 -325.00 lwstring
+(U) 317.01 -297.41 lwstring
+(C) 317.43 -288.86 lwstring
+(A) 324.63 -289.15 lwstring
+(G) 545.00 -236.00 lwstring
+(A) 551.00 -239.00 lwstring
+(G) 545.00 -244.00 lwstring
+(A) 545.00 -252.00 lwstring
+(C) 545.00 -260.00 lwstring
+(U) 545.00 -268.00 lwstring
+(A) 545.00 -276.00 lwstring
+(G) 545.00 -295.00 lwstring
+(A) 545.00 -303.00 lwstring
+(U) 545.00 -311.00 lwstring
+(G) 545.00 -320.00 lwstring
+(G) 545.00 -328.00 lwstring
+(U) 545.00 -336.00 lwstring
+(U) 545.00 -344.00 lwstring
+(G) 545.00 -352.00 lwstring
+(U) 545.00 -360.00 lwstring
+(G) 545.00 -368.00 lwstring
+(G) 545.00 -393.00 lwstring
+(G) 545.00 -401.00 lwstring
+(U) 545.00 -409.00 lwstring
+(U) 545.00 -417.00 lwstring
+(G) 545.00 -425.00 lwstring
+(A) 545.00 -433.00 lwstring
+(A) 545.00 -441.00 lwstring
+(C) 545.00 -449.00 lwstring
+(A) 551.98 -452.97 lwstring
+(C) 545.00 -457.00 lwstring
+(G) 545.00 -465.00 lwstring
+(U) 545.00 -473.00 lwstring
+(U) 545.00 -481.00 lwstring
+(U) 545.00 -489.00 lwstring
+(A) 545.00 -497.00 lwstring
+(U) 550.44 -500.49 lwstring
+(C) 553.42 -508.00 lwstring
+(U) 553.00 -516.07 lwstring
+(G) 549.25 -523.24 lwstring
+(A) 542.84 -528.18 lwstring
+(A) 534.96 -530.00 lwstring
+(G) 527.05 -528.37 lwstring
+(U) 520.53 -523.58 lwstring
+(A) 516.60 -516.51 lwstring
+(U) 515.99 -508.44 lwstring
+(U) 518.80 -500.86 lwstring
+(U) 525.00 -497.00 lwstring
+(G) 525.00 -489.00 lwstring
+(A) 525.00 -481.00 lwstring
+(A) 525.00 -473.00 lwstring
+(C) 525.00 -465.00 lwstring
+(G) 525.00 -457.00 lwstring
+(G) 525.00 -449.00 lwstring
+(U) 525.00 -441.00 lwstring
+(U) 525.00 -433.00 lwstring
+(C) 525.00 -425.00 lwstring
+(G) 525.00 -417.00 lwstring
+(G) 525.00 -409.00 lwstring
+(C) 525.00 -401.00 lwstring
+(U) 525.00 -393.00 lwstring
+(U) 504.00 -378.14 lwstring
+(A) 504.00 -362.29 lwstring
+(A) 504.00 -348.43 lwstring
+(G) 504.00 -333.57 lwstring
+(A) 504.00 -318.71 lwstring
+(U) 504.00 -303.86 lwstring
+(A) 504.00 -289.00 lwstring
+(U) 525.00 -276.00 lwstring
+(A) 525.00 -268.00 lwstring
+(G) 525.00 -260.00 lwstring
+(U) 525.00 -252.00 lwstring
+(C) 525.00 -244.00 lwstring
+(C) 525.00 -236.00 lwstring
+(A) 525.00 -221.00 lwstring
+(A) 525.00 -213.00 lwstring
+(U) 525.00 -205.00 lwstring
+(C) 500.00 -118.00 lwstring
+(C) 492.00 -118.00 lwstring
+(A) 484.00 -118.00 lwstring
+(A) 476.00 -120.00 lwstring
+(U) 468.00 -118.00 lwstring
+(G) 460.00 -118.00 lwstring
+(U) 452.00 -118.00 lwstring
+(G) 444.00 -118.00 lwstring
+(G) 436.00 -118.00 lwstring
+(A) 430.00 -112.00 lwstring
+(A) 430.00 -104.00 lwstring
+(A) 436.00 -98.00 lwstring
+(C) 444.00 -98.00 lwstring
+(G) 452.00 -98.00 lwstring
+(C) 460.00 -98.00 lwstring
+(A) 468.00 -98.00 lwstring
+(C) 476.00 -96.00 lwstring
+(U) 484.00 -98.00 lwstring
+(G) 492.00 -98.00 lwstring
+(G) 500.00 -98.00 lwstring
+(U) 508.00 -98.00 lwstring
+(C) 536.00 -98.00 lwstring
+(U) 544.00 -98.00 lwstring
+(G) 552.00 -98.00 lwstring
+(A) 559.32 -97.13 lwstring
+(A) 565.57 -101.04 lwstring
+(A) 568.02 -108.00 lwstring
+(G) 565.58 -114.96 lwstring
+(A) 559.32 -118.87 lwstring
+(U) 552.00 -118.00 lwstring
+(A) 544.00 -118.00 lwstring
+(G) 536.00 -118.00 lwstring
+(A) 505.00 -181.00 lwstring
+(A) 505.00 -189.00 lwstring
+(A) 505.00 -197.00 lwstring
+(A) 505.00 -205.00 lwstring
+(U) 505.00 -213.00 lwstring
+(G) 505.00 -221.00 lwstring
+(g) 487.50 -221.00 lwstring
+(g) 487.50 -213.00 lwstring
+(a) 487.50 -204.50 lwstring
+(g) 487.50 -197.00 lwstring
+stroke
+grestore
+m4showpage

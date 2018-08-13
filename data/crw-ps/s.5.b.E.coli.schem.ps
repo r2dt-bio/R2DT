@@ -1,0 +1,321 @@
+%!
+/lwline {newpath moveto lineto stroke} def
+/lwbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto stroke} def
+/lwfbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto fill} def
+/lwgrayline {setgray newpath moveto lineto stroke} def
+/m4showpage {showpage} def
+/lwarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc stroke grestore} def
+/lwfarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc fill grestore} def
+/lwenclosegrayarc {/cypos exch def /cxpos exch def /cscale exch def /crad exch def /clinewidth exch def /cgrayval exch def newpath gsave cgrayval cgrayval cgrayval setrgbcolor cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc fill grestore newpath gsave 0.0 0.0 0.0 setrgbcolor clinewidth setlinewidth cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc stroke grestore} def
+/lwarcbox {newpath gsave translate scale /rad0 exch def
+  /rad1 exch def /ang0 exch def /ang1 exch def /grayval exch def
+  grayval setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn 0.0 0.0 rad0 ang0 ang1 arc closepath fill
+  0.0 setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn
+  0.0 0.0 rad0 ang0 ang1 arc closepath stroke grestore} def
+/lwcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc stroke grestore} def
+/lwfcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwfgcircle {newpath gsave setgray translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwtriangle {newpath gsave translate scale rotate moveto lineto lineto lineto stroke grestore} def
+/lwftriangle {newpath gsave translate scale rotate moveto lineto lineto lineto fill grestore} def
+/lwfrect {1.0 setgray newpath moveto lineto lineto lineto lineto fill} def
+/lwflinerect {setrgbcolor /r0x exch def /r0y exch def /r1x exch def /r1y exch def /r2x exch def /r2y exch def /r3x exch def /r3y exch def newpath r0x r0y moveto r1x r1y lineto r2x r2y lineto r3x r3y lineto r0x r0y lineto fill 0.0 setgray newpath r0x r0y moveto r1x r1y lineto stroke r2x r2y moveto r3x r3y lineto stroke} def
+/lwflinetriangle {setrgbcolor /t0x exch def /t0y exch def /t1x exch def /t1y exch def /t2x exch def /t2y exch def newpath t0x t0y moveto t1x t1y lineto t2x t2y lineto t0x t0y lineto fill 0.0 setgray newpath t1x t1y moveto t2x t2y lineto stroke} def
+/lwstring {moveto show} def
+/lwlabel {gsave translate rotate 0.0 0.0 moveto show grestore} def
+/lwarrow {gsave translate scale rotate moveto lineto lineto lineto stroke 0.0 0.0 lwline grestore} def
+/lwfarrow {gsave translate scale rotate moveto lineto lineto lineto
+  fill lwline grestore} def
+/lwgraystring {setgray moveto show} def
+/getboxshow {false charpath flattenpath pathbbox stroke} def
+/getbox {false charpath flattenpath pathbbox} def
+/drawbox {newpath moveto getboxshow newpath
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	llx lly moveto llx ury lineto urx ury lineto urx lly lineto
+	llx lly lineto stroke} def
+/getstrmidpt {
+	/cury exch def /curx exch def curx cury moveto getbox
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	2.0 curx mul llx urx add 2.0 div sub 2.0 cury
+  mul lly ury add 2.0 div sub translate
+	} def
+[] 0 setdash
+0.00 0.00 0.00 setrgbcolor
+/Helvetica-Bold findfont 80.00 scalefont setfont
+1 setlinejoin
+0.05 setlinewidth
+0 setlinecap
+newpath
+gsave
+306.00 396.00 translate
+%m4rotate
+1.12 1.12 scale
+%m4scale
+-349.50 385.50 translate
+%m4translate
+0.00 setlinewidth
+226.00 -160.00 226.00 -167.00 lwline
+246.00 -175.00 246.00 -168.00 lwline
+326.00 -309.00 341.00 -304.00 lwline
+250.00 -248.00 255.00 -243.00 lwline
+295.50 -278.00 295.50 -273.00 lwline
+360.50 -278.00 360.51 -273.00 lwline
+439.00 -285.00 444.00 -285.00 lwline
+377.50 -310.00 377.50 -315.00 lwline
+318.00 -308.00 315.00 -313.00 lwline
+251.00 -311.00 256.00 -316.00 lwline
+251.00 -389.00 256.00 -389.00 lwline
+221.00 -436.00 216.00 -436.00 lwline
+221.00 -357.00 216.00 -357.00 lwline
+221.00 -251.00 216.00 -251.00 lwline
+216.00 -171.00 221.00 -171.00 lwline
+/Helvetica findfont 24.00 scalefont setfont
+(Secondary structure: 5S Ribosomal RNA) 135.00 -131.00 lwstring
+/Helvetica-Oblique findfont 24.00 scalefont setfont
+(Escherichia coli) 186.00 -504.00 lwstring
+/Helvetica findfont 17.00 scalefont setfont
+((V00336)) 186.00 -524.00 lwstring
+1.00 0.00 0.00 setrgbcolor
+(1.cellular organisms 2.Bacteria 3.Proteobacteria ) 186.00 -544.00 lwstring
+0.00 0.00 0.00 setrgbcolor
+(4.gamma subdivision 5.Enterobacteriaceae group ) 186.00 -562.00 lwstring
+(6.Enterobacteriaceae 7.Escherichia ) 186.00 -580.00 lwstring
+(November 2000) 186.00 -598.00 lwstring
+/Helvetica-Bold findfont 12.00 scalefont setfont
+(Citation and related information available at http://www.rna.ccbb.utexas.edu ) 122.00 -664.00 lwstring
+(5') 243.00 -167.00 lwstring
+(3') 223.00 -159.00 lwstring
+/Helvetica findfont 8.00 scalefont setfont
+(50) 373.50 -323.20 lwstring
+(100) 201.00 -360.00 lwstring
+(10) 255.00 -244.00 lwstring
+(120) 201.00 -174.00 lwstring
+245.00 -179.00 236.00 -179.00 lwline
+245.00 -187.00 236.00 -187.00 lwline
+245.00 -195.00 236.00 -195.00 lwline
+245.00 -203.00 236.00 -203.00 lwline
+245.00 -211.00 236.00 -211.00 lwline
+245.00 -219.00 236.00 -219.00 lwline
+245.00 -227.00 236.00 -227.00 lwline
+245.00 -235.00 236.00 -235.00 lwline
+2.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 236.00 -243.00 lwfarc
+0 setlinecap
+0.00 setlinewidth
+245.00 -251.00 236.00 -251.00 lwline
+263.50 -285.20 263.50 -294.20 lwline
+271.50 -285.20 271.50 -294.20 lwline
+2.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 279.50 -294.20 lwfarc
+0 setlinecap
+0.00 setlinewidth
+287.50 -285.20 287.50 -294.20 lwline
+295.50 -285.20 295.50 -294.20 lwline
+303.50 -285.20 303.50 -294.20 lwline
+2.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 311.50 -294.20 lwfarc
+0 setlinecap
+0.00 setlinewidth
+319.50 -285.20 319.50 -294.20 lwline
+344.50 -285.20 344.50 -294.20 lwline
+352.50 -285.20 352.50 -294.20 lwline
+360.50 -285.20 360.50 -294.20 lwline
+369.50 -285.20 369.50 -294.15 lwline
+377.50 -285.20 377.50 -294.20 lwline
+385.50 -285.20 385.50 -294.15 lwline
+393.50 -285.20 393.50 -294.20 lwline
+393.50 -303.20 393.50 -294.20 lwline
+385.50 -303.10 385.50 -294.15 lwline
+377.50 -303.20 377.50 -294.20 lwline
+369.50 -303.10 369.50 -294.15 lwline
+360.50 -303.20 360.50 -294.20 lwline
+352.50 -303.20 352.50 -294.20 lwline
+344.50 -303.20 344.50 -294.20 lwline
+319.50 -303.20 319.50 -294.20 lwline
+303.50 -303.20 303.50 -294.20 lwline
+295.50 -303.20 295.50 -294.20 lwline
+287.50 -303.20 287.50 -294.20 lwline
+271.50 -303.20 271.50 -294.20 lwline
+263.50 -303.20 263.50 -294.20 lwline
+245.00 -309.20 236.00 -309.20 lwline
+245.00 -317.20 236.00 -317.20 lwline
+1.00 setlinewidth
+1 setlinecap
+360.00 0.00 2.40 1.00 1.00 236.00 -325.20 lwarc
+0 setlinecap
+0.00 setlinewidth
+245.00 -333.20 236.00 -333.20 lwline
+2.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 236.00 -341.20 lwfarc
+1.00 setlinewidth
+360.00 0.00 2.40 1.00 1.00 236.00 -349.20 lwarc
+2.00 setlinewidth
+360.00 0.00 2.40 1.00 1.00 236.00 -357.20 lwfarc
+0 setlinecap
+0.00 setlinewidth
+244.94 -381.20 235.96 -381.20 lwline
+2.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 235.98 -389.20 lwfarc
+360.00 0.00 1.00 1.00 1.00 235.99 -397.20 lwfarc
+0 setlinecap
+0.00 setlinewidth
+245.01 -405.20 236.01 -405.20 lwline
+245.03 -413.20 236.03 -413.20 lwline
+244.97 -421.20 235.96 -421.20 lwline
+244.95 -429.20 235.97 -429.20 lwline
+244.97 -437.20 235.97 -437.20 lwline
+226.97 -437.20 235.97 -437.20 lwline
+226.99 -429.20 235.97 -429.20 lwline
+226.96 -421.20 235.96 -421.20 lwline
+227.03 -413.20 236.03 -413.20 lwline
+227.01 -405.20 236.01 -405.20 lwline
+226.98 -381.20 235.96 -381.20 lwline
+227.00 -333.20 236.00 -333.20 lwline
+227.00 -317.20 236.00 -317.20 lwline
+227.00 -309.20 236.00 -309.20 lwline
+227.00 -251.00 236.00 -251.00 lwline
+227.00 -235.00 236.00 -235.00 lwline
+227.00 -227.00 236.00 -227.00 lwline
+227.00 -219.00 236.00 -219.00 lwline
+227.00 -211.00 236.00 -211.00 lwline
+227.00 -203.00 236.00 -203.00 lwline
+227.00 -195.00 236.00 -195.00 lwline
+227.00 -187.00 236.00 -187.00 lwline
+227.00 -179.00 236.00 -179.00 lwline
+1 setlinecap
+246.00 -179.00 moveto
+246.00 -179.00 lineto
+246.00 -187.00 lineto
+246.00 -195.00 lineto
+246.00 -203.00 lineto
+246.00 -211.00 lineto
+246.00 -219.00 lineto
+246.00 -227.00 lineto
+246.00 -235.00 lineto
+246.00 -243.00 lineto
+246.00 -251.00 lineto
+252.50 -253.85 lineto
+257.89 -258.23 lineto
+261.92 -263.90 lineto
+264.28 -270.44 lineto
+264.81 -277.37 lineto
+263.50 -284.20 lineto
+271.50 -284.20 lineto
+279.50 -284.20 lineto
+287.50 -284.20 lineto
+295.50 -284.20 lineto
+303.50 -284.20 lineto
+311.50 -284.20 lineto
+319.50 -284.20 lineto
+321.10 -275.80 lineto
+327.70 -270.30 lineto
+336.30 -270.30 lineto
+342.90 -275.70 lineto
+344.50 -284.20 lineto
+352.50 -284.20 lineto
+360.50 -284.20 lineto
+369.50 -284.20 lineto
+377.50 -284.20 lineto
+385.50 -284.20 lineto
+393.50 -284.20 lineto
+398.70 -277.50 lineto
+406.00 -273.20 lineto
+414.50 -271.90 lineto
+422.80 -273.90 lineto
+429.70 -278.70 lineto
+434.30 -286.00 lineto
+435.90 -294.30 lineto
+434.30 -302.70 lineto
+429.60 -309.70 lineto
+422.70 -314.70 lineto
+414.40 -316.60 lineto
+406.00 -315.30 lineto
+398.60 -310.90 lineto
+393.50 -304.20 lineto
+385.50 -304.10 lineto
+377.50 -304.20 lineto
+369.50 -304.10 lineto
+369.00 -312.20 lineto
+361.00 -312.20 lineto
+360.50 -304.20 lineto
+352.50 -304.20 lineto
+344.50 -304.20 lineto
+340.00 -310.89 lineto
+332.07 -313.42 lineto
+324.13 -310.95 lineto
+319.50 -304.20 lineto
+311.50 -304.20 lineto
+303.50 -304.20 lineto
+295.50 -304.20 lineto
+287.50 -304.20 lineto
+279.50 -304.20 lineto
+275.50 -311.20 lineto
+271.50 -304.20 lineto
+263.50 -304.20 lineto
+254.73 -305.11 lineto
+246.00 -309.20 lineto
+246.00 -317.20 lineto
+245.99 -325.20 lineto
+246.00 -333.20 lineto
+246.00 -341.20 lineto
+245.99 -349.20 lineto
+245.99 -357.20 lineto
+253.06 -364.27 lineto
+253.02 -374.22 lineto
+245.94 -381.20 lineto
+245.96 -389.20 lineto
+245.99 -397.20 lineto
+246.01 -405.20 lineto
+246.03 -413.20 lineto
+245.97 -421.20 lineto
+245.95 -429.20 lineto
+245.97 -437.20 lineto
+243.88 -445.67 lineto
+235.91 -449.41 lineto
+228.08 -445.72 lineto
+225.97 -437.20 lineto
+225.99 -429.20 lineto
+225.96 -421.20 lineto
+226.03 -413.20 lineto
+226.01 -405.20 lineto
+225.98 -397.20 lineto
+226.00 -389.20 lineto
+225.98 -381.20 lineto
+220.10 -373.82 lineto
+220.11 -364.52 lineto
+226.01 -357.20 lineto
+226.01 -349.20 lineto
+226.00 -341.20 lineto
+226.00 -333.20 lineto
+226.01 -325.20 lineto
+226.00 -317.20 lineto
+226.00 -309.20 lineto
+210.73 -297.95 lineto
+205.00 -280.02 lineto
+210.82 -262.13 lineto
+226.00 -251.00 lineto
+226.00 -243.00 lineto
+226.00 -235.00 lineto
+226.00 -227.00 lineto
+226.00 -219.00 lineto
+226.00 -211.00 lineto
+226.00 -203.00 lineto
+226.00 -195.00 lineto
+226.00 -187.00 lineto
+226.00 -179.00 lineto
+226.00 -171.00 lineto
+stroke
+stroke
+grestore
+m4showpage

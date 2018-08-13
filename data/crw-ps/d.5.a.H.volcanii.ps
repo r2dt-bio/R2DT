@@ -1,0 +1,271 @@
+%!
+/lwline {newpath moveto lineto stroke} def
+/lwbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto stroke} def
+/lwfbox {newpath /boxy exch def /boxx exch def
+	boxx boxy moveto lineto lineto lineto boxx boxy lineto fill} def
+/lwgrayline {setgray newpath moveto lineto stroke} def
+/m4showpage {showpage} def
+/lwarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc stroke grestore} def
+/lwfarc {newpath gsave translate scale /rad exch def /ang1 exch def /ang2 exch def
+  0.0 0.0 rad ang1 ang2 arc fill grestore} def
+/lwenclosegrayarc {/cypos exch def /cxpos exch def /cscale exch def /crad exch def /clinewidth exch def /cgrayval exch def newpath gsave cgrayval cgrayval cgrayval setrgbcolor cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc fill grestore newpath gsave 0.0 0.0 0.0 setrgbcolor clinewidth setlinewidth cxpos cypos translate cscale cscale scale 0.0 0.0 crad 0.0 360.0 arc stroke grestore} def
+/lwarcbox {newpath gsave translate scale /rad0 exch def
+  /rad1 exch def /ang0 exch def /ang1 exch def /grayval exch def
+  grayval setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn 0.0 0.0 rad0 ang0 ang1 arc closepath fill
+  0.0 setgray newpath 0.0 0.0 rad1 ang1 ang0 arcn
+  0.0 0.0 rad0 ang0 ang1 arc closepath stroke grestore} def
+/lwcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc stroke grestore} def
+/lwfcircle {newpath gsave translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwfgcircle {newpath gsave setgray translate scale /rad exch def
+  0.0 0.0 rad 0.0 360.0 arc fill grestore} def
+/lwtriangle {newpath gsave translate scale rotate moveto lineto lineto lineto stroke grestore} def
+/lwftriangle {newpath gsave translate scale rotate moveto lineto lineto lineto fill grestore} def
+/lwfrect {1.0 setgray newpath moveto lineto lineto lineto lineto fill} def
+/lwflinerect {setrgbcolor /r0x exch def /r0y exch def /r1x exch def /r1y exch def /r2x exch def /r2y exch def /r3x exch def /r3y exch def newpath r0x r0y moveto r1x r1y lineto r2x r2y lineto r3x r3y lineto r0x r0y lineto fill 0.0 setgray newpath r0x r0y moveto r1x r1y lineto stroke r2x r2y moveto r3x r3y lineto stroke} def
+/lwflinetriangle {setrgbcolor /t0x exch def /t0y exch def /t1x exch def /t1y exch def /t2x exch def /t2y exch def newpath t0x t0y moveto t1x t1y lineto t2x t2y lineto t0x t0y lineto fill 0.0 setgray newpath t1x t1y moveto t2x t2y lineto stroke} def
+/lwstring {moveto show} def
+/lwlabel {gsave translate rotate 0.0 0.0 moveto show grestore} def
+/lwarrow {gsave translate scale rotate moveto lineto lineto lineto stroke 0.0 0.0 lwline grestore} def
+/lwfarrow {gsave translate scale rotate moveto lineto lineto lineto
+  fill lwline grestore} def
+/lwgraystring {setgray moveto show} def
+/getboxshow {false charpath flattenpath pathbbox stroke} def
+/getbox {false charpath flattenpath pathbbox} def
+/drawbox {newpath moveto getboxshow newpath
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	llx lly moveto llx ury lineto urx ury lineto urx lly lineto
+	llx lly lineto stroke} def
+/getstrmidpt {
+	/cury exch def /curx exch def curx cury moveto getbox
+	/ury exch def /urx exch def /lly exch def /llx exch def
+	2.0 curx mul llx urx add 2.0 div sub 2.0 cury
+  mul lly ury add 2.0 div sub translate
+	} def
+[] 0 setdash
+0.00 0.00 0.00 setrgbcolor
+/Helvetica-Bold findfont 80.00 scalefont setfont
+1 setlinejoin
+0.05 setlinewidth
+0 setlinecap
+newpath
+gsave
+306.00 396.00 translate
+%m4rotate
+1.12 1.12 scale
+%m4scale
+-350.00 385.00 translate
+%m4translate
+0.00 setlinewidth
+272.00 -163.00 272.00 -156.00 lwline
+246.00 -174.00 246.00 -167.00 lwline
+1.00 setlinewidth
+1 setlinecap
+232.99 107.40 28.00 1.00 1.00 254.00 -276.00 lwarc
+/Helvetica-Bold findfont 12.00 scalefont setfont
+(Citation and related information available at http://www.rna.ccbb.utexas.edu) 132.00 -670.00 lwstring
+/Helvetica findfont 24.00 scalefont setfont
+(Secondary Structure: 5S ribosomal RNA) 115.00 -124.00 lwstring
+/Helvetica-Oblique findfont 24.00 scalefont setfont
+(Haloferax volcanii) 133.00 -541.00 lwstring
+/Helvetica findfont 17.00 scalefont setfont
+((X02127, X02128)) 133.00 -561.00 lwstring
+1.00 0.00 0.00 setrgbcolor
+(1. cellular organisms 2. Archaea 3. Euryarchaeota) 133.00 -583.00 lwstring
+0.00 0.00 0.00 setrgbcolor
+(4. Halobacteria 5. Halobacteriales 6. Halobacteriaceae) 133.00 -603.00 lwstring
+(7. Haloferax) 133.00 -623.00 lwstring
+(Feb 10, 2007) 133.00 -643.00 lwstring
+/Helvetica-Bold findfont 12.00 scalefont setfont
+0.00 0.00 0.00 setrgbcolor
+(5') 269.00 -153.00 lwstring
+(3') 244.00 -165.00 lwstring
+0.00 0.00 0.00 setrgbcolor
+0 setlinecap
+255.67 -207.00 262.33 -207.00 lwline
+255.67 -214.99 262.33 -214.99 lwline
+255.67 -222.99 262.33 -222.99 lwline
+255.67 -230.98 262.33 -230.98 lwline
+255.67 -238.98 262.33 -238.98 lwline
+255.67 -246.97 262.33 -246.97 lwline
+288.00 -287.33 288.00 -280.67 lwline
+296.00 -287.33 296.00 -280.67 lwline
+306.00 -287.33 306.00 -280.67 lwline
+313.99 -287.33 313.99 -280.67 lwline
+321.99 -287.33 321.99 -280.67 lwline
+329.98 -287.33 329.98 -280.67 lwline
+337.97 -287.33 337.97 -280.67 lwline
+345.97 -287.33 345.97 -280.67 lwline
+0.50 setlinewidth
+1 setlinecap
+360.00 0.00 2.40 1.00 1.00 378.00 -284.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+385.99 -287.33 385.99 -280.67 lwline
+393.99 -287.33 393.99 -280.67 lwline
+407.00 -287.33 407.00 -280.67 lwline
+414.99 -287.33 414.99 -280.67 lwline
+422.99 -287.33 422.99 -280.67 lwline
+430.98 -287.33 430.98 -280.67 lwline
+0.50 setlinewidth
+1 setlinecap
+360.00 0.00 2.40 1.00 1.00 259.00 -307.00 lwfarc
+360.00 0.00 2.40 1.00 1.00 259.00 -315.00 lwfarc
+1.00 setlinewidth
+0 setlinecap
+255.67 -322.99 262.33 -322.99 lwline
+255.67 -330.99 262.33 -330.99 lwline
+255.67 -338.99 262.33 -338.99 lwline
+255.67 -346.99 262.33 -346.99 lwline
+0.50 setlinewidth
+1 setlinecap
+360.00 0.00 2.40 1.00 1.00 259.00 -354.98 lwfarc
+1.00 setlinewidth
+0 setlinecap
+255.67 -385.00 262.33 -385.00 lwline
+0.50 setlinewidth
+1 setlinecap
+360.00 0.00 2.40 1.00 1.00 259.00 -392.99 lwarc
+1.00 setlinewidth
+0 setlinecap
+255.67 -400.99 262.33 -400.99 lwline
+0.00 setlinewidth
+1 setlinecap
+360.00 0.00 1.00 1.00 1.00 259.00 -408.98 lwfarc
+360.00 0.00 1.00 1.00 1.00 259.00 -416.98 lwfarc
+1.00 setlinewidth
+0 setlinecap
+255.67 -424.97 262.33 -424.97 lwline
+255.67 -432.97 262.33 -432.97 lwline
+255.67 -440.96 262.33 -440.96 lwline
+255.67 -451.00 262.33 -451.00 lwline
+255.67 -459.00 262.33 -459.00 lwline
+/Helvetica findfont 8.00 scalefont setfont
+(U) 269.00 -173.00 lwstring
+(U) 269.00 -182.04 lwstring
+(A) 269.00 -191.07 lwstring
+(A) 268.87 -201.20 lwstring
+(G) 266.00 -210.00 lwstring
+(G) 266.00 -217.99 lwstring
+(C) 266.00 -225.99 lwstring
+(G) 266.00 -233.98 lwstring
+(G) 266.00 -241.98 lwstring
+(C) 266.00 -249.97 lwstring
+(C) 273.10 -251.57 lwstring
+(A) 279.02 -256.13 lwstring
+(G) 284.19 -263.32 lwstring
+(A) 285.20 -269.51 lwstring
+(G) 285.00 -277.00 lwstring
+(C) 293.00 -277.00 lwstring
+(G) 303.00 -277.00 lwstring
+(G) 310.99 -277.00 lwstring
+(U) 318.99 -277.00 lwstring
+(G) 326.98 -277.00 lwstring
+(A) 334.97 -277.00 lwstring
+(G) 342.97 -277.00 lwstring
+(G) 346.15 -267.66 lwstring
+(U) 354.13 -261.98 lwstring
+(U) 363.92 -262.01 lwstring
+(C) 371.86 -267.72 lwstring
+(C) 375.00 -277.00 lwstring
+(A) 382.99 -277.00 lwstring
+(C) 390.99 -277.00 lwstring
+(C) 404.00 -277.00 lwstring
+(C) 411.99 -277.00 lwstring
+(G) 419.99 -277.00 lwstring
+(U) 427.98 -277.00 lwstring
+(A) 432.95 -270.75 lwstring
+(C) 439.94 -266.80 lwstring
+(C) 447.90 -265.71 lwstring
+(C) 455.69 -267.65 lwstring
+(A) 463.22 -271.33 lwstring
+(U) 466.55 -279.09 lwstring
+(C) 468.07 -286.98 lwstring
+(C) 466.56 -294.87 lwstring
+(C) 462.25 -301.64 lwstring
+(G) 455.73 -306.34 lwstring
+(A) 447.94 -308.29 lwstring
+(A) 439.98 -307.22 lwstring
+(C) 432.98 -303.28 lwstring
+(A) 427.98 -297.00 lwstring
+(C) 419.99 -297.00 lwstring
+(G) 411.99 -297.00 lwstring
+(G) 404.00 -297.00 lwstring
+(A) 402.04 -304.76 lwstring
+(A) 393.11 -304.72 lwstring
+(G) 390.99 -297.00 lwstring
+(U) 382.99 -297.00 lwstring
+(U) 375.00 -297.00 lwstring
+(A) 368.54 -304.46 lwstring
+(A) 358.99 -306.20 lwstring
+(G) 349.45 -304.46 lwstring
+(C) 342.97 -297.00 lwstring
+(U) 334.97 -297.00 lwstring
+(C) 326.98 -297.00 lwstring
+(A) 318.99 -297.00 lwstring
+(C) 310.99 -297.00 lwstring
+(C) 303.00 -297.00 lwstring
+(U) 297.50 -303.20 lwstring
+(G) 293.00 -297.00 lwstring
+(C) 285.00 -297.00 lwstring
+(G) 276.33 -304.46 lwstring
+(U) 266.00 -310.00 lwstring
+(U) 266.00 -318.00 lwstring
+(C) 266.00 -325.99 lwstring
+(U) 266.00 -333.99 lwstring
+(G) 266.00 -341.99 lwstring
+(G) 266.00 -349.99 lwstring
+(U) 266.00 -357.98 lwstring
+(C) 273.42 -364.39 lwstring
+(A) 275.91 -373.95 lwstring
+(G) 272.51 -383.22 lwstring
+(U) 266.00 -388.00 lwstring
+(A) 266.00 -395.99 lwstring
+(C) 266.00 -403.99 lwstring
+(U) 266.00 -411.98 lwstring
+(G) 266.00 -419.98 lwstring
+(G) 266.00 -427.97 lwstring
+(A) 266.00 -435.97 lwstring
+(G) 266.00 -443.96 lwstring
+(U) 272.89 -450.20 lwstring
+(G) 266.00 -454.00 lwstring
+(A) 266.00 -462.00 lwstring
+(G) 266.20 -470.64 lwstring
+(C) 260.29 -476.86 lwstring
+(G) 251.71 -476.87 lwstring
+(A) 245.79 -470.66 lwstring
+(U) 246.00 -462.00 lwstring
+(C) 246.00 -454.00 lwstring
+(C) 246.00 -443.96 lwstring
+(U) 246.00 -435.97 lwstring
+(C) 246.00 -427.97 lwstring
+(U) 246.00 -419.98 lwstring
+(G) 246.00 -411.98 lwstring
+(G) 246.00 -403.99 lwstring
+(G) 246.00 -395.99 lwstring
+(A) 246.00 -388.00 lwstring
+(A) 236.97 -379.18 lwstring
+(A) 236.78 -366.61 lwstring
+(U) 246.00 -357.98 lwstring
+(C) 246.00 -349.99 lwstring
+(C) 246.00 -341.99 lwstring
+(A) 246.00 -333.99 lwstring
+(G) 246.00 -325.99 lwstring
+(U) 246.00 -318.00 lwstring
+(U) 246.00 -310.00 lwstring
+(C) 237.02 -305.41 lwstring
+(G) 246.00 -249.97 lwstring
+(C) 246.00 -241.98 lwstring
+(C) 246.00 -233.98 lwstring
+(G) 246.00 -225.99 lwstring
+(C) 246.00 -217.99 lwstring
+(C) 246.00 -210.00 lwstring
+(C) 243.33 -201.10 lwstring
+(C) 243.17 -192.05 lwstring
+(U) 243.00 -183.00 lwstring
+stroke
+grestore
+m4showpage
