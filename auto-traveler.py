@@ -17,7 +17,6 @@ from sys import argv
 
 
 CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
-
 CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
 CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta'
 

@@ -22,9 +22,8 @@ CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
 all_cm = 'all.cm'  # file with all CMs
 all_cm_path = os.path.join(CM_LIBRARY, all_cm)
 
-if not os.path.exists(all_cm_path):
-    cmd = 'cat {CM_LIBRARY}/*.cm > {CM_LIBRARY}/all.cm'.format(CM_LIBRARY=CM_LIBRARY)
-    os.system(cmd)
+cmd = 'rm {all_cm_path} && cat {CM_LIBRARY}/*.cm > {all_cm_path}'.format(CM_LIBRARY=CM_LIBRARY, all_cm_path=all_cm_path)
+os.system(cmd)
 
 with open(os.path.join(CM_LIBRARY, 'modelinfo.txt'), 'w') as f:
     line = '*all*    -    -    %s\n' % all_cm
