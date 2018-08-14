@@ -36,7 +36,7 @@ def get_ribotyper_output():
         print cmd
         os.system(cmd)
     f_out = os.path.join(output_folder, 'hits.txt')
-    cmd = "cat %s | grep -v '^#' | grep PASS | awk -v OFS='\t' '{print $2, $8, $3}' > %s" % (ribotyper_long_out, f_out)
+    cmd = "cat %s | grep -v '^#' | grep -v MultipleHits | grep PASS | awk -v OFS='\t' '{print $2, $8, $3}' > %s" % (ribotyper_long_out, f_out)
     os.system(cmd)
     return f_out
 
