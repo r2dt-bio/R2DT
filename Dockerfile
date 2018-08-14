@@ -45,6 +45,7 @@ COPY examples examples/
 RUN \
     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
     tar -xvzf RNAstructureSource.tgz && \
+    rm RNAstructureSource.tgz && \
     cd RNAstructure && \
     make all
 
