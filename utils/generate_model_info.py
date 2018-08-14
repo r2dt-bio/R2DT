@@ -18,11 +18,12 @@ import glob
 
 CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
 
+print 'Processing files in {}'.format(CM_LIBRARY)
 
 all_cm = 'all.cm'  # file with all CMs
 all_cm_path = os.path.join(CM_LIBRARY, all_cm)
 
-cmd = 'rm {all_cm_path} && cat {CM_LIBRARY}/*.cm > {all_cm_path}'.format(CM_LIBRARY=CM_LIBRARY, all_cm_path=all_cm_path)
+cmd = 'rm -f {all_cm_path} && cat {CM_LIBRARY}/*.cm > {all_cm_path}'.format(CM_LIBRARY=CM_LIBRARY, all_cm_path=all_cm_path)
 os.system(cmd)
 
 with open(os.path.join(CM_LIBRARY, 'modelinfo.txt'), 'w') as f:
