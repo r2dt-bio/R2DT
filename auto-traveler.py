@@ -16,9 +16,9 @@ import os
 from sys import argv
 
 
-CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
+CM_LIBRARY = '/rna/auto-traveler/data/cms'
 CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
-CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta'
+CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
 
 
 fasta_input = argv[1]  # /rna/examples/examples.fasta

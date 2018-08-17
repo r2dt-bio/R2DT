@@ -17,7 +17,8 @@ import glob
 
 
 BPSEQ_LOCATION = '/rna/auto-traveler/data/crw-bpseq'
-CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
+CM_LIBRARY = '/rna/auto-traveler/data/cms'
+CRW_FASTA_NO_PSEUDOKNOTS = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
 
 
 def convert_bpseq_to_fasta(bpseq):
