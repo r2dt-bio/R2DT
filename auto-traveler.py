@@ -43,6 +43,8 @@ def get_ribotyper_output():
 
 def main():
 
+    os.system('mkdir -p %s' % output_folder)
+
     with open(get_ribotyper_output(), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
