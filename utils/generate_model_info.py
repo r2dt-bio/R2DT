@@ -16,7 +16,7 @@ import os
 import glob
 
 
-CM_LIBRARY = '/rna/auto-traveler/data/crw-cm'
+CM_LIBRARY = '/rna/auto-traveler/data/cms'
 
 print 'Processing files in {}'.format(CM_LIBRARY)
 
