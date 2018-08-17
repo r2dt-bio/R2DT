@@ -2,10 +2,10 @@
 # Auto Traveler
 
 This is a tool for automatic generation of RNA secondary structure in standard
-[CRW](http://www.rna.ccbb.utexas.edu) layouts using
+[CRW](http://www.rna.ccbb.utexas.edu) layouts using:
 
 * [Traveler](https://github.com/davidhoksza/traveler),
-* [Ribotyper](https://github.com/nawrockie/ribotyper-v1), and
+* [Ribotyper](https://github.com/nawrockie/ribotyper-v1)
 * [Infernal](http://eddylab.org/infernal/).
 
 ## Installation and usage
