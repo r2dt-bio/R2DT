@@ -30,6 +30,11 @@ head = """
 <div class="container">
 <div class="row">
 <h1>RNA secondary structures for sequences from PDB generated using <a href="https://github.com/rnacentral/auto-traveler">auto-traveler</a></h1>
+
+<p>
+Currently only small ribosomal subunit and 5S rRNA have been analysed.
+</p>
+<hr>
 </div>
 """
 
