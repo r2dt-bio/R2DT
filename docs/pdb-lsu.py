@@ -29,18 +29,19 @@ head = """
 <body>
 <div class="container">
 <div class="row">
-<h1>RNA secondary structures for SSU and 5S rRNA sequences from PDB generated using <a href="https://github.com/rnacentral/auto-traveler">auto-traveler</a></h1>
+<h1>RNA secondary structures for <strong>LSU sequences</strong> from PDB generated using <a href="https://github.com/rnacentral/auto-traveler">auto-traveler</a></h1>
 
 <p>
-<a href="./lsu.html">Browse LSU rRNAs &rarr;</a>
+<a href="./index.html">Browse SSU and 5S rRNAs &rarr;</a>
 </p>
+
 <hr>
 </div>
 """
 
 ordered_png = []
 for png in glob.glob(os.path.join(pngs, '*.png')):
-    if 'E_coli_23S_3R8S_cWW_noPK' in png:
+    if 'E_coli_23S_3R8S_cWW_noPK' not in png:
         continue
     rna_id, model_id = os.path.basename(png).replace('.colored.svg.png', '').split('-')
     try:
@@ -51,11 +52,11 @@ for png in glob.glob(os.path.join(pngs, '*.png')):
 ordered_png = sorted(ordered_png, key=lambda k: k[1])
 
 
-with open('index.html', 'w') as html_output:
+with open('lsu.html', 'w') as html_output:
     html_output.write(head)
     for entry in reversed(ordered_png): # sorted(glob.glob(os.path.join(pngs, '*.png'))):
         png = entry[0]
-        # URS0000CBFF1F_5693-d.16.e.L.major.colored.svg.png
+        # URS000080DF36_274-E_coli_23S_3R8S_cWW_noPK.colored.svg.png
         rna_id, model_id = os.path.basename(png).replace('.colored.svg.png', '').split('-')
         try:
             first_entry = data[rna_id][0]
