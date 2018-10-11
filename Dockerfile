@@ -27,7 +27,7 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git ch
 RUN git clone https://github.com/nawrockie/ribotyper-v1.git && cd ribotyper-v1 && git checkout 4cd7fe30f402edfa4669383a46d603c60ba6f608
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 861411047b3b72e403b45eaf002ba35e7578045b
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 0912ed5daab09bb3c38630efaf3643ea38b02dbe
 RUN cd $RNA/traveler/src && make build
 
 # Setup environmental variables
