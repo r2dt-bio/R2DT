@@ -15,24 +15,33 @@ limitations under the License.
 import os
 import glob
 
+import click
+
 
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
 
-print 'Processing files in {}'.format(CM_LIBRARY)
 
-all_cm = 'all.cm'  # file with all CMs
-all_cm_path = os.path.join(CM_LIBRARY, all_cm)
+@click.command()
+@click.option('--cm-library', default=CM_LIBRARY)
+def main(cm_library=CM_LIBRARY):
+    print 'Processing files in {}'.format(cm_library)
 
-cmd = 'rm -f {all_cm_path} && cat {CM_LIBRARY}/*.cm > {all_cm_path}'.format(CM_LIBRARY=CM_LIBRARY, all_cm_path=all_cm_path)
-os.system(cmd)
+    all_cm = 'all.cm'  # file with all CMs
+    all_cm_path = os.path.join(cm_library, all_cm)
 
-with open(os.path.join(CM_LIBRARY, 'modelinfo.txt'), 'w') as f:
-    line = '*all*    -    -    %s\n' % all_cm
-    f.write(line)
-    for cm in glob.glob('%s/*.cm' % CM_LIBRARY):
-        if all_cm in cm:
-            continue
-        model_name = os.path.basename(cm).replace('.cm', '')
-        line = "%s    SSU    Bacteria    %s\n" % (model_name, os.path.basename(cm))
+    cmd = 'rm -f {all_cm_path} && cat {cm_library}/*.cm > {all_cm_path}'.format(
+        cm_library=cm_library, 
+        all_cm_path=all_cm_path,
+    )
+    os.system(cmd)
+
+    with open(os.path.join(cm_library, 'modelinfo.txt'), 'w') as f:
+        line = '*all*    -    -    %s\n' % all_cm
         f.write(line)
-print 'Done'
+        for cm in glob.glob('%s/*.cm' % cm_library):
+            if all_cm in cm:
+                continue
+            model_name = os.path.basename(cm).replace('.cm', '')
+            line = "%s    SSU    Bacteria    %s\n" % (model_name, os.path.basename(cm))
+            f.write(line)
+    print 'Done'
