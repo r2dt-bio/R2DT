@@ -45,3 +45,7 @@ def main(cm_library=CM_LIBRARY):
             line = "%s    SSU    Bacteria    %s\n" % (model_name, os.path.basename(cm))
             f.write(line)
     print 'Done'
+
+
+if __name__ == '__main__':
+    main()
