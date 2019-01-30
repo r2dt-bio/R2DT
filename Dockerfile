@@ -1,5 +1,8 @@
 FROM gcc:4.9
 
+RUN apt-get update
+RUN apt-get install -y moreutils
+
 ENV RNA /rna
 
 RUN mkdir $RNA
@@ -37,7 +40,14 @@ ENV PERL5LIB="$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 
 # Install jiffy infernal hmmer scripts
-RUN git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && cd jiffy-infernal-hmmer-scripts && git checkout 45d4937385a6b694eac2d7d538e131b59527ce06
+RUN \
+    git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
+    cd jiffy-infernal-hmmer-scripts && \
+    git checkout 45d4937385a6b694eac2d7d538e131b59527ce06
+RUN \
+    cd jiffy-infernal-hmmer-scripts && \
+    echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl
+RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
 
 COPY examples examples/
 
@@ -49,6 +59,14 @@ RUN \
     cd RNAstructure && \
     make all
 
+# Install pip
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python get-pip.py
+
+# Install python dependencies
+ADD requirements.txt $RNA/auto-traveler/requirements.txt
+RUN pip install -r $RNA/auto-traveler/requirements.txt
+
+ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 
 ENTRYPOINT ["/bin/bash"]
