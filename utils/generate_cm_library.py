@@ -12,6 +12,7 @@ limitations under the License.
 """
 
 
+import csv
 import os
 import glob
 
@@ -19,6 +20,28 @@ import glob
 BPSEQ_LOCATION = '/rna/auto-traveler/data/crw-bpseq'
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
 CRW_FASTA_NO_PSEUDOKNOTS = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
+
+
+def get_crw_metadata(filename):
+    """
+    Example:
+    structure	rna_type	rna_class	tax_id	accession(s)	cell_location
+    a.I1.e.C.luteoviridis.B.C1.SSU.1052.ps	I	IC1	31301	X73998	Nucleus
+    d.16.e.C.luteoviridis.ps	R	16S	31301	X73998	Nucleus
+    """
+    data = {}
+    with open(filename, 'r') as csvfile:
+        reader = csv.DictReader(csvfile, delimiter='\t')
+        for row in reader:
+            model_id = row['structure'].replace('.ps', '')
+            data[model_id] = {
+                'rna_type': row['rna_type'],
+                'rna_class': row['rna_class'],
+                'taxid': row['tax_id'],
+                'accessions': row['accession(s)'].split(' '),
+                'cell_location': row['cell_location'],
+            }
+    return data
 
 
 def convert_bpseq_to_fasta(bpseq):
@@ -90,6 +113,8 @@ def main():
         fasta_no_knots = break_pseudoknots(fasta)
         stockholm = convert_fasta_to_stockholm(fasta_no_knots)
         build_cm(stockholm)
+    crw_metadata = get_crw_metadata('data/rnacentral-nopbpseq-2019-02-15.tsv')
+
     print 'Done'
 
 
