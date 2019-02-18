@@ -7,8 +7,8 @@ This is a tool for automatic generation of RNA secondary structure in standard
 ## Method overview
 
 1. Generate a library of **covariance models** using [CRW bpseq files](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php)
-and [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from CRW secondary structures
-  using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
+and [Infernal](http://eddylab.org/infernal/). For best results, use _pseudoknot-free_ CRW bpseq files
+or remove pseudoknots using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
 1. **Select the best matching covariance model** for each input sequence
 using [Ribotyper](https://github.com/nawrockie/ribotyper-v1)
 1. **Fold** input sequence into a secondary structure compatible with the template
@@ -55,11 +55,13 @@ python auto-traveler.py /path/to/input.fasta /path/to/output-folder
 Additional commands:
 
 ```
+cd auto-traveler
+
 # classify example sequences using Ribotyper
 perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
 
 # to generate covariance models:
-perl utils/generate_cm_library.py
+python utils/generate_cm_library.py
 ```
 
 ## Acknowledgements
@@ -67,6 +69,7 @@ perl utils/generate_cm_library.py
 - [David Hoksza](https://github.com/davidhoksza)
 - [Eric Nawrocki](https://github.com/nawrockie)
 - [Robin Gutell lab](http://www.rna.ccbb.utexas.edu)
+- [Anton S. Petrov](https://scholar.google.com/citations?user=V9KP2IkAAAAJ&hl=en)
 - [David Mathews lab](http://rna.urmc.rochester.edu/RNAstructure.html)
 
 Secondary structure information was downloaded from the [CRW](http://www.rna.ccbb.utexas.edu) website.
