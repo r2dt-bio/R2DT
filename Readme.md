@@ -18,7 +18,7 @@ using the top scoring covariance model.
 ## Installation
 
 Download a precomputed library of covariance models:
-https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0
+https://www.dropbox.com/s/zfewscbokztefnj/cms-no-pseudoknots.zip?dl=0
 
 Uncompress it and place the folder in `auto-traveler/data/cms`.
 
