@@ -34,6 +34,8 @@ def get_crw_metadata(filename):
         reader = csv.DictReader(csvfile, delimiter='\t')
         for row in reader:
             model_id = row['structure'].replace('.ps', '')
+            if model_id.startswith('#'): # ignore commented out models
+                continue
             data[model_id] = {
                 'rna_type': row['rna_type'],
                 'rna_class': row['rna_class'],
