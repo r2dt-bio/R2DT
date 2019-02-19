@@ -93,6 +93,8 @@ def copy_cm_evalues(cm):
         os.system(cmd)
     cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl RF00177.cm {cm}'.format(cm=cm)
     os.system(cmd)
+    cmd = 'rm {}.old'.format(cm)
+    os.system(cmd)
 
 
 def build_cm(stockholm):
