@@ -62,6 +62,9 @@ perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-ou
 
 # to generate covariance models:
 python utils/generate_cm_library.py
+
+# generate png version of images using Image Magick
+for d in *.colored.svg; do convert $d ${d}.png; done
 ```
 
 ## Acknowledgements
