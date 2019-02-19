@@ -30,7 +30,7 @@ def main(cm_library=CM_LIBRARY):
     all_cm_path = os.path.join(cm_library, all_cm)
 
     cmd = 'rm -f {all_cm_path} && cat {cm_library}/*.cm > {all_cm_path}'.format(
-        cm_library=cm_library, 
+        cm_library=cm_library,
         all_cm_path=all_cm_path,
     )
     os.system(cmd)
