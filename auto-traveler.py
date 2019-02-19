@@ -21,7 +21,7 @@ import click
 
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
 CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
-CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
+CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/rnacentral-nopbpseq-2019-02-15'
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
