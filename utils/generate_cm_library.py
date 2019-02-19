@@ -17,9 +17,9 @@ import os
 import glob
 
 
-BPSEQ_LOCATION = '/rna/auto-traveler/data/crw-bpseq'
+BPSEQ_LOCATION = '/rna/auto-traveler/data/rnacentral-nopbpseq-2019-02-15'
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
-CRW_FASTA_NO_PSEUDOKNOTS = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
+CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
 
 
 def get_crw_metadata(filename):
@@ -47,7 +47,7 @@ def get_crw_metadata(filename):
 
 
 def convert_bpseq_to_fasta(bpseq):
-    fasta = bpseq.replace('.bpseq', '-with-knots.fasta')
+    fasta = bpseq.replace('.nopbpseq', '.fasta')
     if not os.path.exists(fasta):
         cmd = 'python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}'.format(
             bpseq=bpseq,
@@ -111,14 +111,22 @@ def build_cm(stockholm):
 
 def main():
 
-    for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION)[:2]:
-        print os.path.basename(bpseq).replace('.bpseq', '')
-        fasta = convert_bpseq_to_fasta(bpseq)
-        fasta_no_knots = break_pseudoknots(fasta)
-        stockholm = convert_fasta_to_stockholm(fasta_no_knots)
-        build_cm(stockholm)
     crw_metadata = get_crw_metadata('data/rnacentral-nopbpseq-2019-02-15.tsv')
 
+    for model_id, model in crw_metadata.iteritems():
+        if model['rna_class'] not in ['16S', '5S']:
+            continue
+        print model_id
+        bpseq = os.path.join(BPSEQ_LOCATION, model_id + '.nopbpseq')
+        ps = os.path.join(CRW_PS_LIBRARY, model_id + '.ps')
+        if not os.path.exists(bpseq):
+            print 'Structure %s is not found' % bpseq
+        if not os.path.exists(ps):
+            print 'Template %s not found' % ps
+        if os.path.exists(bpseq) and os.path.exists(ps):
+            fasta = convert_bpseq_to_fasta(bpseq)
+            stockholm = convert_fasta_to_stockholm(fasta)
+            build_cm(stockholm)
     print 'Done'
 
 
