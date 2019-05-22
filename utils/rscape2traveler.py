@@ -55,8 +55,12 @@ def generate_traveler_fasta(rfam_acc):
             new_ss_cons = []
             new_consensus = []
             for i, nt in enumerate(consensus):
-                if nt == '-':
+                if nt == '-' and ss_cons[i] == '.':
                     pass
+                elif nt == '-' and ss_cons[i] in '<>':
+                    # example RF00016
+                    new_ss_cons.append(ss_cons[i])
+                    new_consensus.append('N')
                 else:
                     new_ss_cons.append(ss_cons[i])
                     new_consensus.append(consensus[i])
