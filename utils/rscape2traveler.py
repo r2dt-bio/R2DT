@@ -46,9 +46,7 @@ def convert_path_to_text(line):
               <tspan fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5">N</tspan>
             </text>"""
 
-            xml = """
-            <point x="{:.2f}" y="{:.2f}" b="N"/>
-            """
+            xml = """<point x="{:.2f}" y="{:.2f}" b="N"/>\n"""
 
             return (text.format(new_x, new_y), xml.format(new_x, new_y))
         else:
