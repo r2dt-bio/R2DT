@@ -11,11 +11,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 import glob
 import os
 import re
-import sys
+
+import click
+
+
 
 
 def convert_path_to_text(line):
@@ -185,12 +187,23 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                 xml_out.write(xml_footer)
 
 
-def main():
+@click.command()
+@click.argument('rfam_accession', default='RF00001')
+def main(rfam_accession):
+    """
+    Convert Rfam/R-scape structures into Traveler-compatible format.
 
-    rfam_accs = get_all_rfam_acc()
+    RFAM_ACCESSION:
+    Specify which Rfam family to process or set to "all" to process all families.
+    """
+
+    print(rfam_accession)
+    if rfam_accession == 'all':
+        rfam_accs = get_all_rfam_acc()
+    else:
+        rfam_accs = [rfam_accession]
 
     for rfam_acc in rfam_accs:
-        # rfam_acc = sys.argv[1]
         destination = os.path.join('temp', rfam_acc)
         if not os.path.exists(destination):
             os.makedirs(destination)
