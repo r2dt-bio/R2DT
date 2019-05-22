@@ -18,6 +18,57 @@ import re
 import click
 
 
+def generate_traveler_fasta(rfam_acc):
+    """
+    Generate fasta format for Rfam consensus.
+
+    Example:
+
+    >RF00162
+    NNCUUAUCNAGAGNGGYRGAGGGAYNGGCCCNRUGAARCCNCRGCAACCNNYNNNNNNNNNRNNANGGUGCYAANUCCNRCNRNNNNNNNNNNNYNGRRAGAURAGRR
+    ((((((((......(((...(((.....)))......)))..(((.((((((.........)))..))))))........((((.........))))...))))))))
+    """
+
+    ss_cons = ''
+    consensus = ''
+
+    # get a list of alignments
+    seeds = []
+    for seed in glob.glob(os.path.join('temp', rfam_acc, '*.R2R.sto')):
+        seeds.append(seed)
+    if len(seeds) != 1:
+        print("Error: unusual number of seed alignments")
+
+    with open(seeds[0], 'r') as f:
+        for line in f.readlines():
+            if line.startswith('#=GC SS_cons '):
+                parts = line.split()
+                ss_cons += parts[2].replace('<', '(').replace('>', ')')
+            elif line.startswith('#=GC cons') and 'conss' not in line:
+                parts = line.split()
+                consensus += parts[2]
+
+    if not ss_cons:
+        print('No SS_CONS found')
+    elif len(ss_cons) == len(consensus):
+        if '-' in consensus:
+            new_ss_cons = []
+            new_consensus = []
+            for i, nt in enumerate(consensus):
+                if nt == '-':
+                    pass
+                else:
+                    new_ss_cons.append(ss_cons[i])
+                    new_consensus.append(consensus[i])
+            ss_cons = ''.join(new_ss_cons)
+            consensus = ''.join(new_consensus)
+
+        with open(os.path.join('temp', rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
+            f.write('>{}\n'.format(rfam_acc))
+            f.write('{}\n'.format(consensus.upper()))
+            f.write('{}\n'.format(ss_cons))
+    else:
+        print('Error: structure and consensus have different lengths')
 
 
 def convert_path_to_text(line):
@@ -205,6 +256,7 @@ def main(rfam_accession):
         rscape_svg = run_rscape(rfam_acc, destination)
         rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
         convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
+        generate_traveler_fasta(rfam_acc)
 
 
 if __name__ == '__main__':
