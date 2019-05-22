@@ -88,10 +88,10 @@ def convert_path_to_text(line):
     </text>
     """
     try:
-        match = re.search(r'd="M (\d+\.\d+) (\d+\.\d+) ', line)
+        match = re.search(r'd="M (\d+(\.\d+)?) (\d+(\.\d+)?) ', line)
         if match:
             x = float(match.group(1))
-            y = float(match.group(2))
+            y = float(match.group(3))
             # new_x = x - 3.75 - (0.72 * 2)
             new_x = x - 5.115
             new_y = y + 2.9
