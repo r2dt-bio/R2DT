@@ -112,7 +112,6 @@ def run_rscape(rfam_acc, destination):
 
     rscape_svg = None
     for svg in glob.glob(os.path.join(destination, '*.svg')):
-        print svg
         if 'R2R.sto.svg' in svg:
             rscape_svg = svg
     if not rscape_svg:
