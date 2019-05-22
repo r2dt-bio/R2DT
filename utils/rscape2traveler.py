@@ -166,12 +166,9 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                     if '&apos;' in line:
                         continue
                     if line.startswith('<path'):
-                        try:
-                            text, xml = convert_path_to_text(line)
-                            f_out.write(text)
-                            xml_out.write(xml)
-                        except:
-                            print line
+                        text, xml = convert_path_to_text(line)
+                        f_out.write(text)
+                        xml_out.write(xml)
                     elif line.startswith('<text'):
                         xml = convert_text_to_xml(line)
                         if not xml:
