@@ -87,28 +87,23 @@ def convert_path_to_text(line):
       <tspan fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">N</tspan>
     </text>
     """
-    try:
-        match = re.search(r'd="M (\d+(\.\d+)?) (\d+(\.\d+)?) ', line)
-        if match:
-            x = float(match.group(1))
-            y = float(match.group(3))
-            # new_x = x - 3.75 - (0.72 * 2)
-            new_x = x - 5.115
-            new_y = y + 2.9
+    match = re.search(r'd="M (\d+(\.\d+)?) (\d+(\.\d+)?) ', line)
+    if match:
+        x = float(match.group(1))
+        y = float(match.group(3))
+        # new_x = x - 3.75 - (0.72 * 2)
+        new_x = x - 5.115
+        new_y = y + 2.9
 
-            text = """
-            <text x="{}" y="{}" id="foobar">
-              <tspan fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5">N</tspan>
-            </text>"""
+        text = """
+        <text x="{}" y="{}" id="foobar">
+          <tspan fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5">N</tspan>
+        </text>"""
 
-            xml = """<point x="{:.2f}" y="{:.2f}" b="N"/>\n"""
+        xml = """<point x="{:.2f}" y="{:.2f}" b="N"/>\n"""
 
-            return (text.format(new_x, new_y), xml.format(new_x, new_y))
-        else:
-            print line
-            print 'no match text'
-    except:
-        # import pdb; pdb.set_trace()
+        return (text.format(new_x, new_y), xml.format(new_x, new_y))
+    else:
         print line
         print 'convert_path_to_text did not find a match'
 
