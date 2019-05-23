@@ -176,7 +176,11 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     Convert R-scape SVG into SVG with 1 line per element.
     """
     output = '{}/temp.svg'.format(destination)
-    cmd = r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | perl -0777 -pe 's/\n d=/ d=/g' | perl -0777 -pe 's/\n +<tspan/ <tspan/g' | perl -0777 -pe 's/\n<\/text>/<\/text>/g' > {output}".format(rscape_svg=rscape_svg, output=output)
+    cmd = (r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | "
+           r"perl -0777 -pe 's/\n d=/ d=/g' | "
+           r"perl -0777 -pe 's/\n +<tspan/ <tspan/g' | "
+           r"perl -0777 -pe 's/\n<\/text>/<\/text>/g' "
+           r"> {output}").format(rscape_svg=rscape_svg, output=output)
     os.system(cmd)
     return output
 
@@ -313,7 +317,7 @@ def generate_2d(rfam_acc, fasta, test):
                    '--target-structure traveler-input.fasta '
                    '--template-structure --file-format traveler temp/{rfam_acc}/traveler-template.xml temp/{rfam_acc}/{rfam_acc}-traveler.fasta '
                    '--all output/{rfam_acc}/{seq_id} '
-                   '> temp/{rfam_acc}/{seq_id}.log' ).format(
+                   '> output/{rfam_acc}/{seq_id}.log' ).format(
                        seq_id=seq_id.replace('/', '-'),
                        rfam_acc=rfam_acc
                     )
