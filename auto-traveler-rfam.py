@@ -157,13 +157,34 @@ def get_all_rfam_acc():
     return rfam_accs
 
 
+def remove_pseudoknot_from_ss_cons(rfam_seed):
+    """
+    Some Rfam alignments contain pseudoknot annotations in SS_cons. To avoid
+    R-scape displaying them on diagrams, pseudoknots need to be removed before
+    running R-scape.
+    """
+    seed_no_pk = os.path.join(os.path.dirname(rfam_seed), 'nopk-' + os.path.basename(rfam_seed))
+    with open(rfam_seed, 'r') as f_seed_in:
+        with open(seed_no_pk, 'w') as f_seed_out:
+            for line in f_seed_in.readlines():
+                if line.startswith('#=GC SS_cons '):
+                    match = re.match(r'(#=GC SS_cons)(\s+)(.+)', line)
+                    no_pk = re.sub(r'\w', '.', match.group(3))
+                    # import pdb; pdb.set_trace()
+                    f_seed_out.write(''.join([match.group(1), match.group(2), no_pk, '\n']))
+                else:
+                    f_seed_out.write(line)
+    return seed_no_pk
+
+
 def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
     rfam_seed = download_rfam_seed(rfam_acc)
-    cmd = 'R-scape --outdir {folder} {rfam_seed}'.format(folder=destination, rfam_seed=rfam_seed)
-    if not os.path.exists(os.path.join(destination, '{}.out'.format(rfam_acc))):
+    rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
+    if not os.path.exists(rfam_seed_no_pk.replace('seed', 'out')):
+        cmd = 'R-scape --outdir {folder} {rfam_seed}'.format(folder=destination, rfam_seed=rfam_seed_no_pk)
         os.system(cmd)
 
     rscape_svg = None
@@ -225,6 +246,8 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                         continue
                     if '&apos;' in line:
                         continue
+                    if 'pk' in line:
+                        continue
                     if line.startswith('<path'):
                         text, xml = convert_path_to_text(line)
                         f_out.write(text)
@@ -252,7 +275,6 @@ def rscape2traveler(rfam_acc):
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
     generate_traveler_fasta(rfam_acc)
-
 
 
 def generate_2d(rfam_acc, output_folder, fasta, test):
