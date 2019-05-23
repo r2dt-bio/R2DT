@@ -331,7 +331,7 @@ def main(rfam_accession):
     else:
         rfam_accs = [rfam_accession]
 
-    for rfam_acc in rfam_accs[10:]:
+    for rfam_acc in rfam_accs:
         rscape2traveler(rfam_acc)
         generate_2d(rfam_acc)
 
