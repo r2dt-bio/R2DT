@@ -319,9 +319,7 @@ def generate_2d(rfam_acc, fasta, test):
             print(cmd)
             os.system(cmd)
 
-            cmd = 'rm -f output/{rfam_acc}/*.xml'.format(rfam_acc=rfam_acc)
-            os.system(cmd)
-            cmd = 'rm -f output/{rfam_acc}/*.ps'.format(rfam_acc=rfam_acc)
+            cmd = 'rm -f output/{rfam_acc}/*.xml output/{rfam_acc}/*.ps'.format(rfam_acc=rfam_acc)
             os.system(cmd)
 
 
