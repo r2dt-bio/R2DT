@@ -250,7 +250,7 @@ def rscape2traveler(rfam_acc):
 
 
 
-def generate_2d(rfam_acc, fasta):
+def generate_2d(rfam_acc, fasta, test):
 
     destination = 'output/{}'.format(rfam_acc)
     if not os.path.exists(destination):
@@ -280,7 +280,9 @@ def generate_2d(rfam_acc, fasta):
     os.system(cmd.format(fasta_input))
 
     with open('headers.txt', 'r') as f:
-        for line in f.readlines()[:10]:
+        for i, line in enumerate(f.readlines()):
+            if test and i > 10:
+                continue
             seq_id = line.split(' ', 1)[0].replace('>', '')
             print seq_id
 
@@ -326,7 +328,8 @@ def generate_2d(rfam_acc, fasta):
 @click.command()
 @click.argument('rfam_accession', default='RF00001')
 @click.option('--fasta', default=None, help='Sequences to be analysed (Rfam sequences are processed by default)')
-def main(rfam_accession, fasta):
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+def main(rfam_accession, fasta, test):
 
     print(rfam_accession)
     if rfam_accession == 'all':
@@ -336,7 +339,7 @@ def main(rfam_accession, fasta):
 
     for rfam_acc in rfam_accs:
         rscape2traveler(rfam_acc)
-        generate_2d(rfam_acc, fasta)
+        generate_2d(rfam_acc, fasta, test)
 
 
 if __name__ == '__main__':
