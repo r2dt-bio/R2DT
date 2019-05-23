@@ -55,14 +55,14 @@ python auto-traveler.py /path/to/input.fasta /path/to/output-folder
 For Rfam families, use a separate script to skip sequence classification:
 
 ```
-# to process a specific Rfam family
-python auto-traveler-rfam.py RF00162
+# to process a specific Rfam family and store output in `rfam-output` folder
+python auto-traveler-rfam.py RF00162 rfam-output
 
 # to process all families
-python auto-traveler-rfam.py all
+python auto-traveler-rfam.py all rfam-output
 
 # to process sequences from a specific fasta file
-python auto-traveler-rfam.py RF00162 --fasta /path/to/fasta
+python auto-traveler-rfam.py RF00162 rfam-output --fasta /path/to/fasta
 
 # see help for more options
 python auto-traveler-rfam.py --help
