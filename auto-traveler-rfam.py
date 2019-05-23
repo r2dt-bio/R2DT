@@ -327,9 +327,14 @@ def generate_2d(rfam_acc, fasta, test):
 
 @click.command()
 @click.argument('rfam_accession', default='RF00001')
-@click.option('--fasta', default=None, help='Sequences to be analysed (Rfam sequences are processed by default)')
+@click.option('--fasta', default=None, help='Sequences to be analysed (by default Rfam hits are analysed)')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
 def main(rfam_accession, fasta, test):
+    """
+    Visualise sequences using the Rfam/R-scape consensus structure as template.
+
+    RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
+    """
 
     print(rfam_accession)
     if rfam_accession == 'all':
