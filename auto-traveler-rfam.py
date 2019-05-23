@@ -20,6 +20,7 @@ import re
 import click
 
 RFAM_DATA = '/rna/auto-traveler/data/rfam'
+BLACKLIST = ['RF02541', 'RF00177', 'RF01960', 'RF02540', 'RF02543', 'RF01959', 'RF02542', 'RF02546', 'RF02545']
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -141,7 +142,6 @@ def download_rfam_seed(rfam_acc):
 
 def get_all_rfam_acc():
     rfam_accs = []
-    blacklist = ['RF02541', 'RF00177', 'RF01960', 'RF02540', 'RF02543', 'RF01959', 'RF02542', 'RF02546', 'RF02545', 'RF00009']
     family_file = os.path.join(RFAM_DATA, 'family.txt')
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
@@ -150,7 +150,7 @@ def get_all_rfam_acc():
         for line in f.readlines():
             if line.startswith('RF'):
                 rfam_acc = line[:7]
-                if rfam_acc in blacklist:
+                if rfam_acc in BLACKLIST:
                     continue
                 rfam_accs.append(rfam_acc)
     print('Found {} Rfam accessions'.format(len(rfam_accs)))
