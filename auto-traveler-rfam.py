@@ -110,6 +110,8 @@ def convert_path_to_text(line):
     except:
         # import pdb; pdb.set_trace()
         print line
+        print 'convert_path_to_text did not find a match'
+
 
 def convert_text_to_xml(line):
     """
@@ -126,7 +128,7 @@ def convert_text_to_xml(line):
         return point.format(float(match.group(1)), float(match.group(3)), match.group(5))
     else:
         print line
-        print 'no match'
+        print 'convert_text_to_xml did not find a match'
 
 
 def download_rfam_seed(rfam_acc):
