@@ -62,7 +62,7 @@ python auto-traveler-rfam.py RF00162 rfam-output
 python auto-traveler-rfam.py all rfam-output
 
 # to process sequences from a specific fasta file
-python auto-traveler-rfam.py RF00162 rfam-output --fasta /path/to/fasta
+python auto-traveler-rfam.py RF00162 rfam-output --fasta_input /path/to/fasta
 
 # see help for more options
 python auto-traveler-rfam.py --help
