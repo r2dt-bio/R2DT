@@ -312,6 +312,7 @@ def generate_2d(rfam_acc, fasta, test):
             os.system(cmd)
 
             cmd = ('traveler '
+                   '--verbose '
                    '--target-structure traveler-input.fasta '
                    '--template-structure --file-format traveler temp/{rfam_acc}/traveler-template.xml temp/{rfam_acc}/{rfam_acc}-traveler.fasta '
                    '--all output/{rfam_acc}/{seq_id}').format(seq_id=seq_id.replace('/', '-'), rfam_acc=rfam_acc)
