@@ -17,8 +17,6 @@ import re
 
 import click
 
-from rscape2traveler import get_all_rfam_acc
-
 
 def generate_traveler_fasta(rfam_acc):
     """
@@ -252,26 +250,30 @@ def rscape2traveler(rfam_acc):
 
 
 
-def generate_2d(rfam_acc):
+def generate_2d(rfam_acc, fasta):
 
     destination = 'output/{}'.format(rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    fasta_input = 'rfam/{}.fa'.format(rfam_acc)
-    if not os.path.exists(fasta_input):
-        url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz'.format(rfam_acc)
-        cmd = 'wget -O rfam/{rfam_acc}.fa.gz {url} > rfam/{rfam_acc}.fa.gz && gunzip rfam/{rfam_acc}.fa.gz'.format(url=url, rfam_acc=rfam_acc)
+    if not fasta:
+        # use Rfam sequences
+        fasta_input = 'rfam/{}.fa'.format(rfam_acc)
+        if not os.path.exists(fasta_input):
+            url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz'.format(rfam_acc)
+            cmd = 'wget -O rfam/{rfam_acc}.fa.gz {url} > rfam/{rfam_acc}.fa.gz && gunzip rfam/{rfam_acc}.fa.gz'.format(url=url, rfam_acc=rfam_acc)
+            os.system(cmd)
+    else:
+        fasta_input = fasta
+
+    if not os.path.exists(fasta_input + '.ssi'):
+        cmd = 'esl-sfetch --index {}'.format(fasta_input)
         os.system(cmd)
 
-    if not os.path.exists('rfam/{}.fa.ssi'.format(rfam_acc)):
-        cmd = 'esl-sfetch --index rfam/{}.fa'.format(rfam_acc)
-        os.system(cmd)
-
+    # download Rfam covariance model
     if not os.path.exists(os.path.join('data/rfam_cms', rfam_acc + '.cm', )):
         url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
         cmd = 'wget {url} -O data/rfam_cms/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, url=url)
-        # cmd = 'cmfetch data/rfam_cms/all.cm {rfam_acc} > data/rfam_cms/{rfam_acc}.cm'.format(rfam_acc=rfam_acc)
         os.system(cmd)
 
     cmd = "grep '>' {} > headers.txt"
@@ -323,7 +325,8 @@ def generate_2d(rfam_acc):
 
 @click.command()
 @click.argument('rfam_accession', default='RF00001')
-def main(rfam_accession):
+@click.option('--fasta', default=None, help='Sequences to be analysed (Rfam sequences are processed by default)')
+def main(rfam_accession, fasta):
 
     print(rfam_accession)
     if rfam_accession == 'all':
@@ -333,7 +336,7 @@ def main(rfam_accession):
 
     for rfam_acc in rfam_accs:
         rscape2traveler(rfam_acc)
-        generate_2d(rfam_acc)
+        generate_2d(rfam_acc, fasta)
 
 
 if __name__ == '__main__':
