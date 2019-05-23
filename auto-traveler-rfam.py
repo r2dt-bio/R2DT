@@ -317,22 +317,38 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
             cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > traveler-input.fasta'
             os.system(cmd)
 
+            result_base = os.path.join(destination, seq_id.replace('/', '-'))
+            log = result_base + '.log'
             cmd = ('traveler '
                    '--verbose '
                    '--target-structure traveler-input.fasta '
                    '--template-structure --file-format traveler {RFAM_DATA}/{rfam_acc}/traveler-template.xml {RFAM_DATA}/{rfam_acc}/{rfam_acc}-traveler.fasta '
-                   '--all {destination}/{seq_id} '
-                   '> {destination}/{seq_id}.log' ).format(
-                       seq_id=seq_id.replace('/', '-'),
+                   '--all {result_base} '
+                   '> {log}' ).format(
+                       result_base=result_base,
                        rfam_acc=rfam_acc,
-                       destination=destination,
-                       RFAM_DATA=RFAM_DATA
+                       RFAM_DATA=RFAM_DATA,
+                       log=log
                     )
             print(cmd)
             os.system(cmd)
 
             cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(destination)
             os.system(cmd)
+
+            overlaps = 0
+            with open(log, 'r') as raw:
+                for line in raw:
+                    match = re.search(r'Overlaps count: (\d+)', line)
+                    if match:
+                        if overlaps:
+                            print('ERROR: Saw too many overlap counts')
+                            break
+                        overlaps = int(match.group(1))
+
+            with open(result_base + '.overlaps', 'w') as out:
+                out.write(str(overlaps))
+                out.write('\n')
 
 
 
