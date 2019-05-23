@@ -17,6 +17,8 @@ import re
 
 import click
 
+RFAM_DATA = '/rna/auto-traveler/data/rfam'
+
 
 def generate_traveler_fasta(rfam_acc):
     """
@@ -34,7 +36,7 @@ def generate_traveler_fasta(rfam_acc):
 
     # get a list of alignments
     seeds = []
-    for seed in glob.glob(os.path.join('temp', rfam_acc, '*.R2R.sto')):
+    for seed in glob.glob(os.path.join(RFAM_DATA, rfam_acc, '*.R2R.sto')):
         seeds.append(seed)
     if len(seeds) != 1:
         print("Error: unusual number of seed alignments")
@@ -67,7 +69,7 @@ def generate_traveler_fasta(rfam_acc):
             ss_cons = ''.join(new_ss_cons)
             consensus = ''.join(new_consensus)
 
-        with open(os.path.join('temp', rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
+        with open(os.path.join(RFAM_DATA, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
             f.write('>{}\n'.format(rfam_acc))
             f.write('{}\n'.format(consensus.upper()))
             f.write('{}\n'.format(ss_cons))
@@ -127,7 +129,7 @@ def convert_text_to_xml(line):
 
 
 def download_rfam_seed(rfam_acc):
-    output = os.path.join('temp', rfam_acc, '{}.seed'.format(rfam_acc))
+    output = os.path.join(RFAM_DATA, rfam_acc, '{}.seed'.format(rfam_acc))
     if not os.path.exists(output):
         url = 'http://rfam.org/family/{}/alignment'.format(rfam_acc)
         cmd = 'wget -O {output} {url}'.format(output=output, url=url)
@@ -138,7 +140,7 @@ def download_rfam_seed(rfam_acc):
 def get_all_rfam_acc():
     rfam_accs = []
     blacklist = ['RF02541', 'RF00177', 'RF01960', 'RF02540', 'RF02543', 'RF01959', 'RF02542', 'RF02546', 'RF02545', 'RF00009']
-    family_file = os.path.join('temp', 'family.txt')
+    family_file = os.path.join(RFAM_DATA, 'family.txt')
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
@@ -175,7 +177,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     """
     Convert R-scape SVG into SVG with 1 line per element.
     """
-    output = '{}/temp.svg'.format(destination)
+    output = os.path.join(destination, 'rscape-one-line.svg'
     cmd = (r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | "
            r"perl -0777 -pe 's/\n d=/ d=/g' | "
            r"perl -0777 -pe 's/\n +<tspan/ <tspan/g' | "
@@ -240,7 +242,7 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
 def rscape2traveler(rfam_acc):
     """
     """
-    destination = os.path.join('temp', rfam_acc)
+    destination = os.path.join(RFAM_DATA, rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
@@ -251,18 +253,18 @@ def rscape2traveler(rfam_acc):
 
 
 
-def generate_2d(rfam_acc, fasta, test):
+def generate_2d(rfam_acc, output_folder, fasta, test):
 
-    destination = 'output/{}'.format(rfam_acc)
+    destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
     if not fasta:
         # use Rfam sequences
-        fasta_input = 'rfam/{}.fa'.format(rfam_acc)
+        fasta_input = os.path.join(RFAM_DATA, rfam_acc, '{}.fa'.format(rfam_acc))
         if not os.path.exists(fasta_input):
             url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz'.format(rfam_acc)
-            cmd = 'wget -O rfam/{rfam_acc}.fa.gz {url} > rfam/{rfam_acc}.fa.gz && gunzip rfam/{rfam_acc}.fa.gz'.format(url=url, rfam_acc=rfam_acc)
+            cmd = 'wget -O {fasta_input}.gz {url} && gunzip {fasta_input}.gz'.format(url=url, fasta_input=fasta_input)
             os.system(cmd)
     else:
         fasta_input = fasta
@@ -272,9 +274,10 @@ def generate_2d(rfam_acc, fasta, test):
         os.system(cmd)
 
     # download Rfam covariance model
-    if not os.path.exists(os.path.join('data/rfam_cms', rfam_acc + '.cm', )):
+    rfam_cm = os.path.join('data', RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    if not os.path.exists(rfam_cm):
         url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
-        cmd = 'wget {url} -O data/rfam_cms/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, url=url)
+        cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
         os.system(cmd)
 
     cmd = "grep '>' {} > headers.txt"
@@ -290,7 +293,7 @@ def generate_2d(rfam_acc, fasta, test):
             cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
             os.system(cmd)
 
-            cmd = "cmalign %s temp.fasta > temp.sto" % 'data/rfam_cms/{}.cm'.format(rfam_acc)
+            cmd = "cmalign %s temp.fasta > temp.sto" % '{RFAM_DATA}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, RFAM_DATA=RFAM_DATA)
             os.system(cmd)
 
             has_conserved_structure = False
@@ -315,31 +318,33 @@ def generate_2d(rfam_acc, fasta, test):
             cmd = ('traveler '
                    '--verbose '
                    '--target-structure traveler-input.fasta '
-                   '--template-structure --file-format traveler temp/{rfam_acc}/traveler-template.xml temp/{rfam_acc}/{rfam_acc}-traveler.fasta '
-                   '--all output/{rfam_acc}/{seq_id} '
-                   '> output/{rfam_acc}/{seq_id}.log' ).format(
+                   '--template-structure --file-format traveler {RFAM_DATA}/{rfam_acc}/traveler-template.xml {RFAM_DATA}/{rfam_acc}/{rfam_acc}-traveler.fasta '
+                   '--all {destination}/{seq_id} '
+                   '> {destination}/{seq_id}.log' ).format(
                        seq_id=seq_id.replace('/', '-'),
-                       rfam_acc=rfam_acc
+                       rfam_acc=rfam_acc,
+                       destination=destination,
+                       RFAM_DATA=RFAM_DATA
                     )
             print(cmd)
             os.system(cmd)
 
-            cmd = 'rm -f output/{rfam_acc}/*.xml output/{rfam_acc}/*.ps'.format(rfam_acc=rfam_acc)
+            cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(destination)
             os.system(cmd)
 
 
 
 @click.command()
 @click.argument('rfam_accession', default='RF00001')
-@click.option('--fasta', default=None, help='Sequences to be analysed (by default Rfam hits are analysed)')
+@click.argument('output_folder', default='temp', type=click.Path())
+@click.option('--fasta_input', default=None, help='Sequences to be analysed (by default Rfam hits are analysed)')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-def main(rfam_accession, fasta, test):
+def main(rfam_accession, output_folder, fasta_input, test):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
 
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
-
     print(rfam_accession)
     if rfam_accession == 'all':
         rfam_accs = get_all_rfam_acc()
@@ -348,7 +353,7 @@ def main(rfam_accession, fasta, test):
 
     for rfam_acc in rfam_accs:
         rscape2traveler(rfam_acc)
-        generate_2d(rfam_acc, fasta, test)
+        generate_2d(rfam_acc, output_folder, fasta_input, test)
 
 
 if __name__ == '__main__':
