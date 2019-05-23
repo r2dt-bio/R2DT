@@ -177,7 +177,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     """
     Convert R-scape SVG into SVG with 1 line per element.
     """
-    output = os.path.join(destination, 'rscape-one-line.svg'
+    output = os.path.join(destination, 'rscape-one-line.svg')
     cmd = (r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | "
            r"perl -0777 -pe 's/\n d=/ d=/g' | "
            r"perl -0777 -pe 's/\n +<tspan/ <tspan/g' | "
