@@ -17,8 +17,6 @@ import glob
 import os
 import re
 
-import click
-
 RFAM_DATA = '/rna/auto-traveler/data/rfam'
 
 # these RNAs are better handled by `auto-traveler.py`
@@ -392,32 +390,3 @@ def has_structure(rfam_acc):
         for line in f.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
-
-
-@click.command()
-@click.argument('rfam_accession', default='RF00162') # SAM riboswitch
-@click.argument('output_folder', default='temp', type=click.Path())
-@click.option('--fasta_input', default=None, help='Sequences to be analysed (by default Rfam hits are analysed)')
-@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-def main(rfam_accession, output_folder, fasta_input, test):
-    """
-    Visualise sequences using the Rfam/R-scape consensus structure as template.
-
-    RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
-    """
-    print(rfam_accession)
-    if rfam_accession == 'all':
-        rfam_accs = get_all_rfam_acc()
-    else:
-        rfam_accs = [rfam_accession]
-
-    for rfam_acc in rfam_accs:
-        if has_structure(rfam_acc):
-            rscape2traveler(rfam_acc)
-            generate_2d(rfam_acc, output_folder, fasta_input, test)
-        else:
-            print('{} does not have a conserved secondary structure'.format(rfam_acc))
-
-
-if __name__ == '__main__':
-    main()

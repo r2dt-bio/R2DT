@@ -18,6 +18,8 @@ import os
 
 import click
 
+from utils.auto_traveler_rfam import get_all_rfam_acc, has_structure, rscape2traveler, generate_2d
+
 
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
 CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
@@ -40,14 +42,27 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library):
     return f_out
 
 
-@click.command()
-@click.option('--cm-library', default=CM_LIBRARY)
-@click.option('--ps-library', default=CRW_PS_LIBRARY)
-@click.option('--fasta-library', default=CRW_FASTA_LIBRARY)
-@click.argument('fasta-input', type=click.Path())
-@click.argument('output_folder', type=click.Path())
-def main(fasta_input, output_folder, cm_library=None, ps_library=None, fasta_library=None):
+def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test):
+    """
+    Visualise sequences using the Rfam/R-scape consensus structure as template.
 
+    RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
+    """
+    print(rfam_accession)
+    if rfam_accession == 'all':
+        rfam_accs = get_all_rfam_acc()
+    else:
+        rfam_accs = [rfam_accession]
+
+    for rfam_acc in rfam_accs:
+        if has_structure(rfam_acc):
+            rscape2traveler(rfam_acc)
+            generate_2d(rfam_acc, output_folder, fasta_input, test)
+        else:
+            print('{} does not have a conserved secondary structure'.format(rfam_acc))
+
+
+def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library):
     os.system('mkdir -p %s' % output_folder)
 
     with open(get_ribotyper_output(fasta_input, output_folder, cm_library), 'r') as f:
@@ -101,6 +116,23 @@ def main(fasta_input, output_folder, cm_library=None, ps_library=None, fasta_lib
                 out.write(str(overlaps))
                 out.write('\n')
 
+
+@click.command()
+@click.option('--fasta-input', type=click.Path(), default='examples/examples.fasta')
+@click.option('--output-folder', type=click.Path(), default='temp')
+@click.option('--cm-library', type=click.Path(), default=CM_LIBRARY)
+@click.option('--ps-library', type=click.Path(), default=CRW_PS_LIBRARY)
+@click.option('--fasta-library', type=click.Path(), default=CRW_FASTA_LIBRARY)
+@click.option('--rfam-accession', required=False, help='Rfam accession (e.g. RF00162)')
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+def main(fasta_input, output_folder, test, rfam_accession=None, cm_library=None, ps_library=None, fasta_library=None):
+    """
+    Generate RNA secondary structure using templates.
+    """
+    if rfam_accession:
+        auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test)
+    else:
+        auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library)
 
 
 if __name__ == '__main__':
