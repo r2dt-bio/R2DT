@@ -51,13 +51,13 @@ RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
 
 COPY examples examples/
 
-# Install RNAStructure
-RUN \
-    wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
-    tar -xvzf RNAstructureSource.tgz && \
-    rm RNAstructureSource.tgz && \
-    cd RNAstructure && \
-    make all
+# # Install RNAStructure
+# RUN \
+#     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
+#     tar -xvzf RNAstructureSource.tgz && \
+#     rm RNAstructureSource.tgz && \
+#     cd RNAstructure && \
+#     make all
 
 # Install pip
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python get-pip.py
