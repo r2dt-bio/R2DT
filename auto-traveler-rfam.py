@@ -20,7 +20,20 @@ import re
 import click
 
 RFAM_DATA = '/rna/auto-traveler/data/rfam'
-BLACKLIST = ['RF02541', 'RF00177', 'RF01960', 'RF02540', 'RF02543', 'RF01959', 'RF02542', 'RF02546', 'RF02545']
+
+# these RNAs are better handled by `auto-traveler.py`
+BLACKLIST = [
+    'RF00001', # 5S
+    'RF02541', # LSU_rRNA_bacteria
+    'RF00177', # SSU_rRNA_bacteria
+    'RF01960', # SSU_rRNA_eukarya
+    'RF02540', # LSU_rRNA_archaea
+    'RF02543', # LSU_rRNA_eukarya
+    'RF01959', # SSU_rRNA_archaea
+    'RF02542', # SSU_rRNA_microsporidia
+    'RF02546', # LSU_trypano_mito
+    'RF02545', # SSU_trypano_mito
+]
 
 
 def generate_traveler_fasta(rfam_acc):
