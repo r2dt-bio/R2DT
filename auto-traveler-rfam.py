@@ -340,7 +340,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
                         if '<' in line:
                             has_conserved_structure = True
                         else:
-                            print('This RNA does not have conserved structure')
+                            print('This RNA does not have a conserved structure')
                         break
 
             if not has_conserved_structure:
@@ -386,9 +386,16 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
                 out.write('\n')
 
 
+def has_structure(rfam_acc):
+    no_structure = []
+    with open(os.path.join(RFAM_DATA, 'no_structure.txt'), 'r') as f:
+        for line in f.readlines():
+            no_structure.append(line.strip())
+    return rfam_acc not in no_structure
+
 
 @click.command()
-@click.argument('rfam_accession', default='RF00001')
+@click.argument('rfam_accession', default='RF00162') # SAM riboswitch
 @click.argument('output_folder', default='temp', type=click.Path())
 @click.option('--fasta_input', default=None, help='Sequences to be analysed (by default Rfam hits are analysed)')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
@@ -405,8 +412,11 @@ def main(rfam_accession, output_folder, fasta_input, test):
         rfam_accs = [rfam_accession]
 
     for rfam_acc in rfam_accs:
-        rscape2traveler(rfam_acc)
-        generate_2d(rfam_acc, output_folder, fasta_input, test)
+        if has_structure(rfam_acc):
+            rscape2traveler(rfam_acc)
+            generate_2d(rfam_acc, output_folder, fasta_input, test)
+        else:
+            print('{} does not have a conserved secondary structure'.format(rfam_acc))
 
 
 if __name__ == '__main__':
