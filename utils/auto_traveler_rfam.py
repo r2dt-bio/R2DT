@@ -34,6 +34,13 @@ BLACKLIST = [
 ]
 
 
+def echo_blacklist():
+    for family in BLACKLIST:
+        print(family)
+    cmd = 'cat {}'.format(os.path.join(RFAM_DATA, 'no_structure.txt'))
+    os.system(cmd)
+
+
 def generate_traveler_fasta(rfam_acc):
     """
     Generate fasta format for Rfam consensus.

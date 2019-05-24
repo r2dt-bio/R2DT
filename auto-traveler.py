@@ -18,7 +18,7 @@ import os
 
 import click
 
-from utils.auto_traveler_rfam import get_all_rfam_acc, has_structure, rscape2traveler, generate_2d
+from utils.auto_traveler_rfam import get_all_rfam_acc, has_structure, rscape2traveler, generate_2d, echo_blacklist
 
 
 CM_LIBRARY = '/rna/auto-traveler/data/cms'
@@ -125,10 +125,15 @@ def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, 
 @click.option('--fasta-library', type=click.Path(), default=CRW_FASTA_LIBRARY)
 @click.option('--rfam-accession', required=False, help='Rfam accession (e.g. RF00162)')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-def main(fasta_input, output_folder, test, rfam_accession=None, cm_library=None, ps_library=None, fasta_library=None):
+@click.option('--rfam-blacklist', default=False, is_flag=True, help='Print the list of unsupported Rfam families')
+def main(fasta_input, output_folder, test, rfam_blacklist, rfam_accession=None, cm_library=None, ps_library=None, fasta_library=None):
     """
     Generate RNA secondary structure using templates.
     """
+    if rfam_blacklist:
+        echo_blacklist()
+        return
+
     if rfam_accession:
         auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test)
     else:
