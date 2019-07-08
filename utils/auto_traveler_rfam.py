@@ -17,7 +17,9 @@ import glob
 import os
 import re
 
-RFAM_DATA = '/rna/auto-traveler/data/rfam'
+here = os.path.realpath(__file__)
+base = os.path.join(here, '..')
+RFAM_DATA = os.path.join(base, 'data', 'rfam')
 
 # these RNAs are better handled by `auto-traveler.py`
 BLACKLIST = [
