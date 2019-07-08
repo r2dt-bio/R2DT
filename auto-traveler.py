@@ -18,19 +18,24 @@ import os
 
 import click
 
-from utils.auto_traveler_rfam import get_all_rfam_acc, has_structure, rscape2traveler, generate_2d, echo_blacklist
+from utils import auto_traveler_rfam as auto_rfam
 
 
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
-CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
-CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
+here = os.path.realpath(os.path.dirname(__file__))
+data = os.path.join(here, 'data')
+CM_LIBRARY = os.path.join(data, 'cms')
+CRW_PS_LIBRARY = os.path.join(data, 'crw-ps')
+CRW_FASTA_LIBRARY = os.path.join(data, 'crw-fasta-no-pseudoknots') 
+RFAM_DATA = os.path.join(data, 'rfam')
+
+CMS_URL = 'https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0'
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
     ribotyper_long_out = os.path.join(output_folder, os.path.basename(output_folder) + '.ribotyper.long.out')
     if not os.path.exists(ribotyper_long_out):
-        cmd = 'ribotyper.pl -i {CM_LIBRARY}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
-            CM_LIBRARY=cm_library,
+        cmd = 'ribotyper.pl -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
+            cm_library=cm_library,
             fasta_input=fasta_input,
             output_folder=output_folder
         )
@@ -117,28 +122,73 @@ def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, 
                 out.write('\n')
 
 
-@click.command()
-@click.option('--fasta-input', type=click.Path(), default='examples/examples.fasta')
-@click.option('--output-folder', type=click.Path(), default='temp')
+@click.group()
+def cli():
+    pass
+
+
+@cli.group('rrna')
+def rrna_group():
+    pass
+
+
+@rrna_group.command('setup')
+@click.option('--cms-url', default=CMS_URL)
+def rrna_fetch(cms_url=None):
+    cms = 'cms.tar.gz'
+    cmd = 'wget -O {cms} {url} && tar xf {cms}'
+    os.system(cmd.format(url=cms_url, cms=cms))
+
+@rrna_group.command('draw')
 @click.option('--cm-library', type=click.Path(), default=CM_LIBRARY)
 @click.option('--ps-library', type=click.Path(), default=CRW_PS_LIBRARY)
 @click.option('--fasta-library', type=click.Path(), default=CRW_FASTA_LIBRARY)
-@click.option('--rfam-accession', required=False, help='Rfam accession (e.g. RF00162)')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-@click.option('--rfam-blacklist', default=False, is_flag=True, help='Print the list of unsupported Rfam families')
-def main(fasta_input, output_folder, test, rfam_blacklist, rfam_accession=None, cm_library=None, ps_library=None, fasta_library=None):
-    """
-    Generate RNA secondary structure using templates.
-    """
-    if rfam_blacklist:
-        echo_blacklist()
-        return
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rrna_draw(
+    fasta_input, 
+    output_folder,
+    cm_library=None, 
+    ps_library=None, 
+    fasta_library=None, 
+    test=None,
+):
+    auto_traveler_ribotyper(
+        fasta_input, 
+        output_folder, 
+        cm_library, 
+        ps_library, 
+        fasta_library,
+    )
 
-    if rfam_accession:
-        auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test)
-    else:
-        auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library)
+
+@cli.group('rfam')
+def rfam_group():
+    pass
+
+
+@rfam_group.command('blacklist')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+def rfam_blacklist(rfam_data=None):
+    auto_rfam.echo_blacklist(rfam_data)
+
+
+@rfam_group.command('setup')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+def rfam_fetch(rfam_data=None):
+    auto_rfam.fetch_data(rfam_data)
+
+
+@rfam_group.command('draw')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+@click.argument('rfam_accession')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rfam_draw(rfam_accession, fasta_input, output_folder, data=None, test=None):
+    auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, data=data)
 
 
 if __name__ == '__main__':
-    main()
+    cli()

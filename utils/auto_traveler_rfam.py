@@ -17,10 +17,6 @@ import glob
 import os
 import re
 
-here = os.path.realpath(os.path.dirname(__file__))
-base = os.path.join(here, '..')
-RFAM_DATA = os.path.abspath(os.path.join(base, 'data', 'rfam'))
-
 # these RNAs are better handled by `auto-traveler.py`
 BLACKLIST = [
     'RF00001', # 5S
@@ -36,14 +32,14 @@ BLACKLIST = [
 ]
 
 
-def echo_blacklist():
+def echo_blacklist(rfam_data):
     for family in BLACKLIST:
         print(family)
-    cmd = 'cat {}'.format(os.path.join(RFAM_DATA, 'no_structure.txt'))
+    cmd = 'cat {}'.format(os.path.join(rfam_data, 'no_structure.txt'))
     os.system(cmd)
 
 
-def generate_traveler_fasta(rfam_acc):
+def generate_traveler_fasta(rfam_data, rfam_acc):
     """
     Generate fasta format for Rfam consensus.
 
@@ -59,7 +55,7 @@ def generate_traveler_fasta(rfam_acc):
 
     # get a list of alignments
     seeds = []
-    for seed in glob.glob(os.path.join(RFAM_DATA, rfam_acc, '*.R2R.sto')):
+    for seed in glob.glob(os.path.join(rfam_data, rfam_acc, '*.R2R.sto')):
         seeds.append(seed)
     if len(seeds) != 1:
         print("Error: unusual number of seed alignments")
@@ -92,7 +88,7 @@ def generate_traveler_fasta(rfam_acc):
             ss_cons = ''.join(new_ss_cons)
             consensus = ''.join(new_consensus)
 
-        with open(os.path.join(RFAM_DATA, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
+        with open(os.path.join(rfam_data, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
             f.write('>{}\n'.format(rfam_acc))
             f.write('{}\n'.format(consensus.upper()))
             f.write('{}\n'.format(ss_cons))
@@ -129,8 +125,8 @@ def convert_path_to_text(line):
 
         return (text.format(new_x, new_y), xml.format(new_x, new_y))
     else:
-        print line
-        print 'convert_path_to_text did not find a match'
+        print(line)
+        print('convert_path_to_text did not find a match')
 
 
 def convert_text_to_xml(line):
@@ -147,12 +143,12 @@ def convert_text_to_xml(line):
         point = '<point x="{:.2f}" y="{:.2f}" b="{}"/>\n'
         return point.format(float(match.group(1)), float(match.group(3)), match.group(5))
     else:
-        print line
-        print 'convert_text_to_xml did not find a match'
+        print(line)
+        print('convert_text_to_xml did not find a match')
 
 
-def download_rfam_seed(rfam_acc):
-    output = os.path.join(RFAM_DATA, rfam_acc, '{}.seed'.format(rfam_acc))
+def download_rfam_seed(rfam_data, rfam_acc):
+    output = os.path.join(rfam_data, rfam_acc, '{}.seed'.format(rfam_acc))
     if not os.path.exists(output):
         url = 'http://rfam.org/family/{}/alignment'.format(rfam_acc)
         cmd = 'wget -O {output} {url}'.format(output=output, url=url)
@@ -160,14 +156,14 @@ def download_rfam_seed(rfam_acc):
     return output
 
 
-def get_all_rfam_acc():
+def get_all_rfam_acc(rfam_data):
     rfam_accs = []
-    family_file = os.path.join(RFAM_DATA, 'family.txt')
+    family_file = os.path.join(rfam_data, 'family.txt')
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
     with open(family_file, 'r') as f:
-        for line in f.readlines():
+        for line in f:
             if line.startswith('RF'):
                 rfam_acc = line[:7]
                 if rfam_acc in BLACKLIST:
@@ -197,11 +193,11 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     return seed_no_pk
 
 
-def run_rscape(rfam_acc, destination):
+def run_rscape(rfam_data, rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = download_rfam_seed(rfam_acc)
+    rfam_seed = download_rfam_seed(rfam_data, rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(rfam_seed_no_pk.replace('seed', 'out')):
         cmd = 'R-scape --outdir {folder} {rfam_seed}'.format(folder=destination, rfam_seed=rfam_seed_no_pk)
@@ -284,17 +280,24 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                 xml_out.write(xml_footer)
 
 
-def rscape2traveler(rfam_acc):
+def rscape2traveler(rfam_data, rfam_acc):
     """
     """
-    destination = os.path.join(RFAM_DATA, rfam_acc)
+    destination = os.path.join(rfam_data, rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    rscape_svg = run_rscape(rfam_acc, destination)
+    rscape_svg = run_rscape(rfam_data, rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
-    generate_traveler_fasta(rfam_acc)
+    generate_traveler_fasta(rfam_data, rfam_acc)
+
+
+def fetch_data(rfam_data):
+    accessions = get_all_rfam_acc(rfam_data)
+    for accession in accessions:
+        rscape2traveler(rfam_data, accession)
+        download_rfam_seed(rfam_data, accession)
 
 
 def generate_2d(rfam_acc, output_folder, fasta, test):
@@ -305,7 +308,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
 
     if not fasta:
         # use Rfam sequences
-        fasta_input = os.path.join(RFAM_DATA, rfam_acc, '{}.fa'.format(rfam_acc))
+        fasta_input = os.path.join(rfam_data, rfam_acc, '{}.fa'.format(rfam_acc))
         if not os.path.exists(fasta_input):
             url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz'.format(rfam_acc)
             cmd = 'wget -O {fasta_input}.gz {url} && gunzip {fasta_input}.gz'.format(url=url, fasta_input=fasta_input)
@@ -318,7 +321,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
         os.system(cmd)
 
     # download Rfam covariance model
-    rfam_cm = os.path.join('data', RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    rfam_cm = os.path.join('data', rfam_data, rfam_acc, rfam_acc + '.cm')
     if not os.path.exists(rfam_cm):
         url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
         cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
@@ -332,12 +335,12 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
             if test and i > 10:
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '')
-            print seq_id
+            print(seq_id)
 
             cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
             os.system(cmd)
 
-            cmd = "cmalign %s temp.fasta > temp.sto" % '{RFAM_DATA}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, RFAM_DATA=RFAM_DATA)
+            cmd = "cmalign %s temp.fasta > temp.sto" % '{rfam_data}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, rfam_data=rfam_data)
             os.system(cmd)
 
             has_conserved_structure = False
@@ -364,12 +367,12 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
             cmd = ('traveler '
                    '--verbose '
                    '--target-structure traveler-input.fasta '
-                   '--template-structure --file-format traveler {RFAM_DATA}/{rfam_acc}/traveler-template.xml {RFAM_DATA}/{rfam_acc}/{rfam_acc}-traveler.fasta '
+                   '--template-structure --file-format traveler {rfam_data}/{rfam_acc}/traveler-template.xml {rfam_data}/{rfam_acc}/{rfam_acc}-traveler.fasta '
                    '--all {result_base} '
                    '> {log}' ).format(
                        result_base=result_base,
                        rfam_acc=rfam_acc,
-                       RFAM_DATA=RFAM_DATA,
+                       rfam_data=rfam_data,
                        log=log
                     )
             print(cmd)
@@ -393,9 +396,9 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
                 out.write('\n')
 
 
-def has_structure(rfam_acc):
+def has_structure(rfam_data, rfam_acc):
     no_structure = []
-    with open(os.path.join(RFAM_DATA, 'no_structure.txt'), 'r') as f:
+    with open(os.path.join(rfam_data, 'no_structure.txt'), 'r') as f:
         for line in f.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
