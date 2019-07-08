@@ -176,8 +176,11 @@ def rfam_blacklist(rfam_data=None):
 
 @rfam_group.command('setup')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
-def rfam_fetch(rfam_data=None):
-    auto_rfam.fetch_data(rfam_data)
+@click.argument('accessions', nargs=-1)
+def rfam_fetch(accessions, rfam_data=None):
+    if not accessions:
+        accessions = 'all'
+    auto_rfam.fetch_data(rfam_data, accessions)
 
 
 @rfam_group.command('draw')

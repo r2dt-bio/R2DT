@@ -293,8 +293,11 @@ def rscape2traveler(rfam_data, rfam_acc):
     generate_traveler_fasta(rfam_data, rfam_acc)
 
 
-def fetch_data(rfam_data):
-    accessions = get_all_rfam_acc(rfam_data)
+def fetch_data(rfam_data, accessions):
+    possible = get_all_rfam_acc(rfam_data)
+    if accessions == 'all':
+        accessions = possible
+
     for accession in accessions:
         rscape2traveler(rfam_data, accession)
         download_rfam_seed(rfam_data, accession)
