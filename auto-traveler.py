@@ -47,7 +47,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library):
     return f_out
 
 
-def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test):
+def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test, rfam_data):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
 
@@ -55,14 +55,14 @@ def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test):
     """
     print(rfam_accession)
     if rfam_accession == 'all':
-        rfam_accs = get_all_rfam_acc()
+        rfam_accs = auto_rfam.get_all_rfam_acc()
     else:
         rfam_accs = [rfam_accession]
 
     for rfam_acc in rfam_accs:
-        if has_structure(rfam_acc):
-            rscape2traveler(rfam_acc)
-            generate_2d(rfam_acc, output_folder, fasta_input, test)
+        if auto_rfam.has_structure(rfam_data, rfam_acc):
+            auto_rfam.rscape2traveler(rfam_data, rfam_acc)
+            auto_rfam.generate_2d(rfam_data, rfam_acc, output_folder, fasta_input, test)
         else:
             print('{} does not have a conserved secondary structure'.format(rfam_acc))
 
@@ -190,7 +190,7 @@ def rfam_fetch(accessions, rfam_data=None):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
-    auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, data=data)
+    auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, rfam_data=rfam_data)
 
 
 if __name__ == '__main__':

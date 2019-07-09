@@ -17,6 +17,9 @@ import glob
 import os
 import re
 
+here = os.path.realpath(os.path.dirname(__file__))
+DATA = os.path.join(here, '..', 'data', 'rfam')
+
 # these RNAs are better handled by `auto-traveler.py`
 BLACKLIST = [
     'RF00001', # 5S
@@ -35,7 +38,7 @@ BLACKLIST = [
 def echo_blacklist(rfam_data):
     for family in BLACKLIST:
         print(family)
-    cmd = 'cat {}'.format(os.path.join(rfam_data, 'no_structure.txt'))
+    cmd = 'cat {}'.format(os.path.join(DATA, 'no_structure.txt'))
     os.system(cmd)
 
 
@@ -303,7 +306,7 @@ def fetch_data(rfam_data, accessions):
         download_rfam_seed(rfam_data, accession)
 
 
-def generate_2d(rfam_acc, output_folder, fasta, test):
+def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
 
     destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
@@ -324,7 +327,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
         os.system(cmd)
 
     # download Rfam covariance model
-    rfam_cm = os.path.join('data', rfam_data, rfam_acc, rfam_acc + '.cm')
+    rfam_cm = os.path.join(rfam_data, rfam_acc, rfam_acc + '.cm')
     if not os.path.exists(rfam_cm):
         url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
         cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
@@ -334,10 +337,10 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
     os.system(cmd.format(fasta_input))
 
     with open('headers.txt', 'r') as f:
-        for i, line in enumerate(f.readlines()):
+        for i, line in enumerate(f):
             if test and i > 10:
                 continue
-            seq_id = line.split(' ', 1)[0].replace('>', '')
+            seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
 
             cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
@@ -401,7 +404,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
 
 def has_structure(rfam_data, rfam_acc):
     no_structure = []
-    with open(os.path.join(rfam_data, 'no_structure.txt'), 'r') as f:
+    with open(os.path.join(DATA, 'no_structure.txt'), 'r') as f:
         for line in f.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
