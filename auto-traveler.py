@@ -189,7 +189,7 @@ def rfam_fetch(accessions, rfam_data=None):
 @click.argument('rfam_accession')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def rfam_draw(rfam_accession, fasta_input, output_folder, data=None, test=None):
+def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
     auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, data=data)
 
 
