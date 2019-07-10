@@ -365,17 +365,19 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
             cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
             os.system(cmd)
 
-            cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > traveler-input.fasta'
+            result_base = os.path.join(destination, seq_id.replace('/', '-'))
+            input_fasta = os.path.join(destination, seq_id + '.fasta')
+            cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > {fasta}'.format(fasta=input_fasta)
             os.system(cmd)
 
-            result_base = os.path.join(destination, seq_id.replace('/', '-'))
             log = result_base + '.log'
             cmd = ('traveler '
                    '--verbose '
-                   '--target-structure traveler-input.fasta '
+                   '--target-structure {fasta} '
                    '--template-structure --file-format traveler {rfam_data}/{rfam_acc}/traveler-template.xml {rfam_data}/{rfam_acc}/{rfam_acc}-traveler.fasta '
                    '--all {result_base} '
                    '> {log}' ).format(
+                       fasta=input_fasta,
                        result_base=result_base,
                        rfam_acc=rfam_acc,
                        rfam_data=rfam_data,
