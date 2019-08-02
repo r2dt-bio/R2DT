@@ -193,5 +193,13 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=N
     auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, rfam_data=rfam_data)
 
 
+@rfam_group.command('validate')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+@click.argument('rfam_accession')
+@click.argument('output', type=click.File('w'))
+def rfam_validate(rfam_accession, output, rfam_data):
+    output.write(rfam_accession + '\n')
+
+
 if __name__ == '__main__':
     cli()
