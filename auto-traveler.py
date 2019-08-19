@@ -172,13 +172,12 @@ def rfam_group():
 
 
 @rfam_group.command('blacklisted')
-@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
-def rfam_blacklist(rfam_data=None):
+def rfam_blacklist():
     """
     Show all blacklisted families. These include rRNA families as well as
     families that do not have any secondary structure. 
     """
-    for model in sorted(auto_rfam.blacklisted(rfam_data)):
+    for model in sorted(auto_rfam.blacklisted()):
         print(model)
 
 
@@ -220,7 +219,7 @@ def rfam_validate(rfam_accession, output, rfam_data):
     Check if the given Rfam accession is one that should be drawn. If so it will
     be output to the given file, otherwise it will not.
     """
-    if rfam_accession not in auto_rfam.blacklisted(rfam_data):
+    if rfam_accession not in auto_rfam.blacklisted():
         output.write(rfam_accession + '\n')
 
 

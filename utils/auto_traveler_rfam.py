@@ -37,7 +37,7 @@ BLACKLIST = [
 
 def blacklisted(rfam_data):
     blacklisted = set(BLACKLIST)
-    with open(os.path.join(rfam_data, 'no_structure.txt')) as raw:
+    with open(os.path.join(DATA, 'no_structure.txt')) as raw:
         blacklisted.update(l.strip() for l in raw)
     return blacklisted
 
