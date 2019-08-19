@@ -35,11 +35,11 @@ BLACKLIST = [
 ]
 
 
-def echo_blacklist(rfam_data):
-    for family in BLACKLIST:
-        print(family)
-    cmd = 'cat {}'.format(os.path.join(DATA, 'no_structure.txt'))
-    os.system(cmd)
+def blacklisted(rfam_data):
+    blacklisted = set(BLACKLIST)
+    with open(os.path.join(rfam_data, 'no_structure.txt')) as raw:
+        blacklisted.update(l.strip() for l in raw)
+    return blacklisted
 
 
 def generate_traveler_fasta(rfam_data, rfam_acc):

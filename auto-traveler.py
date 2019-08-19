@@ -165,19 +165,33 @@ def rrna_draw(
 
 @cli.group('rfam')
 def rfam_group():
+    """
+    Commands dealing with laying out sequences based upon Rfam models.
+    """
     pass
 
 
-@rfam_group.command('blacklist')
+@rfam_group.command('blacklisted')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
 def rfam_blacklist(rfam_data=None):
-    auto_rfam.echo_blacklist(rfam_data)
+    """
+    Show all blacklisted families. These include rRNA families as well as
+    families that do not have any secondary structure. 
+    """
+    for model in sorted(auto_rfam.blacklisted(rfam_data)):
+        print(model)
 
 
 @rfam_group.command('setup')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
 @click.argument('accessions', nargs=-1)
 def rfam_fetch(accessions, rfam_data=None):
+    """
+    Fetch data for a given Rfam family. This will be done automatically by the
+    pipeline if needed by the drawing step. If given the accession 'all' then
+    all Rfam models will be fetched. 
+    """
+
     if not accessions:
         accessions = 'all'
     auto_rfam.fetch_data(rfam_data, accessions)
@@ -190,6 +204,10 @@ def rfam_fetch(accessions, rfam_data=None):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
+    """
+    This will draw all sequences in the fasta file using the template from the
+    given Rfam family. Files will be produced into the given output folder. 
+    """
     auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, rfam_data=rfam_data)
 
 
@@ -198,7 +216,12 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=N
 @click.argument('rfam_accession')
 @click.argument('output', type=click.File('w'))
 def rfam_validate(rfam_accession, output, rfam_data):
-    output.write(rfam_accession + '\n')
+    """
+    Check if the given Rfam accession is one that should be drawn. If so it will
+    be output to the given file, otherwise it will not.
+    """
+    if rfam_accession not in auto_rfam.blacklisted(rfam_data):
+        output.write(rfam_accession + '\n')
 
 
 if __name__ == '__main__':
