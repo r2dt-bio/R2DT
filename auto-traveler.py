@@ -18,17 +18,24 @@ import os
 
 import click
 
+from utils import auto_traveler_rfam as auto_rfam
 
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
-CRW_PS_LIBRARY = '/rna/auto-traveler/data/crw-ps'
-CRW_FASTA_LIBRARY = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
+
+here = os.path.realpath(os.path.dirname(__file__))
+data = os.path.join(here, 'data')
+CM_LIBRARY = os.path.join(data, 'cms')
+CRW_PS_LIBRARY = os.path.join(data, 'crw-ps')
+CRW_FASTA_LIBRARY = os.path.join(data, 'crw-fasta-no-pseudoknots') 
+RFAM_DATA = os.path.join(data, 'rfam')
+
+CMS_URL = 'https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0'
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
     ribotyper_long_out = os.path.join(output_folder, os.path.basename(output_folder) + '.ribotyper.long.out')
     if not os.path.exists(ribotyper_long_out):
-        cmd = 'ribotyper.pl -i {CM_LIBRARY}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
-            CM_LIBRARY=cm_library,
+        cmd = 'ribotyper.pl -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
+            cm_library=cm_library,
             fasta_input=fasta_input,
             output_folder=output_folder
         )
@@ -40,14 +47,27 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library):
     return f_out
 
 
-@click.command()
-@click.option('--cm-library', default=CM_LIBRARY)
-@click.option('--ps-library', default=CRW_PS_LIBRARY)
-@click.option('--fasta-library', default=CRW_FASTA_LIBRARY)
-@click.argument('fasta-input', type=click.Path())
-@click.argument('output_folder', type=click.Path())
-def main(fasta_input, output_folder, cm_library=None, ps_library=None, fasta_library=None):
+def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test, rfam_data):
+    """
+    Visualise sequences using the Rfam/R-scape consensus structure as template.
 
+    RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
+    """
+    print(rfam_accession)
+    if rfam_accession == 'all':
+        rfam_accs = auto_rfam.get_all_rfam_acc()
+    else:
+        rfam_accs = [rfam_accession]
+
+    for rfam_acc in rfam_accs:
+        if auto_rfam.has_structure(rfam_data, rfam_acc):
+            auto_rfam.rscape2traveler(rfam_data, rfam_acc)
+            auto_rfam.generate_2d(rfam_data, rfam_acc, output_folder, fasta_input, test)
+        else:
+            print('{} does not have a conserved secondary structure'.format(rfam_acc))
+
+
+def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library):
     os.system('mkdir -p %s' % output_folder)
 
     with open(get_ribotyper_output(fasta_input, output_folder, cm_library), 'r') as f:
@@ -102,6 +122,106 @@ def main(fasta_input, output_folder, cm_library=None, ps_library=None, fasta_lib
                 out.write('\n')
 
 
+@click.group()
+def cli():
+    pass
+
+
+@cli.group('rrna')
+def rrna_group():
+    pass
+
+
+@rrna_group.command('setup')
+@click.option('--cms-url', default=CMS_URL)
+def rrna_fetch(cms_url=None):
+    cms = 'cms.tar.gz'
+    cmd = 'wget -O {cms} {url} && tar xf {cms}'
+    os.system(cmd.format(url=cms_url, cms=cms))
+
+@rrna_group.command('draw')
+@click.option('--cm-library', type=click.Path(), default=CM_LIBRARY)
+@click.option('--ps-library', type=click.Path(), default=CRW_PS_LIBRARY)
+@click.option('--fasta-library', type=click.Path(), default=CRW_FASTA_LIBRARY)
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rrna_draw(
+    fasta_input, 
+    output_folder,
+    cm_library=None, 
+    ps_library=None, 
+    fasta_library=None, 
+    test=None,
+):
+    auto_traveler_ribotyper(
+        fasta_input, 
+        output_folder, 
+        cm_library, 
+        ps_library, 
+        fasta_library,
+    )
+
+
+@cli.group('rfam')
+def rfam_group():
+    """
+    Commands dealing with laying out sequences based upon Rfam models.
+    """
+    pass
+
+
+@rfam_group.command('blacklisted')
+def rfam_blacklist():
+    """
+    Show all blacklisted families. These include rRNA families as well as
+    families that do not have any secondary structure. 
+    """
+    for model in sorted(auto_rfam.blacklisted()):
+        print(model)
+
+
+@rfam_group.command('setup')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+@click.argument('accessions', nargs=-1)
+def rfam_fetch(accessions, rfam_data=None):
+    """
+    Fetch data for a given Rfam family. This will be done automatically by the
+    pipeline if needed by the drawing step. If given the accession 'all' then
+    all Rfam models will be fetched. 
+    """
+
+    if not accessions:
+        accessions = 'all'
+    auto_rfam.fetch_data(rfam_data, accessions)
+
+
+@rfam_group.command('draw')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+@click.argument('rfam_accession')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
+    """
+    This will draw all sequences in the fasta file using the template from the
+    given Rfam family. Files will be produced into the given output folder. 
+    """
+    auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, rfam_data=rfam_data)
+
+
+@rfam_group.command('validate')
+@click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
+@click.argument('rfam_accession')
+@click.argument('output', type=click.File('w'))
+def rfam_validate(rfam_accession, output, rfam_data):
+    """
+    Check if the given Rfam accession is one that should be drawn. If so it will
+    be output to the given file, otherwise it will not.
+    """
+    if rfam_accession not in auto_rfam.blacklisted():
+        output.write(rfam_accession + '\n')
+
 
 if __name__ == '__main__':
-    main()
+    cli()

@@ -46,10 +46,27 @@ Run Docker container as shown above, then inside the container:
 cd auto-traveler
 
 # run traveler on all sequences from an example file:
-python auto-traveler.py examples/examples.fasta example-output
+python auto-traveler.py --fasta-input examples/examples.fasta --output-folder example-output
 
 # place your fasta file in a folder that is mounted in the container:
-python auto-traveler.py /path/to/input.fasta /path/to/output-folder
+python auto-traveler.py --fasta-input /path/to/input.fasta --output-folder /path/to/output-folder
+```
+
+For Rfam families, the sequence classification step can be skipped
+if the Rfam accession is provided:
+
+```
+# to process a specific Rfam family and store output in `rfam-output` folder
+python auto-traveler.py --rfam-accession RF00162 --output-folder rfam-output
+
+# to process all Rfam families
+python auto-traveler.py --rfam-accession all --output-folder rfam-output
+
+# to process sequences from a specific fasta file
+python auto-traveler.py --rfam-accession RF00162 --output-folder rfam-output --fasta_input /path/to/fasta
+
+# see help for more options
+python auto-traveler.py --help
 ```
 
 Additional commands:

@@ -1,4 +1,4 @@
-FROM gcc:4.9
+FROM gcc:6
 
 RUN apt-get update
 RUN apt-get install -y moreutils
@@ -30,7 +30,7 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git ch
 RUN git clone https://github.com/nawrockie/ribotyper-v1.git && cd ribotyper-v1 && git checkout 4cd7fe30f402edfa4669383a46d603c60ba6f608
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 82ee9f58238f856d128d4b44d9999a509edebdfe
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout scaling
 RUN cd $RNA/traveler/src && make build
 
 # Setup environmental variables
@@ -66,6 +66,14 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python get-pip.py
 ADD requirements.txt $RNA/auto-traveler/requirements.txt
 RUN pip install -r $RNA/auto-traveler/requirements.txt
 
+# Install R-scape
+RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
+    tar -xvzf rscape.tar.gz && \
+    rm rscape.tar.gz && \
+    cd rscape_v1.2.3 && \
+    ./configure && make && make install
+
+ENV PATH="/rna/rscape_v1.2.3/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 
