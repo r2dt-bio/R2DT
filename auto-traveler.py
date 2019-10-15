@@ -25,7 +25,7 @@ here = os.path.realpath(os.path.dirname(__file__))
 data = os.path.join(here, 'data')
 CM_LIBRARY = os.path.join(data, 'cms')
 CRW_PS_LIBRARY = os.path.join(data, 'crw-ps')
-CRW_FASTA_LIBRARY = os.path.join(data, 'crw-fasta-no-pseudoknots') 
+CRW_FASTA_LIBRARY = os.path.join(data, 'crw-fasta-no-pseudoknots')
 RFAM_DATA = os.path.join(data, 'rfam')
 
 CMS_URL = 'https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0'
@@ -147,18 +147,18 @@ def rrna_fetch(cms_url=None):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rrna_draw(
-    fasta_input, 
+    fasta_input,
     output_folder,
-    cm_library=None, 
-    ps_library=None, 
-    fasta_library=None, 
+    cm_library=None,
+    ps_library=None,
+    fasta_library=None,
     test=None,
 ):
     auto_traveler_ribotyper(
-        fasta_input, 
-        output_folder, 
-        cm_library, 
-        ps_library, 
+        fasta_input,
+        output_folder,
+        cm_library,
+        ps_library,
         fasta_library,
     )
 
@@ -175,7 +175,7 @@ def rfam_group():
 def rfam_blacklist():
     """
     Show all blacklisted families. These include rRNA families as well as
-    families that do not have any secondary structure. 
+    families that do not have any secondary structure.
     """
     for model in sorted(auto_rfam.blacklisted()):
         print(model)
@@ -188,7 +188,7 @@ def rfam_fetch(accessions, rfam_data=None):
     """
     Fetch data for a given Rfam family. This will be done automatically by the
     pipeline if needed by the drawing step. If given the accession 'all' then
-    all Rfam models will be fetched. 
+    all Rfam models will be fetched.
     """
 
     if not accessions:
@@ -205,7 +205,7 @@ def rfam_fetch(accessions, rfam_data=None):
 def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
     """
     This will draw all sequences in the fasta file using the template from the
-    given Rfam family. Files will be produced into the given output folder. 
+    given Rfam family. Files will be produced into the given output folder.
     """
     auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test=test, rfam_data=rfam_data)
 
