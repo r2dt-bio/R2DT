@@ -69,11 +69,12 @@ RUN pip install -r $RNA/auto-traveler/requirements.txt
 # Install R-scape
 RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
     tar -xvzf rscape.tar.gz && \
+    mv rscape_* rscape && \
     rm rscape.tar.gz && \
-    cd rscape_v1.2.3 && \
+    cd rscape && \
     ./configure && make && make install
 
-ENV PATH="/rna/rscape_v1.2.3/bin:$PATH"
+ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 
