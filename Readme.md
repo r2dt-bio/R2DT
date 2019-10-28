@@ -17,10 +17,15 @@ using the top scoring covariance model.
 
 ## Installation
 
-Download a precomputed library of covariance models:
-https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0
+![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/auto-traveler)
 
-Uncompress it and place the folder in `auto-traveler/data/cms`.
+Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/auto-traveler):
+
+```
+docker pull rnacentral/auto-traveler
+```
+
+or build your own Docker image:
 
 ```
 # Get the code:
