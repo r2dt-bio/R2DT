@@ -67,6 +67,64 @@ def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test, rfam_da
             print('{} does not have a conserved secondary structure'.format(rfam_acc))
 
 
+def auto_traveler_lsu(fasta_input, output_folder, test):
+    os.system('mkdir -p %s' % output_folder)
+
+    cm_library = os.path.join(data, 'ribovision', 'cms')
+    traveler_templates = os.path.join(data, 'ribovision', 'traveler')
+    ribovision_bpseq = os.path.join(data, 'ribovision', 'bpseq')
+
+    with open(get_ribotyper_output(fasta_input, output_folder, cm_library), 'r') as f:
+        for line in f.readlines():
+            rnacentral_id, model_id, _ = line.split('\t')
+
+            cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, rnacentral_id)
+            os.system(cmd)
+
+            cmd = "cmalign %s.cm temp.fasta > temp.sto" % os.path.join(cm_library, model_id)
+            os.system(cmd)
+
+            cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
+            os.system(cmd)
+
+            cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > %s/%s-%s.fasta' % (output_folder, rnacentral_id, model_id)
+            os.system(cmd)
+
+            result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
+                rnacentral_id=rnacentral_id,
+                model_id=model_id,
+            ))
+
+            log = result_base + '.log'
+            cmd = ('traveler '
+                   '--verbose '
+                   '--target-structure {result_base}.fasta '
+                   '--template-structure --file-format traveler {traveler_templates}/{model_id}.tr {ribovision_bpseq}/{model_id}.fasta '
+                   '--all {result_base} > {log}').format(
+                       result_base=result_base,
+                       model_id=model_id,
+                       log=log,
+                       traveler_templates=traveler_templates,
+                       ribovision_bpseq=ribovision_bpseq
+                   )
+            print(cmd)
+            os.system(cmd)
+
+            overlaps = 0
+            with open(log, 'r') as raw:
+                for line in raw:
+                    match = re.search(r'Overlaps count: (\d+)', line)
+                    if match:
+                        if overlaps:
+                            print('ERROR: Saw too many overlap counts')
+                            break
+                        overlaps = int(match.group(1))
+
+            with open(result_base + '.overlaps', 'w') as out:
+                out.write(str(overlaps))
+                out.write('\n')
+
+
 def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library):
     os.system('mkdir -p %s' % output_folder)
 
@@ -161,6 +219,12 @@ def rrna_draw(
         ps_library,
         fasta_library,
     )
+
+@rrna_group.command('lsu')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rfam_lsu(fasta_input, output_folder, test=None):
+    auto_traveler_lsu(fasta_input, output_folder, test)
 
 
 @cli.group('rfam')

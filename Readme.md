@@ -64,6 +64,7 @@ Run examples:
 ```
 # test using example rRNA sequences:
 python auto-traveler.py rrna draw examples/examples.fasta temp/examples --test
+python auto-traveler.py rrna lsu examples/lsu-examples.fasta temp/lsu-examples
 
 # see help for more options
 python auto-traveler.py --help
