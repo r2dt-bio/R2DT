@@ -23,7 +23,8 @@ from utils import auto_traveler_rfam as auto_rfam
 
 here = os.path.realpath(os.path.dirname(__file__))
 data = os.path.join(here, 'data')
-CM_LIBRARY = os.path.join(data, 'cms')
+
+CRW_CM_LIBRARY = os.path.join(data, 'crw-cms')
 CRW_PS_LIBRARY = os.path.join(data, 'crw-ps')
 CRW_FASTA_LIBRARY = os.path.join(data, 'crw-fasta-no-pseudoknots')
 RFAM_DATA = os.path.join(data, 'rfam')
@@ -198,7 +199,7 @@ def rrna_fetch(cms_url=None):
     os.system(cmd.format(url=cms_url, cms=cms))
 
 @rrna_group.command('draw')
-@click.option('--cm-library', type=click.Path(), default=CM_LIBRARY)
+@click.option('--cm-library', type=click.Path(), default=CRW_CM_LIBRARY)
 @click.option('--ps-library', type=click.Path(), default=CRW_PS_LIBRARY)
 @click.option('--fasta-library', type=click.Path(), default=CRW_FASTA_LIBRARY)
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')

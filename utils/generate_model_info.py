@@ -18,7 +18,7 @@ import glob
 import click
 
 
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
+CM_LIBRARY = '/rna/auto-traveler/data/crw-cms'
 
 
 @click.command()

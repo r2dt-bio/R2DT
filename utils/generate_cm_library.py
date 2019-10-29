@@ -17,7 +17,7 @@ import glob
 
 
 BPSEQ_LOCATION = '/rna/auto-traveler/data/crw-bpseq'
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
+CRW_CM_LIBRARY = '/rna/auto-traveler/data/crw-cms'
 CRW_FASTA_NO_PSEUDOKNOTS = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
 
 
@@ -71,7 +71,7 @@ def copy_cm_evalues(cm):
     os.system('rm {}.old'.format(cm))
 
 
-def build_cm(stockholm, cm_library=CM_LIBRARY):
+def build_cm(stockholm, cm_library=CRW_CM_LIBRARY):
     cm = os.path.join(cm_library, os.path.basename(stockholm).replace('.sto', '.cm'))
     if not os.path.exists(cm):
         cmd = 'cmbuild {cm} {stockholm}'.format(
