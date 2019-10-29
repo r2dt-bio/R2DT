@@ -17,9 +17,6 @@ import glob
 import os
 import re
 
-import io
-import six
-
 here = os.path.realpath(os.path.dirname(__file__))
 DATA = os.path.join(here, '..', 'data', 'rfam')
 
@@ -168,7 +165,7 @@ def get_all_rfam_acc(rfam_data):
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
-    with io.open(family_file, 'rb') as f:
+    with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
             if line.startswith('RF'):
                 rfam_acc = line[:7]
