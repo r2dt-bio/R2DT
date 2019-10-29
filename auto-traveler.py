@@ -126,7 +126,7 @@ def auto_traveler_lsu(fasta_input, output_folder, test):
                 out.write('\n')
 
 
-def auto_traveler_ribotyper(fasta_input, output_folder, cm_library, ps_library, fasta_library):
+def auto_traveler_crw(fasta_input, output_folder, cm_library, ps_library, fasta_library):
     os.system('mkdir -p %s' % output_folder)
 
     with open(get_ribotyper_output(fasta_input, output_folder, cm_library), 'r') as f:
@@ -213,7 +213,7 @@ def rrna_draw(
     fasta_library=None,
     test=None,
 ):
-    auto_traveler_ribotyper(
+    auto_traveler_crw(
         fasta_input,
         output_folder,
         cm_library,
@@ -255,7 +255,6 @@ def rfam_fetch(accessions, rfam_data=None):
     pipeline if needed by the drawing step. If given the accession 'all' then
     all Rfam models will be fetched.
     """
-
     if not accessions:
         accessions = 'all'
     auto_rfam.fetch_data(rfam_data, accessions)
