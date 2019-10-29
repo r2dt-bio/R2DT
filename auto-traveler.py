@@ -194,7 +194,7 @@ def rrna_group():
 @click.option('--cms-url', default=CMS_URL)
 def rrna_fetch(cms_url=None):
     cms = 'cms.tar.gz'
-    cmd = 'wget -O {cms} {url} && tar xf {cms}'
+    cmd = 'wget -O {cms} {url} && tar xf {cms} && rm cms.tar.gz'
     os.system(cmd.format(url=cms_url, cms=cms))
 
 @rrna_group.command('draw')
