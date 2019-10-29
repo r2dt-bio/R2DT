@@ -20,7 +20,7 @@ from .generate_cm_library import build_cm, convert_fasta_to_stockholm
 
 here = os.path.realpath(os.path.dirname(__file__))
 project_folder = os.path.dirname(here)
-ribovision_folder = os.path.join(data_folder, 'data', 'ribovision')
+ribovision_folder = os.path.join(project_folder, 'data', 'ribovision')
 
 BPSEQ_LOCATION = os.path.join(ribovision_folder, 'bpseq')
 CM_LIBRARY = os.path.join(ribovision_folder, 'cms')
