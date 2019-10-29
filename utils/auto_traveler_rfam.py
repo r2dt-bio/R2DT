@@ -36,10 +36,10 @@ BLACKLIST = [
 
 
 def blacklisted():
-    blacklisted = set(BLACKLIST)
+    bad = set(BLACKLIST)
     with open(os.path.join(DATA, 'no_structure.txt')) as raw:
-        blacklisted.update(l.strip() for l in raw)
-    return blacklisted
+        bad.update(l.strip() for l in raw)
+    return bad
 
 
 def generate_traveler_fasta(rfam_data, rfam_acc):
