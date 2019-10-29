@@ -385,6 +385,7 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
                     )
             print(cmd)
             os.system(cmd)
+            os.system('rm temp.fasta temp.sto temp.stk')
 
             cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(destination)
             os.system(cmd)
@@ -402,6 +403,7 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
             with open(result_base + '.overlaps', 'w') as out:
                 out.write(str(overlaps))
                 out.write('\n')
+    os.system('rm headers.txt')
 
 
 def has_structure(rfam_data, rfam_acc):

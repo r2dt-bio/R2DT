@@ -110,6 +110,7 @@ def auto_traveler_lsu(fasta_input, output_folder, test):
                    )
             print(cmd)
             os.system(cmd)
+            os.system('rm temp.fasta temp.sto temp.stk')
 
             overlaps = 0
             with open(log, 'r') as raw:
@@ -165,6 +166,7 @@ def auto_traveler_crw(fasta_input, output_folder, cm_library, ps_library, fasta_
                    )
             print(cmd)
             os.system(cmd)
+            os.system('rm temp.fasta temp.sto temp.stk')
 
             overlaps = 0
             with open(log, 'r') as raw:
