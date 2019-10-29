@@ -191,7 +191,7 @@ def rrna_group():
 
 
 @rrna_group.command('setup')
-@click.option('--cms-url', default=CMS_URL)
+@click.option('--cms-url', default=CMS_URL, type=click.STRING)
 def rrna_fetch(cms_url=None):
     cms = 'cms.tar.gz'
     cmd = 'wget -O {cms} {url} && tar xf {cms} && rm cms.tar.gz'
@@ -247,7 +247,7 @@ def rfam_blacklist():
 
 @rfam_group.command('setup')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
-@click.argument('accessions', nargs=-1)
+@click.argument('accessions', type=click.STRING, nargs=-1)
 def rfam_fetch(accessions, rfam_data=None):
     """
     Fetch data for a given Rfam family. This will be done automatically by the
@@ -263,7 +263,7 @@ def rfam_fetch(accessions, rfam_data=None):
 @rfam_group.command('draw')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-@click.argument('rfam_accession')
+@click.argument('rfam_accession', type=click.STRING)
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=None):
@@ -276,7 +276,7 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, rfam_data=None, test=N
 
 @rfam_group.command('validate')
 @click.option('--rfam-data', type=click.Path(), default=RFAM_DATA)
-@click.argument('rfam_accession')
+@click.argument('rfam_accession', type=click.STRING)
 @click.argument('output', type=click.File('w'))
 def rfam_validate(rfam_accession, output, rfam_data):
     """
