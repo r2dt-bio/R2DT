@@ -61,7 +61,7 @@ def auto_traveler_rfam(rfam_accession, fasta_input, output_folder, test, rfam_da
         rfam_accs = [rfam_accession]
 
     for rfam_acc in rfam_accs:
-        if auto_rfam.has_structure(rfam_data, rfam_acc):
+        if auto_rfam.has_structure(rfam_acc):
             auto_rfam.rscape2traveler(rfam_data, rfam_acc)
             auto_rfam.generate_2d(rfam_data, rfam_acc, output_folder, fasta_input, test)
         else:

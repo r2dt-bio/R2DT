@@ -406,7 +406,7 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
     os.system('rm headers.txt')
 
 
-def has_structure(rfam_data, rfam_acc):
+def has_structure(rfam_acc):
     no_structure = []
     with open(os.path.join(DATA, 'no_structure.txt'), 'r') as f:
         for line in f.readlines():
