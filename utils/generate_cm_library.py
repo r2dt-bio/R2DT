@@ -88,12 +88,12 @@ def build_cm(stockholm, cm_library=CM_LIBRARY):
 def main():
 
     for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION)[:2]:
-        print os.path.basename(bpseq).replace('.bpseq', '')
+        print(os.path.basename(bpseq).replace('.bpseq', ''))
         fasta = convert_bpseq_to_fasta(bpseq)
         fasta_no_knots = break_pseudoknots(fasta)
         stockholm = convert_fasta_to_stockholm(fasta_no_knots)
         build_cm(stockholm)
-    print 'Done'
+    print('Done')
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ import os
 import glob
 
 
-from generate_cm_library import build_cm, convert_fasta_to_stockholm
+from .generate_cm_library import build_cm, convert_fasta_to_stockholm
 
 here = os.path.realpath(os.path.dirname(__file__))
 project_folder = os.path.dirname(here)
@@ -39,11 +39,11 @@ def convert_bpseq_to_fasta(bpseq):
 
 def main():
     for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION):
-        print os.path.basename(bpseq).replace('.bpseq', '')
+        print(os.path.basename(bpseq).replace('.bpseq', ''))
         fasta = convert_bpseq_to_fasta(bpseq)
         stockholm = convert_fasta_to_stockholm(fasta)
         build_cm(stockholm, CM_LIBRARY)
-    print 'Done'
+    print('Done')
 
 
 if __name__ == '__main__':

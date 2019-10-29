@@ -53,21 +53,21 @@ Perform one-time initial setup:
 cd auto-traveler
 
 # generate Ribotyper files and download rRNA covariance models (https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0)
-python auto-traveler.py rrna setup
+python3 auto-traveler.py rrna setup
 
 # download Rfam files and run R-scape
-python auto-traveler.py rfam setup
+python3 auto-traveler.py rfam setup
 ```
 
 Run examples:
 
 ```
 # test using example rRNA sequences:
-python auto-traveler.py rrna draw examples/examples.fasta temp/examples --test
-python auto-traveler.py rrna lsu examples/lsu-examples.fasta temp/lsu-examples
+python3 auto-traveler.py rrna draw examples/examples.fasta temp/examples --test
+python3 auto-traveler.py rrna lsu examples/lsu-examples.fasta temp/lsu-examples
 
 # see help for more options
-python auto-traveler.py --help
+python3 auto-traveler.py --help
 ```
 
 Additional commands:
@@ -77,11 +77,11 @@ Additional commands:
 perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
 
 # to generate covariance models:
-python utils/generate_cm_library.py
-python utils/generate_lsu_cm_library.py
+python3 utils/generate_cm_library.py
+python3 utils/generate_lsu_cm_library.py
 
-python utils/generate_model_info.py
-python utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type=LSU
+python3 utils/generate_model_info.py
+python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type=LSU
 ```
 
 ## Acknowledgements

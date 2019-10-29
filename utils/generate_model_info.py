@@ -25,7 +25,7 @@ CM_LIBRARY = '/rna/auto-traveler/data/cms'
 @click.option('--cm-library', default=CM_LIBRARY)
 @click.option('--rna-type', default='SSU')
 def main(cm_library, rna_type):
-    print 'Processing files in {}'.format(cm_library)
+    print('Processing files in {}'.format(cm_library))
 
     all_cm = 'all.cm'  # file with all CMs
     all_cm_path = os.path.join(cm_library, all_cm)
@@ -45,7 +45,7 @@ def main(cm_library, rna_type):
             model_name = os.path.basename(cm).replace('.cm', '')
             line = "%s    %s    Bacteria    %s\n" % (model_name, rna_type, os.path.basename(cm))
             f.write(line)
-    print 'Done'
+    print('Done')
 
 
 if __name__ == '__main__':
