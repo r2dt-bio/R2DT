@@ -17,7 +17,7 @@ import glob
 
 
 BPSEQ_LOCATION = '/rna/auto-traveler/data/crw-bpseq'
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
+CRW_CM_LIBRARY = '/rna/auto-traveler/data/crw-cms'
 CRW_FASTA_NO_PSEUDOKNOTS = '/rna/auto-traveler/data/crw-fasta-no-pseudoknots'
 
 
@@ -68,10 +68,11 @@ def copy_cm_evalues(cm):
         os.system(cmd)
     cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl RF00177.cm {cm}'.format(cm=cm)
     os.system(cmd)
+    os.system('rm {}.old'.format(cm))
 
 
-def build_cm(stockholm):
-    cm = os.path.join(CM_LIBRARY, os.path.basename(stockholm).replace('.sto', '.cm'))
+def build_cm(stockholm, cm_library=CRW_CM_LIBRARY):
+    cm = os.path.join(cm_library, os.path.basename(stockholm).replace('.sto', '.cm'))
     if not os.path.exists(cm):
         cmd = 'cmbuild {cm} {stockholm}'.format(
             cm=cm,
@@ -79,18 +80,20 @@ def build_cm(stockholm):
         )
         os.system(cmd)
         copy_cm_evalues(cm)
+    else:
+        print('CM already exists {}'.format(cm))
     return cm
 
 
 def main():
 
     for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION)[:2]:
-        print os.path.basename(bpseq).replace('.bpseq', '')
+        print(os.path.basename(bpseq).replace('.bpseq', ''))
         fasta = convert_bpseq_to_fasta(bpseq)
         fasta_no_knots = break_pseudoknots(fasta)
         stockholm = convert_fasta_to_stockholm(fasta_no_knots)
         build_cm(stockholm)
-    print 'Done'
+    print('Done')
 
 
 if __name__ == '__main__':

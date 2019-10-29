@@ -18,19 +18,20 @@ import glob
 import click
 
 
-CM_LIBRARY = '/rna/auto-traveler/data/cms'
+CM_LIBRARY = '/rna/auto-traveler/data/crw-cms'
 
 
 @click.command()
 @click.option('--cm-library', default=CM_LIBRARY)
-def main(cm_library=CM_LIBRARY):
-    print 'Processing files in {}'.format(cm_library)
+@click.option('--rna-type', default='SSU')
+def main(cm_library, rna_type):
+    print('Processing files in {}'.format(cm_library))
 
     all_cm = 'all.cm'  # file with all CMs
     all_cm_path = os.path.join(cm_library, all_cm)
 
     cmd = 'rm -f {all_cm_path} && cat {cm_library}/*.cm > {all_cm_path}'.format(
-        cm_library=cm_library, 
+        cm_library=cm_library,
         all_cm_path=all_cm_path,
     )
     os.system(cmd)
@@ -42,9 +43,9 @@ def main(cm_library=CM_LIBRARY):
             if all_cm in cm:
                 continue
             model_name = os.path.basename(cm).replace('.cm', '')
-            line = "%s    SSU    Bacteria    %s\n" % (model_name, os.path.basename(cm))
+            line = "%s    %s    Bacteria    %s\n" % (model_name, rna_type, os.path.basename(cm))
             f.write(line)
-    print 'Done'
+    print('Done')
 
 
 if __name__ == '__main__':

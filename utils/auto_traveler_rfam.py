@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Copyright [2009-present] EMBL-European Bioinformatics Institute
@@ -16,9 +16,6 @@ limitations under the License.
 import glob
 import os
 import re
-
-import io
-import six
 
 here = os.path.realpath(os.path.dirname(__file__))
 DATA = os.path.join(here, '..', 'data', 'rfam')
@@ -39,10 +36,10 @@ BLACKLIST = [
 
 
 def blacklisted():
-    blacklisted = set(BLACKLIST)
+    bad = set(BLACKLIST)
     with open(os.path.join(DATA, 'no_structure.txt')) as raw:
-        blacklisted.update(l.strip() for l in raw)
-    return blacklisted
+        bad.update(l.strip() for l in raw)
+    return bad
 
 
 def generate_traveler_fasta(rfam_data, rfam_acc):
@@ -168,7 +165,7 @@ def get_all_rfam_acc(rfam_data):
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
-    with io.open(family_file, 'rb') as f:
+    with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
             if line.startswith('RF'):
                 rfam_acc = line[:7]
@@ -388,6 +385,7 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
                     )
             print(cmd)
             os.system(cmd)
+            os.system('rm temp.fasta temp.sto temp.stk')
 
             cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(destination)
             os.system(cmd)
@@ -405,9 +403,10 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
             with open(result_base + '.overlaps', 'w') as out:
                 out.write(str(overlaps))
                 out.write('\n')
+    os.system('rm headers.txt')
 
 
-def has_structure(rfam_data, rfam_acc):
+def has_structure(rfam_acc):
     no_structure = []
     with open(os.path.join(DATA, 'no_structure.txt'), 'r') as f:
         for line in f.readlines():
