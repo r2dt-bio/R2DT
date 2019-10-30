@@ -36,7 +36,7 @@ git clone https://github.com/RNAcentral/auto-traveler.git
 cd auto-traveler
 
 # Build and tag a Docker image:
-docker build -t auto-traveler .
+docker build -t rnacentral/auto-traveler .
 ```
 
 ## Usage
@@ -44,7 +44,7 @@ docker build -t auto-traveler .
 Run Docker container and mount the current directory inside the container:
 
 ```
-docker run -it -v `pwd`:/rna/auto-traveler auto-traveler
+docker run -it -v `pwd`:/rna/auto-traveler rnacentral/auto-traveler
 ```
 
 Perform one-time initial setup:
