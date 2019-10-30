@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 Copyright [2009-present] EMBL-European Bioinformatics Institute
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +15,8 @@ import glob
 import os
 import re
 
-here = os.path.realpath(os.path.dirname(__file__))
-DATA = os.path.join(here, '..', 'data', 'rfam')
+from . import config
+
 
 # these RNAs are better handled by `auto-traveler.py`
 BLACKLIST = [
@@ -37,12 +35,35 @@ BLACKLIST = [
 
 def blacklisted():
     bad = set(BLACKLIST)
-    with open(os.path.join(DATA, 'no_structure.txt')) as raw:
+    with open(os.path.join(config.RFAM_DATA, 'no_structure.txt')) as raw:
         bad.update(l.strip() for l in raw)
     return bad
 
 
-def generate_traveler_fasta(rfam_data, rfam_acc):
+def get_rfam_cms():
+    """
+    Download non-blacklisted Rfam covariance models.
+    """
+    rfam_cm = os.path.join(config.RFAM_DATA, 'Rfam.cm')
+    rfam_ids = os.path.join(config.RFAM_DATA, 'rfam_ids.txt')
+    if not os.path.exists(rfam_cm):
+        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz && gunzip {0}.gz'.format(rfam_cm)
+        os.system(cmd)
+    if not os.path.exists(rfam_cm + '.ssi'):
+        os.system('cmfetch --index {}'.format(rfam_cm))
+    if not os.path.exists(rfam_ids):
+        cmd = "awk '/ACC   RF/ {{print $2}}' {} > {}".format(rfam_cm, rfam_ids)
+        os.system(cmd)
+    with open(rfam_ids, 'r') as f_in:
+        for line in f_in:
+            rfam_acc = line.strip()
+            cm_file = os.path.join(config.CM_LIBRARY, '{}.cm'.format(rfam_acc))
+            if rfam_acc not in blacklisted() and not os.path.exists(cm_file):
+                cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, cm_file)
+                os.system(cmd)
+
+
+def generate_traveler_fasta(rfam_acc):
     """
     Generate fasta format for Rfam consensus.
 
@@ -58,7 +79,7 @@ def generate_traveler_fasta(rfam_data, rfam_acc):
 
     # get a list of alignments
     seeds = []
-    for seed in glob.glob(os.path.join(rfam_data, rfam_acc, '*.R2R.sto')):
+    for seed in glob.glob(os.path.join(config.RFAM_DATA, rfam_acc, '*.R2R.sto')):
         seeds.append(seed)
     if len(seeds) != 1:
         print("Error: unusual number of seed alignments")
@@ -91,7 +112,7 @@ def generate_traveler_fasta(rfam_data, rfam_acc):
             ss_cons = ''.join(new_ss_cons)
             consensus = ''.join(new_consensus)
 
-        with open(os.path.join(rfam_data, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
+        with open(os.path.join(config.RFAM_DATA, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
             f.write('>{}\n'.format(rfam_acc))
             f.write('{}\n'.format(consensus.upper()))
             f.write('{}\n'.format(ss_cons))
@@ -150,8 +171,8 @@ def convert_text_to_xml(line):
         print('convert_text_to_xml did not find a match')
 
 
-def download_rfam_seed(rfam_data, rfam_acc):
-    output = os.path.join(rfam_data, rfam_acc, '{}.seed'.format(rfam_acc))
+def download_rfam_seed(rfam_acc):
+    output = os.path.join(config.RFAM_DATA, rfam_acc, '{}.seed'.format(rfam_acc))
     if not os.path.exists(output):
         url = 'http://rfam.org/family/{}/alignment'.format(rfam_acc)
         cmd = 'wget -O {output} {url}'.format(output=output, url=url)
@@ -159,9 +180,9 @@ def download_rfam_seed(rfam_data, rfam_acc):
     return output
 
 
-def get_all_rfam_acc(rfam_data):
+def get_all_rfam_acc():
     rfam_accs = []
-    family_file = os.path.join(rfam_data, 'family.txt')
+    family_file = os.path.join(config.RFAM_DATA, 'family.txt')
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
@@ -174,6 +195,19 @@ def get_all_rfam_acc(rfam_data):
                 rfam_accs.append(rfam_acc)
     print('Found {} Rfam accessions'.format(len(rfam_accs)))
     return rfam_accs
+
+
+def get_rfam_acc_by_id(rfam_id):
+    family_file = os.path.join(config.RFAM_DATA, 'family.txt')
+    if not os.path.exists(family_file):
+        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
+        os.system(cmd)
+    os.system('cut -f 1,2 {0} > {0}.short'.format(family_file))
+    with open(family_file + '.short') as f:
+        for line in f:
+            rfam_acc, rfam_identifier = line.split()
+            if rfam_id == rfam_identifier:
+                return rfam_acc
 
 
 def remove_pseudoknot_from_ss_cons(rfam_seed):
@@ -196,14 +230,14 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     return seed_no_pk
 
 
-def run_rscape(rfam_data, rfam_acc, destination):
+def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = download_rfam_seed(rfam_data, rfam_acc)
+    rfam_seed = download_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
-    if not os.path.exists(rfam_seed_no_pk.replace('seed', 'out')):
-        cmd = 'R-scape --outdir {folder} {rfam_seed}'.format(folder=destination, rfam_seed=rfam_seed_no_pk)
+    if not os.path.exists(os.path.join(destination, 'rscape.done')):
+        cmd = 'R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done'.format(folder=destination, rfam_seed=rfam_seed_no_pk)
         os.system(cmd)
 
     rscape_svg = None
@@ -283,30 +317,109 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                 xml_out.write(xml_footer)
 
 
-def rscape2traveler(rfam_data, rfam_acc):
+def rscape2traveler(rfam_acc):
     """
     """
-    destination = os.path.join(rfam_data, rfam_acc)
+    destination = os.path.join(config.RFAM_DATA, rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    rscape_svg = run_rscape(rfam_data, rfam_acc, destination)
+    rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
-    generate_traveler_fasta(rfam_data, rfam_acc)
+    generate_traveler_fasta(rfam_acc)
 
 
-def fetch_data(rfam_data, accessions):
-    possible = get_all_rfam_acc(rfam_data)
+def fetch_data(accessions):
+    possible = get_all_rfam_acc()
     if accessions == 'all':
         accessions = possible
 
     for accession in accessions:
-        rscape2traveler(rfam_data, accession)
-        download_rfam_seed(rfam_data, accession)
+        rscape2traveler(accession)
+        download_rfam_seed(accession)
 
 
-def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
+def download_rfam_cm(rfam_acc):
+    rfam_cm = os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    if not os.path.exists(rfam_cm):
+        os.system('mkdir -p {}'.format(os.path.join(config.RFAM_DATA, rfam_acc)))
+        url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
+        cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
+        os.system(cmd)
+
+
+def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
+    if not model_id.startswith('RF'):
+        rfam_acc = get_rfam_acc_by_id(model_id)
+    else:
+        rfam_acc = model_id
+    download_rfam_cm(rfam_acc)
+    rscape2traveler(rfam_acc)
+
+    cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
+    os.system(cmd)
+
+    cmd = "cmalign %s temp.fasta > temp.sto" % '{rfam_data}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, rfam_data=config.RFAM_DATA)
+    os.system(cmd)
+
+    has_conserved_structure = False
+    with open('temp.sto', 'r') as f:
+        for line in f.readlines():
+            if line.startswith('#=GC SS_cons '):
+                if '<' in line:
+                    has_conserved_structure = True
+                else:
+                    print('This RNA does not have a conserved structure')
+                break
+
+    if not has_conserved_structure:
+        return
+
+    cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
+    os.system(cmd)
+
+    result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
+    input_fasta = os.path.join(output_folder, seq_id + '.fasta')
+    cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > {fasta}'.format(fasta=input_fasta)
+    os.system(cmd)
+
+    log = result_base + '.log'
+    cmd = ('traveler '
+           '--verbose '
+           '--target-structure {fasta} '
+           '--template-structure --file-format traveler {rfam_data}/{rfam_acc}/traveler-template.xml {rfam_data}/{rfam_acc}/{rfam_acc}-traveler.fasta '
+           '--all {result_base} '
+           '> {log}' ).format(
+               fasta=input_fasta,
+               result_base=result_base,
+               rfam_acc=rfam_acc,
+               rfam_data=config.RFAM_DATA,
+               log=log
+            )
+    print(cmd)
+    os.system(cmd)
+    os.system('rm temp.fasta temp.sto temp.stk')
+
+    cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
+    os.system(cmd)
+
+    overlaps = 0
+    with open(log, 'r') as raw:
+        for line in raw:
+            match = re.search(r'Overlaps count: (\d+)', line)
+            if match:
+                if overlaps:
+                    print('ERROR: Saw too many overlap counts')
+                    break
+                overlaps = int(match.group(1))
+
+    with open(result_base + '.overlaps', 'w') as out:
+        out.write(str(overlaps))
+        out.write('\n')
+
+
+def generate_2d(rfam_acc, output_folder, fasta, test):
 
     destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
@@ -314,7 +427,7 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
 
     if not fasta:
         # use Rfam sequences
-        fasta_input = os.path.join(rfam_data, rfam_acc, '{}.fa'.format(rfam_acc))
+        fasta_input = os.path.join(config.RFAM_DATA, rfam_acc, '{}.fa'.format(rfam_acc))
         if not os.path.exists(fasta_input):
             url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz'.format(rfam_acc)
             cmd = 'wget -O {fasta_input}.gz {url} && gunzip {fasta_input}.gz'.format(url=url, fasta_input=fasta_input)
@@ -326,13 +439,6 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
         cmd = 'esl-sfetch --index {}'.format(fasta_input)
         os.system(cmd)
 
-    # download Rfam covariance model
-    rfam_cm = os.path.join(rfam_data, rfam_acc, rfam_acc + '.cm')
-    if not os.path.exists(rfam_cm):
-        url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
-        cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
-        os.system(cmd)
-
     cmd = "grep '>' {} > headers.txt"
     os.system(cmd.format(fasta_input))
 
@@ -342,73 +448,13 @@ def generate_2d(rfam_data, rfam_acc, output_folder, fasta, test):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-
-            cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
-            os.system(cmd)
-
-            cmd = "cmalign %s temp.fasta > temp.sto" % '{rfam_data}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, rfam_data=rfam_data)
-            os.system(cmd)
-
-            has_conserved_structure = False
-            with open('temp.sto', 'r') as f:
-                for line in f.readlines():
-                    if line.startswith('#=GC SS_cons '):
-                        if '<' in line:
-                            has_conserved_structure = True
-                        else:
-                            print('This RNA does not have a conserved structure')
-                        break
-
-            if not has_conserved_structure:
-                continue
-
-            cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
-            os.system(cmd)
-
-            result_base = os.path.join(destination, seq_id.replace('/', '-'))
-            input_fasta = os.path.join(destination, seq_id + '.fasta')
-            cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > {fasta}'.format(fasta=input_fasta)
-            os.system(cmd)
-
-            log = result_base + '.log'
-            cmd = ('traveler '
-                   '--verbose '
-                   '--target-structure {fasta} '
-                   '--template-structure --file-format traveler {rfam_data}/{rfam_acc}/traveler-template.xml {rfam_data}/{rfam_acc}/{rfam_acc}-traveler.fasta '
-                   '--all {result_base} '
-                   '> {log}' ).format(
-                       fasta=input_fasta,
-                       result_base=result_base,
-                       rfam_acc=rfam_acc,
-                       rfam_data=rfam_data,
-                       log=log
-                    )
-            print(cmd)
-            os.system(cmd)
-            os.system('rm temp.fasta temp.sto temp.stk')
-
-            cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(destination)
-            os.system(cmd)
-
-            overlaps = 0
-            with open(log, 'r') as raw:
-                for line in raw:
-                    match = re.search(r'Overlaps count: (\d+)', line)
-                    if match:
-                        if overlaps:
-                            print('ERROR: Saw too many overlap counts')
-                            break
-                        overlaps = int(match.group(1))
-
-            with open(result_base + '.overlaps', 'w') as out:
-                out.write(str(overlaps))
-                out.write('\n')
+            visualise_rfam(fasta_input, destination, seq_id, rfam_acc)
     os.system('rm headers.txt')
 
 
 def has_structure(rfam_acc):
     no_structure = []
-    with open(os.path.join(DATA, 'no_structure.txt'), 'r') as f:
+    with open(os.path.join(config.RFAM_DATA, 'no_structure.txt'), 'r') as f:
         for line in f.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
