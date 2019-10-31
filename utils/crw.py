@@ -49,7 +49,7 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
            )
     print(cmd)
     os.system(cmd)
-    os.system('rm temp.fasta temp.sto temp.stk')
+    os.system('rm -f temp.fasta temp.sto temp.stk')
 
     overlaps = 0
     with open(log, 'r') as raw:

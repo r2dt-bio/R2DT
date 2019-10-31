@@ -399,7 +399,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
             )
     print(cmd)
     os.system(cmd)
-    os.system('rm temp.fasta temp.sto temp.stk')
+    os.system('rm -f temp.fasta temp.sto temp.stk')
 
     cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
     os.system(cmd)
