@@ -52,19 +52,27 @@ Perform one-time initial setup:
 ```
 cd auto-traveler
 
-# generate Ribotyper files and download CRW rRNA covariance models (https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0)
-python3 auto-traveler.py rrna setup
+# prepare the library of all covariance models
+auto-traveler.py setup
+
+# generate R-scape templates
+auto-traveler.py rfam setup
+
+# run tests to verify that the installation worked
+python3 -m unittest
 ```
 
 Run examples:
 
 ```
-python3 auto-traveler.py rrna draw examples/crw-examples.fasta temp/examples
-python3 auto-traveler.py rrna lsu examples/lsu-examples.fasta temp/lsu-examples
-python3 auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/sam-example
+python3 auto-traveler.py draw examples/examples.fasta temp/examples
+```
 
-# see help for more options
-python3 auto-traveler.py --help
+For performance reasons you can run the following commands:
+```
+auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
+auto-traveler.py ribovision draw examples/lsu-examples.fasta temp/lsu-examples
+auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
 ```
 
 Additional commands:
