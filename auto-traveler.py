@@ -29,7 +29,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library):
     """
     ribotyper_long_out = os.path.join(output_folder, os.path.basename(output_folder) + '.ribotyper.long.out')
     if not os.path.exists(ribotyper_long_out):
-        cmd = 'ribotyper.pl -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
+        cmd = 'ribotyper.pl --skipval -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}'.format(
             cm_library=cm_library,
             fasta_input=fasta_input,
             output_folder=output_folder
