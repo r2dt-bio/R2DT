@@ -15,6 +15,7 @@ import glob
 import io
 import os
 import re
+import tempfile
 
 from . import config
 
@@ -358,14 +359,19 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     download_rfam_cm(rfam_acc)
     rscape2traveler(rfam_acc)
 
-    cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, seq_id)
+    temp_fasta = tempfile.NamedTemporaryFile()
+    temp_sto = tempfile.NamedTemporaryFile()
+    temp_stk = tempfile.NamedTemporaryFile()
+
+    cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     os.system(cmd)
 
-    cmd = "cmalign %s temp.fasta > temp.sto" % '{rfam_data}/{rfam_acc}/{rfam_acc}.cm'.format(rfam_acc=rfam_acc, rfam_data=config.RFAM_DATA)
+    cmd = "cmalign {rfam_data}/{rfam_acc}/{rfam_acc}.cm {temp_fasta} > {temp_sto}".format(rfam_acc=rfam_acc,
+        rfam_data=config.RFAM_DATA, temp_fasta=temp_fasta.name, temp_sto=temp_sto.name)
     os.system(cmd)
 
     has_conserved_structure = False
-    with open('temp.sto', 'r') as f:
+    with open(temp_sto.name, 'r') as f:
         for line in f.readlines():
             if line.startswith('#=GC SS_cons '):
                 if '<' in line:
@@ -377,12 +383,12 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if not has_conserved_structure:
         return
 
-    cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
+    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     os.system(cmd)
 
     result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
-    cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > {fasta}'.format(fasta=input_fasta)
+    cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     os.system(cmd)
 
     log = result_base + '.log'
@@ -398,9 +404,11 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
                rfam_data=config.RFAM_DATA,
                log=log
             )
-    print(cmd)
     os.system(cmd)
-    os.system('rm -f temp.fasta temp.sto temp.stk')
+
+    temp_fasta.close()
+    temp_sto.close()
+    temp_stk.close()
 
     cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
     os.system(cmd)

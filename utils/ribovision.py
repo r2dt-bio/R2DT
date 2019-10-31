@@ -13,21 +13,27 @@ limitations under the License.
 
 import os
 import re
+import tempfile
 
 from . import config
 
 
 def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
-    cmd = 'esl-sfetch %s %s > temp.fasta' % (fasta_input, rnacentral_id)
+
+    temp_fasta = tempfile.NamedTemporaryFile()
+    temp_sto = tempfile.NamedTemporaryFile()
+    temp_stk = tempfile.NamedTemporaryFile()
+
+    cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
     os.system(cmd)
 
-    cmd = "cmalign %s.cm temp.fasta > temp.sto" % os.path.join(config.RIBOVISION_CM_LIBRARY, model_id)
+    cmd = "cmalign %s.cm %s > %s" % (os.path.join(config.RIBOVISION_CM_LIBRARY, model_id), temp_fasta.name, temp_sto.name)
     os.system(cmd)
 
-    cmd = 'esl-alimanip --sindi --outformat pfam temp.sto > temp.stk'
+    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     os.system(cmd)
 
-    cmd = 'ali-pfam-sindi2dot-bracket.pl temp.stk > %s/%s-%s.fasta' % (output_folder, rnacentral_id, model_id)
+    cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
     os.system(cmd)
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
@@ -49,7 +55,10 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
            )
     print(cmd)
     os.system(cmd)
-    os.system('rm -f temp.fasta temp.sto temp.stk')
+
+    temp_fasta.close()
+    temp_sto.close()
+    temp_stk.close()
 
     overlaps = 0
     with open(log, 'r') as raw:
