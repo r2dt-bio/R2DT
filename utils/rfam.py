@@ -12,6 +12,7 @@ limitations under the License.
 """
 
 import glob
+import io
 import os
 import re
 
@@ -217,7 +218,7 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     running R-scape.
     """
     seed_no_pk = os.path.join(os.path.dirname(rfam_seed), 'nopk-' + os.path.basename(rfam_seed))
-    with open(rfam_seed, 'r') as f_seed_in:
+    with io.open(rfam_seed, 'r', encoding='latin-1') as f_seed_in:
         with open(seed_no_pk, 'w') as f_seed_out:
             for line in f_seed_in.readlines():
                 if line.startswith('#=GC SS_cons '):
