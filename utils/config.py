@@ -15,7 +15,8 @@ import os
 
 
 here = os.path.realpath(os.path.dirname(__file__))
-DATA = os.path.join(os.path.dirname(here), 'data')
+PROJECT_HOME = os.path.dirname(here)
+DATA = os.path.join(PROJECT_HOME, 'data')
 
 CRW_CM_LIBRARY = os.path.join(DATA, 'crw-cms')
 CRW_PS_LIBRARY = os.path.join(DATA, 'crw-ps')
