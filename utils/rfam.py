@@ -339,7 +339,6 @@ def fetch_data(accessions):
 
     for accession in accessions:
         rscape2traveler(accession)
-        download_rfam_seed(accession)
 
 
 def download_rfam_cm(rfam_acc):
