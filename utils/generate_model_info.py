@@ -14,17 +14,13 @@ limitations under the License.
 
 import os
 import glob
-
-import click
-
-
-CM_LIBRARY = '/rna/auto-traveler/data/crw-cms'
+import re
 
 
-@click.command()
-@click.option('--cm-library', default=CM_LIBRARY)
-@click.option('--rna-type', default='SSU')
-def main(cm_library, rna_type):
+from . import config
+
+
+def generate_model_info(cm_library, rna_type='SSU'):
     print('Processing files in {}'.format(cm_library))
 
     all_cm = 'all.cm'  # file with all CMs
@@ -42,11 +38,17 @@ def main(cm_library, rna_type):
         for cm in glob.glob('%s/*.cm' % cm_library):
             if all_cm in cm:
                 continue
-            model_name = os.path.basename(cm).replace('.cm', '')
+            if re.search(r'RF\d{5}', cm):
+                with open(cm, 'r') as f_cm:
+                    for line in f_cm:
+                        if line.startswith('NAME '):
+                            model_name = line.strip().split()[-1]
+            else:
+                model_name = os.path.basename(cm).replace('.cm', '')
             line = "%s    %s    Bacteria    %s\n" % (model_name, rna_type, os.path.basename(cm))
             f.write(line)
     print('Done')
 
 
 if __name__ == '__main__':
-    main()
+    generate_model_info(config.CM_LIBRARY)
