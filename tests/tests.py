@@ -15,7 +15,7 @@ import filecmp
 import os
 import unittest
 
-from utils import config
+from utils import config, rfam
 
 
 EXECUTABLE = os.path.join(config.PROJECT_HOME, 'auto-traveler.py')
@@ -56,7 +56,13 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.CM_LIBRARY, 3558)
 
     def test_rfam_database(self):
-        pass
+        for rfam_acc in rfam.get_all_rfam_acc():
+            if rfam_acc in rfam.blacklisted():
+                continue
+            self.assertTrue(os.path.exists(rfam.get_traveler_template_xml(rfam_acc)))
+            self.assertTrue(os.path.exists(rfam.get_traveler_fasta(rfam_acc)))
+            self.assertTrue(os.path.exists(rfam.get_rfam_cm(rfam_acc)), '{}.cm not found'.format(rfam_acc))
+
 
 # @unittest.skip("")
 class TestRibovision(unittest.TestCase):
