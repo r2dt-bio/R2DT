@@ -20,7 +20,7 @@ import tempfile
 from . import config
 
 
-# these RNAs are better handled by `auto-traveler.py`
+# these RNAs are better handled by CRW and RiboVision
 BLACKLIST = [
     'RF00001', # 5S
     'RF02541', # LSU_rRNA_bacteria
@@ -42,6 +42,21 @@ def blacklisted():
     return bad
 
 
+def get_traveler_template_xml(rfam_acc):
+    filename = os.path.join(config.RFAM_DATA, rfam_acc, 'traveler-template.xml')
+    return filename
+
+
+def get_traveler_fasta(rfam_acc):
+    filename = os.path.join(config.RFAM_DATA, rfam_acc,
+                            '{}-traveler.fasta'.format(rfam_acc))
+    return filename
+
+
+def get_rfam_cm(rfam_acc):
+    return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+
+
 def get_rfam_cms():
     """
     Download non-blacklisted Rfam covariance models.
@@ -59,10 +74,30 @@ def get_rfam_cms():
     with open(rfam_ids, 'r') as f_in:
         for line in f_in:
             rfam_acc = line.strip()
-            cm_file = os.path.join(config.CM_LIBRARY, '{}.cm'.format(rfam_acc))
-            if rfam_acc not in blacklisted() and not os.path.exists(cm_file):
+            if rfam_acc in blacklisted():
+                continue
+            cm_file = get_rfam_cm(rfam_acc)
+            if not os.path.exists(cm_file):
                 cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, cm_file)
                 os.system(cmd)
+            target = os.path.join(os.path.abspath(config.CM_LIBRARY), os.path.basename(cm_file))
+            if not os.path.exists(target):
+                cmd = 'ln -s {} {}'.format(os.path.abspath(cm_file), target)
+                print(cmd)
+                os.system(cmd)
+
+
+def setup(accessions=None):
+    precomputed_archive = os.path.join(config.DATA, 'rfam.zip')
+    if os.path.exists(precomputed_archive):
+        print('Uncompressing precomputed Rfam template library')
+        cmd = 'unzip -d {} {}'.format(config.RFAM_DATA, precomputed_archive)
+        os.system(cmd)
+    else:
+        if not accessions:
+            accessions = 'all'
+        fetch_data(accessions)
+    get_rfam_cms()
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -114,7 +149,7 @@ def generate_traveler_fasta(rfam_acc):
             ss_cons = ''.join(new_ss_cons)
             consensus = ''.join(new_consensus)
 
-        with open(os.path.join(config.RFAM_DATA, rfam_acc, '{}-traveler.fasta'.format(rfam_acc)), 'w') as f:
+        with open(get_traveler_fasta(rfam_acc), 'w') as f:
             f.write('>{}\n'.format(rfam_acc))
             f.write('{}\n'.format(consensus.upper()))
             f.write('{}\n'.format(ss_cons))
@@ -326,6 +361,10 @@ def rscape2traveler(rfam_acc):
     if not os.path.exists(destination):
         os.makedirs(destination)
 
+    if os.path.exists(get_traveler_fasta(rfam_acc)) and \
+       os.path.exists(get_traveler_template_xml(rfam_acc)):
+        return
+
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
@@ -342,12 +381,13 @@ def fetch_data(accessions):
 
 
 def download_rfam_cm(rfam_acc):
-    rfam_cm = os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    rfam_cm = get_rfam_cm(rfam_acc)
     if not os.path.exists(rfam_cm):
         os.system('mkdir -p {}'.format(os.path.join(config.RFAM_DATA, rfam_acc)))
         url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
         cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
         os.system(cmd)
+    return rfam_cm
 
 
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
@@ -355,7 +395,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:
         rfam_acc = model_id
-    download_rfam_cm(rfam_acc)
+    rfam_cm = download_rfam_cm(rfam_acc)
     rscape2traveler(rfam_acc)
 
     temp_fasta = tempfile.NamedTemporaryFile()
@@ -365,8 +405,8 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     os.system(cmd)
 
-    cmd = "cmalign {rfam_data}/{rfam_acc}/{rfam_acc}.cm {temp_fasta} > {temp_sto}".format(rfam_acc=rfam_acc,
-        rfam_data=config.RFAM_DATA, temp_fasta=temp_fasta.name, temp_sto=temp_sto.name)
+    cmd = "cmalign {rfam_cm} {temp_fasta} > {temp_sto}".format(rfam_cm=rfam_cm,
+        temp_fasta=temp_fasta.name, temp_sto=temp_sto.name)
     os.system(cmd)
 
     has_conserved_structure = False
@@ -394,13 +434,15 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     cmd = ('traveler '
            '--verbose '
            '--target-structure {fasta} '
-           '--template-structure --file-format traveler {rfam_data}/{rfam_acc}/traveler-template.xml {rfam_data}/{rfam_acc}/{rfam_acc}-traveler.fasta '
+           '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
            '--all {result_base} '
            '> {log}' ).format(
                fasta=input_fasta,
                result_base=result_base,
                rfam_acc=rfam_acc,
                rfam_data=config.RFAM_DATA,
+               traveler_template_xml=get_traveler_template_xml(rfam_acc),
+               traveler_fasta=get_traveler_fasta(rfam_acc),
                log=log
             )
     os.system(cmd)

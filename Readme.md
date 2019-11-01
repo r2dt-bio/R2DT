@@ -51,12 +51,7 @@ Perform one-time initial setup:
 
 ```
 cd auto-traveler
-
-# prepare the library of all covariance models
 auto-traveler.py setup
-
-# generate R-scape templates
-auto-traveler.py rfam setup
 
 # run tests to verify that the installation worked
 python3 -m unittest

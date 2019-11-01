@@ -58,7 +58,10 @@ def cli():
 
 @cli.command()
 def setup():
-    rfam.get_rfam_cms()
+    if not os.path.exists(config.CM_LIBRARY):
+        os.makedirs(config.CM_LIBRARY)
+    rfam.setup()
+    crw.setup()
     symlink_cms(config.RIBOVISION_CM_LIBRARY)
     symlink_cms(config.CRW_CM_LIBRARY)
     generate_model_info(cm_library=config.CM_LIBRARY)
@@ -90,14 +93,6 @@ def draw(fasta_input, output_folder):
 @cli.group('crw')
 def crw_group():
     pass
-
-
-@crw_group.command('setup')
-def rrna_setup():
-    os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
-    cms = os.path.join(config.DATA, 'crw-cms.tar.gz')
-    os.system('cd data && tar xf {}'.format(cms))
-    generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
 @crw_group.command('draw')
@@ -149,19 +144,6 @@ def rfam_blacklist():
     """
     for model in sorted(rfam.blacklisted()):
         print(model)
-
-
-@rfam_group.command('setup')
-@click.argument('accessions', type=click.STRING, nargs=-1)
-def rfam_setup(accessions):
-    """
-    Fetch data for a given Rfam family. This will be done automatically by the
-    pipeline if needed by the drawing step. If given the accession 'all' then
-    all Rfam models will be fetched.
-    """
-    if not accessions:
-        accessions = 'all'
-    rfam.fetch_data(accessions)
 
 
 @rfam_group.command('draw')

@@ -16,6 +16,14 @@ import re
 import tempfile
 
 from . import config
+from . import generate_model_info as modelinfo
+
+
+def setup():
+    os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
+    cms = os.path.join(config.DATA, 'crw-cms.tar.gz')
+    os.system('cd data && tar xf {}'.format(cms))
+    modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
 def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
