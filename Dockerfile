@@ -52,7 +52,7 @@ RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
 RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.38
 RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git fetch && git fetch --tags && git checkout ribovore-0.38
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.38
-RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git checkout 23d5c880e254b8d56900a81aeb6954bb515187c3
+RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git checkout auto-traveler
 
 # Install Traveler
 RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 267027a888262bfd5dd8fe6f7f8496043c39b523
