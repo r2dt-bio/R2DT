@@ -55,6 +55,7 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
            )
     print(cmd)
     os.system(cmd)
+    adjust_font_size(result_base)
 
     temp_fasta.close()
     temp_sto.close()
@@ -73,3 +74,12 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     with open(result_base + '.overlaps', 'w') as out:
         out.write(str(overlaps))
         out.write('\n')
+
+
+def adjust_font_size(result_base):
+    filenames = [result_base + '.colored.svg', result_base + '.svg']
+    for filename in filenames:
+        if not os.path.exists(filename):
+            continue
+        cmd = """sed -i 's/font-size: 7px;/font-size: 4px;/' {}""".format(filename)
+        os.system(cmd)
