@@ -55,7 +55,7 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fe
 RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git checkout auto-traveler
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 267027a888262bfd5dd8fe6f7f8496043c39b523
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout a87234b179ebea6cac213ffd9e675d580dd60885
 RUN cd $RNA/traveler/src && make build
 
 COPY examples examples/
