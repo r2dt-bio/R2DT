@@ -6,6 +6,7 @@ Auto Traveler automatically generates RNA secondary structure in standard layout
  - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
  - [Rfam](http://rfam.org) (>2,000 RNA families)
  - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
+ - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
 
 **RNAcentral** uses Auto Traveler to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
 
@@ -68,6 +69,7 @@ For performance reasons you can run the following commands:
 auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
 auto-traveler.py ribovision draw examples/lsu-examples.fasta temp/lsu-examples
 auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
+auto-traveler.py gtrnadb draw TRNAinf-euk examples/gtrnadb.TRNAinf-euk.fasta temp/gtrnadb
 ```
 
 Additional commands:
@@ -90,5 +92,6 @@ python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type
 - [Eric Nawrocki](https://github.com/nawrockie)
 - [Robin Gutell lab](http://www.rna.ccbb.utexas.edu)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton) and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
+- [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan)
 - [David Mathews lab](http://rna.urmc.rochester.edu/RNAstructure.html)
 - [Elena Rivas](https://twitter.com/RivasElenaRivas)
