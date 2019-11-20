@@ -48,14 +48,14 @@ RUN \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl
 RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
 
-# Install ribotyper-v1
-RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git checkout c34244b2b9e0719c45d964cc08c147aa353532e8
-RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git checkout 7acc13384aedbd5efee9a62fcde71d075072b6a6
-RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git checkout f4a8a60153906e61bc458fa734ec7070eadf76f9
-RUN git clone https://github.com/nawrockie/ribotyper-v1.git && cd ribotyper-v1 && git checkout 4cd7fe30f402edfa4669383a46d603c60ba6f608
+# Install ribovore
+RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.38
+RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git fetch && git fetch --tags && git checkout ribovore-0.38
+RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.38
+RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git checkout auto-traveler
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 267027a888262bfd5dd8fe6f7f8496043c39b523
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout a87234b179ebea6cac213ffd9e675d580dd60885
 RUN cd $RNA/traveler/src && make build
 
 COPY examples examples/
@@ -65,13 +65,16 @@ ADD requirements.txt $RNA/auto-traveler/requirements.txt
 RUN pip3 install -r $RNA/auto-traveler/requirements.txt
 
 # Setup environmental variables
-ENV RIBODIR="$RNA/ribotyper-v1" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
+ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
 ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/epn-test"
+RUN apt-get update && apt-get install time
+ENV RIBOTIMEDIR="/usr/bin"
 ENV PERL5LIB="$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
+ENV PATH="/rna/auto-traveler:$PATH"
 
 ENTRYPOINT ["/bin/bash"]
