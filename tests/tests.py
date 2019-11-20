@@ -191,6 +191,38 @@ class TestSingleEntry(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
+# @unittest.skip("")
+class TestGtrnadb(unittest.TestCase):
+    trnascan_model = 'TRNAinf-euk'
+    fasta_input = os.path.join('examples', 'gtrnadb.{}.fasta'.format(trnascan_model))
+    test_results = os.path.join('tests', 'results', 'gtrnadb')
+    precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', trnascan_model)
+    cmd = 'python3 {} gtrnadb draw {} {} {}'.format(EXECUTABLE, trnascan_model, fasta_input, test_results)
+    files = [
+        'URS0000023412_9606.colored.svg',
+        'URS000021550A_9606.colored.svg',
+        'URS00000A1A88_9606.colored.svg',
+        'URS00000F30A4_9606.colored.svg',
+        'URS00001D9AFB_9606.colored.svg',
+    ]
+
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, self.trnascan_model, filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
 
 if __name__ == '__main__':
     unittest.main()
