@@ -38,6 +38,18 @@ RUN \
     cd RNAstructure && \
     make all
 
+# Install tRNAScan-SE
+RUN \
+    wget http://trna.ucsc.edu/software/trnascan-se-2.0.5.tar.gz && \
+    tar -xvzf trnascan-se-2.0.5.tar.gz && \
+    rm trnascan-se-2.0.5.tar.gz && \
+    cd tRNAscan-SE-2.0 && \
+    ./configure && make && make install
+# Make sure tRNAScan-SE can find Infernal
+RUN \
+    ln -s /rna/infernal-1.1.2/src/cmsearch /usr/local/bin/cmsearch && \
+    ln -s /rna/infernal-1.1.2/src/cmscan /usr/local/bin/cmscan
+
 # Install jiffy infernal hmmer scripts
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
