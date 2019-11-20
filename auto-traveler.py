@@ -18,7 +18,7 @@ import os
 
 import click
 
-from utils import crw, rfam, ribovision, config
+from utils import crw, rfam, ribovision, gtrnadb, config
 from utils.generate_model_info import generate_model_info
 
 
@@ -88,6 +88,25 @@ def draw(fasta_input, output_folder):
                 ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
             else:
                 rfam.visualise_rfam(fasta_input, output_folder, rnacentral_id, model_id)
+
+
+@cli.group('gtrnadb')
+def gtrnadb_group():
+    pass
+
+
+@gtrnadb_group.command('draw')
+@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
+@click.argument('trnascan_model', type=click.STRING)
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rfam_draw(trnascan_model, fasta_input, output_folder, test=None):
+    """
+    Visualise sequences using GtRNAdb templates.
+
+    trnascan_model - tRNAScan-SE covariance model (TRNAinf-euk e.g.)
+    """
+    gtrnadb.generate_2d(trnascan_model, fasta_input, output_folder, test)
 
 
 @cli.group('crw')
