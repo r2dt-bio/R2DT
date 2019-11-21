@@ -29,4 +29,9 @@ RIBOVISION_CM_LIBRARY = os.path.join(DATA, 'ribovision', 'cms')
 RIBOVISION_BPSEQ = os.path.join(DATA, 'ribovision', 'bpseq')
 RIBOVISION_TRAVELER = os.path.join(DATA, 'ribovision', 'traveler')
 
+GTRNADB_CM_LIBRARY = os.path.join(DATA, 'gtrnadb', 'cms')
+GTRNADB_EUK = os.path.join(DATA, 'gtrnadb', 'eukaryota_isotype_specific')
+GTRNADB_BACT = os.path.join(DATA, 'gtrnadb', 'bacteria_isotype_specific')
+GTRNADB_ARCH = os.path.join(DATA, 'gtrnadb', 'archaea_isotype_specific')
+
 CM_LIBRARY = os.path.join(DATA, 'cms')

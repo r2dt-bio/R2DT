@@ -22,6 +22,9 @@ import tempfile
 def generate_2d(trnascan_model, fasta_input, output_folder, test):
 
     destination = '{}/{}'.format(output_folder, trnascan_model)
+from . import config
+
+
     if not os.path.exists(destination):
         os.makedirs(destination)
 
@@ -43,6 +46,48 @@ def generate_2d(trnascan_model, fasta_input, output_folder, test):
 
 
 def visualise_trna(fasta_input, output_folder, seq_id, trnascan_model):
+def get_trnascan_cm(domain, isotype):
+    """
+    Fetch a domain-specific isotype covariance model as a separate file.
+    """
+    cm_output = os.path.join(config.GTRNADB_CM_LIBRARY, '{}_{}.cm'.format(domain, isotype))
+    if not os.path.exists(cm_output):
+        if domain == 'A':
+            cm_library = 'TRNAinf-arch-iso'
+            cm_name = 'arch-' + isotype
+        elif domain == 'B':
+            cm_library = 'TRNAinf-bact-iso'
+            cm_name = 'bact-' + isotype
+        else:
+            cm_library = 'TRNAinf-euk-iso'
+            cm_name = 'euk-' + isotype
+        cmd = 'cmfetch {cm_library} {cm_name} > {cm_output}'.format(
+            cm_library=os.path.join('/usr/local/lib/tRNAscan-SE/models', cm_library),
+            cm_name=cm_name,
+            cm_output=cm_output
+        )
+        os.system(cmd)
+    return cm_output
+
+
+def get_traveler_template_xml(domain, isotype):
+    if domain == 'A':
+        return os.path.join(config.GTRNADB_ARCH, 'arch-{}-traveler-template.xml'.format(isotype))
+    elif domain == 'B':
+        return os.path.join(config.GTRNADB_BACT, 'bact-{}-traveler-template.xml'.format(isotype))
+    else:
+        return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler-template.xml'.format(isotype))
+
+
+def get_traveler_fasta(domain, isotype):
+    if domain == 'A':
+        return os.path.join(config.GTRNADB_ARCH, 'arch-{}-traveler.fasta'.format(isotype))
+    elif domain == 'B':
+        return os.path.join(config.GTRNADB_BACT, 'bact-{}-traveler.fasta'.format(isotype))
+    else:
+        return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
+
+
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_stk = tempfile.NamedTemporaryFile()
@@ -50,10 +95,8 @@ def visualise_trna(fasta_input, output_folder, seq_id, trnascan_model):
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     os.system(cmd)
 
-    # /rna/tRNAscan-SE-2.0/lib/models/TRNAinf-euk.cm
-    trnascan_cm = '/rna/tRNAscan-SE-2.0/lib/models/{}.cm'.format(trnascan_model)
     cmd = "cmalign {trnascan_cm} {temp_fasta} > {temp_sto}".format(
-        trnascan_cm=trnascan_cm,
+        trnascan_cm=get_trnascan_cm(domain, isotype),
         temp_fasta=temp_fasta.name,
         temp_sto=temp_sto.name
     )
@@ -76,11 +119,12 @@ def visualise_trna(fasta_input, output_folder, seq_id, trnascan_model):
            '> {log}' ).format(
                fasta=input_fasta,
                result_base=result_base,
-               traveler_template_xml='/rna/auto-traveler/data/gtrnadb/eukaryota_isotype_specific/euk-Thr-traveler-template.xml',
-               traveler_fasta='/rna/auto-traveler/data/gtrnadb/eukaryota_isotype_specific/euk-Thr-traveler.fasta',
+               traveler_template_xml=get_traveler_template_xml(domain, isotype),
+               traveler_fasta=get_traveler_fasta(domain, isotype),
                log=log
             )
     os.system(cmd)
+    print(cmd)
 
     temp_fasta.close()
     temp_sto.close()
