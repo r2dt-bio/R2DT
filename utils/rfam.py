@@ -20,7 +20,7 @@ import tempfile
 from . import config
 
 
-# these RNAs are better handled by CRW and RiboVision
+# these RNAs are better handled by other methods
 BLACKLIST = [
     'RF00001', # 5S
     'RF02541', # LSU_rRNA_bacteria
@@ -32,6 +32,8 @@ BLACKLIST = [
     'RF02542', # SSU_rRNA_microsporidia
     'RF02546', # LSU_trypano_mito
     'RF02545', # SSU_trypano_mito
+    'RF00005', # tRNA
+    'RF01852', # tRNA-Sec
 ]
 
 
