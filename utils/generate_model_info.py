@@ -18,6 +18,7 @@ import re
 
 
 from . import config
+from . import rfam
 
 
 def generate_model_info(cm_library, rna_type='SSU'):
@@ -43,6 +44,9 @@ def generate_model_info(cm_library, rna_type='SSU'):
                     for line in f_cm:
                         if line.startswith('NAME '):
                             model_name = line.strip().split()[-1]
+                rfam_acc = os.path.basename(cm).replace('.cm', '')
+                if rfam_acc in rfam.BLACKLIST:
+                    continue
             else:
                 model_name = os.path.basename(cm).replace('.cm', '')
             line = "%s    %s    Bacteria    %s\n" % (model_name, rna_type, os.path.basename(cm))
