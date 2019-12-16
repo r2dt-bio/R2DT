@@ -53,7 +53,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.RIBOVISION_CM_LIBRARY, 18)
 
     def test_combined_database(self):
-        self.verify_cm_database(config.CM_LIBRARY, 3558)
+        self.verify_cm_database(config.CM_LIBRARY, 3556)
 
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
@@ -88,7 +88,7 @@ class TestRibovision(unittest.TestCase):
             new_file = os.path.join(self.test_results, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(filecmp.cmp(new_file, reference_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
     def tearDown(self):
         self.delete_folder(self.test_results)
@@ -121,7 +121,7 @@ class TestRfam(unittest.TestCase):
             new_file = os.path.join(self.test_results, self.rfam_acc, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(filecmp.cmp(new_file, reference_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
     def tearDown(self):
         self.delete_folder(self.test_results)
@@ -171,6 +171,7 @@ class TestSingleEntry(unittest.TestCase):
         'URS000053CEAC_224308.colored.svg',
         'URS0000162127_9606.colored.svg',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
+        'URS0000023412_9606-E-Thr.colored.svg',
     ]
 
     @staticmethod
@@ -186,24 +187,24 @@ class TestSingleEntry(unittest.TestCase):
             new_file = os.path.join(self.test_results, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(filecmp.cmp(new_file, reference_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
     def tearDown(self):
         self.delete_folder(self.test_results)
 
 # @unittest.skip("")
-class TestGtrnadb(unittest.TestCase):
-    trnascan_model = 'TRNAinf-euk'
+class TestGtrnadbDomainIsotype(unittest.TestCase):
+    trnascan_model = 'E_Thr'
     fasta_input = os.path.join('examples', 'gtrnadb.{}.fasta'.format(trnascan_model))
     test_results = os.path.join('tests', 'results', 'gtrnadb')
     precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', trnascan_model)
-    cmd = 'python3 {} gtrnadb draw {} {} {}'.format(EXECUTABLE, trnascan_model, fasta_input, test_results)
+    cmd = 'python3 {} gtrnadb draw {} {} --domain E --isotype Thr'.format(EXECUTABLE, fasta_input, test_results)
     files = [
-        'URS0000023412_9606.colored.svg',
-        'URS000021550A_9606.colored.svg',
-        'URS00000A1A88_9606.colored.svg',
-        'URS00000F30A4_9606.colored.svg',
-        'URS00001D9AFB_9606.colored.svg',
+        'URS0000023412_9606-E-Thr.colored.svg',
+        'URS000021550A_9606-E-Thr.colored.svg',
+        'URS00000A1A88_9606-E-Thr.colored.svg',
+        'URS00000F30A4_9606-E-Thr.colored.svg',
+        'URS00001D9AFB_9606-E-Thr.colored.svg',
     ]
 
     @staticmethod
@@ -218,11 +219,12 @@ class TestGtrnadb(unittest.TestCase):
         for filename in self.files:
             new_file = os.path.join(self.test_results, self.trnascan_model, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(filecmp.cmp(new_file, reference_file))
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
     def tearDown(self):
         self.delete_folder(self.test_results)
+
 
 if __name__ == '__main__':
     unittest.main()
