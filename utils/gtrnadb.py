@@ -16,15 +16,76 @@ import re
 import tempfile
 
 
-# cmfetch /usr/local/lib/tRNAscan-SE/models/TRNAinf-arch-iso arch-Ala
-
-
-def generate_2d(trnascan_model, fasta_input, output_folder, test):
-
-    destination = '{}/{}'.format(output_folder, trnascan_model)
 from . import config
 
 
+def parse_trnascan_output(filename):
+    """
+    Sequence           		     tRNA	Bounds	tRNA	Anti	Intron  Bounds	Inf
+    Name               	tRNA #	Begin	End	    Type	Codon	Begin	   End	Score	Note
+    --------           	------	-----	------	----	-----	-----	----	------	------
+    URS0000023412_9606 	1	1 	73	Thr	TGT	0	0	60.2
+    """
+    data = {}
+    with open(filename, 'r') as f:
+        for i, line in enumerate(f):
+            if i in [0, 1, 2]:
+                continue # skip 3 header lines
+            parts = line.split('\t')
+            data[parts[0].strip()] = {
+                'score': float(parts[8].strip()),
+                'isotype': parts[4].strip(),
+            }
+    return data
+
+
+def run_trnascan(fasta_input, output_folder, domain):
+    output_file = os.path.join(output_folder, domain + '-' + os.path.basename(fasta_input))
+    if not os.path.exists(output_file):
+        cmd = 'tRNAscan-SE -{domain} -o {output_file} {input}'.format(
+            domain=domain,
+            input=fasta_input,
+            output_file=output_file,
+        )
+        print(cmd)
+        os.system(cmd)
+    return parse_trnascan_output(output_file)
+
+
+def classify_trna_sequences(fasta_input, output_folder):
+    bacteria = run_trnascan(fasta_input, output_folder, 'B')
+    archaea = run_trnascan(fasta_input, output_folder, 'A')
+    eukaryotes = run_trnascan(fasta_input, output_folder, 'E')
+
+    rna_ids = set()
+    rna_ids.update(list(bacteria.keys()), list(archaea.keys()), list(eukaryotes.keys()))
+
+    data = []
+    for rna_id in rna_ids:
+        values = [
+            bacteria[rna_id]['score'] if rna_id in bacteria else -1000,
+            archaea[rna_id]['score'] if rna_id in archaea else -1000,
+            eukaryotes[rna_id]['score'] if rna_id in eukaryotes else -1000,
+        ]
+        maximum = values.index(max(values))
+        if maximum == 0:
+            bacteria[rna_id]['domain'] = 'B'
+            bacteria[rna_id]['id'] = rna_id
+            data.append(bacteria[rna_id])
+        elif maximum == 1:
+            archaea[rna_id]['domain'] = 'A'
+            archaea[rna_id]['id'] = rna_id
+            data.append(archaea[rna_id])
+        else:
+            eukaryotes[rna_id]['domain'] = 'E'
+            eukaryotes[rna_id]['id'] = rna_id
+            data.append(eukaryotes[rna_id])
+    return data
+
+
+def visualise(domain, isotype, fasta_input, output_folder, test):
+
+    destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)
 
@@ -41,11 +102,10 @@ from . import config
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            visualise_trna(fasta_input, destination, seq_id, trnascan_model)
+            generate_2d(domain, isotype, seq_id, fasta_input, destination)
     os.system('rm headers.txt')
 
 
-def visualise_trna(fasta_input, output_folder, seq_id, trnascan_model):
 def get_trnascan_cm(domain, isotype):
     """
     Fetch a domain-specific isotype covariance model as a separate file.
@@ -88,9 +148,14 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
 
 
+def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_stk = tempfile.NamedTemporaryFile()
+
+    if not os.path.exists(fasta_input + '.ssi'):
+        cmd = 'esl-sfetch --index {}'.format(fasta_input)
+        os.system(cmd)
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     os.system(cmd)
@@ -105,7 +170,7 @@ def get_traveler_fasta(domain, isotype):
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     os.system(cmd)
 
-    result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
+    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + domain + '-' + isotype)
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     os.system(cmd)

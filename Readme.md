@@ -4,7 +4,7 @@
 Auto Traveler automatically generates RNA secondary structure in standard layouts using templates from the following sources:
 
  - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
- - [Rfam](http://rfam.org) (>2,000 RNA families)
+ - [Rfam](https://rfam.org) (>2,000 RNA families)
  - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
  - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
 
@@ -69,7 +69,10 @@ For performance reasons you can run the following commands:
 auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
 auto-traveler.py ribovision draw examples/lsu-examples.fasta temp/lsu-examples
 auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
-auto-traveler.py gtrnadb draw TRNAinf-euk examples/gtrnadb.TRNAinf-euk.fasta temp/gtrnadb
+
+# for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
+auto-traveler.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
+auto-traveler.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
 ```
 
 Additional commands:

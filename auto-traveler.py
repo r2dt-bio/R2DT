@@ -89,6 +89,9 @@ def draw(fasta_input, output_folder):
             else:
                 rfam.visualise_rfam(fasta_input, output_folder, rnacentral_id, model_id)
 
+    for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
+        gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], fasta_input, output_folder)
+
 
 @cli.group('gtrnadb')
 def gtrnadb_group():
@@ -97,16 +100,21 @@ def gtrnadb_group():
 
 @gtrnadb_group.command('draw')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
-@click.argument('trnascan_model', type=click.STRING)
+@click.option('--domain', default=False, type=click.STRING, help='Domain (A for Archaea, B for Bacteria, or E for Eukaryotes)')
+@click.option('--isotype', default=False, type=click.STRING, help='tRNA isotype, for example Thr')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def rfam_draw(trnascan_model, fasta_input, output_folder, test=None):
+def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
     """
     Visualise sequences using GtRNAdb templates.
-
-    trnascan_model - tRNAScan-SE covariance model (TRNAinf-euk e.g.)
     """
-    gtrnadb.generate_2d(trnascan_model, fasta_input, output_folder, test)
+    os.system('mkdir -p %s' % output_folder)
+
+    if domain and isotype:
+        gtrnadb.visualise(domain.upper(), isotype.capitalize(), fasta_input, output_folder, test)
+    else:
+        for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
+            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], fasta_input, output_folder)
 
 
 @cli.group('crw')

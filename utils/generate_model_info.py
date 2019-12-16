@@ -52,7 +52,3 @@ def generate_model_info(cm_library, rna_type='SSU'):
             line = "%s    %s    Bacteria    %s\n" % (model_name, rna_type, os.path.basename(cm))
             f.write(line)
     print('Done')
-
-
-if __name__ == '__main__':
-    generate_model_info(config.CM_LIBRARY)
