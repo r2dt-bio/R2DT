@@ -16,6 +16,7 @@ import re
 import tempfile
 
 from . import config
+from . import shared
 
 
 def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
@@ -40,6 +41,8 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
         rnacentral_id=rnacentral_id,
         model_id=model_id,
     ))
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '
