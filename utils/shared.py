@@ -11,7 +11,7 @@ def remove_large_insertions(filename):
                 sequence = line.strip()
             elif i == 2:
                 structure = line.strip()
-    match = re.finditer(r'(\.{100,})', structure)
+    match = re.finditer(r'(\.{200,})', structure)
     if not match:
         return
     new_sequence = sequence
