@@ -17,6 +17,7 @@ import tempfile
 
 from . import config
 from . import generate_model_info as modelinfo
+from . import shared
 
 
 def setup():
@@ -48,6 +49,8 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
         rnacentral_id=rnacentral_id,
         model_id=model_id,
     ))
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '

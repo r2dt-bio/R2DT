@@ -18,6 +18,7 @@ import re
 import tempfile
 
 from . import config
+from . import shared
 
 
 # these RNAs are better handled by other methods
@@ -431,6 +432,8 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     os.system(cmd)
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '
