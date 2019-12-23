@@ -138,6 +138,7 @@ class TestCrw(unittest.TestCase):
         'hits.txt',
         'URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg',
         'URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg',
+        'URS000001AE2D_4932-d.16.e.S.cerevisiae.colored.svg',
     ]
 
     @staticmethod
