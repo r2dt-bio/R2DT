@@ -57,6 +57,7 @@ RUN \
 RUN \
     git clone https://github.com/nawrockie/Bio-Easel.git && \
     cd Bio-Easel && \
+    git checkout e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 && \
     mkdir src && \
     cd src && \
     curl -k -L -o easel-Bio-Easel-0.09.zip https://github.com/EddyRivasLab/easel/archive/Bio-Easel-0.09.zip && \
