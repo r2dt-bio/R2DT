@@ -50,6 +50,22 @@ RUN \
     ln -s /rna/infernal-1.1.2/src/cmsearch /usr/local/bin/cmsearch && \
     ln -s /rna/infernal-1.1.2/src/cmscan /usr/local/bin/cmscan
 
+# Install Bio-Easel
+RUN \
+    cpan install Inline && \
+    cpan install Inline::C
+RUN \
+    git clone https://github.com/nawrockie/Bio-Easel.git && \
+    cd Bio-Easel && \
+    mkdir src && \
+    cd src && \
+    curl -k -L -o easel-Bio-Easel-0.09.zip https://github.com/EddyRivasLab/easel/archive/Bio-Easel-0.09.zip && \
+    unzip easel-Bio-Easel-0.09.zip && \
+    mv easel-Bio-Easel-0.09 easel && \
+    rm easel-Bio-Easel-0.09.zip && \
+    cd .. && \
+    perl Makefile.PL; make; make test; make install
+
 # Install jiffy infernal hmmer scripts
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
@@ -81,7 +97,8 @@ ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELD
 ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/epn-test"
 RUN apt-get update && apt-get install time
 ENV RIBOTIMEDIR="/usr/bin"
-ENV PERL5LIB="$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
+ENV BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib"
+ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"

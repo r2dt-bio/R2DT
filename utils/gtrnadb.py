@@ -151,6 +151,7 @@ def get_traveler_fasta(domain, isotype):
 def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
+    temp_depaired = tempfile.NamedTemporaryFile()
     temp_stk = tempfile.NamedTemporaryFile()
 
     if not os.path.exists(fasta_input + '.ssi'):
@@ -167,7 +168,11 @@ def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
     )
     os.system(cmd)
 
-    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
+    # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
+    cmd = 'esl-alidepair.pl --nc 0.5 {} {}'.format(temp_sto.name, temp_depaired.name)
+    os.system(cmd)
+
+    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_depaired.name, temp_stk.name)
     os.system(cmd)
 
     result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + domain + '-' + isotype)
@@ -193,6 +198,7 @@ def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
 
     temp_fasta.close()
     temp_sto.close()
+    temp_depaired.close()
     temp_stk.close()
 
     cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
