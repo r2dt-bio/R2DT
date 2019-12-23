@@ -35,6 +35,7 @@ def parse_trnascan_output(filename):
             data[parts[0].strip()] = {
                 'score': float(parts[8].strip()),
                 'isotype': parts[4].strip(),
+                'note': parts[9].lower().strip(),
             }
     return data
 
@@ -50,6 +51,15 @@ def run_trnascan(fasta_input, output_folder, domain):
         print(cmd)
         os.system(cmd)
     return parse_trnascan_output(output_file)
+
+
+def skip_trna(entry):
+    """
+    Some tRNAs should not be drawn and need to be skipped.
+    """
+    if 'pseudo' in entry['note'] or entry['isotype'] in ['Undet', 'Sup']:
+        return True
+    return False
 
 
 def classify_trna_sequences(fasta_input, output_folder):
@@ -69,14 +79,20 @@ def classify_trna_sequences(fasta_input, output_folder):
         ]
         maximum = values.index(max(values))
         if maximum == 0:
+            if skip_trna(bacteria[rna_id]):
+                continue
             bacteria[rna_id]['domain'] = 'B'
             bacteria[rna_id]['id'] = rna_id
             data.append(bacteria[rna_id])
         elif maximum == 1:
+            if skip_trna(archaea[rna_id]):
+                continue
             archaea[rna_id]['domain'] = 'A'
             archaea[rna_id]['id'] = rna_id
             data.append(archaea[rna_id])
         else:
+            if skip_trna(eukaryotes[rna_id]):
+                continue
             eukaryotes[rna_id]['domain'] = 'E'
             eukaryotes[rna_id]['id'] = rna_id
             data.append(eukaryotes[rna_id])
