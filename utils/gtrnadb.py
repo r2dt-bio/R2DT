@@ -36,12 +36,14 @@ def parse_trnascan_output(filename):
                 'score': float(parts[8].strip()),
                 'isotype': parts[4].strip(),
                 'note': parts[9].lower().strip(),
+                'start': int(parts[2].strip()),
+                'end': int(parts[3].strip()),
             }
     return data
 
 
 def run_trnascan(fasta_input, output_folder, domain):
-    output_file = os.path.join(output_folder, domain + '-' + os.path.basename(fasta_input))
+    output_file = os.path.join(output_folder, domain + '-' + os.path.basename(fasta_input).replace('.fasta', '.txt'))
     if not os.path.exists(output_file):
         cmd = 'tRNAscan-SE -{domain} -o {output_file} {input}'.format(
             domain=domain,
@@ -118,7 +120,7 @@ def visualise(domain, isotype, fasta_input, output_folder, test):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            generate_2d(domain, isotype, seq_id, fasta_input, destination)
+            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination)
     os.system('rm headers.txt')
 
 
@@ -164,7 +166,7 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
 
 
-def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
+def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_depaired = tempfile.NamedTemporaryFile()
@@ -174,7 +176,12 @@ def generate_2d(domain, isotype, seq_id, fasta_input, output_folder):
         cmd = 'esl-sfetch --index {}'.format(fasta_input)
         os.system(cmd)
 
-    cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
+    cmd = 'esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}'.format(
+        fasta_input=fasta_input,
+        seq_id=seq_id,
+        temp_fasta=temp_fasta.name,
+        seq_range='-c {}..{}'.format(start, end) if start and end else ''
+    )
     os.system(cmd)
 
     cmd = "cmalign {trnascan_cm} {temp_fasta} > {temp_sto}".format(

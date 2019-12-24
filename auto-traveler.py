@@ -90,7 +90,7 @@ def draw(fasta_input, output_folder):
                 rfam.visualise_rfam(fasta_input, output_folder, rnacentral_id, model_id)
 
     for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-        gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], fasta_input, output_folder)
+        gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder)
 
 
 @cli.group('gtrnadb')
@@ -114,7 +114,7 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
         gtrnadb.visualise(domain.upper(), isotype.capitalize(), fasta_input, output_folder, test)
     else:
         for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], fasta_input, output_folder)
+            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder)
 
 
 @cli.group('crw')
