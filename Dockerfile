@@ -90,8 +90,10 @@ RUN cd $RNA/traveler/src && make build
 COPY examples examples/
 
 # Install python dependencies
+ADD . /rna/auto-traveler
 ADD requirements.txt $RNA/auto-traveler/requirements.txt
 RUN pip3 install -r $RNA/auto-traveler/requirements.txt
+RUN /rna/auto-traveler/auto-traveler.py setup
 
 # Setup environmental variables
 ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
