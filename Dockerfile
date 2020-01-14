@@ -1,6 +1,6 @@
 FROM gcc:6
 
-RUN apt-get update && apt-get install -y moreutils python3 python3-pip less vim
+RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less vim
 
 ENV RNA /rna
 
