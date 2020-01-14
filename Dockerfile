@@ -93,7 +93,6 @@ COPY examples examples/
 ADD . /rna/auto-traveler
 ADD requirements.txt $RNA/auto-traveler/requirements.txt
 RUN pip3 install -r $RNA/auto-traveler/requirements.txt
-RUN /rna/auto-traveler/auto-traveler.py setup
 
 # Setup environmental variables
 ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
@@ -108,5 +107,7 @@ ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/auto-traveler:$PATH"
+
+RUN /rna/auto-traveler/auto-traveler.py setup
 
 ENTRYPOINT ["/bin/bash"]
