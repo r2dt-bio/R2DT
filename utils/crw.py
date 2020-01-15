@@ -14,6 +14,7 @@ limitations under the License.
 import os
 import re
 import tempfile
+import subprocess as sp
 
 from . import config
 from . import generate_model_info as modelinfo
@@ -22,8 +23,8 @@ from . import shared
 
 def setup():
     os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
-    cms = os.path.join(config.DATA, 'crw-cms.tar.gz')
-    os.system('cd data && tar xf {}'.format(cms))
+    sp.check_output(['tar xf crw-cms.tar.gz'], cwd=config.DATA)
+
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
