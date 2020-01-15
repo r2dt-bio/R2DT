@@ -108,6 +108,7 @@ ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/auto-traveler:$PATH"
 
-RUN /rna/auto-traveler/auto-traveler.py setup
+WORKDIR /rna/auto-traveler
+RUN auto-traveler.py setup
 
 ENTRYPOINT ["/bin/bash"]
