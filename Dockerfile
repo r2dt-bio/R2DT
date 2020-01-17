@@ -1,6 +1,6 @@
 FROM gcc:6
 
-RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less vim wget
+RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time
 
 ENV RNA /rna
 
@@ -97,7 +97,6 @@ RUN pip3 install -r $RNA/auto-traveler/requirements.txt
 # Setup environmental variables
 ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
 ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/epn-test"
-RUN apt-get update && apt-get install time
 ENV RIBOTIMEDIR="/usr/bin"
 ENV BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib"
 ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
