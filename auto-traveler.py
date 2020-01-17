@@ -60,8 +60,8 @@ def cli():
 def setup():
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
-    rfam.setup()
     crw.setup()
+    rfam.setup()
     symlink_cms(config.RIBOVISION_CM_LIBRARY)
     symlink_cms(config.CRW_CM_LIBRARY)
     generate_model_info(cm_library=config.CM_LIBRARY)

@@ -23,8 +23,8 @@ from . import shared
 
 def setup():
     os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
-    sp.check_output(['tar xf crw-cms.tar.gz'], cwd=config.DATA)
-
+    cmd = ['tar', 'xf', '{path}/crw-cms.tar.gz'.format(path=config.DATA)]
+    sp.check_output(cmd, cwd=config.DATA)
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
