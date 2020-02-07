@@ -19,6 +19,42 @@ import tempfile
 from . import config
 
 
+def setup():
+    domains = ['A', 'B', 'E']
+    isotypes = [
+        'Ala',
+        'Arg',
+        'Asn',
+        'Asp',
+        'Cys',
+        'End',
+        'Gln',
+        'Glu',
+        'Gly',
+        'His',
+        'Ile',
+        'LeuTAA',
+        'LeuTAG',
+        'Lys',
+        'Met',
+        'Phe',
+        'Pro',
+        'Ser',
+        'SerGCT',
+        'SerTGA',
+        'Sup',
+        'Thr',
+        'Trp',
+        'Tyr',
+        'Undet',
+        'Val',
+    ]
+
+    for domain in domains:
+        for isotype in isotypes:
+            get_trnascan_cm(domain, isotype):
+
+
 def parse_trnascan_output(filename):
     """
     Sequence           		     tRNA	Bounds	tRNA	Anti	Intron  Bounds	Inf

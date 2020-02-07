@@ -97,6 +97,14 @@ def draw(fasta_input, output_folder):
 def gtrnadb_group():
     pass
 
+@gtrnadb_group.command('setup')
+def gtrnadb_setup():
+    """
+    This will copy all the CM files into place so that drawing will not modify
+    the data directory.
+    """
+    gtrnadb.setup()
+
 
 @gtrnadb_group.command('draw')
 @click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
