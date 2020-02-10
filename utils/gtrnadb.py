@@ -14,45 +14,32 @@ limitations under the License.
 import os
 import re
 import tempfile
-
+import subprocess as sp
+from pathlib import Path
 
 from . import config
 
 
 def setup():
-    domains = ['A', 'B', 'E']
-    isotypes = [
-        'Ala',
-        'Arg',
-        'Asn',
-        'Asp',
-        'Cys',
-        'End',
-        'Gln',
-        'Glu',
-        'Gly',
-        'His',
-        'Ile',
-        'LeuTAA',
-        'LeuTAG',
-        'Lys',
-        'Met',
-        'Phe',
-        'Pro',
-        'Ser',
-        'SerGCT',
-        'SerTGA',
-        'Sup',
-        'Thr',
-        'Trp',
-        'Tyr',
-        'Undet',
-        'Val',
-    ]
+    base = Path('/usr/local/lib/tRNAscan-SE/models')
+    for path in base.glob('TRNAinf-*-iso'):
+        domain = None
+        if path.name == 'TRNAinf-arch-iso':
+            domain = 'A'
+        elif path.name == 'TRNAinf-bact-iso':
+            domain = 'B'
+        elif path.name == 'TRNAinf-euk-iso':
+            domain = 'E'
+        else:
+            raise ValueError("Must be able to fetch from: " + path)
 
-    for domain in domains:
-        for isotype in isotypes:
-            get_trnascan_cm(domain, isotype):
+        with path.open('r') as raw:
+            for line in raw:
+                line = line.strip()
+                if line.startswith('NAME'):
+                    _, name = re.split('\s+', line, maxsplit=1)
+                    _, isotype = name.split('-', 1)
+                    get_trnascan_cm(domain, isotype)
 
 
 def parse_trnascan_output(filename):
@@ -164,23 +151,27 @@ def get_trnascan_cm(domain, isotype):
     """
     Fetch a domain-specific isotype covariance model as a separate file.
     """
-    cm_output = os.path.join(config.GTRNADB_CM_LIBRARY, '{}_{}.cm'.format(domain, isotype))
-    if not os.path.exists(cm_output):
-        if domain == 'A':
-            cm_library = 'TRNAinf-arch-iso'
-            cm_name = 'arch-' + isotype
-        elif domain == 'B':
-            cm_library = 'TRNAinf-bact-iso'
-            cm_name = 'bact-' + isotype
-        else:
-            cm_library = 'TRNAinf-euk-iso'
-            cm_name = 'euk-' + isotype
-        cmd = 'cmfetch {cm_library} {cm_name} > {cm_output}'.format(
-            cm_library=os.path.join('/usr/local/lib/tRNAscan-SE/models', cm_library),
-            cm_name=cm_name,
-            cm_output=cm_output
-        )
-        os.system(cmd)
+
+    cm_output = Path(config.GTRNADB_CM_LIBRARY) / '{}_{}.cm'.format(domain, isotype)
+    if cm_output.exists():
+        return str(cm_output)
+
+    cm_library = Path('/usr/local/lib/tRNAscan-SE/models')
+    if domain == 'A':
+        cm_library = cm_library / 'TRNAinf-arch-iso'
+        cm_name = 'arch-' + isotype
+    elif domain == 'B':
+        cm_library = cm_library / 'TRNAinf-bact-iso'
+        cm_name = 'bact-' + isotype
+    elif domain == 'E':
+        cm_library = cm_library / 'TRNAinf-euk-iso'
+        cm_name = 'euk-' + isotype
+    else:
+        raise ValueError("Unknown domain: %s" % domain)
+
+    with cm_output.open('w') as out:
+        cmd = ['cmfetch', str(cm_library), cm_name]
+        sp.check_call(cmd, stdout=out)
     return cm_output
 
 
