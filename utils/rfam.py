@@ -225,11 +225,21 @@ def get_all_rfam_acc():
     rfam_accs = []
     family_file = os.path.join(config.RFAM_DATA, 'family.txt')
     if not os.path.exists(family_file):
-        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
+        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz'.format(family_file)
         try:
             sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
         except sp.CalledProcessError as error:
             print('Error {}'.format(error.output))
+
+        if not os.path.exists('{}.gz'.format(family_file)):
+            print('Family file not downloaded')
+
+        cmd = 'gunzip {0}.gz'.format(family_file)
+        try:
+            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
+        except sp.CalledProcessError as error:
+            print('Error {}'.format(error.output))
+
 
     with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
