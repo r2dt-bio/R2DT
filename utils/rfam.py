@@ -227,9 +227,9 @@ def get_all_rfam_acc():
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         try:
-            sp.check_output([cmd], shell=True)
-        except sp.CalledProcessError as e:
-            print(e.output)
+            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
+        except sp.CalledProcessError as error:
+            print('Error {}'.format(error.output))
 
     with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
