@@ -60,8 +60,6 @@ def cli():
 def setup():
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
-    rfam_accs = rfam.get_all_rfam_acc()
-    print(rfam_accs)
     crw.setup()
     rfam.setup()
     gtrnadb.setup()
