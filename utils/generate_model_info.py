@@ -56,6 +56,7 @@ def generate_model_info(cm_library, rna_type='SSU'):
 
     with open(all_cm_path, 'w') as all_out:
         with open(modelinfo, 'w') as model_out:
+            model_out.write('*all*    -    -    all.cm\n')
             for model_name, cm_path in allowed_names(cm_library):
                 with open(cm_path, 'r') as cm:
                     shutil.copyfileobj(cm, all_out)
