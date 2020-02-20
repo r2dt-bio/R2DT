@@ -14,7 +14,7 @@ Auto Traveler automatically generates RNA secondary structure in standard layout
 
 1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
 1. **Select the best matching covariance model** for each input sequence
-using [Ribotyper](https://github.com/nawrockie/ribotyper-v1).
+using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
 1. **Fold** input sequence into a secondary structure compatible with the template
 using the top scoring covariance model.
 1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
@@ -40,31 +40,39 @@ cd auto-traveler
 docker build -t rnacentral/auto-traveler .
 ```
 
-## Usage
+## Development workflow
 
-Run Docker container and mount the current directory inside the container:
+The repository contains 2 Dockerfiles:
 
+- [Dockerfile](./Dockerfile) is used for production and is configured for automatic builds on Docker Hub,
+- [Dockerfile-development](./Dockerfile-development) is used for local development.
+
+The following command uses `Dockerfile-development` and mounts the current directory:
 ```
-docker run -it -v `pwd`:/rna/auto-traveler rnacentral/auto-traveler
+docker-compose run cli
 ```
 
-Perform one-time initial setup:
+All changes to the code are instantly reflected in the container.
 
+Perform one-time initial setup (this step is done automatically in production):
 ```
-cd auto-traveler
 auto-traveler.py setup
+```
 
-# run tests to verify that the installation worked
+Run tests to verify that the installation worked:
+```
 python3 -m unittest
 ```
+
+## Usage
 
 Run examples:
 
 ```
-python3 auto-traveler.py draw examples/examples.fasta temp/examples
+auto-traveler.py draw examples/examples.fasta temp/examples
 ```
 
-For performance reasons you can run the following commands:
+To bypass classification steps, run the following commands:
 ```
 auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
 auto-traveler.py ribovision draw examples/lsu-examples.fasta temp/lsu-examples
