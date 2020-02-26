@@ -94,6 +94,35 @@ class TestRibovision(unittest.TestCase):
         self.delete_folder(self.test_results)
 
 # @unittest.skip("")
+class TestRibovisionSSU(unittest.TestCase):
+    fasta_input = os.path.join('examples', 'ribovision-ssu-examples.fasta')
+    test_results = os.path.join('tests', 'results', 'ribovision-ssu')
+    precomputed_results = os.path.join('tests', 'examples', 'ribovision-ssu')
+    cmd = 'python3 {} ribovision draw_ssu {} {}'.format(EXECUTABLE, fasta_input, test_results)
+    files = [
+        'hits.txt',
+        'URS00002A2E83_10090-HS_SSU_3D.colored.svg',
+    ]
+
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
+
+# @unittest.skip("")
 class TestRfam(unittest.TestCase):
     rfam_acc = 'RF00162'
     fasta_input = os.path.join('examples', rfam_acc + '.example.fasta')
