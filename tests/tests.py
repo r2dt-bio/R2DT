@@ -50,7 +50,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.CRW_CM_LIBRARY, 884)
 
     def test_ribovision_database(self):
-        self.verify_cm_database(config.RIBOVISION_CM_LIBRARY, 18)
+        self.verify_cm_database(config.RIBOVISION_LSU_CM_LIBRARY, 18)
 
     def test_combined_database(self):
         self.verify_cm_database(config.CM_LIBRARY, 3556)
@@ -65,11 +65,11 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
 
 # @unittest.skip("")
-class TestRibovision(unittest.TestCase):
+class TestRibovisionLSU(unittest.TestCase):
     fasta_input = os.path.join('examples', 'lsu-small-example.fasta')
     test_results = os.path.join('tests', 'results', 'ribovision')
     precomputed_results = os.path.join('tests', 'examples', 'ribovision')
-    cmd = 'python3 {} ribovision draw {} {}'.format(EXECUTABLE, fasta_input, test_results)
+    cmd = 'python3 {} ribovision draw_lsu {} {}'.format(EXECUTABLE, fasta_input, test_results)
     files = [
         'hits.txt',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',

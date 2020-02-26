@@ -75,7 +75,8 @@ auto-traveler.py draw examples/examples.fasta temp/examples
 To bypass classification steps, run the following commands:
 ```
 auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
-auto-traveler.py ribovision draw examples/lsu-examples.fasta temp/lsu-examples
+auto-traveler.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
+auto-traveler.py ribovision draw_Ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
 auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
 
 # for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify

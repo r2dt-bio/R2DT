@@ -84,8 +84,10 @@ def draw(fasta_input, output_folder):
             print(line)
             if model_id.count('.') >= 2:
                 crw.visualise_crw(fasta_input, output_folder, rnacentral_id, model_id)
-            elif model_id.count('_') == 2:
-                ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
+            elif model_id.count('_') == 2 and 'SSU' in model_id:
+                ribovision.visualise('ssu', fasta_input, output_folder, rnacentral_id, model_id)
+            elif model_id.count('_') == 2 and 'LSU' in model_id:
+                ribovision.visualise('lsu', fasta_input, output_folder, rnacentral_id, model_id)
             else:
                 rfam.visualise_rfam(fasta_input, output_folder, rnacentral_id, model_id)
 
@@ -152,15 +154,27 @@ def ribovision_group():
     pass
 
 
-@ribovision_group.command('draw')
+@ribovision_group.command('draw_lsu')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def ribovision_draw (fasta_input, output_folder):
+def ribovision_draw_lsu(fasta_input, output_folder):
     os.system('mkdir -p %s' % output_folder)
-    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_CM_LIBRARY), 'r') as f:
+    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_LSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
+            ribovision.visualise('lsu', fasta_input, output_folder, rnacentral_id, model_id)
+
+
+@ribovision_group.command('draw_ssu')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def ribovision_draw_ssu(fasta_input, output_folder):
+    generate_model_info(cm_library=config.RIBOVISION_SSU_CM_LIBRARY)
+    os.system('mkdir -p %s' % output_folder)
+    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
+        for line in f.readlines():
+            rnacentral_id, model_id, _ = line.split('\t')
+            ribovision.visualise('ssu', fasta_input, output_folder, rnacentral_id, model_id)
 
 
 @cli.group('rfam')
