@@ -257,12 +257,13 @@ def get_rfam_acc_by_id(rfam_id):
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
-    os.system('cut -f 1,2 {0} > {0}.short'.format(family_file))
-    with open(family_file + '.short') as f:
-        for line in f:
-            rfam_acc, rfam_identifier = line.split()
-            if rfam_id == rfam_identifier:
-                return rfam_acc
+
+    with open(family_file, 'r') as raw:
+        for line in raw:
+            parts = line.split()
+            if parts[1] == rfam_id:
+                return parts[0]
+    raise ValueError("Cannot find Rfam accession for: %s" % rfam_id)
 
 
 def remove_pseudoknot_from_ss_cons(rfam_seed):
