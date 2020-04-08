@@ -422,11 +422,24 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     temp_stk = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-sfetch")
 
-    cmd = "cmalign {rfam_cm} {temp_fasta} > {temp_sto}".format(rfam_cm=rfam_cm,
-        temp_fasta=temp_fasta.name, temp_sto=temp_sto.name)
-    os.system(cmd)
+    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    for options in cm_options:
+        cmd = "cmalign {option} {rfam_cm} {temp_fasta} > {temp_sto}".format(
+            options=options,
+            rfam_cm=rfam_cm,
+            temp_fasta=temp_fasta.name,
+            temp_sto=temp_sto.name
+        )
+        result = os.system(cmd)
+        if not result:
+            break
+    else:
+        print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
+        return
 
     has_conserved_structure = False
     with open(temp_sto.name, 'r') as f:
@@ -442,12 +455,16 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         return
 
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-alimanip")
 
     result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket")
 
     shared.remove_large_insertions(result_base + '.fasta')
 

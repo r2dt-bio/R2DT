@@ -26,16 +26,32 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     temp_stk = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-sfetch")
 
-    cmd = "cmalign %s.cm %s > %s" % (os.path.join(config.RIBOVISION_CM_LIBRARY, model_id), temp_fasta.name, temp_sto.name)
-    os.system(cmd)
+    model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id)
+    if not os.path.exists(model_path):
+        return
+    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    for options in cm_options:
+        cmd = "cmalign %s %s.cm %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
+        result = os.system(cmd)
+        if not result:
+            break
+    else:
+        print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
+        return
 
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-alimanip")
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket")
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
         rnacentral_id=rnacentral_id,
