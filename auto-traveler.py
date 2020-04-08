@@ -82,7 +82,7 @@ def draw(fasta_input, output_folder):
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
             print(line)
-            if model_id.count('.') >= 2:
+            if model_id.count('.') >= 2 or model_id == '5_8S_rRNA':
                 crw.visualise_crw(fasta_input, output_folder, rnacentral_id, model_id)
             elif model_id.count('_') == 2:
                 ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
