@@ -258,7 +258,7 @@ def get_rfam_acc_by_id(rfam_id):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
 
-    with open(family_file, 'r') as raw:
+    with open(family_file, encoding='utf8', errors='ignore') as raw:
         for line in raw:
             parts = line.split()
             if parts[1] == rfam_id:
@@ -428,7 +428,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
 
     cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
     for options in cm_options:
-        cmd = "cmalign {option} {rfam_cm} {temp_fasta} > {temp_sto}".format(
+        cmd = "cmalign {options} {rfam_cm} {temp_fasta} > {temp_sto}".format(
             options=options,
             rfam_cm=rfam_cm,
             temp_fasta=temp_fasta.name,
