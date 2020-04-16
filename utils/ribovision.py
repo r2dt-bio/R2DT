@@ -28,7 +28,7 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-sfetch")
+        raise ValueError("Failed esl-sfetch for %s" rnacentral_id)
 
     model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id)
     if not os.path.exists(model_path):
@@ -46,12 +46,12 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-alimanip")
+        raise ValueError("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-pfam-sindi2dot-bracket")
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
         rnacentral_id=rnacentral_id,
