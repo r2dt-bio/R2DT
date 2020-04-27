@@ -28,7 +28,7 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-sfetch for %s" rnacentral_id)
+        raise ValueError("Failed esl-sfetch for %s" % rnacentral_id)
 
     model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id)
     if not os.path.exists(model_path):
