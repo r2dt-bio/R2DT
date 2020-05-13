@@ -40,7 +40,8 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
         raise ValueError("Failed esl-sfetch for: %s" % rnacentral_id)
 
     model_path = os.path.join(config.CRW_CM_LIBRARY, model_id)
-    if not os.path.exists(model_path):
+    if not os.path.exists(model_path + '.cm'):
+        print('Model %s does not exist' % model_path)
         return
     cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
     for options in cm_options:
