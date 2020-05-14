@@ -151,7 +151,8 @@ def get_trnascan_cm(domain, isotype):
     """
     Fetch a domain-specific isotype covariance model as a separate file.
     """
-
+    if not os.path.exists(config.GTRNADB_CM_LIBRARY):
+        os.mkdir(config.GTRNADB_CM_LIBRARY)
     cm_output = Path(config.GTRNADB_CM_LIBRARY) / '{}_{}.cm'.format(domain, isotype)
     if cm_output.exists():
         return str(cm_output)
