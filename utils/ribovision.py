@@ -30,12 +30,13 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
     if result:
         raise ValueError("Failed esl-sfetch for %s" % rnacentral_id)
 
-    model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id)
+    model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id + '.cm')
     if not os.path.exists(model_path):
+        print('Model not found %s' % model_path)
         return
     cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
     for options in cm_options:
-        cmd = "cmalign %s %s.cm %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
+        cmd = "cmalign %s %s %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
         result = os.system(cmd)
         if not result:
             break
