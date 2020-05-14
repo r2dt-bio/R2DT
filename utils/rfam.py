@@ -58,14 +58,14 @@ def get_traveler_fasta(rfam_acc):
 
 
 def get_rfam_cm(rfam_acc):
-    return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    return os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm')
 
 
 def get_rfam_cms():
     """
-    Fetch non-blacklisted Rfam covariance models.
+    Fetch Rfam covariance models excluding blacklisted models.
     """
-    rfam_whitelisted_cm = os.path.join(config.RFAM_DATA, 'Rfam_whitelisted.cm')
+    rfam_whitelisted_cm = os.path.join(config.CM_LIBRARY, 'rfam.cm')
     if os.path.exists(rfam_whitelisted_cm):
         print('File already exists {}'.format(rfam_whitelisted_cm))
         return
@@ -86,6 +86,8 @@ def get_rfam_cms():
                 continue
             print(rfam_acc)
             cmd = 'cmfetch {} {} >> {}'.format(rfam_cm, rfam_acc, rfam_whitelisted_cm)
+            os.system(cmd)
+            cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm'))
             os.system(cmd)
     os.system('rm {}'.format(rfam_cm))
     os.system('rm {}'.format(rfam_cm + '.ssi'))
@@ -391,20 +393,12 @@ def fetch_data(accessions):
         rscape2traveler(accession)
 
 
-def fetch_rfam_cm(rfam_acc):
-    rfam_cm = get_rfam_cm(rfam_acc)
-    if not os.path.exists(rfam_cm):
-        cmd = 'cmfetch %s %s > %s' % (os.path.join(config.CM_LIBRARY, 'all.cm'), rfam_acc, rfam_cm)
-        os.system(cmd)
-    return rfam_cm
-
-
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if not model_id.startswith('RF'):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:
         rfam_acc = model_id
-    rfam_cm = fetch_rfam_cm(rfam_acc)
+    rfam_cm = get_rfam_cm(rfam_acc)
     rscape2traveler(rfam_acc)
 
     temp_fasta = tempfile.NamedTemporaryFile()
