@@ -66,19 +66,26 @@ def get_rfam_cms():
     Fetch Rfam covariance models excluding blacklisted models.
     """
     rfam_whitelisted_cm = os.path.join(config.CM_LIBRARY, 'rfam.cm')
-    if os.path.exists(rfam_whitelisted_cm):
-        print('File already exists {}'.format(rfam_whitelisted_cm))
-        return
+    rfam_cm_location = os.path.join(config.CM_LIBRARY, 'rfam')
+    print('Deleting old Rfam library')
+    cmd = 'rm -f {}'.format(rfam_whitelisted_cm)
+    os.system(cmd)
+    cmd = 'rm -Rf {0} && mkdir {0}'.format(rfam_cm_location)
+    os.system(cmd)
+    print('Downloading Rfam.cm from Rfam FTP')
     rfam_cm = os.path.join(config.RFAM_DATA, 'Rfam.cm')
     rfam_ids = os.path.join(config.RFAM_DATA, 'rfam_ids.txt')
     if not os.path.exists(rfam_cm):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz && gunzip {0}.gz'.format(rfam_cm)
         os.system(cmd)
+    print('Indexing Rfam.cm')
     if not os.path.exists(rfam_cm + '.ssi'):
         os.system('cmfetch --index {}'.format(rfam_cm))
+    print('Get a list of all Rfam ids')
     if not os.path.exists(rfam_ids):
         cmd = "awk '/ACC   RF/ {{print $2}}' {} > {}".format(rfam_cm, rfam_ids)
         os.system(cmd)
+    print('Fetching whitelisted Rfam CMs')
     with open(rfam_ids, 'r') as f_in:
         for line in f_in:
             rfam_acc = line.strip()
@@ -87,8 +94,9 @@ def get_rfam_cms():
             print(rfam_acc)
             cmd = 'cmfetch {} {} >> {}'.format(rfam_cm, rfam_acc, rfam_whitelisted_cm)
             os.system(cmd)
-            cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm'))
+            cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, os.path.join(rfam_cm_location, rfam_acc + '.cm'))
             os.system(cmd)
+    print('Cleaning up')
     os.system('rm {}'.format(rfam_cm))
     os.system('rm {}'.format(rfam_cm + '.ssi'))
 
@@ -96,8 +104,9 @@ def get_rfam_cms():
 def setup(accessions=None):
     get_rfam_cms()
     if not accessions:
-        accessions = 'all'
-    fetch_data(accessions)
+        accessions = get_all_rfam_acc()
+    for accession in accessions:
+        rscape2traveler(accession)
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -384,13 +393,6 @@ def rscape2traveler(rfam_acc):
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
     generate_traveler_fasta(rfam_acc)
-
-
-def fetch_data(accessions):
-    if accessions == 'all':
-        accessions = get_all_rfam_acc()
-    for accession in accessions:
-        rscape2traveler(accession)
 
 
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
