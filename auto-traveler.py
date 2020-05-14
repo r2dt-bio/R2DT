@@ -63,9 +63,7 @@ def setup():
     crw.setup()
     rfam.setup()
     gtrnadb.setup()
-    symlink_cms(config.RIBOVISION_CM_LIBRARY)
-    symlink_cms(config.CRW_CM_LIBRARY)
-    generate_model_info(cm_library=config.CM_LIBRARY)
+    generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
 
 
 @cli.command()
