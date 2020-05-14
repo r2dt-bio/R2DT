@@ -18,7 +18,7 @@ here = os.path.realpath(os.path.dirname(__file__))
 PROJECT_HOME = os.path.dirname(here)
 DATA = os.path.join(PROJECT_HOME, 'data')
 
-CRW_CM_LIBRARY = os.path.join(DATA, 'crw-cms')
+CRW_CM_LIBRARY = os.path.join(DATA, 'cms', 'crw')
 CRW_PS_LIBRARY = os.path.join(DATA, 'crw-ps')
 CRW_BPSEQ_LOCATION = os.path.join(DATA, 'crw-bpseq')
 CRW_FASTA_LIBRARY = os.path.join(DATA, 'crw-fasta-no-pseudoknots')
