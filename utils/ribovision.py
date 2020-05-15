@@ -19,18 +19,30 @@ from . import config
 from . import shared
 
 
-def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
+def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
+
+    if ssu_or_lsu.lower() == 'lsu':
+        cm_library = config.RIBOVISION_LSU_CM_LIBRARY
+        templates = config.RIBOVISION_LSU_TRAVELER
+        bpseq = config.RIBOVISION_LSU_BPSEQ
+    elif ssu_or_lsu.lower() == 'ssu':
+        cm_library = config.RIBOVISION_SSU_CM_LIBRARY
+        templates = config.RIBOVISION_SSU_TRAVELER
+        bpseq = config.RIBOVISION_SSU_BPSEQ
+    else:
+        print('Please specify LSU or SSU')
+        return
 
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
-    temp_stk = tempfile.NamedTemporaryFile()
+    temp_stk = open('{}.stk'.format(os.path.join(output_folder, rnacentral_id)), 'w')
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed esl-sfetch for %s" % rnacentral_id)
 
-    model_path = os.path.join(config.RIBOVISION_CM_LIBRARY, model_id + '.cm')
+    model_path = os.path.join(cm_library, model_id + '.cm')
     if not os.path.exists(model_path):
         print('Model not found %s' % model_path)
         return
@@ -70,8 +82,8 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
                result_base=result_base,
                model_id=model_id,
                log=log,
-               traveler_templates=config.RIBOVISION_TRAVELER,
-               ribovision_bpseq=config.RIBOVISION_BPSEQ
+               traveler_templates=templates,
+               ribovision_bpseq=bpseq
            )
     print(cmd)
     os.system(cmd)

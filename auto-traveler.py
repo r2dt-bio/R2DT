@@ -75,12 +75,14 @@ def draw(ctx, fasta_input, output_folder):
     """
     os.system('mkdir -p %s' % output_folder)
     crw_output = os.path.join(output_folder, 'crw')
-    ribovision_output = os.path.join(output_folder, 'ribovision')
+    ribovision_ssu_output = os.path.join(output_folder, 'ribovision-ssu')
+    ribovision_lsu_output = os.path.join(output_folder, 'ribovision-lsu')
     rfam_output = os.path.join(output_folder, 'rfam')
     gtrnadb_output = os.path.join(output_folder, 'gtrnadb')
 
     ctx.invoke(rrna_draw, fasta_input=fasta_input, output_folder=crw_output, test=False)
-    ctx.invoke(ribovision_draw, fasta_input=fasta_input, output_folder=ribovision_output)
+    ctx.invoke(ribovision_draw_ssu, fasta_input=fasta_input, output_folder=ribovision_ssu_output)
+    ctx.invoke(ribovision_draw_lsu, fasta_input=fasta_input, output_folder=ribovision_lsu_output)
 
     with open(get_ribotyper_output(fasta_input, rfam_output, os.path.join(config.CM_LIBRARY, 'rfam')), 'r') as f:
         for line in f.readlines():
@@ -91,7 +93,8 @@ def draw(ctx, fasta_input, output_folder):
         gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder + '/gtrnadb')
 
     os.system('mv {0}/*.colored.svg {1}'.format(crw_output, output_folder))
-    os.system('mv {0}/*.colored.svg {1}'.format(ribovision_output, output_folder))
+    os.system('mv {0}/*.colored.svg {1}'.format(ribovision_ssu_output, output_folder))
+    os.system('mv {0}/*.colored.svg {1}'.format(ribovision_lsu_output, output_folder))
     os.system('mv {0}/*.colored.svg {1}'.format(rfam_output, output_folder))
     os.system('mv {0}/*.colored.svg {1}'.format(gtrnadb_output, output_folder))
 
@@ -155,15 +158,27 @@ def ribovision_group():
     pass
 
 
-@ribovision_group.command('draw')
+@ribovision_group.command('draw_lsu')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def ribovision_draw (fasta_input, output_folder):
+def ribovision_draw_lsu(fasta_input, output_folder):
     os.system('mkdir -p %s' % output_folder)
-    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_CM_LIBRARY), 'r') as f:
+    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_LSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
+            ribovision.visualise('lsu', fasta_input, output_folder, rnacentral_id, model_id)
+
+
+@ribovision_group.command('draw_ssu')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def ribovision_draw_ssu(fasta_input, output_folder):
+    # generate_model_info(cm_library=config.RIBOVISION_SSU_CM_LIBRARY)
+    os.system('mkdir -p %s' % output_folder)
+    with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
+        for line in f.readlines():
+            rnacentral_id, model_id, _ = line.split('\t')
+            ribovision.visualise('ssu', fasta_input, output_folder, rnacentral_id, model_id)
 
 
 @cli.group('rfam')
