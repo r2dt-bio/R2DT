@@ -19,10 +19,10 @@ import shutil
 import subprocess as sp
 
 from . import config
-from . import rfam
 
 
 def allowed_names(cm_library):
+    from . import rfam
     for cm in glob.glob('%s/*.cm' % cm_library):
         model_name = None
         if 'all.cm' in cm:

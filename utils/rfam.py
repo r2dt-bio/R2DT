@@ -20,6 +20,7 @@ import subprocess as sp
 
 from . import config
 from . import shared
+from . import generate_model_info as mi
 
 
 # these RNAs are better handled by other methods
@@ -65,11 +66,9 @@ def get_rfam_cms():
     """
     Fetch Rfam covariance models excluding blacklisted models.
     """
-    rfam_whitelisted_cm = os.path.join(config.CM_LIBRARY, 'rfam.cm')
     rfam_cm_location = os.path.join(config.CM_LIBRARY, 'rfam')
+    rfam_whitelisted_cm = os.path.join(rfam_cm_location, 'all.cm')
     print('Deleting old Rfam library')
-    cmd = 'rm -f {}'.format(rfam_whitelisted_cm)
-    os.system(cmd)
     cmd = 'rm -Rf {0} && mkdir {0}'.format(rfam_cm_location)
     os.system(cmd)
     print('Downloading Rfam.cm from Rfam FTP')
@@ -103,6 +102,7 @@ def get_rfam_cms():
 
 def setup(accessions=None):
     get_rfam_cms()
+    mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:

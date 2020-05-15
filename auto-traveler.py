@@ -19,7 +19,6 @@ import os
 import click
 
 from utils import crw, rfam, ribovision, gtrnadb, config
-from utils.generate_model_info import generate_model_info
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -63,7 +62,6 @@ def setup():
     crw.setup()
     rfam.setup()
     gtrnadb.setup()
-    generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
 
 
 @cli.command()
