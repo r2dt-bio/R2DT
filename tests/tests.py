@@ -52,9 +52,6 @@ class TestCovarianceModelDatabase(unittest.TestCase):
     def test_ribovision_database(self):
         self.verify_cm_database(config.RIBOVISION_CM_LIBRARY, 18)
 
-    def test_combined_database(self):
-        self.verify_cm_database(config.CM_LIBRARY, 3556)
-
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
             if rfam_acc in rfam.blacklisted():
@@ -166,7 +163,6 @@ class TestSingleEntry(unittest.TestCase):
     precomputed_results = os.path.join('tests', 'examples', 'single-entry')
     cmd = 'python3 {} draw {} {}'.format(EXECUTABLE, fasta_input, test_results)
     files = [
-        'hits.txt',
         'URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg',
         'URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg',
         'URS000053CEAC_224308.colored.svg',
