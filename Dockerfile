@@ -108,6 +108,5 @@ ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/auto-traveler:$PATH"
 
 WORKDIR /rna/auto-traveler
-RUN auto-traveler.py setup
 
 ENTRYPOINT ["/bin/bash"]
