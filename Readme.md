@@ -90,6 +90,9 @@ auto-traveler.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain
 Additional commands:
 
 ```
+# to run individual tests
+python3 -m unittest tests.tests.TestRibovisionLSU
+
 # classify example sequences using Ribotyper
 perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
 
