@@ -88,6 +88,8 @@ def skip_trna(entry):
 
 
 def classify_trna_sequences(fasta_input, output_folder):
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
     bacteria = run_trnascan(fasta_input, output_folder, 'B')
     archaea = run_trnascan(fasta_input, output_folder, 'A')
     eukaryotes = run_trnascan(fasta_input, output_folder, 'E')
