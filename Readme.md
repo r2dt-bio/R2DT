@@ -23,40 +23,43 @@ using the top scoring covariance model.
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/auto-traveler)
 
-Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/auto-traveler):
+1. Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/auto-traveler):
 
-```
-docker pull rnacentral/auto-traveler
-```
+    ```
+    docker pull rnacentral/auto-traveler
+    ```
 
-or build your own Docker image:
+    or build your own Docker image:
 
-```
-# Get the code:
-git clone https://github.com/RNAcentral/auto-traveler.git
-cd auto-traveler
+    ```
+    # Get the code:
+    git clone https://github.com/RNAcentral/auto-traveler.git
+    cd auto-traveler
 
-# Build and tag a Docker image:
-docker build -t rnacentral/auto-traveler .
-```
+    # Build and tag a Docker image:
+    docker build -t rnacentral/auto-traveler .
+    ```
 
-## Development workflow
+2. Run the container:
 
-The repository contains 2 Dockerfiles:
+    ```
+    docker-compose run cli
+    ```
 
-- [Dockerfile](./Dockerfile) is used for production and is configured for automatic builds on Docker Hub,
-- [Dockerfile-development](./Dockerfile-development) is used for local development.
+    This command mounts the current directory so all code or data changes are instantly reflected in the container.
 
-The following command uses `Dockerfile-development` and mounts the current directory:
-```
-docker-compose run cli
-```
+## Initial setup
 
-All changes to the code are instantly reflected in the container.
+Perform one-time initial setup:
 
-Perform one-time initial setup (this step is done automatically in production):
 ```
 auto-traveler.py setup
+```
+
+Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/ypx64w3vfa8z219/cms.tar.gz?dl=0), uncompress and mount it in the container:
+
+```
+docker run -it -v `pwd`:/rna/auto-traveler -v <path_to_data_library>:/rna/auto-traveler/data/cms rnacentral/auto-traveler
 ```
 
 Run tests to verify that the installation worked:

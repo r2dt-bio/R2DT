@@ -22,9 +22,14 @@ from . import shared
 
 
 def setup():
+    print('Deleting old CRW library')
     os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
-    cmd = ['tar', 'xf', '{path}/crw-cms.tar.gz'.format(path=config.DATA)]
+    print('Extracting precomputed CRW archive')
+    cmd = ['tar', 'xf', 'crw-cms.tar.gz']
     sp.check_output(cmd, cwd=config.DATA)
+    cmd = ['mv', 'crw-cms', os.path.join(config.CM_LIBRARY, 'crw')]
+    sp.check_output(cmd, cwd=config.DATA)
+    print('Generating CRW modelinfo file')
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 

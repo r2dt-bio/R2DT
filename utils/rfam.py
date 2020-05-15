@@ -20,6 +20,7 @@ import subprocess as sp
 
 from . import config
 from . import shared
+from . import generate_model_info as mi
 
 
 # these RNAs are better handled by other methods
@@ -58,50 +59,54 @@ def get_traveler_fasta(rfam_acc):
 
 
 def get_rfam_cm(rfam_acc):
-    return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    return os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm')
 
 
 def get_rfam_cms():
     """
-    Download non-blacklisted Rfam covariance models.
+    Fetch Rfam covariance models excluding blacklisted models.
     """
+    rfam_cm_location = os.path.join(config.CM_LIBRARY, 'rfam')
+    rfam_whitelisted_cm = os.path.join(rfam_cm_location, 'all.cm')
+    print('Deleting old Rfam library')
+    cmd = 'rm -Rf {0} && mkdir {0}'.format(rfam_cm_location)
+    os.system(cmd)
+    print('Downloading Rfam.cm from Rfam FTP')
     rfam_cm = os.path.join(config.RFAM_DATA, 'Rfam.cm')
     rfam_ids = os.path.join(config.RFAM_DATA, 'rfam_ids.txt')
     if not os.path.exists(rfam_cm):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz && gunzip {0}.gz'.format(rfam_cm)
         os.system(cmd)
+    print('Indexing Rfam.cm')
     if not os.path.exists(rfam_cm + '.ssi'):
         os.system('cmfetch --index {}'.format(rfam_cm))
+    print('Get a list of all Rfam ids')
     if not os.path.exists(rfam_ids):
         cmd = "awk '/ACC   RF/ {{print $2}}' {} > {}".format(rfam_cm, rfam_ids)
         os.system(cmd)
+    print('Fetching whitelisted Rfam CMs')
     with open(rfam_ids, 'r') as f_in:
         for line in f_in:
             rfam_acc = line.strip()
             if rfam_acc in blacklisted():
                 continue
-            cm_file = get_rfam_cm(rfam_acc)
-            if not os.path.exists(cm_file):
-                cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, cm_file)
-                os.system(cmd)
-            target = os.path.join(os.path.abspath(config.CM_LIBRARY), os.path.basename(cm_file))
-            if not os.path.exists(target):
-                cmd = 'ln -s {} {}'.format(os.path.abspath(cm_file), target)
-                print(cmd)
-                os.system(cmd)
+            print(rfam_acc)
+            cmd = 'cmfetch {} {} >> {}'.format(rfam_cm, rfam_acc, rfam_whitelisted_cm)
+            os.system(cmd)
+            cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, os.path.join(rfam_cm_location, rfam_acc + '.cm'))
+            os.system(cmd)
+    print('Cleaning up')
+    os.system('rm {}'.format(rfam_cm))
+    os.system('rm {}'.format(rfam_cm + '.ssi'))
 
 
 def setup(accessions=None):
-    precomputed_archive = os.path.join(config.DATA, 'rfam.zip')
-    if os.path.exists(precomputed_archive):
-        print('Uncompressing precomputed Rfam template library')
-        cmd = 'unzip -d {} {}'.format(config.RFAM_DATA, precomputed_archive)
-        os.system(cmd)
-    else:
-        if not accessions:
-            accessions = 'all'
-        fetch_data(accessions)
     get_rfam_cms()
+    mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
+    if not accessions:
+        accessions = get_all_rfam_acc()
+    for accession in accessions:
+        rscape2traveler(accession)
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -390,31 +395,12 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def fetch_data(accessions):
-    possible = get_all_rfam_acc()
-    if accessions == 'all':
-        accessions = possible
-
-    for accession in accessions:
-        rscape2traveler(accession)
-
-
-def download_rfam_cm(rfam_acc):
-    rfam_cm = get_rfam_cm(rfam_acc)
-    if not os.path.exists(rfam_cm):
-        os.system('mkdir -p {}'.format(os.path.join(config.RFAM_DATA, rfam_acc)))
-        url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
-        cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
-        os.system(cmd)
-    return rfam_cm
-
-
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if not model_id.startswith('RF'):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:
         rfam_acc = model_id
-    rfam_cm = download_rfam_cm(rfam_acc)
+    rfam_cm = get_rfam_cm(rfam_acc)
     rscape2traveler(rfam_acc)
 
     temp_fasta = tempfile.NamedTemporaryFile()

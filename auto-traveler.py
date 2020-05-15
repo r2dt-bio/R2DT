@@ -19,7 +19,6 @@ import os
 import click
 
 from utils import crw, rfam, ribovision, gtrnadb, config
-from utils.generate_model_info import generate_model_info
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -63,34 +62,38 @@ def setup():
     crw.setup()
     rfam.setup()
     gtrnadb.setup()
-    symlink_cms(config.RIBOVISION_CM_LIBRARY)
-    symlink_cms(config.CRW_CM_LIBRARY)
-    generate_model_info(cm_library=config.CM_LIBRARY)
 
 
 @cli.command()
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def draw(fasta_input, output_folder):
+@click.pass_context
+def draw(ctx, fasta_input, output_folder):
     """
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
     os.system('mkdir -p %s' % output_folder)
+    crw_output = os.path.join(output_folder, 'crw')
+    ribovision_output = os.path.join(output_folder, 'ribovision')
+    rfam_output = os.path.join(output_folder, 'rfam')
+    gtrnadb_output = os.path.join(output_folder, 'gtrnadb')
 
-    with open(get_ribotyper_output(fasta_input, output_folder, config.CM_LIBRARY), 'r') as f:
+    ctx.invoke(rrna_draw, fasta_input=fasta_input, output_folder=crw_output, test=False)
+    ctx.invoke(ribovision_draw, fasta_input=fasta_input, output_folder=ribovision_output)
+
+    with open(get_ribotyper_output(fasta_input, rfam_output, os.path.join(config.CM_LIBRARY, 'rfam')), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            print(line)
-            if model_id.count('.') >= 2 or model_id == '5_8S_rRNA':
-                crw.visualise_crw(fasta_input, output_folder, rnacentral_id, model_id)
-            elif model_id.count('_') == 2:
-                ribovision.visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id)
-            else:
-                rfam.visualise_rfam(fasta_input, output_folder, rnacentral_id, model_id)
+            rfam.visualise_rfam(fasta_input, rfam_output, rnacentral_id, model_id)
 
-    for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-        gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder)
+    for trna in gtrnadb.classify_trna_sequences(fasta_input, gtrnadb_output):
+        gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder + '/gtrnadb')
+
+    os.system('mv {0}/*.colored.svg {1}'.format(crw_output, output_folder))
+    os.system('mv {0}/*.colored.svg {1}'.format(ribovision_output, output_folder))
+    os.system('mv {0}/*.colored.svg {1}'.format(rfam_output, output_folder))
+    os.system('mv {0}/*.colored.svg {1}'.format(gtrnadb_output, output_folder))
 
 
 @cli.group('gtrnadb')

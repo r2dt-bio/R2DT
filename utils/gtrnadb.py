@@ -88,6 +88,8 @@ def skip_trna(entry):
 
 
 def classify_trna_sequences(fasta_input, output_folder):
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
     bacteria = run_trnascan(fasta_input, output_folder, 'B')
     archaea = run_trnascan(fasta_input, output_folder, 'A')
     eukaryotes = run_trnascan(fasta_input, output_folder, 'E')
@@ -151,7 +153,8 @@ def get_trnascan_cm(domain, isotype):
     """
     Fetch a domain-specific isotype covariance model as a separate file.
     """
-
+    if not os.path.exists(config.GTRNADB_CM_LIBRARY):
+        os.mkdir(config.GTRNADB_CM_LIBRARY)
     cm_output = Path(config.GTRNADB_CM_LIBRARY) / '{}_{}.cm'.format(domain, isotype)
     if cm_output.exists():
         return str(cm_output)
