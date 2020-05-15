@@ -49,8 +49,11 @@ class TestCovarianceModelDatabase(unittest.TestCase):
     def test_crw_database(self):
         self.verify_cm_database(config.CRW_CM_LIBRARY, 884)
 
-    def test_ribovision_database(self):
+    def test_ribovision_lsu_database(self):
         self.verify_cm_database(config.RIBOVISION_LSU_CM_LIBRARY, 18)
+
+    def test_ribovision_ssu_database(self):
+        self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 9)
 
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
