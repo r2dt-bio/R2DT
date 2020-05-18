@@ -128,10 +128,11 @@ def draw(ctx, fasta_input, output_folder):
     hits = set()
     subset_fasta = os.path.join(output_folder, 'subset.fasta')
     os.system('cp {} {}'.format(fasta_input, subset_fasta))
+    os.system('esl-sfetch --index ' + subset_fasta)
 
     # Rfam
     print('Analysing {} sequences with Rfam'.format(len(all_seq_ids)))
-    with open(get_ribotyper_output(subset_fasta, rfam_output, os.path.join(config.CM_LIBRARY, 'rfam')), 'r') as f:
+    with open(get_ribotyper_output(fasta_input, rfam_output, os.path.join(config.CM_LIBRARY, 'rfam')), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
             rfam.visualise_rfam(fasta_input, rfam_output, rnacentral_id, model_id)
