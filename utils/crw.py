@@ -14,15 +14,22 @@ limitations under the License.
 import os
 import re
 import tempfile
+import subprocess as sp
 
 from . import config
 from . import generate_model_info as modelinfo
+from . import shared
 
 
 def setup():
+    print('Deleting old CRW library')
     os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
-    cms = os.path.join(config.DATA, 'crw-cms.tar.gz')
-    os.system('cd data && tar xf {}'.format(cms))
+    print('Extracting precomputed CRW archive')
+    cmd = ['tar', 'xf', 'crw-cms.tar.gz']
+    sp.check_output(cmd, cwd=config.DATA)
+    cmd = ['mv', 'crw-cms', os.path.join(config.CM_LIBRARY, 'crw')]
+    sp.check_output(cmd, cwd=config.DATA)
+    print('Generating CRW modelinfo file')
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
@@ -33,21 +40,40 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
     temp_stk = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-sfetch for: %s" % rnacentral_id)
 
-    cmd = "cmalign %s.cm %s > %s" % (os.path.join(config.CRW_CM_LIBRARY, model_id), temp_fasta.name, temp_sto.name)
-    os.system(cmd)
+    model_path = os.path.join(config.CRW_CM_LIBRARY, model_id)
+    if not os.path.exists(model_path + '.cm'):
+        print('Model %s does not exist' % model_path)
+        return
+    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    for options in cm_options:
+        cmd = "cmalign %s %s.cm %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
+        result = os.system(cmd)
+        if not result:
+            break
+    else:
+        print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
+        return
 
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
         rnacentral_id=rnacentral_id,
         model_id=model_id,
     ))
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '

@@ -16,11 +16,14 @@ import io
 import os
 import re
 import tempfile
+import subprocess as sp
 
 from . import config
+from . import shared
+from . import generate_model_info as mi
 
 
-# these RNAs are better handled by CRW and RiboVision
+# these RNAs are better handled by other methods
 BLACKLIST = [
     'RF00001', # 5S
     'RF02541', # LSU_rRNA_bacteria
@@ -32,6 +35,8 @@ BLACKLIST = [
     'RF02542', # SSU_rRNA_microsporidia
     'RF02546', # LSU_trypano_mito
     'RF02545', # SSU_trypano_mito
+    'RF00005', # tRNA
+    'RF01852', # tRNA-Sec
 ]
 
 
@@ -54,50 +59,54 @@ def get_traveler_fasta(rfam_acc):
 
 
 def get_rfam_cm(rfam_acc):
-    return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    return os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm')
 
 
 def get_rfam_cms():
     """
-    Download non-blacklisted Rfam covariance models.
+    Fetch Rfam covariance models excluding blacklisted models.
     """
+    rfam_cm_location = os.path.join(config.CM_LIBRARY, 'rfam')
+    rfam_whitelisted_cm = os.path.join(rfam_cm_location, 'all.cm')
+    print('Deleting old Rfam library')
+    cmd = 'rm -Rf {0} && mkdir {0}'.format(rfam_cm_location)
+    os.system(cmd)
+    print('Downloading Rfam.cm from Rfam FTP')
     rfam_cm = os.path.join(config.RFAM_DATA, 'Rfam.cm')
     rfam_ids = os.path.join(config.RFAM_DATA, 'rfam_ids.txt')
     if not os.path.exists(rfam_cm):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz && gunzip {0}.gz'.format(rfam_cm)
         os.system(cmd)
+    print('Indexing Rfam.cm')
     if not os.path.exists(rfam_cm + '.ssi'):
         os.system('cmfetch --index {}'.format(rfam_cm))
+    print('Get a list of all Rfam ids')
     if not os.path.exists(rfam_ids):
         cmd = "awk '/ACC   RF/ {{print $2}}' {} > {}".format(rfam_cm, rfam_ids)
         os.system(cmd)
+    print('Fetching whitelisted Rfam CMs')
     with open(rfam_ids, 'r') as f_in:
         for line in f_in:
             rfam_acc = line.strip()
             if rfam_acc in blacklisted():
                 continue
-            cm_file = get_rfam_cm(rfam_acc)
-            if not os.path.exists(cm_file):
-                cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, cm_file)
-                os.system(cmd)
-            target = os.path.join(os.path.abspath(config.CM_LIBRARY), os.path.basename(cm_file))
-            if not os.path.exists(target):
-                cmd = 'ln -s {} {}'.format(os.path.abspath(cm_file), target)
-                print(cmd)
-                os.system(cmd)
+            print(rfam_acc)
+            cmd = 'cmfetch {} {} >> {}'.format(rfam_cm, rfam_acc, rfam_whitelisted_cm)
+            os.system(cmd)
+            cmd = 'cmfetch {} {} > {}'.format(rfam_cm, rfam_acc, os.path.join(rfam_cm_location, rfam_acc + '.cm'))
+            os.system(cmd)
+    print('Cleaning up')
+    os.system('rm {}'.format(rfam_cm))
+    os.system('rm {}'.format(rfam_cm + '.ssi'))
 
 
 def setup(accessions=None):
-    precomputed_archive = os.path.join(config.DATA, 'rfam.zip')
-    if os.path.exists(precomputed_archive):
-        print('Uncompressing precomputed Rfam template library')
-        cmd = 'unzip -d {} {}'.format(config.RFAM_DATA, precomputed_archive)
-        os.system(cmd)
-    else:
-        if not accessions:
-            accessions = 'all'
-        fetch_data(accessions)
     get_rfam_cms()
+    mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
+    if not accessions:
+        accessions = get_all_rfam_acc()
+    for accession in accessions:
+        rscape2traveler(accession)
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -221,8 +230,22 @@ def get_all_rfam_acc():
     rfam_accs = []
     family_file = os.path.join(config.RFAM_DATA, 'family.txt')
     if not os.path.exists(family_file):
-        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
-        os.system(cmd)
+        cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz'.format(family_file)
+        try:
+            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
+        except sp.CalledProcessError as error:
+            print('Error {}'.format(error.output))
+
+        if not os.path.exists('{}.gz'.format(family_file)):
+            print('Family file not downloaded')
+
+        cmd = 'gunzip {0}.gz'.format(family_file)
+        try:
+            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
+        except sp.CalledProcessError as error:
+            print('Error {}'.format(error.output))
+
+
     with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
             if line.startswith('RF'):
@@ -239,12 +262,13 @@ def get_rfam_acc_by_id(rfam_id):
     if not os.path.exists(family_file):
         cmd = 'wget -O {0}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {0}.gz'.format(family_file)
         os.system(cmd)
-    os.system('cut -f 1,2 {0} > {0}.short'.format(family_file))
-    with open(family_file + '.short') as f:
-        for line in f:
-            rfam_acc, rfam_identifier = line.split()
-            if rfam_id == rfam_identifier:
-                return rfam_acc
+
+    with open(family_file, encoding='utf8', errors='ignore') as raw:
+        for line in raw:
+            parts = line.split()
+            if parts[1] == rfam_id:
+                return parts[0]
+    raise ValueError("Cannot find Rfam accession for: %s" % rfam_id)
 
 
 def remove_pseudoknot_from_ss_cons(rfam_seed):
@@ -371,31 +395,12 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def fetch_data(accessions):
-    possible = get_all_rfam_acc()
-    if accessions == 'all':
-        accessions = possible
-
-    for accession in accessions:
-        rscape2traveler(accession)
-
-
-def download_rfam_cm(rfam_acc):
-    rfam_cm = get_rfam_cm(rfam_acc)
-    if not os.path.exists(rfam_cm):
-        os.system('mkdir -p {}'.format(os.path.join(config.RFAM_DATA, rfam_acc)))
-        url = 'http://rfam.org/family/{}/cm'.format(rfam_acc)
-        cmd = 'wget {url} -O {rfam_cm}'.format(rfam_cm=rfam_cm, url=url)
-        os.system(cmd)
-    return rfam_cm
-
-
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if not model_id.startswith('RF'):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:
         rfam_acc = model_id
-    rfam_cm = download_rfam_cm(rfam_acc)
+    rfam_cm = get_rfam_cm(rfam_acc)
     rscape2traveler(rfam_acc)
 
     temp_fasta = tempfile.NamedTemporaryFile()
@@ -403,11 +408,24 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     temp_stk = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-sfetch for %s" % seq_id)
 
-    cmd = "cmalign {rfam_cm} {temp_fasta} > {temp_sto}".format(rfam_cm=rfam_cm,
-        temp_fasta=temp_fasta.name, temp_sto=temp_sto.name)
-    os.system(cmd)
+    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    for options in cm_options:
+        cmd = "cmalign {options} {rfam_cm} {temp_fasta} > {temp_sto}".format(
+            options=options,
+            rfam_cm=rfam_cm,
+            temp_fasta=temp_fasta.name,
+            temp_sto=temp_sto.name
+        )
+        result = os.system(cmd)
+        if not result:
+            break
+    else:
+        print("Failed cmalign of %s to %s" % (seq_id, model_id))
+        return
 
     has_conserved_structure = False
     with open(temp_sto.name, 'r') as f:
@@ -423,12 +441,18 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         return
 
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-alimanip of %s %s" % (seq_id, model_id))
 
     result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '

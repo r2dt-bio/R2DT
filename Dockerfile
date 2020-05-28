@@ -1,6 +1,6 @@
 FROM gcc:6
 
-RUN apt-get update && apt-get install -y moreutils python3 python3-pip
+RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time vim
 
 ENV RNA /rna
 
@@ -38,6 +38,35 @@ RUN \
     cd RNAstructure && \
     make all
 
+# Install tRNAScan-SE
+RUN \
+    wget http://trna.ucsc.edu/software/trnascan-se-2.0.5.tar.gz && \
+    tar -xvzf trnascan-se-2.0.5.tar.gz && \
+    rm trnascan-se-2.0.5.tar.gz && \
+    cd tRNAscan-SE-2.0 && \
+    ./configure && make && make install
+# Make sure tRNAScan-SE can find Infernal
+RUN \
+    ln -s /rna/infernal-1.1.2/src/cmsearch /usr/local/bin/cmsearch && \
+    ln -s /rna/infernal-1.1.2/src/cmscan /usr/local/bin/cmscan
+
+# Install Bio-Easel
+RUN \
+    cpan install Inline && \
+    cpan install Inline::C
+RUN \
+    git clone https://github.com/nawrockie/Bio-Easel.git && \
+    cd Bio-Easel && \
+    git checkout e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 && \
+    mkdir src && \
+    cd src && \
+    curl -k -L -o easel-Bio-Easel-0.09.zip https://github.com/EddyRivasLab/easel/archive/Bio-Easel-0.09.zip && \
+    unzip easel-Bio-Easel-0.09.zip && \
+    mv easel-Bio-Easel-0.09 easel && \
+    rm easel-Bio-Easel-0.09.zip && \
+    cd .. && \
+    perl Makefile.PL; make; make test; make install
+
 # Install jiffy infernal hmmer scripts
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
@@ -55,26 +84,29 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fe
 RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git checkout auto-traveler
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout a87234b179ebea6cac213ffd9e675d580dd60885
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout bc7d536704c3db5c13825b8269bc20cebf2e102f
 RUN cd $RNA/traveler/src && make build
 
 COPY examples examples/
 
 # Install python dependencies
+ADD . /rna/auto-traveler
 ADD requirements.txt $RNA/auto-traveler/requirements.txt
 RUN pip3 install -r $RNA/auto-traveler/requirements.txt
 
 # Setup environmental variables
 ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
 ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/epn-test"
-RUN apt-get update && apt-get install time
 ENV RIBOTIMEDIR="/usr/bin"
-ENV PERL5LIB="$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
+ENV BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib"
+ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/auto-traveler:$PATH"
+
+WORKDIR /rna/auto-traveler
 
 ENTRYPOINT ["/bin/bash"]

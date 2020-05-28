@@ -16,30 +16,62 @@ import re
 import tempfile
 
 from . import config
+from . import shared
 
 
-def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
+def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
+
+    if ssu_or_lsu.lower() == 'lsu':
+        cm_library = config.RIBOVISION_LSU_CM_LIBRARY
+        templates = config.RIBOVISION_LSU_TRAVELER
+        bpseq = config.RIBOVISION_LSU_BPSEQ
+    elif ssu_or_lsu.lower() == 'ssu':
+        cm_library = config.RIBOVISION_SSU_CM_LIBRARY
+        templates = config.RIBOVISION_SSU_TRAVELER
+        bpseq = config.RIBOVISION_SSU_BPSEQ
+    else:
+        print('Please specify LSU or SSU')
+        return
 
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
-    temp_stk = tempfile.NamedTemporaryFile()
+    temp_stk = open('{}.stk'.format(os.path.join(output_folder, rnacentral_id)), 'w')
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-sfetch for %s" % rnacentral_id)
 
-    cmd = "cmalign %s.cm %s > %s" % (os.path.join(config.RIBOVISION_CM_LIBRARY, model_id), temp_fasta.name, temp_sto.name)
-    os.system(cmd)
+    model_path = os.path.join(cm_library, model_id + '.cm')
+    if not os.path.exists(model_path):
+        print('Model not found %s' % model_path)
+        return
+    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    for options in cm_options:
+        cmd = "cmalign %s %s %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
+        result = os.system(cmd)
+        if not result:
+            break
+    else:
+        print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
+        return
 
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
-    os.system(cmd)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
         rnacentral_id=rnacentral_id,
         model_id=model_id,
     ))
+
+    shared.remove_large_insertions(result_base + '.fasta')
 
     log = result_base + '.log'
     cmd = ('traveler '
@@ -50,8 +82,8 @@ def visualise_lsu(fasta_input, output_folder, rnacentral_id, model_id):
                result_base=result_base,
                model_id=model_id,
                log=log,
-               traveler_templates=config.RIBOVISION_TRAVELER,
-               ribovision_bpseq=config.RIBOVISION_BPSEQ
+               traveler_templates=templates,
+               ribovision_bpseq=bpseq
            )
     print(cmd)
     os.system(cmd)
