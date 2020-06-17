@@ -26,6 +26,7 @@ from . import generate_model_info as mi
 # these RNAs are better handled by other methods
 BLACKLIST = [
     'RF00001', # 5S
+    'RF00002', # 5.8S
     'RF02541', # LSU_rRNA_bacteria
     'RF00177', # SSU_rRNA_bacteria
     'RF01960', # SSU_rRNA_eukarya
