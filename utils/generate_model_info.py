@@ -64,3 +64,7 @@ def generate_model_info(cm_library, rna_type='SSU'):
                 model_out.write(model_line)
 
     print('Done')
+
+
+if __name__ == '__main__':
+    generate_model_info('/rna/auto-traveler/data/ribovision-lsu/cms')
