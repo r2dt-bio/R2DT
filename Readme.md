@@ -56,7 +56,7 @@ Perform one-time initial setup:
 auto-traveler.py setup
 ```
 
-Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/ypx64w3vfa8z219/cms.tar.gz?dl=0), uncompress and mount it in the container:
+Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0), uncompress and mount it in the container:
 
 ```
 docker run -it -v `pwd`:/rna/auto-traveler -v <path_to_data_library>:/rna/auto-traveler/data/cms rnacentral/auto-traveler
