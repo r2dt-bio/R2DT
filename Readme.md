@@ -1,14 +1,14 @@
 
-# Auto Traveler
+# R2DT
 
-Auto Traveler automatically generates RNA secondary structure in standard layouts using templates from the following sources:
+The R2DT software (RNA 2D Templates) automatically generates RNA secondary structure in standard layouts using templates from the following sources:
 
  - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
  - [Rfam](https://rfam.org) (>2,000 RNA families)
  - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
  - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
 
-**RNAcentral** uses Auto Traveler to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
+**RNAcentral** uses R2DT to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
 
 ## Method overview
 
@@ -21,23 +21,23 @@ using the top scoring covariance model.
 
 ## Installation
 
-![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/auto-traveler)
+![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
-1. Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/auto-traveler):
+1. Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt):
 
     ```
-    docker pull rnacentral/auto-traveler
+    docker pull rnacentral/r2dt
     ```
 
     or build your own Docker image:
 
     ```
     # Get the code:
-    git clone https://github.com/RNAcentral/auto-traveler.git
-    cd auto-traveler
+    git clone https://github.com/RNAcentral/R2DT.git
+    cd R2DT
 
     # Build and tag a Docker image:
-    docker build -t rnacentral/auto-traveler .
+    docker build -t rnacentral/r2dt .
     ```
 
 2. Run the container:
@@ -53,13 +53,13 @@ using the top scoring covariance model.
 Perform one-time initial setup:
 
 ```
-auto-traveler.py setup
+r2dt.py setup
 ```
 
 Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0), uncompress and mount it in the container:
 
 ```
-docker run -it -v `pwd`:/rna/auto-traveler -v <path_to_data_library>:/rna/auto-traveler/data/cms rnacentral/auto-traveler
+docker run -it -v `pwd`:/rna/r2dt -v <path_to_data_library>:/rna/r2dt/data/cms rnacentral/r2dt
 ```
 
 Run tests to verify that the installation worked:
@@ -72,19 +72,19 @@ python3 -m unittest
 Run examples:
 
 ```
-auto-traveler.py draw examples/examples.fasta temp/examples
+r2dt.py draw examples/examples.fasta temp/examples
 ```
 
 To bypass classification steps, run the following commands:
 ```
-auto-traveler.py crw draw examples/crw-examples.fasta temp/crw-examples
-auto-traveler.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
-auto-traveler.py ribovision draw_Ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
-auto-traveler.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
+r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
+r2dt.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
+r2dt.py ribovision draw_Ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
+r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
 
 # for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
-auto-traveler.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
-auto-traveler.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
+r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
+r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
 ```
 
 Additional commands:

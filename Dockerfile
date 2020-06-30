@@ -90,9 +90,9 @@ RUN cd $RNA/traveler/src && make build
 COPY examples examples/
 
 # Install python dependencies
-ADD . /rna/auto-traveler
-ADD requirements.txt $RNA/auto-traveler/requirements.txt
-RUN pip3 install -r $RNA/auto-traveler/requirements.txt
+ADD . /rna/r2dt
+ADD requirements.txt $RNA/r2dt/requirements.txt
+RUN pip3 install -r $RNA/r2dt/requirements.txt
 
 # Setup environmental variables
 ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
@@ -105,8 +105,8 @@ ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
-ENV PATH="/rna/auto-traveler:$PATH"
+ENV PATH="/rna/r2dt:$PATH"
 
-WORKDIR /rna/auto-traveler
+WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]

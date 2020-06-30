@@ -18,7 +18,7 @@ import unittest
 from utils import config, rfam
 
 
-EXECUTABLE = os.path.join(config.PROJECT_HOME, 'auto-traveler.py')
+EXECUTABLE = os.path.join(config.PROJECT_HOME, 'r2dt.py')
 
 # @unittest.skip("")
 class TestCovarianceModelDatabase(unittest.TestCase):
