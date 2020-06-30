@@ -106,11 +106,11 @@ python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type
 
 ## How to add new templates
 
-If you would like to submit a new template or replace an existing one, please [submit an issue](./issues) including:
+If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues) including:
 
 - Description of the new template and any relevant background information
-- A FASTA file with a reference sequence and secondary structure - [example](./data/rfam/RF00002/RF00002-traveler.fasta)
-- A [Traveler XML file](https://github.com/davidhoksza/traveler#traveler-intermediate-format) - [example](./data/rfam/RF00002/traveler-template.xml)
+- A FASTA file with a reference sequence and secondary structure - see [example](./data/rfam/RF00002/RF00002-traveler.fasta)
+- A [Traveler XML file](https://github.com/davidhoksza/traveler#traveler-intermediate-format) - see [example](./data/rfam/RF00002/traveler-template.xml)
 
 GitHub currently does not support attaching files with `.fasta` or `.bpseq` extensions so please attach the files as `.txt`.
 
