@@ -123,6 +123,10 @@ def classify_trna_sequences(fasta_input, output_folder):
             eukaryotes[rna_id]['domain'] = 'E'
             eukaryotes[rna_id]['id'] = rna_id
             data.append(eukaryotes[rna_id])
+
+    with open(os.path.join(output_folder, 'hits.txt'), 'w') as f_out:
+        for entry in data:
+            f_out.write('{}\t{}_{}\tPASS\n'.format(entry['id'], entry['domain'], entry['isotype']))
     return data
 
 
