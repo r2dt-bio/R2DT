@@ -441,7 +441,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if not has_conserved_structure:
         return
 
-    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
+    cmd = 'esl-alimanip --rna --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed esl-alimanip of %s %s" % (seq_id, model_id))
