@@ -183,8 +183,27 @@ def draw(ctx, fasta_input, output_folder):
 
     # move svg files to the final location
     for folder in [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]:
-        if len(glob.glob(os.path.join(folder, '*.colored.svg'))):
-            os.system('mv {0}/*.colored.svg {1}'.format(folder, output_folder))
+        organise_results(folder, output_folder)
+
+
+def organise_results(results_folder, output_folder):
+    destination = os.path.join(output_folder, 'results')
+    svg_folder = os.path.join(destination, 'svg')
+    thumbnail_folder = os.path.join(destination, 'thumbnail')
+    fasta_folder = os.path.join(destination, 'fasta')
+    for folder in [destination, svg_folder, thumbnail_folder, fasta_folder]:
+        os.system('mkdir -p {}'.format(folder))
+
+    svgs = glob.glob(os.path.join(results_folder, '*.colored.svg'))
+    if len(svgs):
+        for svg in svgs:
+            with open(svg, 'r') as f_svg:
+                thumbnail = generate_thumbnail(f_svg.read(), svg)
+                with open(svg.replace('.colored.', '.thumbnail.'), 'w') as f_thumbnail:
+                    f_thumbnail.write(thumbnail)
+        os.system('mv {0}/*.colored.svg {1}'.format(results_folder, svg_folder))
+        os.system('mv {0}/*.thumbnail.svg {1}'.format(results_folder, thumbnail_folder))
+        os.system('mv {0}/*.fasta {1}'.format(results_folder, fasta_folder))
 
 
 @cli.group('gtrnadb')
