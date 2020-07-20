@@ -533,3 +533,22 @@ def has_structure(rfam_acc):
         for line in f.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
+
+
+def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
+    """
+    Run cmsearch on the fasta sequences using cmsearch in the --nohmm mode
+    to get potentially missing hits.
+    """
+    tblout = os.path.join(output_folder, 'cmsearch.tblout')
+    cmd = 'cmsearch --nohmm --tblout {tblout} {cm} {fasta_input}'.format(
+        cm=os.path.join(config.RFAM_DATA, rfam_acc, '{}.cm'.format(rfam_acc)),
+        tblout=tblout,
+        fasta_input=fasta_input
+    )
+    print(cmd)
+    os.system(cmd)
+    f_out = os.path.join(output_folder, 'hits.txt')
+    cmd = "cat %s | grep -v '^#' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s" % (tblout, f_out)
+    os.system(cmd)
+    return f_out

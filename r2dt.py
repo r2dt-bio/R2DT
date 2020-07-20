@@ -124,6 +124,7 @@ def draw(ctx, fasta_input, output_folder):
     ribovision_lsu_output = os.path.join(output_folder, 'ribovision-lsu')
     rfam_output = os.path.join(output_folder, 'rfam')
     gtrnadb_output = os.path.join(output_folder, 'gtrnadb')
+    rfam_trna_output = os.path.join(output_folder, 'RF00005')
 
     hits = set()
     subset_fasta = os.path.join(output_folder, 'subset.fasta')
@@ -170,8 +171,17 @@ def draw(ctx, fasta_input, output_folder):
         for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
             gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder + '/gtrnadb')
 
+    # Rfam tRNA
+    hits = hits.union(get_hits(gtrnadb_output))
+    subset = all_seq_ids.difference(hits)
+    if subset:
+        get_subset_fasta(fasta_input, subset_fasta, subset)
+        print('Analysing {} sequences with Rfam tRNA'.format(len(subset)))
+        rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
+        rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
+
     # move svg files to the final location
-    for folder in [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output]:
+    for folder in [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]:
         if len(glob.glob(os.path.join(folder, '*.colored.svg'))):
             os.system('mv {0}/*.colored.svg {1}'.format(folder, output_folder))
 
