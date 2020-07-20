@@ -201,6 +201,7 @@ class TestSingleEntry(unittest.TestCase):
         'URS0000162127_9606.colored.svg',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
         'URS0000023412_9606-E-Thr.colored.svg',
+        'URS00000012EC.colored.svg',
     ]
 
     @staticmethod
