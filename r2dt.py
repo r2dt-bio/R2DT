@@ -18,6 +18,7 @@ import os
 import re
 
 import click
+from colorhash import ColorHash
 
 from utils import crw, rfam, ribovision, gtrnadb, config
 
@@ -321,6 +322,36 @@ def rfam_validate(rfam_accession, output):
     """
     if rfam_accession not in rfam.blacklisted():
         output.write(rfam_accession + '\n')
+
+
+def generate_thumbnail(image, description):
+    move_to_start_position = None
+    color = ColorHash(description).hex
+    points = []
+    for i, line in enumerate(image.split('\n')):
+        if 'width' in line:
+            width = re.findall(r'width="(\d+(\.\d+)?)"', line)
+        if 'height' in line:
+            height = re.findall(r'height="(\d+(\.\d+)?)"', line)
+        for nt in re.finditer('<text x="(\d+)(\.\d+)?" y="(\d+)(\.\d+)?".*?</text>', line):
+            if 'numbering-label' in nt.group(0):
+                continue
+            if not move_to_start_position:
+                move_to_start_position = 'M{} {} '.format(nt.group(1), nt.group(3))
+            points.append('L{} {}'.format(nt.group(1), nt.group(3)))
+    if len(points) < 200:
+        stroke_width = '3'
+    elif len(points) < 500:
+        stroke_width = '4'
+    elif len(points) < 3000:
+        stroke_width = '4'
+    else:
+        stroke_width = '2'
+    thumbnail = '<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}"><path style="stroke:{};stroke-width:{}px;fill:none;" d="'.format(width[0][0], height[0][0], color, stroke_width)
+    thumbnail += move_to_start_position
+    thumbnail += ' '.join(points)
+    thumbnail += '"/></svg>'
+    return thumbnail
 
 
 if __name__ == '__main__':
