@@ -60,6 +60,8 @@ def get_traveler_fasta(rfam_acc):
 
 
 def get_rfam_cm(rfam_acc):
+    if rfam_acc == 'RF00005':
+        return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
     return os.path.join(config.CM_LIBRARY, 'rfam', rfam_acc + '.cm')
 
 
