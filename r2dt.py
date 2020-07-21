@@ -182,8 +182,13 @@ def draw(ctx, fasta_input, output_folder):
         rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
 
     # move svg files to the final location
-    for folder in [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]:
+    result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]
+    for folder in result_folders:
         organise_results(folder, output_folder)
+    organise_metadata(output_folder, result_folders)
+
+    # clean up
+    os.system('rm {}/subset*'.format(output_folder))
 
 
 def organise_results(results_folder, output_folder):
@@ -371,6 +376,30 @@ def generate_thumbnail(image, description):
     thumbnail += ' '.join(points)
     thumbnail += '"/></svg>'
     return thumbnail
+
+
+def organise_metadata(output_folder, result_folders):
+    """
+    Aggregate hits.txt files from all subfolders.
+    """
+    tsv_folder = os.path.join(output_folder, 'results', 'tsv')
+    os.system('mkdir -p {}'.format(tsv_folder))
+    with open(os.path.join(tsv_folder, 'metadata.tsv'), 'w') as f_out:
+        for folder in result_folders:
+            hits = os.path.join(folder, 'hits.txt')
+            if not os.path.exists(hits):
+                continue
+            with open(hits, 'r') as f_hits:
+                for line in f_hits.readlines():
+                    if 'gtrnadb' in folder:
+                        line = line.replace('PASS', 'GtRNAdb')
+                    elif 'crw' in folder:
+                        line = line.replace('PASS', 'CRW')
+                    elif 'rfam' in folder or 'RF00005' in folder:
+                        line = line.replace('PASS', 'Rfam')
+                    elif 'ribovision-lsu' in folder or 'ribovision-ssu' in folder:
+                        line = line.replace('PASS', 'RiboVision')
+                    f_out.write(line)
 
 
 if __name__ == '__main__':
