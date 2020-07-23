@@ -18,6 +18,7 @@ import os
 import re
 
 import click
+from colorhash import ColorHash
 
 from utils import crw, rfam, ribovision, gtrnadb, config
 
@@ -177,13 +178,39 @@ def draw(ctx, fasta_input, output_folder):
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with Rfam tRNA'.format(len(subset)))
-        rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
-        rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
+        trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
+        if trna_ids:
+            get_subset_fasta(fasta_input, subset_fasta, trna_ids)
+            rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
 
     # move svg files to the final location
-    for folder in [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]:
-        if len(glob.glob(os.path.join(folder, '*.colored.svg'))):
-            os.system('mv {0}/*.colored.svg {1}'.format(folder, output_folder))
+    result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]
+    for folder in result_folders:
+        organise_results(folder, output_folder)
+    organise_metadata(output_folder, result_folders)
+
+    # clean up
+    os.system('rm {}/subset*'.format(output_folder))
+
+
+def organise_results(results_folder, output_folder):
+    destination = os.path.join(output_folder, 'results')
+    svg_folder = os.path.join(destination, 'svg')
+    thumbnail_folder = os.path.join(destination, 'thumbnail')
+    fasta_folder = os.path.join(destination, 'fasta')
+    for folder in [destination, svg_folder, thumbnail_folder, fasta_folder]:
+        os.system('mkdir -p {}'.format(folder))
+
+    svgs = glob.glob(os.path.join(results_folder, '*.colored.svg'))
+    if len(svgs):
+        for svg in svgs:
+            with open(svg, 'r') as f_svg:
+                thumbnail = generate_thumbnail(f_svg.read(), svg)
+                with open(svg.replace('.colored.', '.thumbnail.'), 'w') as f_thumbnail:
+                    f_thumbnail.write(thumbnail)
+        os.system('mv {0}/*.colored.svg {1}'.format(results_folder, svg_folder))
+        os.system('mv {0}/*.thumbnail.svg {1}'.format(results_folder, thumbnail_folder))
+        os.system('mv {0}/*.fasta {1}'.format(results_folder, fasta_folder))
 
 
 @cli.group('gtrnadb')
@@ -321,6 +348,60 @@ def rfam_validate(rfam_accession, output):
     """
     if rfam_accession not in rfam.blacklisted():
         output.write(rfam_accession + '\n')
+
+
+def generate_thumbnail(image, description):
+    move_to_start_position = None
+    color = ColorHash(description).hex
+    points = []
+    for i, line in enumerate(image.split('\n')):
+        if 'width' in line:
+            width = re.findall(r'width="(\d+(\.\d+)?)"', line)
+        if 'height' in line:
+            height = re.findall(r'height="(\d+(\.\d+)?)"', line)
+        for nt in re.finditer('<text x="(\d+)(\.\d+)?" y="(\d+)(\.\d+)?".*?</text>', line):
+            if 'numbering-label' in nt.group(0):
+                continue
+            if not move_to_start_position:
+                move_to_start_position = 'M{} {} '.format(nt.group(1), nt.group(3))
+            points.append('L{} {}'.format(nt.group(1), nt.group(3)))
+    if len(points) < 200:
+        stroke_width = '3'
+    elif len(points) < 500:
+        stroke_width = '4'
+    elif len(points) < 3000:
+        stroke_width = '4'
+    else:
+        stroke_width = '2'
+    thumbnail = '<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}"><path style="stroke:{};stroke-width:{}px;fill:none;" d="'.format(width[0][0], height[0][0], color, stroke_width)
+    thumbnail += move_to_start_position
+    thumbnail += ' '.join(points)
+    thumbnail += '"/></svg>'
+    return thumbnail
+
+
+def organise_metadata(output_folder, result_folders):
+    """
+    Aggregate hits.txt files from all subfolders.
+    """
+    tsv_folder = os.path.join(output_folder, 'results', 'tsv')
+    os.system('mkdir -p {}'.format(tsv_folder))
+    with open(os.path.join(tsv_folder, 'metadata.tsv'), 'w') as f_out:
+        for folder in result_folders:
+            hits = os.path.join(folder, 'hits.txt')
+            if not os.path.exists(hits):
+                continue
+            with open(hits, 'r') as f_hits:
+                for line in f_hits.readlines():
+                    if 'gtrnadb' in folder:
+                        line = line.replace('PASS', 'GtRNAdb')
+                    elif 'crw' in folder:
+                        line = line.replace('PASS', 'CRW')
+                    elif 'rfam' in folder or 'RF00005' in folder:
+                        line = line.replace('PASS', 'Rfam')
+                    elif 'ribovision-lsu' in folder or 'ribovision-ssu' in folder:
+                        line = line.replace('PASS', 'RiboVision')
+                    f_out.write(line)
 
 
 if __name__ == '__main__':
