@@ -178,8 +178,10 @@ def draw(ctx, fasta_input, output_folder):
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with Rfam tRNA'.format(len(subset)))
-        rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
-        rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
+        trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
+        if trna_ids:
+            get_subset_fasta(fasta_input, subset_fasta, trna_ids)
+            rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
 
     # move svg files to the final location
     result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]

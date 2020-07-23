@@ -553,7 +553,13 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     )
     print(cmd)
     os.system(cmd)
-    f_out = os.path.join(subfolder, 'hits.txt')
-    cmd = "cat %s | grep -v '^#' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s" % (tblout, f_out)
+    hits = os.path.join(subfolder, 'hits.txt')
+    cmd = "cat %s | grep -v '^#' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s" % (tblout, hits)
     os.system(cmd)
-    return f_out
+    ids = set()
+    with open(hits, 'r') as f_hits:
+        for line in f_hits:
+            if '\t' in line:
+                hit_id, _, _ = line.strip().split('\t')
+                ids.add(hit_id)
+    return ids
