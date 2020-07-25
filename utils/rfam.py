@@ -413,7 +413,8 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-sfetch for %s" % seq_id)
+        print("Failed esl-sfetch for %s" % seq_id)
+        return
 
     cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
     for options in cm_options:
@@ -446,14 +447,16 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     cmd = 'esl-alimanip --rna --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-alimanip of %s %s" % (seq_id, model_id))
+        print("Failed esl-alimanip of %s %s" % (seq_id, model_id))
+        return
 
     result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
+        print("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
+        return
 
     shared.remove_large_insertions(result_base + '.fasta')
 

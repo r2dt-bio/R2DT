@@ -61,12 +61,14 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
     cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
+        print("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
+        return
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
+        print("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
+        return
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
         rnacentral_id=rnacentral_id,
