@@ -404,7 +404,11 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     else:
         rfam_acc = model_id
     rfam_cm = get_rfam_cm(rfam_acc)
-    rscape2traveler(rfam_acc)
+    try:
+        rscape2traveler(rfam_acc)
+    except:
+        print("Could not get traveler data for %s" % rfam_acc)
+        return
 
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
