@@ -82,11 +82,11 @@ RUN \
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
     cd jiffy-infernal-hmmer-scripts && \
-    git checkout 45d4937385a6b694eac2d7d538e131b59527ce06
+    git checkout 8df50118013c0dbec82e6a8130ce2b3c7cfd9715
 RUN \
     cd jiffy-infernal-hmmer-scripts && \
-    echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl
-RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
+    echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
+    chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
 
 # Install ribovore
 RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.40
@@ -95,7 +95,7 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fe
 RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout bc7d536704c3db5c13825b8269bc20cebf2e102f
+RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 33169c22e10726130c39462e08c09229e073cc8c
 RUN cd $RNA/traveler/src && make build
 
 COPY examples examples/
