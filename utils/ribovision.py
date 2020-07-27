@@ -36,6 +36,9 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_stk = open('{}.stk'.format(os.path.join(output_folder, rnacentral_id)), 'w')
+    temp_pfam_stk = tempfile.NamedTemporaryFile()
+    temp_afa = tempfile.NamedTemporaryFile()
+    temp_map = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, rnacentral_id, temp_fasta.name)
     result = os.system(cmd)
@@ -62,6 +65,21 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         print("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
         return
 
+    cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/ali-pfam-lowercase-rf-gap-columns.pl {} > {}'.format(temp_stk.name, temp_pfam_stk.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (rnacentral_id, model_id))
+
+    cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
+
+    cmd = '/rna/python36/bin/python3.6 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed infernal2mapping for %s" % (cmd))
+
     cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_stk.name, output_folder, rnacentral_id, model_id)
     result = os.system(cmd)
     if result:
@@ -80,12 +98,13 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
            '--verbose '
            '--target-structure {result_base}.fasta '
            '--template-structure --file-format traveler {traveler_templates}/{model_id}.tr {ribovision_bpseq}/{model_id}.fasta '
-           '--all {result_base} > {log}').format(
+           '--draw {map} {result_base} > {log}').format(
                result_base=result_base,
                model_id=model_id,
                log=log,
                traveler_templates=templates,
-               ribovision_bpseq=bpseq
+               ribovision_bpseq=bpseq,
+               map=temp_map.name
            )
     print(cmd)
     os.system(cmd)
@@ -94,6 +113,9 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     temp_fasta.close()
     temp_sto.close()
     temp_stk.close()
+    temp_pfam_stk.close()
+    temp_afa.close()
+    temp_map.close()
 
     overlaps = 0
     with open(log, 'r') as raw:
