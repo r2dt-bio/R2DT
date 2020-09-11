@@ -8,7 +8,7 @@ The R2DT software (RNA 2D Templates) automatically generates RNA secondary struc
  - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
  - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
 
-**RNAcentral** uses R2DT to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
+**RNAcentral** uses R2DT to visualise RNA secondary structures. For more details see the [R2DT preprint](https://www.biorxiv.org/content/10.1101/2020.09.10.290924v1) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
 
 ## Method overview
 
