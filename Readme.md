@@ -23,6 +23,8 @@ using the top scoring covariance model.
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
+It is recommended to run R2DT using [Docker](https://www.docker.com/products/docker-desktop). However, it is possible to use R2DT without Docker by following the instructions in `Dockerfile`.
+
 1. Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt):
 
     ```
@@ -66,6 +68,8 @@ Run tests to verify that the installation worked:
 ```
 python3 -m unittest
 ```
+
+The tests take up to 10 minutes on a MacBook Pro laptop.
 
 ## Usage
 
