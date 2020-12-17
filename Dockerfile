@@ -95,7 +95,7 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fe
 RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout 33169c22e10726130c39462e08c09229e073cc8c
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 8fe8ef303b3a4ca5474ffc82b865895fb1db7814
 RUN cd $RNA/traveler/src && make build
 
 COPY examples examples/
@@ -114,7 +114,7 @@ ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LI
 ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"
-ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
+ENV PATH="/rna/jiffy-infernal-hmmer-scripts:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/r2dt:$PATH"
 
