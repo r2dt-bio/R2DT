@@ -92,7 +92,7 @@ RUN \
 RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
-RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
+RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 8fe8ef303b3a4ca5474ffc82b865895fb1db7814
