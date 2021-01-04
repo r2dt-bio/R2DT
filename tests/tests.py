@@ -182,7 +182,7 @@ class TestCrw(unittest.TestCase):
         for filename in self.files:
             new_file = os.path.join(self.test_results, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
             self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
     def tearDown(self):
