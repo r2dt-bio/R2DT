@@ -38,12 +38,13 @@ using the top scoring covariance model.
 
     # Build and tag a Docker image:
     docker build -t rnacentral/r2dt .
+    docker-compose run cli
     ```
 
 2. Run the container:
 
     ```
-    docker-compose run cli
+    docker run -it rnacentral/r2dt
     ```
 
     This command mounts the current directory so all code or data changes are instantly reflected in the container.
