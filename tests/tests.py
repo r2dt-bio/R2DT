@@ -255,6 +255,50 @@ class TestGtrnadbDomainIsotype(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
+# @unittest.skip("")
+class TestRnasep(unittest.TestCase):
+    fasta_input = os.path.join('examples', 'rnasep.fasta')
+    test_results = os.path.join('tests', 'results', 'rnasep')
+    precomputed_results = os.path.join('tests', 'examples', 'rnasep')
+    cmd = 'python3 {} rnasep draw {} {}'.format(EXECUTABLE, fasta_input, test_results)
+    files = [
+        'hits.txt',
+        'URS00000A7310_29284-RNAseP_a_H_trapanicum_JB.colored.svg',
+        'URS0000CBCB35_210-RNAseP_b_H_pylory_26695_JB.colored.svg',
+        'URS0000EEAD19_2190-RNAseP_a_M_jannaschii_JB.colored.svg',
+        'URS0001BC2932_272844-RNAseP_a_P_abyssi_JB.colored.svg',
+        'URS0001BC3468_782-RNAseP_b_R_prowazekii_JB.colored.svg',
+        'URS00003C82BC_186497-RNAseP_a_P_furiosus_JB.colored.svg',
+        'URS00004BB8BB_511145-RNAseP_b_E_coli_JB.colored.svg',
+        'URS00006A4F8D_64091-RNAseP_a_Halobacterium-NRC1_JB.colored.svg',
+        'URS00006D6BE6_273075-RNAseP_a_T_acidophilum_JB.colored.svg',
+        'URS00006E8172_2285-RNAseP_a_S_acidocaldarius_JB.colored.svg',
+        'URS00019F4D0F_358-RNAseP_b_A_tumefaciens_JB.colored.svg',
+        'URS00019F2369_1773-RNAseP_b_M_tuberculosis_JB.colored.svg',
+        'URS000066E9AE_2287-RNAseP_a_S_solfataricus_JB.colored.svg',
+        'URS000072E054_1095685-RNAseP_N_gonnorhoeae_JB.colored.svg',
+        'URS0000637B30_1247414-RNAseP_N_gonnorhoeae_JB.colored.svg',
+        'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
+    ]
+
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
+
 
 if __name__ == '__main__':
     unittest.main()
