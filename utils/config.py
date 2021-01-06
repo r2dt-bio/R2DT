@@ -32,6 +32,10 @@ RIBOVISION_SSU_BPSEQ = os.path.join(DATA, 'ribovision-ssu', 'bpseq')
 RIBOVISION_LSU_TRAVELER = os.path.join(DATA, 'ribovision-lsu', 'traveler')
 RIBOVISION_SSU_TRAVELER = os.path.join(DATA, 'ribovision-ssu', 'traveler')
 
+RNASEP_CM_LIBRARY = os.path.join(DATA, 'rnasep', 'cms')
+RNASEP_BPSEQ = os.path.join(DATA, 'rnasep', 'bpseq')
+RNASEP_TRAVELER = os.path.join(DATA, 'rnasep', 'traveler')
+
 GTRNADB_CM_LIBRARY = os.path.join(DATA, 'cms', 'gtrnadb')
 GTRNADB_EUK = os.path.join(DATA, 'gtrnadb', 'eukaryota_isotype_specific')
 GTRNADB_BACT = os.path.join(DATA, 'gtrnadb', 'bacteria_isotype_specific')
