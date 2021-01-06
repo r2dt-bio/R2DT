@@ -29,6 +29,10 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         cm_library = config.RIBOVISION_SSU_CM_LIBRARY
         templates = config.RIBOVISION_SSU_TRAVELER
         bpseq = config.RIBOVISION_SSU_BPSEQ
+    elif ssu_or_lsu.lower() == 'rnasep':
+        cm_library = config.RNASEP_CM_LIBRARY
+        templates = config.RNASEP_TRAVELER
+        bpseq = config.RNASEP_BPSEQ
     else:
         print('Please specify LSU or SSU')
         return
@@ -82,14 +86,14 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
 
-    cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_pfam_stk.name, output_folder, rnacentral_id, model_id)
+    cmd = 'ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta' % (temp_pfam_stk.name, output_folder, rnacentral_id.replace('/', '_'), model_id)
     result = os.system(cmd)
     if result:
         print("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
         return
 
     result_base = os.path.join(output_folder, '{rnacentral_id}-{model_id}'.format(
-        rnacentral_id=rnacentral_id,
+        rnacentral_id=rnacentral_id.replace('/', '_'),
         model_id=model_id,
     ))
 
@@ -146,6 +150,8 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     with open(result_base + '.overlaps', 'w') as out:
         out.write(str(overlaps))
         out.write('\n')
+    if ssu_or_lsu != 'rnasep':
+        adjust_font_size(result_base)
 
 
 def adjust_font_size(result_base):
