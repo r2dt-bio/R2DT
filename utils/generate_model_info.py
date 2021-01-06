@@ -19,12 +19,10 @@ import shutil
 import subprocess as sp
 
 from . import config
-# import config
 
 
 def allowed_names(cm_library):
     from . import rfam
-    # import rfam
     for cm in glob.glob('%s/*.cm' % cm_library):
         model_name = None
         if 'all.cm' in cm:
@@ -66,7 +64,3 @@ def generate_model_info(cm_library, rna_type='SSU'):
                 model_out.write(model_line)
 
     print('Done')
-
-
-if __name__ == '__main__':
-    generate_model_info('/rna/r2dt/data/rnasep/cms')

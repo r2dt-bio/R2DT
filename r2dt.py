@@ -20,7 +20,8 @@ import re
 import click
 from colorhash import ColorHash
 
-from utils import crw, rfam, ribovision, gtrnadb, config
+from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info
+from utils import generate_model_info as gmi
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -425,6 +426,13 @@ def organise_metadata(output_folder, result_folders):
                     elif 'ribovision-lsu' in folder or 'ribovision-ssu' in folder:
                         line = line.replace('PASS', 'RiboVision')
                     f_out.write(line)
+
+
+@cli.command()
+@click.argument('cm_library', type=click.Path())
+def generatemodelinfo(cm_library):
+    gmi.generate_model_info(cm_library)
+
 
 
 if __name__ == '__main__':
