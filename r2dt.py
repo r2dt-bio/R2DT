@@ -126,6 +126,7 @@ def draw(ctx, fasta_input, output_folder):
     rfam_output = os.path.join(output_folder, 'rfam')
     gtrnadb_output = os.path.join(output_folder, 'gtrnadb')
     rfam_trna_output = os.path.join(output_folder, 'RF00005')
+    rnasep_output = os.path.join(output_folder, 'rnasep')
 
     hits = set()
     subset_fasta = os.path.join(output_folder, 'subset.fasta')
@@ -163,8 +164,16 @@ def draw(ctx, fasta_input, output_folder):
         print('Analysing {} sequences with RiboVision LSU'.format(len(subset)))
         ctx.invoke(ribovision_draw_lsu, fasta_input=subset_fasta, output_folder=ribovision_lsu_output)
 
-    # GtRNAdb
+    # RNAse P
     hits = hits.union(get_hits(ribovision_lsu_output))
+    subset = all_seq_ids.difference(hits)
+    if subset:
+        get_subset_fasta(fasta_input, subset_fasta, subset)
+        print('Analysing {} sequences with RNAse P models'.format(len(subset)))
+        ctx.invoke(rnasep_draw, fasta_input=subset_fasta, output_folder=rnasep_output)
+
+    # GtRNAdb
+    hits = hits.union(get_hits(rnasep_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
@@ -245,6 +254,21 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
             gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder)
 
 
+@cli.group('rnasep')
+def rnasep_group():
+    pass
+
+@rnasep_group.command('draw')
+@click.argument('fasta-input', type=click.Path())
+@click.argument('output-folder', type=click.Path())
+def rnasep_draw(fasta_input, output_folder):
+    os.system('mkdir -p %s' % output_folder)
+    with open(get_ribotyper_output(fasta_input, output_folder, 'data/rnasep/cms'), 'r') as f:
+        for line in f.readlines():
+            rnacentral_id, model_id, _ = line.split('\t')
+            ribovision.visualise('rnasep', fasta_input, output_folder, rnacentral_id, model_id)
+
+
 @cli.group('crw')
 def crw_group():
     pass
@@ -287,7 +311,6 @@ def ribovision_draw_lsu(fasta_input, output_folder):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def ribovision_draw_ssu(fasta_input, output_folder):
-    # generate_model_info(cm_library=config.RIBOVISION_SSU_CM_LIBRARY)
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
