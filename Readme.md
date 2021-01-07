@@ -57,7 +57,7 @@ Perform one-time initial setup:
 r2dt.py setup
 ```
 
-Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/q5l0s1nj5h4y6e4/cms.tar.gz?dl=0), uncompress and mount it in the container:
+Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=0) (190.1 MB, last updated Jan 7, 2021), uncompress and mount it in the container:
 
 ```
 docker run -it -v `pwd`:/rna/r2dt -v <path_to_data_library>:/rna/r2dt/data/cms rnacentral/r2dt
