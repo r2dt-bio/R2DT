@@ -194,7 +194,7 @@ def draw(ctx, fasta_input, output_folder):
             rfam.generate_2d('RF00005', output_folder, subset_fasta, False)
 
     # move svg files to the final location
-    result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output]
+    result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output, rnasep_output]
     for folder in result_folders:
         organise_results(folder, output_folder)
     organise_metadata(output_folder, result_folders)

@@ -55,6 +55,9 @@ class TestCovarianceModelDatabase(unittest.TestCase):
     def test_ribovision_ssu_database(self):
         self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 9)
 
+    def test_rnasep_cm_database(self):
+        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 19)
+
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
             if rfam_acc in rfam.blacklisted():
@@ -202,6 +205,7 @@ class TestSingleEntry(unittest.TestCase):
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
         'URS0000023412_9606-E-Thr.colored.svg',
         'URS00000012EC.colored.svg',
+        'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
     ]
 
     @staticmethod
@@ -279,6 +283,7 @@ class TestRnasep(unittest.TestCase):
         'URS000072E054_1095685-RNAseP_N_gonnorhoeae_JB.colored.svg',
         'URS0000637B30_1247414-RNAseP_N_gonnorhoeae_JB.colored.svg',
         'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
+        'URS000013F331_9606-RNAseP_e_H_sapiens_3D.colored.svg',
     ]
 
     @staticmethod
