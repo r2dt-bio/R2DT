@@ -7,6 +7,7 @@ The R2DT software (RNA 2D Templates) automatically generates RNA secondary struc
  - [Rfam](https://rfam.org) (>2,000 RNA families)
  - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
  - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
+ - [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
 
 **RNAcentral** uses R2DT to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
 
@@ -82,6 +83,7 @@ r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
 r2dt.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
 r2dt.py ribovision draw_Ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
 r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
+r2dt.py rnasep draw examples/rnasep.fasta temp/rnasep-example
 
 # for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
 r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
