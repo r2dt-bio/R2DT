@@ -41,6 +41,10 @@ BLACKLIST = [
     'RF02545', # SSU_trypano_mito
     'RF00005', # tRNA
     'RF01852', # tRNA-Sec
+    'RF00009', # Nuclear RNase P
+    'RF00010', # Bacterial RNase P class A
+    'RF00011', # Bacterial RNase P class B
+    'RF00373', # Archaeal RNase P
 ]
 
 
