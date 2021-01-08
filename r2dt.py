@@ -264,7 +264,7 @@ def rnasep_group():
 @click.argument('output-folder', type=click.Path())
 def rnasep_draw(fasta_input, output_folder):
     os.system('mkdir -p %s' % output_folder)
-    with open(get_ribotyper_output(fasta_input, output_folder, 'data/rnasep/cms'), 'r') as f:
+    with open(get_ribotyper_output(fasta_input, output_folder, config.RNASEP_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
             ribovision.visualise('rnasep', fasta_input, output_folder, rnacentral_id, model_id)
