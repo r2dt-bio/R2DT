@@ -14,6 +14,7 @@ limitations under the License.
 """
 
 import glob
+import json
 import os
 import re
 
@@ -22,6 +23,7 @@ from colorhash import ColorHash
 
 from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info
 from utils import generate_model_info as gmi
+from utils import list_models as lm
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -434,6 +436,15 @@ def generatemodelinfo(cm_library):
     gmi.generate_model_info(cm_library)
 
 
+
+
+@cli.command()
+def list_models():
+    data = lm.list_models()
+    for item in data:
+        print(item['description'])
+    with open(os.path.join(config.DATA, 'models.json'), 'w') as models_file:
+        json.dump(data, models_file)
 
 if __name__ == '__main__':
     cli()
