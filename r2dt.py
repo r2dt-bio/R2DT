@@ -387,7 +387,7 @@ def generate_thumbnail(image, description):
     color = ColorHash(description).hex
     points = []
     for i, line in enumerate(image.split('\n')):
-        if 'width' in line:
+        if 'width' in line and not 'stroke-width' in line:
             width = re.findall(r'width="(\d+(\.\d+)?)"', line)
         if 'height' in line:
             height = re.findall(r'height="(\d+(\.\d+)?)"', line)
