@@ -305,5 +305,41 @@ class TestRnasep(unittest.TestCase):
         self.delete_folder(self.test_results)
 
 
+class TestForceTemplate(unittest.TestCase):
+    fasta_input = os.path.join('examples', 'force')
+    test_results = os.path.join('tests', 'results', 'force')
+    precomputed_results = os.path.join('tests', 'examples', 'force')
+    cmd = 'r2dt.py draw --force_template {} {} {}'
+    cases = {
+        'URS00000F9D45_9606': 'd.5.b.E.coli', # CRW: human 5S with E. coli 5S
+        'URS0000704D22_9606': 'EC_SSU_3D', # RiboVision SSU: Human SSU with E.coli
+        'URS000020CCFC_274': 'EC_LSU_3D', # RiboVision LSU: T. thermophilus with E.coli
+        'URS00000A1A88_9606': 'B_Thr', # GtRNAdb: human E_Thr with B_Thr
+        'URS00000A1A88_9606': 'RF00005', # GtRNAdb E_Thr using Rfam tRNA
+        'URS0001BC2932_272844': 'RNAseP_a_P_furiosus_JB', # RNAse P: Pyrococcus abyssi with P.furiosus
+    }
+
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        for seq_id, model_id in self.cases.items():
+            input_fasta = os.path.join(self.fasta_input, seq_id + '.fasta')
+            os.system(self.cmd.format(model_id, input_fasta, self.test_results))
+
+    def test_examples(self):
+        for seq_id, model_id in self.cases.items():
+            filename = '{}-{}.colored.svg'.format(seq_id, model_id)
+            new_file = os.path.join(self.test_results, filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
+
+
 if __name__ == '__main__':
     unittest.main()

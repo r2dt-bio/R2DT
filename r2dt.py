@@ -114,13 +114,19 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
 @cli.command()
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
+@click.option('--force_template', type=click.STRING, default=None, help='Force sequences into a specific template')
 @click.pass_context
-def draw(ctx, fasta_input, output_folder):
+def draw(ctx, fasta_input, output_folder, force_template):
     """
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
     all_seq_ids = get_seq_ids(fasta_input)
+
+    if force_template:
+        for seq_id in all_seq_ids:
+            force_draw(force_template, fasta_input, output_folder, seq_id)
+        return
 
     os.system('mkdir -p %s' % output_folder)
     crw_output = os.path.join(output_folder, 'crw')
@@ -436,6 +442,33 @@ def generatemodelinfo(cm_library):
     gmi.generate_model_info(cm_library)
 
 
+def force_draw(model_id, fasta_input, output_folder, seq_id):
+    model_type = lm.get_model_type(model_id)
+    if not model_type:
+        print('Error: Model not found. Please check model_id')
+        return
+
+    os.system('mkdir -p %s' % output_folder)
+    os.system('esl-sfetch --index %s' % fasta_input)
+
+    print('Visualising sequence {} using the {} model from {}'.format(seq_id, model_id, model_type))
+
+    if model_type == 'rfam':
+        rfam.visualise_rfam(fasta_input, output_folder, seq_id, model_id)
+    elif model_type == 'ribovision_ssu':
+        ribovision.visualise('ssu', fasta_input, output_folder, seq_id, model_id)
+    elif model_type == 'ribovision_lsu':
+        ribovision.visualise('lsu', fasta_input, output_folder, seq_id, model_id)
+    elif model_type == 'rnasep':
+        ribovision.visualise('rnasep', fasta_input, output_folder, seq_id, model_id)
+    elif model_type == 'crw':
+        crw.visualise_crw(fasta_input, output_folder, seq_id, model_id)
+    elif model_type == 'gtrnadb':
+        domain, isotype = model_id.split('_')
+        test = False
+        gtrnadb.visualise(domain, isotype, fasta_input, output_folder, test)
+        cmd = 'mv {}/{}/* {}'.format(output_folder, model_id, output_folder)
+        os.system(cmd)
 
 
 @cli.command()

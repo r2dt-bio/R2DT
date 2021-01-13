@@ -13,10 +13,31 @@ limitations under the License.
 
 
 import glob
+import json
 import os
 import re
 
 from utils import config
+
+
+def get_model_type(model_id):
+    folder_mapping = {
+        'GtRNAdb': 'gtrnadb',
+        'Rfam': 'rfam',
+        'CRW': 'crw',
+        'RiboVision SSU': 'ribovision_ssu',
+        'RiboVision LSU': 'ribovision_lsu',
+        'RNAse P Database': 'rnasep',
+    }
+    model_type = None
+    with open(os.path.join(config.DATA, 'models.json'), 'r') as models_json:
+        data = json.load(models_json)
+        for model in data:
+            if model_id == model['model_id']:
+                if model['source'] in folder_mapping:
+                    model_type = folder_mapping[model['source']]
+                break
+    return model_type
 
 
 def get_gtrnadb_models():
