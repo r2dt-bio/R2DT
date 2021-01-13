@@ -200,11 +200,11 @@ class TestSingleEntry(unittest.TestCase):
     files = [
         'URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg',
         'URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg',
-        'URS000053CEAC_224308.colored.svg',
-        'URS0000162127_9606.colored.svg',
+        'URS000053CEAC_224308-RF00162.colored.svg',
+        'URS0000162127_9606-RF00003.colored.svg',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
-        'URS0000023412_9606-E-Thr.colored.svg',
-        'URS00000012EC.colored.svg',
+        'URS0000023412_9606-E_Thr.colored.svg',
+        'URS00000012EC-RF00005.colored.svg',
         'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
     ]
 
