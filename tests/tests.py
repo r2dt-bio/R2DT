@@ -234,11 +234,11 @@ class TestGtrnadbDomainIsotype(unittest.TestCase):
     precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', trnascan_model)
     cmd = 'python3 {} gtrnadb draw {} {} --domain E --isotype Thr'.format(EXECUTABLE, fasta_input, test_results)
     files = [
-        'URS0000023412_9606-E-Thr.colored.svg',
-        'URS000021550A_9606-E-Thr.colored.svg',
-        'URS00000A1A88_9606-E-Thr.colored.svg',
-        'URS00000F30A4_9606-E-Thr.colored.svg',
-        'URS00001D9AFB_9606-E-Thr.colored.svg',
+        'URS0000023412_9606-E_Thr.colored.svg',
+        'URS000021550A_9606-E_Thr.colored.svg',
+        'URS00000A1A88_9606-E_Thr.colored.svg',
+        'URS00000F30A4_9606-E_Thr.colored.svg',
+        'URS00001D9AFB_9606-E_Thr.colored.svg',
     ]
 
     @staticmethod

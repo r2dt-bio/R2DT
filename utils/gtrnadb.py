@@ -262,7 +262,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder)
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
 
-    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + domain + '-' + isotype)
+    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + domain + '_' + isotype)
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     os.system(cmd)
