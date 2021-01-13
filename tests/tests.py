@@ -133,11 +133,11 @@ class TestRfam(unittest.TestCase):
     precomputed_results = os.path.join('tests', 'examples', 'rfam', rfam_acc)
     cmd = 'python3 {} rfam draw {} {} {}'.format(EXECUTABLE, rfam_acc, fasta_input, test_results)
     files = [
-        'URS00001D0AD3_224308.colored.svg',
-        'URS00002D29F6_224308.colored.svg',
-        'URS00002F3927_224308.colored.svg',
-        'URS000053CEAC_224308.colored.svg',
-        'URS000008638F_224308.colored.svg',
+        'URS00001D0AD3_224308-RF00162.colored.svg',
+        'URS00002D29F6_224308-RF00162.colored.svg',
+        'URS00002F3927_224308-RF00162.colored.svg',
+        'URS000053CEAC_224308-RF00162.colored.svg',
+        'URS000008638F_224308-RF00162.colored.svg',
     ]
 
     @staticmethod

@@ -480,7 +480,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
 
-    result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
+    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + model_id)
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
