@@ -1,6 +1,8 @@
 
 # R2DT
 
+_Visualise RNA 2D structure in standard layouts_
+
 The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library that contains >3,500 templates representing a wide range of RNAs from the following sources:
 
  - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
@@ -17,15 +19,15 @@ Here are some example visualisations showing LSU, SSU, and 5S rRNA, several tRNA
 
 ![R2DT examples](./examples/r2dt-examples.png)
 
-## Get started
+## Getting started
 
 R2DT can be used in a number of ways:
 
 * [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/) powered by EMBL-EBI Web Services
-* As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or a bare metal installation
+* As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or in a bare metal installation
 
-## Installation
+### Installation
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
@@ -36,7 +38,7 @@ R2DT can be used in a number of ways:
     singularity exec rnacentral/r2dt r2dt.py --help
     ```
 
-* 🛠 ️Development installation:
+* :hammer_and_wrench: Development installation:
     ```
     # Get the code
     git clone https://github.com/RNAcentral/R2DT.git
@@ -48,11 +50,11 @@ R2DT can be used in a number of ways:
     ```
     The current directory is mounted inside the container so that all code and data changes are instantly reflected in the container.
 
-* 🛠 ️Bare metal installation: if running R2DT using containers is not possible, follow instructions in [Dockerfile]()
+* :hammer_and_wrench: Bare metal installation: if running R2DT using containers is not possible, follow instructions in the [Dockerfile](./Dockerfile).
 
-## Initial setup
+### Initial setup
 
-* Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) (190.1 MB, last updated Jan 7, 2021), then uncompress it and mount inside the container:
+* Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) _(190.1 MB, last updated Jan 7, 2021)_, then uncompress it and mount inside the container:
     ```
     tar -xvzf cms.tar.gz    
     docker run -it -v <path_to_cms>:/rna/r2dt/data/cms rnacentral/r2dt
@@ -63,7 +65,7 @@ R2DT can be used in a number of ways:
     r2dt.py setup
     ```
 
-* Optional: run tests to verify that the installation worked:
+* _Optional_: run tests to verify that the installation worked:
     ```
     python3 -m unittest
     ```
@@ -91,37 +93,37 @@ R2DT will automatically select the best matching template and visualise the seco
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
 
-* CRW templates (5S and SSU rRNA):
+* CRW templates (5S and SSU rRNA)
     ```
     r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
     ```
 
-* RiboVision LSU and SSU rRNA templates:
+* RiboVision LSU and SSU rRNA templates
     ```
     r2dt.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
     r2dt.py ribovision draw_ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
     ```
 
-* Rfam families:
+* Rfam families
     ```
     r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
     ```
 
-* RNAse P:
+* RNAse P
     ```
     r2dt.py rnasep draw examples/rnasep.fasta temp/rnasep-example
     ```
 
-* tRNAs (using GtRNAdb templates):
+* tRNAs (using GtRNAdb templates)
     ```
-    for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
+    # for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
     r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
     r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
     ```
 
 ### Advanced: Manual template selection
 
-It is possible to select s specific template and skip the classification step altogether.
+It is possible to select a specific template and skip the classification step altogether.
 
 1. Get a list of all available templates and copy the template id:
     ```
