@@ -1,111 +1,166 @@
 
 # R2DT
 
-The R2DT software (RNA 2D Templates) automatically generates RNA secondary structure in standard layouts using templates from the following sources:
+The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library that contains >3,500 templates representing a wide range of RNAs from the following sources:
 
  - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
- - [Rfam](https://rfam.org) (>2,000 RNA families)
- - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (LSU rRNA)
+ - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (3D-structure based SSU and LSU rRNA)
  - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
- - [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
+ - [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438) (RNAse P)
+ - [Rfam](https://rfam.org) (>2,000 RNA families)
 
-**RNAcentral** uses R2DT to visualise RNA secondary structures. For more details see [RNAcentral help](https://rnacentral.org/help/secondary-structure) or [browse all secondary  structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22).
+R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [preprint](https://www.biorxiv.org/content/10.1101/2020.09.10.290924v1) on BioRxiv.
 
-## Method overview
+## Examples
 
-1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
-1. **Select the best matching covariance model** for each input sequence
-using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
-1. **Fold** input sequence into a secondary structure compatible with the template
-using the top scoring covariance model.
-1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
+Here are some example visualisations showing LSU, SSU, and 5S rRNA, several tRNAs, RNAse P and others.
+
+![R2DT examples](./examples/r2dt-examples.png)
+
+## Get started
+
+R2DT can be used in a number of ways:
+
+* [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
+* [API](https://www.ebi.ac.uk/Tools/common/tools/help/) powered by EMBL-EBI Web Services
+* As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or a bare metal installation
 
 ## Installation
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
-1. Pull from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt):
-
+* Recommended installation: download the R2DT image from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt) and run it with Docker or Singularity:
     ```
     docker pull rnacentral/r2dt
+    docker run rnacentral/r2dt r2dt.py --help
+    singularity exec rnacentral/r2dt r2dt.py --help
     ```
 
-    or build your own Docker image:
-
+* 🛠 ️Development installation:
     ```
-    # Get the code:
+    # Get the code
     git clone https://github.com/RNAcentral/R2DT.git
     cd R2DT
 
-    # Build and tag a Docker image:
+    # Build and tag a Docker image
     docker build -t rnacentral/r2dt .
     docker-compose run cli
     ```
+    The current directory is mounted inside the container so that all code and data changes are instantly reflected in the container.
 
-2. Run the container:
-
-    ```
-    docker run -it rnacentral/r2dt
-    ```
-
-    This command mounts the current directory so all code or data changes are instantly reflected in the container.
+* 🛠 ️Bare metal installation: if running R2DT using containers is not possible, follow instructions in [Dockerfile]()
 
 ## Initial setup
 
-Perform one-time initial setup:
+* Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) (190.1 MB, last updated Jan 7, 2021), then uncompress it and mount inside the container:
+    ```
+    tar -xvzf cms.tar.gz    
+    docker run -it -v <path_to_cms>:/rna/r2dt/data/cms rnacentral/r2dt
+    ```
 
-```
-r2dt.py setup
-```
+    Alternatively, perform one-time initial setup locally (may take up to several hours):
+    ```
+    r2dt.py setup
+    ```
 
-Alternatively, you can download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=0) (190.1 MB, last updated Jan 7, 2021), uncompress and mount it in the container:
-
-```
-docker run -it -v `pwd`:/rna/r2dt -v <path_to_data_library>:/rna/r2dt/data/cms rnacentral/r2dt
-```
-
-Run tests to verify that the installation worked:
-```
-python3 -m unittest
-```
+* Optional: run tests to verify that the installation worked:
+    ```
+    python3 -m unittest
+    ```
 
 ## Usage
 
-Run examples:
+### Recommended: Automatic template selection
+
+Specify the input file in [FASTA format](https://en.wikipedia.org/wiki/FASTA_format) containing one or more RNA sequences as well as the path where the output files will be created (the folder will be created if it does not exist).
+
+```
+r2dt.py draw <input.fasta> <output_folder>
+```
+
+For example:
 
 ```
 r2dt.py draw examples/examples.fasta temp/examples
 ```
 
-To bypass classification steps, run the following commands:
-```
-r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
-r2dt.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
-r2dt.py ribovision draw_Ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
-r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
-r2dt.py rnasep draw examples/rnasep.fasta temp/rnasep-example
+R2DT will automatically select the best matching template and visualise the secondary structures.
 
-# for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
-r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
-r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
-```
+### Advanced: Specifying template category
 
-Additional commands:
+If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
-```
-# to run individual tests
-python3 -m unittest tests.tests.TestRibovisionLSU
 
-# classify example sequences using Ribotyper
-perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
+* CRW templates (5S and SSU rRNA):
+    ```
+    r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
+    ```
 
-# to generate covariance models:
-python3 utils/generate_cm_library.py
-python3 utils/generate_lsu_cm_library.py
+* RiboVision LSU and SSU rRNA templates:
+    ```
+    r2dt.py ribovision draw_lsu examples/lsu-examples.fasta temp/lsu-examples
+    r2dt.py ribovision draw_ssu examples/ribovision-ssu-examples.fasta temp/ssu-examples
+    ```
 
-python3 utils/generate_model_info.py
-python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type=LSU
-```
+* Rfam families:
+    ```
+    r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
+    ```
+
+* RNAse P:
+    ```
+    r2dt.py rnasep draw examples/rnasep.fasta temp/rnasep-example
+    ```
+
+* tRNAs (using GtRNAdb templates):
+    ```
+    for tRNAs, provide domain and isotype (if known), or use tRNAScan-SE to classify
+    r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb
+    r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
+    ```
+
+### Advanced: Manual template selection
+
+It is possible to select s specific template and skip the classification step altogether.
+
+1. Get a list of all available templates and copy the template id:
+    ```
+    r2dt.py list-models
+    ```
+
+In addition, all models are listed in the file [models.json](./data/models.json).
+
+2. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
+    ```
+    r2dt.py --force_template <template_id> <input_fasta> <output_folder>
+    ```
+
+    For example:
+
+    ```
+    r2dt.py --force_template RNAseP_a_P_furiosus_JB examples/force/URS0001BC2932_272844.fasta temp/example
+    ```
+
+### Useful commands
+
+* Running individual tests
+    ```
+    python3 -m unittest tests.tests.TestRibovisionLSU
+    ```
+
+* Classifying example sequences using Ribotyper
+    ```
+    perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
+    ```
+
+* Generate covariance models
+    ```
+    python3 utils/generate_cm_library.py
+    python3 utils/generate_lsu_cm_library.py
+
+    python3 utils/generate_model_info.py
+    python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type=LSU
+    ```
 
 ## How to add new templates
 
@@ -119,12 +174,27 @@ If you would like to submit a new template or replace an existing one, please [s
 
 We will review the template and reply on GitHub as soon as possible.
 
+## Method overview
+
+1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
+1. **Select the best matching covariance model** for each input sequence
+using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
+1. **Fold** input sequence into a secondary structure compatible with the template
+using the top scoring covariance model.
+1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
+
+## Contributors
+
+- [David Hoksza](https://github.com/davidhoksza) (Traveler software)
+- [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
+- [Robin Gutell]() and [Jamie Cannone]() (CRW)
+- [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
+- [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) and the GtRNAdb team
+- [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) ([EMBL-EBI](https://www.ebi.ac.uk))
+
 ## Acknowledgements
 
-- [David Hoksza](https://github.com/davidhoksza)
-- [Eric Nawrocki](https://github.com/nawrockie)
-- [Robin Gutell lab](http://www.rna.ccbb.utexas.edu)
-- [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton) and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
-- [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan)
-- [David Mathews lab](http://rna.urmc.rochester.edu/RNAstructure.html)
-- [Elena Rivas](https://twitter.com/RivasElenaRivas)
+- [Sean Eddy](http://eddylab.org) - [Infernal software](http://eddylab.org/infernal)
+- [David Mathews](http://rna.urmc.rochester.edu/RNAstructure.html) - [RNAstructure software](http://rna.urmc.rochester.edu/RNAstructure.html)
+- [Elena Rivas](http://rivaslab.org/) - [R-scape software](http://eddylab.org/R-scape/)
+- [Zasha Weinberg](https://zashaweinberglab.org) - [R2R software](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-12-3)
