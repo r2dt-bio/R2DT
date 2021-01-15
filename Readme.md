@@ -1,4 +1,3 @@
-
 # R2DT
 
 _Visualise RNA 2D structure in standard layouts_
@@ -31,11 +30,20 @@ R2DT can be used in a number of ways:
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
-* Recommended installation: download the R2DT image from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt) and run it with Docker or Singularity:
+* Recommended installation: download the R2DT image from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt) and run it with Docker or Singularity.
+
+    **Docker**
+
     ```
     docker pull rnacentral/r2dt
-    docker run rnacentral/r2dt r2dt.py --help
-    singularity exec rnacentral/r2dt r2dt.py --help
+    docker run --entrypoint r2dt.py rnacentral/r2dt draw --help
+    ```
+
+    **Singularity**
+
+    ```
+    singularity build r2dt docker://rnacentral/r2dt    
+    singularity exec r2dt r2dt.py draw --help
     ```
 
 * :hammer_and_wrench: Development installation:
@@ -54,25 +62,26 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-* Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) _(190.1 MB, last updated Jan 7, 2021)_, then uncompress it and mount inside the container:
+1. Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) _(190.1 MB, last updated Jan 7, 2021)_ and uncompress it.
+
+2. Enter an interactive Docker terminal session:
+
+```
+docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnacentral/r2dt
+```
+
+- `-it` - start an interactive session
+- `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container
+- make the current working directory available inside the container as `/rna/r2dt/temp`:
     ```
-    tar -xvzf cms.tar.gz    
-    docker run -it -v <path_to_cms>:/rna/r2dt/data/cms rnacentral/r2dt
+    -v `pwd`:/rna/r2dt/temp
     ```
 
-    Alternatively, perform one-time initial setup locally (may take up to several hours):
-    ```
-    r2dt.py setup
-    ```
-
-* _Optional_: run tests to verify that the installation worked:
-    ```
-    python3 -m unittest
-    ```
+Any file placed in `/rna/r2dt/temp` will be available on the host machine after the Docker container exits.
 
 ## Usage
 
-### Recommended: Automatic template selection
+### Automatic template selection
 
 Specify the input file in [FASTA format](https://en.wikipedia.org/wiki/FASTA_format) containing one or more RNA sequences as well as the path where the output files will be created (the folder will be created if it does not exist).
 
@@ -88,7 +97,7 @@ r2dt.py draw examples/examples.fasta temp/examples
 
 R2DT will automatically select the best matching template and visualise the secondary structures.
 
-### Advanced: Specifying template category
+### Specifying template category
 
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
@@ -121,7 +130,7 @@ If the RNA type of the input sequences is known in advance, it is possible to by
     r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
     ```
 
-### Advanced: Manual template selection
+### Manual template selection
 
 It is possible to select a specific template and skip the classification step altogether.
 
@@ -134,34 +143,46 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 2. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
     ```
-    r2dt.py --force_template <template_id> <input_fasta> <output_folder>
+    r2dt.py draw --force_template <template_id> <input_fasta> <output_folder>
     ```
 
     For example:
 
     ```
-    r2dt.py --force_template RNAseP_a_P_furiosus_JB examples/force/URS0001BC2932_272844.fasta temp/example
+    r2dt.py draw --force_template RNAseP_a_P_furiosus_JB examples/force/URS0001BC2932_272844.fasta temp/example
     ```
 
-### Useful commands
+### Other useful commands
 
-* Running individual tests
+* Perform one-time initial setup locally (may take up to several hours):
+    ```
+    r2dt.py setup
+    ```
+
+* Run the entire test suite
+    ```
+    python3 -m unittest
+    ```
+
+* Run individual tests
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
     ```
 
-* Classifying example sequences using Ribotyper
+* Classify example sequences using Ribotyper
     ```
     perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
     ```
 
-* Generate covariance models
-    ```
+* Generate covariance models and modelinfo files
+    ```    
     python3 utils/generate_cm_library.py
-    python3 utils/generate_lsu_cm_library.py
+    r2dt.py generatemodelinfo <path to covariance models>
+    ```
 
-    python3 utils/generate_model_info.py
-    python3 utils/generate_model_info.py --cm-library=data/ribovision/cms --rna-type=LSU
+* Run R2DT with Singularity
+    ```
+    singularity exec --bind <path_to_cms>:/rna/r2dt/data/cms r2dt r2dt.py draw sequence.fasta output
     ```
 
 ## How to add new templates
