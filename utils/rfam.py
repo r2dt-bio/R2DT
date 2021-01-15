@@ -406,6 +406,8 @@ def rscape2traveler(rfam_acc):
 
 
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     if not model_id.startswith('RF'):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:

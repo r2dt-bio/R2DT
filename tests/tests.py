@@ -332,7 +332,7 @@ class TestForceTemplate(unittest.TestCase):
     def test_examples(self):
         for seq_id, model_id in self.cases.items():
             filename = '{}-{}.colored.svg'.format(seq_id, model_id)
-            new_file = os.path.join(self.test_results, filename)
+            new_file = os.path.join(self.test_results, 'results', 'svg', filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
             self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))

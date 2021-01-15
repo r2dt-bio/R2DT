@@ -433,6 +433,8 @@ def organise_metadata(output_folder, result_folders):
                         line = line.replace('PASS', 'Rfam')
                     elif 'ribovision-lsu' in folder or 'ribovision-ssu' in folder:
                         line = line.replace('PASS', 'RiboVision')
+                    elif 'rnasep' in folder:
+                        line = line.replace('PASS', 'RNAse P Database')
                     f_out.write(line)
 
 
@@ -447,28 +449,41 @@ def force_draw(model_id, fasta_input, output_folder, seq_id):
     if not model_type:
         print('Error: Model not found. Please check model_id')
         return
-
-    os.system('mkdir -p %s' % output_folder)
+    print('Visualising sequence {} using the {} model from {}'.format(seq_id, model_id, model_type))
     os.system('esl-sfetch --index %s' % fasta_input)
 
-    print('Visualising sequence {} using the {} model from {}'.format(seq_id, model_id, model_type))
+    output = os.path.join(output_folder, model_type.replace('_', '-'))
 
     if model_type == 'rfam':
-        rfam.visualise_rfam(fasta_input, output_folder, seq_id, model_id)
+        rfam.visualise_rfam(fasta_input, output, seq_id, model_id)
     elif model_type == 'ribovision_ssu':
-        ribovision.visualise('ssu', fasta_input, output_folder, seq_id, model_id)
+        ribovision.visualise('ssu', fasta_input, output, seq_id, model_id)
     elif model_type == 'ribovision_lsu':
-        ribovision.visualise('lsu', fasta_input, output_folder, seq_id, model_id)
+        ribovision.visualise('lsu', fasta_input, output, seq_id, model_id)
     elif model_type == 'rnasep':
-        ribovision.visualise('rnasep', fasta_input, output_folder, seq_id, model_id)
+        ribovision.visualise('rnasep', fasta_input, output, seq_id, model_id)
     elif model_type == 'crw':
-        crw.visualise_crw(fasta_input, output_folder, seq_id, model_id)
+        crw.visualise_crw(fasta_input, output, seq_id, model_id)
     elif model_type == 'gtrnadb':
         domain, isotype = model_id.split('_')
         test = False
-        gtrnadb.visualise(domain, isotype, fasta_input, output_folder, test)
-        cmd = 'mv {}/{}/* {}'.format(output_folder, model_id, output_folder)
-        os.system(cmd)
+        gtrnadb.visualise(domain, isotype, fasta_input, output, test)
+    # organise results into folders
+    organise_results(output, output_folder)
+    metadata_folder = os.path.join(output_folder, 'results', 'tsv')
+    if not os.path.exists(metadata_folder):
+        os.makedirs(metadata_folder)
+    label_mapping = {
+        'crw': 'CRW',
+        'gtrnadb': 'GtRNAdb',
+        'rfam': 'Rfam',
+        'ribovision_ssu': 'RiboVision',
+        'ribovision_lsu': 'RiboVision',
+        'rnasep': 'RNAse P database',
+    }
+    with open(os.path.join(metadata_folder, 'metadata.tsv'), 'a') as f_out:
+        line = '{}\t{}\t{}\n'.format(seq_id, model_id, label_mapping[model_type])
+        f_out.write(line)
 
 
 @cli.command()

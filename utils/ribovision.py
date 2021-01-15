@@ -20,7 +20,8 @@ from . import shared
 
 
 def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
-
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     if ssu_or_lsu.lower() == 'lsu':
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         templates = config.RIBOVISION_LSU_TRAVELER

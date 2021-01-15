@@ -132,7 +132,6 @@ def classify_trna_sequences(fasta_input, output_folder):
 
 
 def visualise(domain, isotype, fasta_input, output_folder, test):
-
     destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)

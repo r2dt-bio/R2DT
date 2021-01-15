@@ -34,7 +34,8 @@ def setup():
 
 
 def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
-
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     cm_library = config.CRW_CM_LIBRARY
 
     temp_fasta = tempfile.NamedTemporaryFile()
