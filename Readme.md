@@ -2,19 +2,19 @@
 
 _Visualise RNA 2D structure in standard layouts_
 
-The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library that contains >3,500 templates representing a wide range of RNAs from the following sources:
+The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library representing a wide range of RNAs:
 
- - [CRW](http://www.rna.ccbb.utexas.edu) (5S and SSU rRNA)
- - [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) (3D-structure based SSU and LSU rRNA)
- - [GtRNAdb](http://gtrnadb.ucsc.edu) (tRNA)
- - [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438) (RNAse P)
- - [Rfam](https://rfam.org) (>2,000 RNA families)
+ - 5S and SSU rRNA from [CRW](http://www.rna.ccbb.utexas.edu)
+ - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
+ - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
+ - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
+ - over 2,600 RNA families from [Rfam](https://rfam.org)
 
 R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [preprint](https://www.biorxiv.org/content/10.1101/2020.09.10.290924v1) on BioRxiv.
 
 ## Examples
 
-Here are some example visualisations showing LSU, SSU, and 5S rRNA, several tRNAs, RNAse P and others.
+The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two RNAse P, snoRNA, MoCo riboswitch, and U4 snRNA.
 
 ![R2DT examples](./examples/r2dt-examples.png)
 
@@ -30,7 +30,7 @@ R2DT can be used in a number of ways:
 
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/rnacentral/r2dt)
 
-* Recommended installation: download the R2DT image from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt) and run it with Docker or Singularity.
+* Download the R2DT image from [Docker Hub](https://hub.docker.com/r/rnacentral/r2dt) and run it with Docker or Singularity.
 
     **Docker**
 
@@ -199,6 +199,8 @@ We will review the template and reply on GitHub as soon as possible.
 
 ## Method overview
 
+The R2DT pipeline includes the following steps:
+
 1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
 1. **Select the best matching covariance model** for each input sequence
 using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
@@ -212,8 +214,10 @@ using the top scoring covariance model.
 - [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
 - [Robin Gutell]() and [Jamie Cannone]() (CRW)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
-- [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) and the GtRNAdb team
-- [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) ([EMBL-EBI](https://www.ebi.ac.uk))
+- [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
+- [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) from [EMBL-EBI](https://www.ebi.ac.uk)
+
+:wave: We welcome additional contributions. Please raise an issue or submit a pull request.
 
 ## Acknowledgements
 
