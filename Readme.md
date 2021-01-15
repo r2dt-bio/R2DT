@@ -154,17 +154,12 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 ### Other useful commands
 
-* Perform one-time initial setup locally (may take up to several hours):
-    ```
-    r2dt.py setup
-    ```
-
-* Run the entire test suite
+* Run [all tests](./tests/tests.py)
     ```
     python3 -m unittest
     ```
 
-* Run individual tests
+* Run a [single test](./tests/tests.py)
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
     ```
@@ -180,10 +175,24 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     r2dt.py generatemodelinfo <path to covariance models>
     ```
 
+* Precompute template library locally (may take up to several hours):
+    ```
+    r2dt.py setup
+    ```
+
 * Run R2DT with Singularity
     ```
     singularity exec --bind <path_to_cms>:/rna/r2dt/data/cms r2dt r2dt.py draw sequence.fasta output
     ```
+
+## Output files
+
+`r2dt.py draw` produces a folder called `results` with the following subfolders:
+
+- `svg`: RNA secondary structure diagrams in SVG format
+- `fasta`: input sequences and their secondary structure in dot-bracket notation
+- `tsv`: a file `metadata.tsv` listing sequence ids, matching templates, and template sources
+- `thumbnail`: secondary structure diagrams displayed as outlines in SVG format
 
 ## How to add new templates
 
