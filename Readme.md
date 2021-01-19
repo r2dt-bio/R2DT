@@ -71,13 +71,13 @@ docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnace
 ```
 
 - `-it` - start an interactive session
-- `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container
+- `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
 - make the current working directory available inside the container as `/rna/r2dt/temp`:
     ```
     -v `pwd`:/rna/r2dt/temp
     ```
 
-Any file placed in `/rna/r2dt/temp` will be available on the host machine after the Docker container exits.
+Any file placed in `/rna/r2dt/temp` within the container will be available on the host machine after the Docker container exits.
 
 ## Usage
 
@@ -166,7 +166,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 * Classify example sequences using Ribotyper
     ```
-    perl ribotyper.pl -i data/cms/all.modelinfo.txt -f examples/pdb.fasta example-output
+    perl /rna/ribovore/ribotyper.pl -i data/cms/crw/modelinfo.txt -f examples/pdb.fasta temp/ribotyper-test
     ```
 
 * Generate covariance models and modelinfo files
@@ -201,6 +201,8 @@ If you would like to submit a new template or replace an existing one, please [s
 - Description of the new template and any relevant background information
 - A FASTA file with a reference sequence and secondary structure - see [example](./data/rfam/RF00002/RF00002-traveler.fasta)
 - A [Traveler XML file](https://github.com/davidhoksza/traveler#traveler-intermediate-format) - see [example](./data/rfam/RF00002/traveler-template.xml)
+
+It is also possible to generate a new template using a special version of the XRNA software, [XRNA-GT](https://github.com/LDWLab/XRNA-GT).
 
 :warning: GitHub currently does not support attaching files with `.fasta` or `.bpseq` extensions so please attach the files as `.txt`.
 
