@@ -103,7 +103,6 @@ R2DT will automatically select the best matching template and visualise the seco
 
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
-
 * CRW templates (5S and SSU rRNA)
     ```
     r2dt.py crw draw examples/crw-examples.fasta temp/crw-examples
