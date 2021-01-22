@@ -10,6 +10,8 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
  - over 2,600 RNA families from [Rfam](https://rfam.org)
 
+![R2DT method overview](./examples/method-overview.png)
+
 R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [preprint](https://www.biorxiv.org/content/10.1101/2020.09.10.290924v1) on BioRxiv.
 
 ## Examples
@@ -23,7 +25,7 @@ The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two
 R2DT can be used in a number of ways:
 
 * [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
-* [API](https://www.ebi.ac.uk/Tools/common/tools/help/) powered by EMBL-EBI Web Services
+* [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services
 * As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or in a bare metal installation
 
 ### Installation
