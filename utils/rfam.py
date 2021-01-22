@@ -18,6 +18,9 @@ import re
 import tempfile
 import subprocess as sp
 
+# import config
+# import shared
+# import generate_model_info as mi
 from . import config
 from . import shared
 from . import generate_model_info as mi
@@ -38,6 +41,10 @@ BLACKLIST = [
     'RF02545', # SSU_trypano_mito
     'RF00005', # tRNA
     'RF01852', # tRNA-Sec
+    'RF00009', # Nuclear RNase P
+    'RF00010', # Bacterial RNase P class A
+    'RF00011', # Bacterial RNase P class B
+    'RF00373', # Archaeal RNase P
 ]
 
 
@@ -399,6 +406,8 @@ def rscape2traveler(rfam_acc):
 
 
 def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     if not model_id.startswith('RF'):
         rfam_acc = get_rfam_acc_by_id(model_id)
     else:
@@ -413,12 +422,14 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_stk = tempfile.NamedTemporaryFile()
+    temp_pfam_stk = tempfile.NamedTemporaryFile(delete=False)
+    temp_afa = tempfile.NamedTemporaryFile()
+    temp_map = tempfile.NamedTemporaryFile()
 
     cmd = 'esl-sfetch %s %s > %s' % (fasta_input, seq_id, temp_fasta.name)
     result = os.system(cmd)
     if result:
-        print("Failed esl-sfetch for %s" % seq_id)
-        return
+        raise ValueError("Failed esl-sfetch for: %s" % seq_id)
 
     cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
     for options in cm_options:
@@ -454,7 +465,24 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         print("Failed esl-alimanip of %s %s" % (seq_id, model_id))
         return
 
-    result_base = os.path.join(output_folder, seq_id.replace('/', '-'))
+    cmd = 'ali-pfam-lowercase-rf-gap-columns.pl {} > {}'.format(temp_stk.name, temp_pfam_stk.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (seq_id, model_id))
+
+    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+
+    cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s %s" % (seq_id, model_id))
+
+    cmd = '/rna/python36/bin/python3.6 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    result = os.system(cmd)
+    if result:
+        raise ValueError("Failed infernal2mapping for %s" % (cmd))
+
+    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + rfam_acc)
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
@@ -462,14 +490,12 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         print("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
         return
 
-    shared.remove_large_insertions(result_base + '.fasta')
-
     log = result_base + '.log'
     cmd = ('traveler '
            '--verbose '
            '--target-structure {fasta} '
            '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
-           '--all {result_base} '
+           '--draw {map} {result_base} '
            '> {log}' ).format(
                fasta=input_fasta,
                result_base=result_base,
@@ -477,13 +503,37 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
                rfam_data=config.RFAM_DATA,
                traveler_template_xml=get_traveler_template_xml(rfam_acc),
                traveler_fasta=get_traveler_fasta(rfam_acc),
-               log=log
+               log=log,
+               map=temp_map.name
             )
-    os.system(cmd)
+    result = os.system(cmd)
+
+    if result:
+        print('Repeating using Traveler mapping')
+        cmd = ('traveler '
+               '--verbose '
+               '--target-structure {fasta} '
+               '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
+               '--all {result_base} '
+               '> {log}' ).format(
+                   fasta=input_fasta,
+                   result_base=result_base,
+                   rfam_acc=rfam_acc,
+                   rfam_data=config.RFAM_DATA,
+                   traveler_template_xml=get_traveler_template_xml(rfam_acc),
+                   traveler_fasta=get_traveler_fasta(rfam_acc),
+                   log=log
+                )
+        print(cmd)
+        os.system(cmd)
 
     temp_fasta.close()
     temp_sto.close()
     temp_stk.close()
+    temp_pfam_stk.close()
+    temp_afa.close()
+    temp_map.close()
+    os.remove(temp_pfam_stk.name)
 
     cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
     os.system(cmd)

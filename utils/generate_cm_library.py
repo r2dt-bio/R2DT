@@ -16,13 +16,13 @@ import os
 import glob
 
 
-BPSEQ_LOCATION = '/rna/r2dt/data/crw-bpseq'
-CRW_CM_LIBRARY = '/rna/r2dt/data/crw-cms'
-CRW_FASTA_NO_PSEUDOKNOTS = '/rna/r2dt/data/crw-fasta-no-pseudoknots'
+BPSEQ_LOCATION = '/rna/r2dt/data/rnasep/bpseq'
+CRW_CM_LIBRARY = '/rna/r2dt/data/rnasep/cms'
+# CRW_FASTA_NO_PSEUDOKNOTS = '/rna/r2dt/data/crw-fasta-no-pseudoknots'
 
 
 def convert_bpseq_to_fasta(bpseq):
-    fasta = bpseq.replace('.bpseq', '-with-knots.fasta')
+    fasta = bpseq.replace('.bpseq', '.fasta')
     if not os.path.exists(fasta):
         cmd = 'python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}'.format(
             bpseq=bpseq,
@@ -87,11 +87,11 @@ def build_cm(stockholm, cm_library=CRW_CM_LIBRARY):
 
 def main():
 
-    for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION)[:2]:
+    for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION):
         print(os.path.basename(bpseq).replace('.bpseq', ''))
         fasta = convert_bpseq_to_fasta(bpseq)
-        fasta_no_knots = break_pseudoknots(fasta)
-        stockholm = convert_fasta_to_stockholm(fasta_no_knots)
+        # fasta_no_knots = break_pseudoknots(fasta)
+        stockholm = convert_fasta_to_stockholm(fasta)
         build_cm(stockholm)
     print('Done')
 

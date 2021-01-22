@@ -67,25 +67,35 @@ RUN \
     cd .. && \
     perl Makefile.PL; make; make test; make install
 
+# Install Python 3.6
+RUN \
+    mkdir python36 && \
+    wget https://www.python.org/ftp/python/3.6.11/Python-3.6.11.tgz && \
+    tar -xvf Python-3.6.11.tgz && \
+    cd Python-3.6.11 && \
+    ./configure --prefix=$RNA/python36/ && \
+    make && make install && \
+    cd .. && \
+    rm -Rf Python-3.6.11
+
 # Install jiffy infernal hmmer scripts
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
     cd jiffy-infernal-hmmer-scripts && \
-    git checkout 45d4937385a6b694eac2d7d538e131b59527ce06
+    git checkout 23b78b30b49b5255bae2cebb3f96fd3a147059a6
 RUN \
     cd jiffy-infernal-hmmer-scripts && \
-    echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl
-RUN chmod +x $RNA/jiffy-infernal-hmmer-scripts/ali-pfam-sindi2dot-bracket.pl
+    echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
+    chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
 
 # Install ribovore
 RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
-RUN git clone https://github.com/nawrockie/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
+RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install Traveler
-RUN git clone https://github.com/davidhoksza/traveler.git && cd traveler && git checkout bc7d536704c3db5c13825b8269bc20cebf2e102f
-RUN cd $RNA/traveler/src && make build
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 8fe8ef303b3a4ca5474ffc82b865895fb1db7814 && cd src && make build
 
 COPY examples examples/
 
@@ -103,7 +113,7 @@ ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LI
 ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
 ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
 ENV PATH="/rna/rscape/bin:$PATH"
-ENV PATH="/rna/jiffy-infernal-hmmer-scripts/:$PATH"
+ENV PATH="/rna/jiffy-infernal-hmmer-scripts:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/r2dt:$PATH"
 
