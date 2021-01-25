@@ -54,7 +54,7 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
     if not os.path.exists(model_path):
         print('Model not found %s' % model_path)
         return
-    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    cm_options = ['', '--mxsize 2048 --maxtau 0.49']
     for options in cm_options:
         cmd = "cmalign %s %s %s > %s" % (options, model_path, temp_fasta.name, temp_sto.name)
         result = os.system(cmd)

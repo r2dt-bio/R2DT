@@ -431,7 +431,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if result:
         raise ValueError("Failed esl-sfetch for: %s" % seq_id)
 
-    cm_options = ['', '--cyk --notrunc --noprob --nonbanded --small']
+    cm_options = ['', '--mxsize 2048 --maxtau 0.49']
     for options in cm_options:
         cmd = "cmalign {options} {rfam_cm} {temp_fasta} > {temp_sto}".format(
             options=options,
