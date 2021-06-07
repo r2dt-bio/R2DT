@@ -199,7 +199,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues/new) including:
 
-- A FASTA file with a reference sequence and secondary structure - see [example](./data/rfam/RF00002/RF00002-traveler.fasta)
+- A FASTA or BPSEQ file with a reference sequence and secondary structure - see [FASTA](./data/rfam/RF00002/RF00002-traveler.fasta) and [BPSEQ](./data/ribovision-ssu/bpseq/EC_SSU_3D.bpseq) examples
 - A [Traveler XML file](https://github.com/davidhoksza/traveler#traveler-intermediate-format) - see [example](./data/rfam/RF00002/traveler-template.xml)
 - Description of the new template and any relevant background information
 
@@ -209,11 +209,20 @@ One can create a new template locally using the [generate_cm_library.py](./utils
 
 We will review the template and reply on GitHub as soon as possible.
 
+### Manually creating templates
+
+1. Place new FASTA or BPSEQ file(s) in the `data/new` folder
+2. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
+3. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
+4. Run `r2dt generatemodelinfo <destination>` to add new models to the list of searched models
+5. Update `metadata.tsv` file in the destination directory
+6. Run `r2dt.py list-models` to update a list of all available models
+
 ## Method overview
 
 The R2DT pipeline includes the following steps:
 
-1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
+1. **Generate a library of covariance models** using BPSEQ files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
 1. **Select the best matching covariance model** for each input sequence
 using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
 1. **Fold** input sequence into a secondary structure compatible with the template
