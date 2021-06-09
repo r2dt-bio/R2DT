@@ -12,7 +12,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
 
 ![R2DT method overview](./examples/method-overview.png)
 
-R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [preprint](https://www.biorxiv.org/content/10.1101/2020.09.10.290924v1) on BioRxiv.
+R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
 
 ## Examples
 
@@ -219,6 +219,8 @@ using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](htt
 1. **Fold** input sequence into a secondary structure compatible with the template
 using the top scoring covariance model.
 1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
+
+See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for more details.
 
 ## Contributors
 
