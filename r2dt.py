@@ -24,6 +24,7 @@ from colorhash import ColorHash
 from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info
 from utils import generate_model_info as gmi
 from utils import list_models as lm
+from utils import generate_cm_library as gcl
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -493,6 +494,19 @@ def list_models():
         print(item['description'])
     with open(os.path.join(config.DATA, 'models.json'), 'w') as models_file:
         json.dump(data, models_file)
+
+
+@cli.command()
+def generatecm():
+    for bpseq in glob.glob('%s/*.bpseq' % config.BPSEQ_LOCATION):
+        fasta = gcl.convert_bpseq_to_fasta(bpseq)
+    for fasta in glob.glob('%s/*.fasta' % config.BPSEQ_LOCATION):
+        print(os.path.basename(fasta).replace('.fasta', ''))
+        # fasta_no_knots = break_pseudoknots(fasta)
+        stockholm = gcl.convert_fasta_to_stockholm(fasta)
+        gcl.build_cm(stockholm, config.BPSEQ_LOCATION)
+    print('Done')
+
 
 if __name__ == '__main__':
     cli()

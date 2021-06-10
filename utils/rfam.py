@@ -45,6 +45,8 @@ BLACKLIST = [
     'RF00010', # Bacterial RNase P class A
     'RF00011', # Bacterial RNase P class B
     'RF00373', # Archaeal RNase P
+    'RF03459', # temporary blacklist until the CM file is added to Rfam.cm
+    'RF03529', 'RF03551', 'RF03708', 'RF03928', 'RF04034', 'RF04058', 'RF04086', # ghost families
 ]
 
 
@@ -110,13 +112,26 @@ def get_rfam_cms():
     os.system('rm {}'.format(rfam_cm + '.ssi'))
 
 
+def setup_trna_cm():
+    rfam_acc = 'RF00005'
+    trna_cm = os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    if not os.path.exists(trna_cm):
+        cmd = 'wget -O {0} https://rfam.org/family/{1}/cm'.format(trna_cm, rfam_acc)
+        os.system(cmd)
+        if not os.path.exists:
+            raise Exception('Rfam tRNA CM not found in {}'.format(trna_cm))
+
+
 def setup(accessions=None):
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:
+        if accession in BLACKLIST:
+            continue
         rscape2traveler(accession)
+    setup_trna_cm()
 
 
 def generate_traveler_fasta(rfam_acc):
@@ -230,7 +245,7 @@ def convert_text_to_xml(line):
 def download_rfam_seed(rfam_acc):
     output = os.path.join(config.RFAM_DATA, rfam_acc, '{}.seed'.format(rfam_acc))
     if not os.path.exists(output):
-        url = 'http://rfam.org/family/{}/alignment'.format(rfam_acc)
+        url = 'https://rfam.org/family/{}/alignment'.format(rfam_acc)
         cmd = 'wget -O {output} {url}'.format(output=output, url=url)
         os.system(cmd)
     return output
@@ -254,8 +269,6 @@ def get_all_rfam_acc():
             sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
         except sp.CalledProcessError as error:
             print('Error {}'.format(error.output))
-
-
     with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
             if line.startswith('RF'):

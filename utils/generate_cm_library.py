@@ -16,8 +16,6 @@ import os
 import glob
 
 
-BPSEQ_LOCATION = '/rna/r2dt/data/rnasep/bpseq'
-CRW_CM_LIBRARY = '/rna/r2dt/data/rnasep/cms'
 # CRW_FASTA_NO_PSEUDOKNOTS = '/rna/r2dt/data/crw-fasta-no-pseudoknots'
 
 
@@ -71,7 +69,7 @@ def copy_cm_evalues(cm):
     os.system('rm {}.old'.format(cm))
 
 
-def build_cm(stockholm, cm_library=CRW_CM_LIBRARY):
+def build_cm(stockholm, cm_library):
     cm = os.path.join(cm_library, os.path.basename(stockholm).replace('.sto', '.cm'))
     if not os.path.exists(cm):
         cmd = 'cmbuild {cm} {stockholm}'.format(
@@ -83,18 +81,3 @@ def build_cm(stockholm, cm_library=CRW_CM_LIBRARY):
     else:
         print('CM already exists {}'.format(cm))
     return cm
-
-
-def main():
-
-    for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION):
-        print(os.path.basename(bpseq).replace('.bpseq', ''))
-        fasta = convert_bpseq_to_fasta(bpseq)
-        # fasta_no_knots = break_pseudoknots(fasta)
-        stockholm = convert_fasta_to_stockholm(fasta)
-        build_cm(stockholm)
-    print('Done')
-
-
-if __name__ == '__main__':
-    main()
