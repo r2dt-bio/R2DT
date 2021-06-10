@@ -39,13 +39,21 @@ jobs:
         shell: bash
         run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV  
 
-      - name: docker build
-        if: env.BRANCH_NAME != ''
-        run: docker build -f Dockerfile -t rnacentral/R2DT:${{ env.BRANCH_NAME }} .
+      - name: docker build (latest)
+        if: env.BRANCH_NAME == 'master'
+        run: docker build -f Dockerfile -t rnacentral/r2dt:latest .
+        
+      - name: docker build (branch name)
+        if: env.BRANCH_NAME != '' && env.BRANCH_NAME != 'master'
+        run: docker build -f Dockerfile -t rnacentral/r2dt:${{ env.BRANCH_NAME }} .  
 
-      - name: docker push
-        if: env.BRANCH_NAME != ''
-        run: docker push rnacentral/R2DT:${{ env.BRANCH_NAME }}
+      - name: docker push (latest)
+        if: env.BRANCH_NAME == 'master'
+        run: docker push rnacentral/r2dt:latest
+      
+      - name: docker push (branch name)
+        if: env.BRANCH_NAME != '' && env.BRANCH_NAME != 'master'
+        run: docker push rnacentral/r2dt:${{ env.BRANCH_NAME }}
         
   final-notification:
     runs-on: ubuntu-latest
