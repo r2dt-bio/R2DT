@@ -110,13 +110,26 @@ def get_rfam_cms():
     os.system('rm {}'.format(rfam_cm + '.ssi'))
 
 
+def setup_trna_cm():
+    rfam_acc = 'RF00005'
+    trna_cm = os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    if not os.path.exists(trna_cm):
+        cmd = 'wget -O {0} https://rfam.org/family/{1}/cm'.format(trna_cm, rfam_acc)
+        os.system(cmd)
+        if not os.path.exists:
+            raise Exception('Rfam tRNA CM not found in {}'.format(trna_cm))
+
+
 def setup(accessions=None):
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, 'rfam'))
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:
+        if accession in BLACKLIST:
+            continue
         rscape2traveler(accession)
+    setup_trna_cm()
 
 
 def generate_traveler_fasta(rfam_acc):
