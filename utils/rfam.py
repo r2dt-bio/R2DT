@@ -611,7 +611,7 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     print(cmd)
     os.system(cmd)
     hits = os.path.join(subfolder, 'hits.txt')
-    cmd = "cat %s | grep -v '^#' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s" % (tblout, hits)
+    cmd = "cat %s | grep -v '^#' | grep -v '?' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s" % (tblout, hits)
     os.system(cmd)
     ids = set()
     with open(hits, 'r') as f_hits:
