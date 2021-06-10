@@ -237,7 +237,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder)
     if result:
         print("Failed esl-alidepair for {}".format(seq_id))
 
-    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_depaired.name, temp_stk.name)
+    cmd = 'esl-alimanip --rna --sindi --outformat pfam {} > {}'.format(temp_depaired.name, temp_stk.name)
     result = os.system(cmd)
     if result:
         print("Failed esl-alimanip for %s" % (seq_id))

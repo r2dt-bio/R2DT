@@ -64,7 +64,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
         return
 
-    cmd = 'esl-alimanip --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
+    cmd = 'esl-alimanip --rna --sindi --outformat pfam {} > {}'.format(temp_sto.name, temp_stk.name)
     result = os.system(cmd)
     if result:
         print("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
