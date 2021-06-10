@@ -230,7 +230,7 @@ def convert_text_to_xml(line):
 def download_rfam_seed(rfam_acc):
     output = os.path.join(config.RFAM_DATA, rfam_acc, '{}.seed'.format(rfam_acc))
     if not os.path.exists(output):
-        url = 'http://rfam.org/family/{}/alignment'.format(rfam_acc)
+        url = 'https://rfam.org/family/{}/alignment'.format(rfam_acc)
         cmd = 'wget -O {output} {url}'.format(output=output, url=url)
         os.system(cmd)
     return output
@@ -254,8 +254,6 @@ def get_all_rfam_acc():
             sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
         except sp.CalledProcessError as error:
             print('Error {}'.format(error.output))
-
-
     with open(family_file, encoding='utf8', errors='ignore') as f:
         for line in f:
             if line.startswith('RF'):
