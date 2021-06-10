@@ -45,6 +45,8 @@ BLACKLIST = [
     'RF00010', # Bacterial RNase P class A
     'RF00011', # Bacterial RNase P class B
     'RF00373', # Archaeal RNase P
+    'RF03459', # temporary blacklist until the CM file is added to Rfam.cm
+    'RF03529', 'RF03551', 'RF03708', 'RF03928', 'RF04034', 'RF04058', 'RF04086', # ghost families
 ]
 
 
