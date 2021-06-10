@@ -1,0 +1,61 @@
+# Workflow to create/update images in Docker Hub.
+
+name: Building Docker containers
+
+# Triggers the workflow on push or pull request events
+on: [push, pull_request]
+
+jobs:
+  initial-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Initial notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: 'Creating image in Docker Hub'
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          MSG_MINIMAL: true
+  
+  create-docker-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: docker login
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+
+      - name: Get branch name
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
+        
+      - name: Get branch name (pull request)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV  
+
+      - name: docker build
+        if: env.BRANCH_NAME != ''
+        run: docker build -f Dockerfile -t rnacentral/R2DT:${{ env.BRANCH_NAME }} .
+
+      - name: docker push
+        if: env.BRANCH_NAME != ''
+        run: docker push rnacentral/R2DT:${{ env.BRANCH_NAME }}
+        
+  final-notification:
+    runs-on: ubuntu-latest
+    needs: create-docker-tag
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Final notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: 'New image created in Docker Hub'
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          MSG_MINIMAL: true      
