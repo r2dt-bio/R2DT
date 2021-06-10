@@ -53,7 +53,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.RIBOVISION_LSU_CM_LIBRARY, 21)
 
     def test_ribovision_ssu_database(self):
-        self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 9)
+        self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 10)
 
     def test_rnasep_cm_database(self):
         self.verify_cm_database(config.RNASEP_CM_LIBRARY, 20)
