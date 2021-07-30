@@ -186,6 +186,11 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     singularity exec --bind <path_to_cms>:/rna/r2dt/data/cms r2dt r2dt.py draw sequence.fasta output
     ```
 
+* Convert a SVG diagram to a JSON file containing the paths per nucleotide and an ordinal numbering. Note that this *assumes* that the input pdb id is formatted like: `<PDB>_<Entity>_<chain>`, ie `1S72_1_0`.
+    ```
+    svg2json.py <pdb-id> diagram.svg <pdb-id>.json
+    ```
+
 ## Output files
 
 `r2dt.py draw` produces a folder called `results` with the following subfolders:
