@@ -497,6 +497,11 @@ def list_models():
 
 
 @cli.command()
+def test():
+    os.system('python3 -m unittest')
+
+
+@cli.command()
 def generatecm():
     for bpseq in glob.glob('%s/*.bpseq' % config.BPSEQ_LOCATION):
         fasta = gcl.convert_bpseq_to_fasta(bpseq)
