@@ -71,6 +71,27 @@ def setup():
     gtrnadb.setup()
 
 
+@cli.command()
+def setup_rfam():
+    """
+    Re-generate Rfam templates from scratch.
+    """
+    print(shared.get_r2dt_version_header())
+    # delete Rfam cms
+    rfam_cms = os.path.join(config.CM_LIBRARY, 'rfam')
+    os.system('rm -f {}/*.cm'.format(rfam_cms))
+    os.system('rm -f {}/modelinfo.txt'.format(rfam_cms))
+    # delete template files
+    os.system('rm -Rf {}/RF0*'.format(config.RFAM_DATA))
+    # delete summary files
+    os.system('rm -Rf {}/family.txt'.format(config.RFAM_DATA))
+    os.system('rm -Rf {}/rfam_ids.txt'.format(config.RFAM_DATA))
+    # run setup
+    rfam.setup()
+    # delete temporary files
+    os.system('cd {} && ./clean_up_files.sh'.format(config.RFAM_DATA))
+
+
 def get_seq_ids(input_fasta):
     """
     Get a list of sequence ids from a fasta file.

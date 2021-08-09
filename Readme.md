@@ -227,6 +227,31 @@ We will review the template and reply on GitHub as soon as possible.
 5. Update `metadata.tsv` file in the destination directory
 6. Run `r2dt.py list-models` to update a list of all available models
 
+### Updating Rfam library
+
+The following procedure should be done after each Rfam release:
+
+1. Recompute all Rfam templates (takes ~6h)
+    ```
+    r2dt.py setup-rfam
+    ```
+
+1. Run tests
+
+1. Generate new precomputed library archive
+    ```
+    tar -czvf cms.tar.gz <path/to/new/cms>
+    ```
+
+    The folder should contain 3 subfolders: `crw`, `gtrnadb`, and `rfam`.
+
+1. Update the precomputed library link in Readme
+
+1. Update a list of available models
+    ```
+    r2dt.py list-models
+    ```
+
 ## Method overview
 
 The R2DT pipeline includes the following steps:
