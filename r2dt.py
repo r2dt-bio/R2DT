@@ -62,6 +62,14 @@ def cli():
 
 
 @cli.command()
+def version():
+    """
+    Print R2DT version information.
+    """
+    print(shared.get_r2dt_version_header())
+
+
+@cli.command()
 def setup():
     print(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
