@@ -290,10 +290,9 @@ def crw_group():
 
 
 @crw_group.command('draw')
-@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def rrna_draw(fasta_input, output_folder, test):
+def rrna_draw(fasta_input, output_folder):
     print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.CRW_CM_LIBRARY), 'r') as f:
