@@ -21,7 +21,7 @@ import re
 import click
 from colorhash import ColorHash
 
-from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info
+from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info, shared
 from utils import generate_model_info as gmi
 from utils import list_models as lm
 from utils import generate_cm_library as gcl
@@ -63,6 +63,7 @@ def cli():
 
 @cli.command()
 def setup():
+    print(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
     crw.setup()
@@ -122,6 +123,7 @@ def draw(ctx, fasta_input, output_folder, force_template):
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
+    print(shared.get_r2dt_version_header())
     all_seq_ids = get_seq_ids(fasta_input)
 
     if force_template:
@@ -242,6 +244,7 @@ def gtrnadb_setup():
     This will copy all the CM files into place so that drawing will not modify
     the data directory.
     """
+    print(shared.get_r2dt_version_header())
     gtrnadb.setup()
 
 
@@ -255,6 +258,7 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
     """
     Visualise sequences using GtRNAdb templates.
     """
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
 
     if domain and isotype:
@@ -272,6 +276,7 @@ def rnasep_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rnasep_draw(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RNASEP_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -289,6 +294,7 @@ def crw_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rrna_draw(fasta_input, output_folder, test):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.CRW_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -310,6 +316,7 @@ def ribovision_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def ribovision_draw_lsu(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_LSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -321,6 +328,7 @@ def ribovision_draw_lsu(fasta_input, output_folder):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def ribovision_draw_ssu(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -357,6 +365,7 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, test=None):
 
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
+    print(shared.get_r2dt_version_header())
     print(rfam_accession)
     if rfam_accession == 'all':
         rfam_accs = rfam.get_all_rfam_acc()
@@ -442,10 +451,12 @@ def organise_metadata(output_folder, result_folders):
 @cli.command()
 @click.argument('cm_library', type=click.Path())
 def generatemodelinfo(cm_library):
+    print(shared.get_r2dt_version_header())
     gmi.generate_model_info(cm_library)
 
 
 def force_draw(model_id, fasta_input, output_folder, seq_id):
+    print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
         print('Error: Model not found. Please check model_id')
@@ -489,6 +500,7 @@ def force_draw(model_id, fasta_input, output_folder, seq_id):
 
 @cli.command()
 def list_models():
+    print(shared.get_r2dt_version_header())
     data = lm.list_models()
     for item in data:
         print(item['description'])
@@ -498,11 +510,13 @@ def list_models():
 
 @cli.command()
 def test():
+    print(shared.get_r2dt_version_header())
     os.system('python3 -m unittest')
 
 
 @cli.command()
 def generatecm():
+    print(shared.get_r2dt_version_header())
     for bpseq in glob.glob('%s/*.bpseq' % config.BPSEQ_LOCATION):
         fasta = gcl.convert_bpseq_to_fasta(bpseq)
     for fasta in glob.glob('%s/*.fasta' % config.BPSEQ_LOCATION):
