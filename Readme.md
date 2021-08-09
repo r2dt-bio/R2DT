@@ -12,7 +12,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
 
 ![R2DT method overview](./examples/method-overview.png)
 
-R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
+R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
 
 ## Examples
 
@@ -68,16 +68,17 @@ R2DT can be used in a number of ways:
 
 2. Enter an interactive Docker terminal session:
 
-```
-docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnacentral/r2dt
-```
+    ```
+    docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnacentral/r2dt
+    ```
 
-- `-it` - start an interactive session
-- `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
-- make the current working directory available inside the container as `/rna/r2dt/temp`:
-    ```
-    -v `pwd`:/rna/r2dt/temp
-    ```
+    - `-it` - start an interactive session
+    - `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
+    - make the current working directory available inside the container as `/rna/r2dt/temp`:
+
+        ```
+        -v `pwd`:/rna/r2dt/temp
+        ```
 
 Any file placed in `/rna/r2dt/temp` within the container will be available on the host machine after the Docker container exits.
 
@@ -157,6 +158,12 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 * Run [all tests](./tests/tests.py)
     ```
+    r2dt.py test
+    ```
+
+    or
+
+    ```
     python3 -m unittest
     ```
 
@@ -176,7 +183,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     r2dt.py generatemodelinfo <path to covariance models>
     ```
 
-* Precompute template library locally (may take up to several hours):
+* Precompute template library locally (may take several hours):
     ```
     r2dt.py setup
     ```
@@ -235,7 +242,7 @@ See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for mor
 
 - [David Hoksza](https://github.com/davidhoksza) (Traveler software)
 - [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
-- [Robin Gutell]() and [Jamie Cannone]() (CRW)
+- [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
 - [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) from [EMBL-EBI](https://www.ebi.ac.uk)
