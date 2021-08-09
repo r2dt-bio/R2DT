@@ -8,7 +8,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 2,600 RNA families from [Rfam](https://rfam.org)
+ - over 3,700 RNA families from [Rfam](https://rfam.org)
 
 ![R2DT method overview](./examples/method-overview.png)
 
@@ -64,7 +64,7 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) _(190.1 MB, last updated Jan 7, 2021)_ and uncompress it.
+1. Download a [precomputed data library](https://www.dropbox.com/s/jkw0zze1fi3m4qw/cms.tar.gz?dl=1) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
