@@ -71,6 +71,9 @@ def version():
 
 @cli.command()
 def setup():
+    """
+    Generate all templates from scratch.
+    """
     print(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
@@ -265,6 +268,9 @@ def organise_results(results_folder, output_folder):
 
 @cli.group('gtrnadb')
 def gtrnadb_group():
+    """
+    Use tRNA templates for structure visualisation.
+    """
     pass
 
 @gtrnadb_group.command('setup')
@@ -299,6 +305,9 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
 
 @cli.group('rnasep')
 def rnasep_group():
+    """
+    Use RNAse P templates for structure visualisation.
+    """
     pass
 
 @rnasep_group.command('draw')
@@ -315,6 +324,9 @@ def rnasep_draw(fasta_input, output_folder):
 
 @cli.group('crw')
 def crw_group():
+    """
+    Use CRW templates for structure visualisation.
+    """
     pass
 
 
@@ -335,7 +347,7 @@ def rrna_draw(fasta_input, output_folder):
 @cli.group('ribovision')
 def ribovision_group():
     """
-    Commands dealing with laying out sequences based upon RiboVision models.
+    Use RiboVision templates for structure visualisation.
     """
     pass
 
@@ -367,7 +379,7 @@ def ribovision_draw_ssu(fasta_input, output_folder):
 @cli.group('rfam')
 def rfam_group():
     """
-    Commands dealing with laying out sequences based upon Rfam models.
+    Use Rfam templates for structure visualisation.
     """
     pass
 
@@ -479,6 +491,9 @@ def organise_metadata(output_folder, result_folders):
 @cli.command()
 @click.argument('cm_library', type=click.Path())
 def generatemodelinfo(cm_library):
+    """
+    Helper for generating modelinfo.txt files.
+    """
     print(shared.get_r2dt_version_header())
     gmi.generate_model_info(cm_library)
 
@@ -528,6 +543,9 @@ def force_draw(model_id, fasta_input, output_folder, seq_id):
 
 @cli.command()
 def list_models():
+    """
+    List all installed templates.
+    """
     print(shared.get_r2dt_version_header())
     data = lm.list_models()
     for item in data:
@@ -538,12 +556,18 @@ def list_models():
 
 @cli.command()
 def test():
+    """
+    Run tests
+    """
     print(shared.get_r2dt_version_header())
     os.system('python3 -m unittest')
 
 
 @cli.command()
 def generatecm():
+    """
+    Helper for generating covariance models.
+    """
     print(shared.get_r2dt_version_header())
     for bpseq in glob.glob('%s/*.bpseq' % config.BPSEQ_LOCATION):
         fasta = gcl.convert_bpseq_to_fasta(bpseq)
