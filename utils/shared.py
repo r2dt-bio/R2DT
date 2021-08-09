@@ -1,4 +1,3 @@
-import os
 import re
 
 
@@ -9,11 +8,12 @@ def get_r2dt_version_header():
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
 
-"""
-The Pfam Stockholm files can contain 9 or 11 lines depending on whether
-the description line is present.
-"""
+
 def remove_large_insertions_pfam_stk(filename):
+    """
+    The Pfam Stockholm files can contain 9 or 11 lines depending on whether
+    the description line is present.
+    """
     MAX_INSERTIONS = 100
     with open(filename, 'r') as f:
         lines = f.readlines()
