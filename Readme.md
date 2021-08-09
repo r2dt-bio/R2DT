@@ -10,7 +10,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 3,700 RNA families from [Rfam](https://rfam.org)
+ - over 3,700 RNA families from [Rfam](https://rfam.org) (release 14.6)
 
 ![R2DT method overview](./examples/method-overview.png)
 
@@ -102,7 +102,7 @@ r2dt.py draw examples/examples.fasta temp/examples
 
 R2DT will automatically select the best matching template and visualise the secondary structures.
 
-### Specifying template category
+### Manually selecting template category
 
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
@@ -134,7 +134,7 @@ If the RNA type of the input sequences is known in advance, it is possible to by
     r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
     ```
 
-### Manual template selection
+### Manually selecting templates
 
 It is possible to select a specific template and skip the classification step altogether.
 
@@ -157,6 +157,11 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     ```
 
 ### Other useful commands
+
+* Print R2DT version
+    ```
+    r2dt.py version
+    ```
 
 * Run [all tests](./tests/tests.py)
     ```
@@ -265,6 +270,10 @@ using the top scoring covariance model.
 
 See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for more details.
 
+## Release process
+
+All R2DT releases are [available](https://github.com/RNAcentral/R2DT/releases) on GitHub. R2DT uses [git flow](https://github.com/RNAcentral/R2DT/wiki) for managing the release process.
+
 ## Contributors
 
 - [David Hoksza](https://github.com/davidhoksza) (Traveler software)
@@ -274,7 +283,7 @@ See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for mor
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
 - [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) from [EMBL-EBI](https://www.ebi.ac.uk)
 
-:wave: We welcome additional contributions. Please raise an issue or submit a pull request.
+:wave: We welcome additional contributions so please feel free to [raise an issue](https://github.com/RNAcentral/R2DT/issues) or submit a pull request.
 
 ## Acknowledgements
 
