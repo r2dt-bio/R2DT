@@ -113,10 +113,12 @@ def get_rfam_cms():
 def setup_trna_cm():
     rfam_acc = 'RF00005'
     trna_cm = os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + '.cm')
+    os.system('mkdir -p {}'.format(os.path.join(config.RFAM_DATA, rfam_acc)))
     if not os.path.exists(trna_cm):
         cmd = 'wget -O {0} https://rfam.org/family/{1}/cm'.format(trna_cm, rfam_acc)
         os.system(cmd)
-        if not os.path.exists:
+        rscape2traveler(rfam_acc)
+        if not os.path.exists(trna_cm):
             raise Exception('Rfam tRNA CM not found in {}'.format(trna_cm))
 
 
