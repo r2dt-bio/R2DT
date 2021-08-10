@@ -198,7 +198,7 @@ def draw(ctx, fasta_input, output_folder, force_template):
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with CRW'.format(len(subset)))
-        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output, test=False)
+        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output)
 
     # RiboVision LSU
     hits = hits.union(get_hits(crw_output))
