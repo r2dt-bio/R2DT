@@ -45,3 +45,5 @@ GTRNADB_BACT = os.path.join(DATA, 'gtrnadb', 'bacteria_isotype_specific')
 GTRNADB_ARCH = os.path.join(DATA, 'gtrnadb', 'archaea_isotype_specific')
 
 CM_LIBRARY = os.path.join(DATA, 'cms')
+
+BPSEQ_LOCATION = os.path.join(DATA, 'new')

@@ -1,12 +1,19 @@
-import os
 import re
 
 
-"""
-The Pfam Stockholm files can contain 9 or 11 lines depending on whether
-the description line is present.
-"""
+def get_r2dt_version_header():
+    header = """# R2DT :: visualise RNA secondary structure using templates
+# Version 1.2 (August 10, 2021)
+# https://github.com/RNAcentral/R2DT
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
+    return header
+
+
 def remove_large_insertions_pfam_stk(filename):
+    """
+    The Pfam Stockholm files can contain 9 or 11 lines depending on whether
+    the description line is present.
+    """
     MAX_INSERTIONS = 100
     with open(filename, 'r') as f:
         lines = f.readlines()
