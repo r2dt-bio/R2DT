@@ -21,9 +21,10 @@ import re
 import click
 from colorhash import ColorHash
 
-from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info
+from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info, shared
 from utils import generate_model_info as gmi
 from utils import list_models as lm
+from utils import generate_cm_library as gcl
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library):
@@ -61,12 +62,45 @@ def cli():
 
 
 @cli.command()
+def version():
+    """
+    Print R2DT version information.
+    """
+    print(shared.get_r2dt_version_header())
+
+
+@cli.command()
 def setup():
+    """
+    Generate all templates from scratch.
+    """
+    print(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
     crw.setup()
     rfam.setup()
     gtrnadb.setup()
+
+
+@cli.command()
+def setup_rfam():
+    """
+    Re-generate Rfam templates from scratch.
+    """
+    print(shared.get_r2dt_version_header())
+    # delete Rfam cms
+    rfam_cms = os.path.join(config.CM_LIBRARY, 'rfam')
+    os.system('rm -f {}/*.cm'.format(rfam_cms))
+    os.system('rm -f {}/modelinfo.txt'.format(rfam_cms))
+    # delete template files
+    os.system('rm -Rf {}/RF0*'.format(config.RFAM_DATA))
+    # delete summary files
+    os.system('rm -Rf {}/family.txt'.format(config.RFAM_DATA))
+    os.system('rm -Rf {}/rfam_ids.txt'.format(config.RFAM_DATA))
+    # run setup
+    rfam.setup()
+    # delete temporary files
+    os.system('cd {} && ./clean_up_files.sh'.format(config.RFAM_DATA))
 
 
 def get_seq_ids(input_fasta):
@@ -121,6 +155,7 @@ def draw(ctx, fasta_input, output_folder, force_template):
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
+    print(shared.get_r2dt_version_header())
     all_seq_ids = get_seq_ids(fasta_input)
 
     if force_template:
@@ -163,7 +198,7 @@ def draw(ctx, fasta_input, output_folder, force_template):
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with CRW'.format(len(subset)))
-        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output, test=False)
+        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output)
 
     # RiboVision LSU
     hits = hits.union(get_hits(crw_output))
@@ -233,6 +268,9 @@ def organise_results(results_folder, output_folder):
 
 @cli.group('gtrnadb')
 def gtrnadb_group():
+    """
+    Use tRNA templates for structure visualisation.
+    """
     pass
 
 @gtrnadb_group.command('setup')
@@ -241,6 +279,7 @@ def gtrnadb_setup():
     This will copy all the CM files into place so that drawing will not modify
     the data directory.
     """
+    print(shared.get_r2dt_version_header())
     gtrnadb.setup()
 
 
@@ -254,6 +293,7 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
     """
     Visualise sequences using GtRNAdb templates.
     """
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
 
     if domain and isotype:
@@ -265,12 +305,16 @@ def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None):
 
 @cli.group('rnasep')
 def rnasep_group():
+    """
+    Use RNAse P templates for structure visualisation.
+    """
     pass
 
 @rnasep_group.command('draw')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def rnasep_draw(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RNASEP_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -280,14 +324,17 @@ def rnasep_draw(fasta_input, output_folder):
 
 @cli.group('crw')
 def crw_group():
+    """
+    Use CRW templates for structure visualisation.
+    """
     pass
 
 
 @crw_group.command('draw')
-@click.option('--test', default=False, is_flag=True, help='Process only the first 10 sequences')
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-def rrna_draw(fasta_input, output_folder, test):
+def rrna_draw(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.CRW_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -300,7 +347,7 @@ def rrna_draw(fasta_input, output_folder, test):
 @cli.group('ribovision')
 def ribovision_group():
     """
-    Commands dealing with laying out sequences based upon RiboVision models.
+    Use RiboVision templates for structure visualisation.
     """
     pass
 
@@ -309,6 +356,7 @@ def ribovision_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def ribovision_draw_lsu(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_LSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -320,6 +368,7 @@ def ribovision_draw_lsu(fasta_input, output_folder):
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 def ribovision_draw_ssu(fasta_input, output_folder):
+    print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
@@ -330,7 +379,7 @@ def ribovision_draw_ssu(fasta_input, output_folder):
 @cli.group('rfam')
 def rfam_group():
     """
-    Commands dealing with laying out sequences based upon Rfam models.
+    Use Rfam templates for structure visualisation.
     """
     pass
 
@@ -356,6 +405,7 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, test=None):
 
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
+    print(shared.get_r2dt_version_header())
     print(rfam_accession)
     if rfam_accession == 'all':
         rfam_accs = rfam.get_all_rfam_acc()
@@ -441,10 +491,15 @@ def organise_metadata(output_folder, result_folders):
 @cli.command()
 @click.argument('cm_library', type=click.Path())
 def generatemodelinfo(cm_library):
+    """
+    Helper for generating modelinfo.txt files.
+    """
+    print(shared.get_r2dt_version_header())
     gmi.generate_model_info(cm_library)
 
 
 def force_draw(model_id, fasta_input, output_folder, seq_id):
+    print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
         print('Error: Model not found. Please check model_id')
@@ -488,11 +543,41 @@ def force_draw(model_id, fasta_input, output_folder, seq_id):
 
 @cli.command()
 def list_models():
+    """
+    List all installed templates.
+    """
+    print(shared.get_r2dt_version_header())
     data = lm.list_models()
     for item in data:
         print(item['description'])
     with open(os.path.join(config.DATA, 'models.json'), 'w') as models_file:
         json.dump(data, models_file)
+
+
+@cli.command()
+def test():
+    """
+    Run tests
+    """
+    print(shared.get_r2dt_version_header())
+    os.system('python3 -m unittest')
+
+
+@cli.command()
+def generatecm():
+    """
+    Helper for generating covariance models.
+    """
+    print(shared.get_r2dt_version_header())
+    for bpseq in glob.glob('%s/*.bpseq' % config.BPSEQ_LOCATION):
+        fasta = gcl.convert_bpseq_to_fasta(bpseq)
+    for fasta in glob.glob('%s/*.fasta' % config.BPSEQ_LOCATION):
+        print(os.path.basename(fasta).replace('.fasta', ''))
+        # fasta_no_knots = break_pseudoknots(fasta)
+        stockholm = gcl.convert_fasta_to_stockholm(fasta)
+        gcl.build_cm(stockholm, config.BPSEQ_LOCATION)
+    print('Done')
+
 
 if __name__ == '__main__':
     cli()

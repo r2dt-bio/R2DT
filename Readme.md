@@ -2,17 +2,19 @@
 
 _Visualise RNA 2D structure in standard layouts_
 
+**Version 1.2 (August 2021)**
+
 The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library representing a wide range of RNAs:
 
  - 5S and SSU rRNA from [CRW](http://www.rna.ccbb.utexas.edu)
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 2,600 RNA families from [Rfam](https://rfam.org)
+ - over 3,700 RNA families from [Rfam](https://rfam.org) (release 14.6)
 
 ![R2DT method overview](./examples/method-overview.png)
 
-R2DT is used by RNAcentral to visualise [>14 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
+R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
 
 ## Examples
 
@@ -64,20 +66,21 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](https://www.dropbox.com/s/3ie8kzb8ol658s0/cms.tar.gz?dl=1) _(190.1 MB, last updated Jan 7, 2021)_ and uncompress it.
+1. Download a [precomputed data library](https://www.dropbox.com/s/jkw0zze1fi3m4qw/cms.tar.gz?dl=1) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
-```
-docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnacentral/r2dt
-```
+    ```
+    docker run -it -v <path_to_cms>:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnacentral/r2dt
+    ```
 
-- `-it` - start an interactive session
-- `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
-- make the current working directory available inside the container as `/rna/r2dt/temp`:
-    ```
-    -v `pwd`:/rna/r2dt/temp
-    ```
+    - `-it` - start an interactive session
+    - `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
+    - make the current working directory available inside the container as `/rna/r2dt/temp`:
+
+        ```
+        -v `pwd`:/rna/r2dt/temp
+        ```
 
 Any file placed in `/rna/r2dt/temp` within the container will be available on the host machine after the Docker container exits.
 
@@ -99,7 +102,7 @@ r2dt.py draw examples/examples.fasta temp/examples
 
 R2DT will automatically select the best matching template and visualise the secondary structures.
 
-### Specifying template category
+### Manually selecting template category
 
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
 
@@ -131,7 +134,7 @@ If the RNA type of the input sequences is known in advance, it is possible to by
     r2dt.py gtrnadb draw examples/gtrnadb.E_Thr.fasta temp/gtrnadb --domain E --isotype Thr
     ```
 
-### Manual template selection
+### Manually selecting templates
 
 It is possible to select a specific template and skip the classification step altogether.
 
@@ -155,7 +158,18 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 ### Other useful commands
 
+* Print R2DT version
+    ```
+    r2dt.py version
+    ```
+
 * Run [all tests](./tests/tests.py)
+    ```
+    r2dt.py test
+    ```
+
+    or
+
     ```
     python3 -m unittest
     ```
@@ -176,7 +190,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     r2dt.py generatemodelinfo <path to covariance models>
     ```
 
-* Precompute template library locally (may take up to several hours):
+* Precompute template library locally (may take several hours):
     ```
     r2dt.py setup
     ```
@@ -204,7 +218,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
 If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues/new) including:
 
-- A FASTA file with a reference sequence and secondary structure - see [example](./data/rfam/RF00002/RF00002-traveler.fasta)
+- A FASTA or BPSEQ file with a reference sequence and secondary structure - see [FASTA](./data/rfam/RF00002/RF00002-traveler.fasta) and [BPSEQ](./data/ribovision-ssu/bpseq/EC_SSU_3D.bpseq) examples
 - A [Traveler XML file](https://github.com/davidhoksza/traveler#traveler-intermediate-format) - see [example](./data/rfam/RF00002/traveler-template.xml)
 - Description of the new template and any relevant background information
 
@@ -214,11 +228,47 @@ One can create a new template locally using the [generate_cm_library.py](./utils
 
 We will review the template and reply on GitHub as soon as possible.
 
+### Manually creating templates
+
+1. Place new FASTA or BPSEQ file(s) in the `data/new` folder
+2. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
+3. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
+4. Run `r2dt generatemodelinfo <destination>` to add new models to the list of searched models
+5. Update `metadata.tsv` file in the destination directory
+6. Run `r2dt.py list-models` to update a list of all available models
+
+### Updating Rfam library
+
+The following procedure should be done after each Rfam release:
+
+1. Recompute all Rfam templates (takes ~6h)
+    ```
+    r2dt.py setup-rfam
+    ```
+
+1. Run tests
+
+1. Generate new precomputed library archive
+    ```
+    tar -czvf cms.tar.gz <path/to/new/cms>
+    ```
+
+    The folder should contain 3 subfolders: `crw`, `gtrnadb`, and `rfam`.
+
+1. Update the precomputed library link in Readme
+
+1. Update a list of available models
+    ```
+    r2dt.py list-models
+    ```
+
+1. :warning: Note that the [tRNA Rfam Traveler template](./data/rfam/RF00005/traveler-template.xml) has been manually edited to match the standard tRNA layout so the automatically generated `traveler-template.xml` file should be discarded and the current version should be kept.
+
 ## Method overview
 
 The R2DT pipeline includes the following steps:
 
-1. **Generate a library of covariance models** using bpseq files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
+1. **Generate a library of covariance models** using BPSEQ files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
 1. **Select the best matching covariance model** for each input sequence
 using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
 1. **Fold** input sequence into a secondary structure compatible with the template
@@ -227,16 +277,20 @@ using the top scoring covariance model.
 
 See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for more details.
 
+## Release process
+
+All R2DT releases are [available](https://github.com/RNAcentral/R2DT/releases) on GitHub. R2DT uses [git flow](https://github.com/RNAcentral/R2DT/wiki) for managing the release process.
+
 ## Contributors
 
 - [David Hoksza](https://github.com/davidhoksza) (Traveler software)
 - [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
-- [Robin Gutell]() and [Jamie Cannone]() (CRW)
+- [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
 - [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) from [EMBL-EBI](https://www.ebi.ac.uk)
 
-:wave: We welcome additional contributions. Please raise an issue or submit a pull request.
+:wave: We welcome additional contributions so please feel free to [raise an issue](https://github.com/RNAcentral/R2DT/issues) or submit a pull request.
 
 ## Acknowledgements
 

@@ -53,7 +53,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.RIBOVISION_LSU_CM_LIBRARY, 21)
 
     def test_ribovision_ssu_database(self):
-        self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 9)
+        self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 10)
 
     def test_rnasep_cm_database(self):
         self.verify_cm_database(config.RNASEP_CM_LIBRARY, 20)
@@ -62,9 +62,12 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         for rfam_acc in rfam.get_all_rfam_acc():
             if rfam_acc in rfam.blacklisted():
                 continue
-            self.assertTrue(os.path.exists(rfam.get_traveler_template_xml(rfam_acc)))
-            self.assertTrue(os.path.exists(rfam.get_traveler_fasta(rfam_acc)))
-            self.assertTrue(os.path.exists(rfam.get_rfam_cm(rfam_acc)), '{}.cm not found'.format(rfam_acc))
+            template = rfam.get_traveler_template_xml(rfam_acc)
+            self.assertTrue(os.path.exists(template), '{} not found'.format(template))
+            fasta = rfam.get_traveler_fasta(rfam_acc)
+            self.assertTrue(os.path.exists(fasta), '{} not found'.format(fasta))
+            cm = rfam.get_rfam_cm(rfam_acc)
+            self.assertTrue(os.path.exists(cm), '{} not found'.format(cm))
 
 
 # @unittest.skip("")
