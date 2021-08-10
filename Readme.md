@@ -257,6 +257,8 @@ The following procedure should be done after each Rfam release:
     r2dt.py list-models
     ```
 
+1. :warning: Note that the [tRNA Rfam Traveler template](./data/rfam/RF00005/traveler-template.xml) has been manually edited to match the standard tRNA layout so the automatically generated `traveler-template.xml` file should be discarded and the current version should be kept.
+
 ## Method overview
 
 The R2DT pipeline includes the following steps:
