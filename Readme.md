@@ -66,7 +66,7 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](http://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.2/cms.tar.gz) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
+1. Download a [precomputed data library](https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.2/cms.tar.gz) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
