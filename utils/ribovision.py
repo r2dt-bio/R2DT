@@ -14,12 +14,13 @@ limitations under the License.
 import os
 import re
 import tempfile
-
+import subprocess as sp
 from . import config
 from . import shared
+import RNA
 
 
-def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
+def visualise(ssu_or_lsu, fasta_input, output_folder, exclusion, rnacentral_id, model_id, constraint):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if ssu_or_lsu.lower() == 'lsu':
@@ -97,6 +98,63 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         rnacentral_id=rnacentral_id.replace('/', '_'),
         model_id=model_id,
     ))
+    
+    if constraint:
+        with open(result_base + '.fasta', 'r') as f:
+            orig = f.readlines()
+        R2DT_constraint = orig[2].strip()
+        orig_sequence = orig[1].strip()
+        orig_constraint = ''
+        if exclusion:
+            try:
+                with open(exclusion, 'r') as f:
+                    exclusion_string = f.read().strip()
+                    temp_constraint = ''
+                    if len(exclusion_string) != len(R2DT_constraint):
+                        print('Exclusion ignored, not same length as sequence')
+                        orig_constraint = R2DT_constraint
+                    elif re.search('[^\.x]', exclusion_string):
+                        print('Invalid characters in exclusion string')
+                        orig_constraint = R2DT_constraint
+                    else:
+                        for i,val in enumerate(exclusion_string):
+                            if exclusion_string[i] == 'x':
+                                if R2DT_constraint[i] != '.':
+                                    print('Invalid exclusion in position ' + str(x) + ' conflicts with template, constraint ignored')
+                                    temp_constraint += R2DT_constraint[i]
+                                else: 
+                                    temp_constraint += 'x'
+                            else:
+                                temp_constraint += R2DT_constraint[i]
+                        orig_constraint = temp_constraint
+            except FileNotFoundError:
+                print('Constraint file not found')
+                orig_constraint = R2DT_constraint
+        else:
+            orig_constraint = R2DT_constraint
+        md = RNA.md()
+        md.min_loop_size = 0
+        fc = RNA.fold_compound(orig_sequence, md)
+        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
+        fc.hc_add_from_db(orig_constraint, constraint_options)
+        (ss,mfe) = fc.mfe()
+        if mfe < 99999:
+            with open(result_base + '.fasta', 'w') as f:
+                f.write(orig[0])
+            constraint_differences = ''
+            for i, val in enumerate(R2DT_constraint):
+                if val == ss[i]:
+                    constraint_differences += '-'
+                else:
+                    constraint_differences += '*'
+            with open(result_base + '.fasta', 'a') as f:
+                f.write(orig_sequence)
+                f.write("\n" + ss)
+                f.write("\n" + constraint_differences)
+        else: 
+            print('Structure exceeds limits of RNAfold, ignoring constraint')
+    elif exclusion:
+        print('Exclusion ignored, enable --constraint to add exclusion file')
 
     log = result_base + '.log'
     cmd = ('traveler '

@@ -95,9 +95,17 @@ RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fe
 RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 8fe8ef303b3a4ca5474ffc82b865895fb1db7814 && cd src && make build
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout a04dedbc43d63e9fb38bbaec1dbd1c0263ea20dc && cd src && make build
 
 COPY examples examples/
+
+#Install ViennaRNA
+RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
+    tar -zxvf ViennaRNA-2.4.18.tar.gz && \
+    cd ViennaRNA-2.4.18 && \
+    ./configure --with-python3 && \
+    make && \
+    make install
 
 # Install python dependencies
 ADD . /rna/r2dt
@@ -116,7 +124,7 @@ ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/r2dt:$PATH"
-
+ENV PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3"
 WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]
