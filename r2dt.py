@@ -148,11 +148,11 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
 @cli.command()
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
-@click.argument('exclusion', type=click.Path(), required=False)
 @click.option('--force_template', type=click.STRING, default=None, help='Force sequences into a specific template')
 @click.option('--constraint', default=False, is_flag=True, help='Fold insertions using RNAfold')
+@click.argument('exclusion', type=click.Path(), required=False)
 @click.pass_context
-def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constraint=None):
+def draw(ctx, fasta_input, output_folder, force_template, constraint=None, exclusion=None):
     """
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
@@ -162,7 +162,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
 
     if force_template:
         for seq_id in all_seq_ids:
-            force_draw(force_template, fasta_input, output_folder, seq_id, exclusion, constraint)
+            force_draw(force_template, fasta_input, output_folder, seq_id, constraint, exclusion)
         return
 
     os.system('mkdir -p %s' % output_folder)
@@ -184,7 +184,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
     with open(get_ribotyper_output(fasta_input, rfam_output, os.path.join(config.CM_LIBRARY, 'rfam')), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            rfam.visualise_rfam(fasta_input, rfam_output, exclusion, rnacentral_id, model_id, constraint)
+            rfam.visualise_rfam(fasta_input, rfam_output, rnacentral_id, model_id, constraint, exclusion)
 
     # RiboVision SSU
     hits = hits.union(get_hits(rfam_output))
@@ -192,7 +192,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with RiboVision SSU'.format(len(subset)))
-        ctx.invoke(ribovision_draw_ssu, fasta_input=subset_fasta, output_folder=ribovision_ssu_output, exclusion=exclusion, constraint=constraint)
+        ctx.invoke(ribovision_draw_ssu, fasta_input=subset_fasta, output_folder=ribovision_ssu_output, constraint=constraint, exclusion=exclusion)
 
     # CRW
     hits = hits.union(get_hits(ribovision_ssu_output))
@@ -200,7 +200,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with CRW'.format(len(subset)))
-        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output, exclusion=exclusion, constraint=constraint)
+        ctx.invoke(rrna_draw, fasta_input=subset_fasta, output_folder=crw_output, constraint=constraint, exclusion=exclusion)
 
     # RiboVision LSU
     hits = hits.union(get_hits(crw_output))
@@ -208,7 +208,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with RiboVision LSU'.format(len(subset)))
-        ctx.invoke(ribovision_draw_lsu, fasta_input=subset_fasta, output_folder=ribovision_lsu_output, exclusion=exclusion, constraint=constraint)
+        ctx.invoke(ribovision_draw_lsu, fasta_input=subset_fasta, output_folder=ribovision_lsu_output, constraint=constraint, exclusion=exclusion)
 
     # RNAse P
     hits = hits.union(get_hits(ribovision_lsu_output))
@@ -216,7 +216,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with RNAse P models'.format(len(subset)))
-        ctx.invoke(rnasep_draw, fasta_input=subset_fasta, output_folder=rnasep_output, exclusion=exclusion, constraint=constraint)
+        ctx.invoke(rnasep_draw, fasta_input=subset_fasta, output_folder=rnasep_output, constraint=constraint, exclusion=exclusion)
 
     # GtRNAdb
     hits = hits.union(get_hits(rnasep_output))
@@ -225,7 +225,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print('Analysing {} sequences with GtRNAdb'.format(len(subset)))
         for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
-            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder + '/gtrnadb', exclusion, constraint)
+            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder + '/gtrnadb', constraint, exclusion)
 
     # Rfam tRNA
     hits = hits.union(get_hits(gtrnadb_output))
@@ -236,7 +236,7 @@ def draw(ctx, fasta_input, output_folder, force_template, exclusion=None, constr
         trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, 'RF00005')
         if trna_ids:
             get_subset_fasta(fasta_input, subset_fasta, trna_ids)
-            rfam.generate_2d('RF00005', output_folder, subset_fasta, exclusion, False, constraint)
+            rfam.generate_2d('RF00005', output_folder, subset_fasta, False, constraint, exclusion)
 
     # move svg files to the final location
     result_folders = [crw_output, ribovision_ssu_output, ribovision_lsu_output, rfam_output, gtrnadb_output, rfam_trna_output, rnasep_output]
@@ -293,7 +293,7 @@ def gtrnadb_setup():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def gtrnadb_draw(fasta_input, output_folder, exclusion=None, domain='', isotype='', test=None, constraint=None):
+def gtrnadb_draw(fasta_input, output_folder, domain='', isotype='', test=None, constraint=None, exclusion=None):
     """
     Visualise sequences using GtRNAdb templates.
     """
@@ -301,10 +301,10 @@ def gtrnadb_draw(fasta_input, output_folder, exclusion=None, domain='', isotype=
     os.system('mkdir -p %s' % output_folder)
 
     if domain and isotype:
-        gtrnadb.visualise(domain.upper(), isotype.capitalize(), fasta_input, output_folder, exclusion, test, constraint)
+        gtrnadb.visualise(domain.upper(), isotype.capitalize(), fasta_input, output_folder, test, constraint, exclusion)
     else:
         for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder, exclusion, constraint)
+            gtrnadb.generate_2d(trna['domain'], trna['isotype'], trna['id'], trna['start'], trna['end'], fasta_input, output_folder, constraint, exclusion)
 
 
 @cli.group('rnasep')
@@ -319,13 +319,13 @@ def rnasep_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def rnasep_draw(fasta_input, output_folder, exclusion=None, constraint=None):
+def rnasep_draw(fasta_input, output_folder, constraint=None, exclusion=None):
     print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RNASEP_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            ribovision.visualise('rnasep', fasta_input, output_folder, exclusion, rnacentral_id, model_id, constraint)
+            ribovision.visualise('rnasep', fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion)
 
 
 @cli.group('crw')
@@ -341,7 +341,7 @@ def crw_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def rrna_draw(fasta_input, output_folder, exclusion=None, constraint=None):
+def rrna_draw(fasta_input, output_folder, constraint=None, exclusion=None):
     print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.CRW_CM_LIBRARY), 'r') as f:
@@ -349,10 +349,10 @@ def rrna_draw(fasta_input, output_folder, exclusion=None, constraint=None):
             rnacentral_id, model_id, _ = line.split('\t')
             crw.visualise_crw(fasta_input,
                               output_folder,
-                              exclusion,
                               rnacentral_id,
                               model_id,
-                              constraint)
+                              constraint,
+                              exclusion)
 
 @cli.group('ribovision')
 def ribovision_group():
@@ -367,13 +367,13 @@ def ribovision_group():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def ribovision_draw_lsu(fasta_input, output_folder, exclusion=None, constraint=None):
+def ribovision_draw_lsu(fasta_input, output_folder, constraint=None, exclusion=None):
     print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_LSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            ribovision.visualise('lsu', fasta_input, output_folder, exclusion, rnacentral_id, model_id, constraint)
+            ribovision.visualise('lsu', fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion)
 
 
 @ribovision_group.command('draw_ssu')
@@ -381,13 +381,13 @@ def ribovision_draw_lsu(fasta_input, output_folder, exclusion=None, constraint=N
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def ribovision_draw_ssu(fasta_input, output_folder, exclusion=None, constraint=None):
+def ribovision_draw_ssu(fasta_input, output_folder, constraint=None, exclusion=None):
     print(shared.get_r2dt_version_header())
     os.system('mkdir -p %s' % output_folder)
     with open(get_ribotyper_output(fasta_input, output_folder, config.RIBOVISION_SSU_CM_LIBRARY), 'r') as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split('\t')
-            ribovision.visualise('ssu', fasta_input, output_folder, exclusion, rnacentral_id, model_id, constraint)
+            ribovision.visualise('ssu', fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion)
 
 
 @cli.group('rfam')
@@ -415,7 +415,7 @@ def rfam_blacklist():
 @click.argument('fasta-input', type=click.Path())
 @click.argument('output-folder', type=click.Path())
 @click.argument('exclusion', type=click.Path(), required=False)
-def rfam_draw(rfam_accession, fasta_input, output_folder, exclusion=None, test=None, constraint=None):
+def rfam_draw(rfam_accession, fasta_input, output_folder, test=None, constraint=None, exclusion=None):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
 
@@ -431,7 +431,7 @@ def rfam_draw(rfam_accession, fasta_input, output_folder, exclusion=None, test=N
     for rfam_acc in rfam_accs:
         if rfam.has_structure(rfam_acc):
             rfam.rscape2traveler(rfam_acc)
-            rfam.generate_2d(rfam_acc, output_folder, fasta_input, exclusion, test, constraint)
+            rfam.generate_2d(rfam_acc, output_folder, fasta_input, test, constraint, exclusion)
         else:
             print('{} does not have a conserved secondary structure'.format(rfam_acc))
 
@@ -515,7 +515,7 @@ def generatemodelinfo(cm_library):
     gmi.generate_model_info(cm_library)
 
 
-def force_draw(model_id, fasta_input, output_folder, seq_id, exclusion=None, constraint=None):
+def force_draw(model_id, fasta_input, output_folder, seq_id, constraint=None, exclusion=None):
     print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
@@ -527,19 +527,19 @@ def force_draw(model_id, fasta_input, output_folder, seq_id, exclusion=None, con
     output = os.path.join(output_folder, model_type.replace('_', '-'))
 
     if model_type == 'rfam':
-        rfam.visualise_rfam(fasta_input, output, exclusion, seq_id, model_id, constraint)
+        rfam.visualise_rfam(fasta_input, output, seq_id, model_id, constraint, exclusion)
     elif model_type == 'ribovision_ssu':
-        ribovision.visualise('ssu', fasta_input, output, exclusion, seq_id, model_id, constraint)
+        ribovision.visualise('ssu', fasta_input, output, seq_id, model_id, constraint, exclusion)
     elif model_type == 'ribovision_lsu':
-        ribovision.visualise('lsu', fasta_input, output, exclusion, seq_id, model_id, constraint)
+        ribovision.visualise('lsu', fasta_input, output, seq_id, model_id, constraint, exclusion)
     elif model_type == 'rnasep':
-        ribovision.visualise('rnasep', fasta_input, output, exclusion, seq_id, model_id, constraint)
+        ribovision.visualise('rnasep', fasta_input, output, seq_id, model_id, constraint, exclusion)
     elif model_type == 'crw':
-        crw.visualise_crw(fasta_input, output, exclusion, seq_id, model_id, constraint)
+        crw.visualise_crw(fasta_input, output, seq_id, model_id, constraint, exclusion)
     elif model_type == 'gtrnadb':
         domain, isotype = model_id.split('_')
         test = False
-        gtrnadb.visualise(domain, isotype, fasta_input, output, exclusion, test, constraint)
+        gtrnadb.visualise(domain, isotype, fasta_input, output, test, constraint, exclusion)
     # organise results into folders
     organise_results(output, output_folder)
     metadata_folder = os.path.join(output_folder, 'results', 'tsv')

@@ -131,7 +131,7 @@ def classify_trna_sequences(fasta_input, output_folder):
     return data
 
 
-def visualise(domain, isotype, fasta_input, output_folder, exclusion, test, constraint):
+def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exclusion):
     destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)
@@ -149,7 +149,7 @@ def visualise(domain, isotype, fasta_input, output_folder, exclusion, test, cons
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, exclusion, constraint)
+            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, constraint, exclusion)
     os.system('rm headers.txt')
 
 
@@ -200,7 +200,7 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
 
 
-def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, exclusion, constraint):
+def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, constraint, exclusion):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_depaired = tempfile.NamedTemporaryFile()
@@ -267,59 +267,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
     os.system(cmd)
 
     if constraint:
-        with open(input_fasta, 'r') as f:
-            orig = f.readlines()
-        R2DT_constraint = orig[2].strip()
-        orig_sequence = orig[1].strip()
-        orig_constraint = ''
-        if exclusion:
-            try:  
-                with open(exclusion, 'r') as f:
-                    exclusion_string = f.read().strip()
-                    temp_constraint = ''
-                    if len(exclusion_string) != len(R2DT_constraint):
-                        print('Exclusion ignored, not same length as sequence')
-                        orig_constraint = R2DT_constraint
-                    elif re.search('[^\.x]', exclusion_string):
-                        print('Invalid characters in exclusion string, should only be . and x')
-                        orig_constraint = R2DT_constraint
-                    else:
-                        for i,val in enumerate(exclusion_string):
-                            if exclusion_string[i] == 'x':
-                                if R2DT_constraint[i] != '.':
-                                    print('Invalid exclusion in position ' + str(x) + ' conflicts with template, constraint ignored')
-                                    temp_constraint += R2DT_constraint[i]
-                                else: 
-                                    temp_constraint += 'x'
-                            else:
-                                temp_constraint += R2DT_constraint[i]
-                        orig_constraint = temp_constraint
-            except FileNotFoundError:
-                print('Constraint file not found')
-                orig_constraint = R2DT_constraint
-        else:
-            orig_constraint = R2DT_constraint
-        md = RNA.md()
-        md.min_loop_size = 0
-        fc = RNA.fold_compound(orig_sequence, md)
-        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
-        fc.hc_add_from_db(orig_constraint, constraint_options)
-        (ss,mfe) = fc.mfe()
-    
-        with open(input_fasta, 'w') as f:
-            f.write(orig[0])
-
-        constraint_differences = ''
-        for i, val in enumerate(R2DT_constraint):
-            if val == ss[i]:
-                constraint_differences += '-'
-            else:
-                constraint_differences += '*'
-
-        with open(input_fasta, 'a') as f:
-            f.write(orig_sequence)
-            f.write("\n" + ss)
-            f.write("\n" + constraint_differences)
+        shared.fold_insertions(input_fasta, exclusion)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 

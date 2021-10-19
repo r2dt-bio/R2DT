@@ -419,7 +419,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def visualise_rfam(fasta_input, output_folder, exclusion, seq_id, model_id, constraint):
+def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exclusion):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if not model_id.startswith('RF'):
@@ -501,66 +501,16 @@ def visualise_rfam(fasta_input, output_folder, exclusion, seq_id, model_id, cons
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
     log = result_base + '.log'
+    
     if result:
         print("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
         return
-    if constraint:
-        with open(input_fasta, 'r') as f:
-            orig = f.readlines()
-        R2DT_constraint = orig[2].strip()
-        orig_sequence = orig[1].strip()
-        orig_constraint = ''
-        if exclusion:
-            try:  
-                with open(exclusion, 'r') as f:
-                    exclusion_string = f.read().strip()
-                    temp_constraint = ''
-                    if len(exclusion_string) != len(R2DT_constraint):
-                        print('Exclusion ignored, not same length as sequence')
-                        orig_constraint = R2DT_constraint
-                    elif re.search('[^\.x]', exclusion_string):
-                        print('Invalid characters in exclusion string, should only be . and x')
-                        orig_constraint = R2DT_constraint
-                    else:
-                        for i,val in enumerate(exclusion_string):
-                            if exclusion_string[i] == 'x':
-                                if R2DT_constraint[i] != '.':
-                                    print('Invalid exclusion in position ' + str(x) + ' conflicts with template, constraint ignored')
-                                    temp_constraint += R2DT_constraint[i]
-                                else: 
-                                    temp_constraint += 'x'
-                            else:
-                                temp_constraint += R2DT_constraint[i]
-                        orig_constraint = temp_constraint
-            except FileNotFoundError:
-                print('Constraint file not found')
-                orig_constraint = R2DT_constraint
-        else:
-            orig_constraint = R2DT_constraint
-        md = RNA.md()
-        md.min_loop_size = 0
-        fc = RNA.fold_compound(orig_sequence, md)
-        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
-        fc.hc_add_from_db(orig_constraint, constraint_options)
-        (ss,mfe) = fc.mfe()
     
-        with open(input_fasta, 'w') as f:
-            f.write(orig[0])
-
-        constraint_differences = ''
-        for i, val in enumerate(R2DT_constraint):
-            if val == ss[i]:
-                constraint_differences += '-'
-            else:
-                constraint_differences += '*'
-
-        with open(input_fasta, 'a') as f:
-            f.write(orig_sequence)
-            f.write("\n" + ss)
-            f.write("\n" + constraint_differences)
+    if constraint:
+        shared.fold_insertions(input_fasta, exclusion)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
-        
+
     cmd = ('traveler '
            '--verbose '
            '--target-structure {fasta} '
@@ -622,7 +572,7 @@ def visualise_rfam(fasta_input, output_folder, exclusion, seq_id, model_id, cons
         out.write('\n')
 
 
-def generate_2d(rfam_acc, output_folder, fasta, exclusion, test, constraint):
+def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion):
 
     destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
@@ -651,7 +601,7 @@ def generate_2d(rfam_acc, output_folder, fasta, exclusion, test, constraint):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            visualise_rfam(fasta_input, destination, exclusion, seq_id, rfam_acc, constraint)
+            visualise_rfam(fasta_input, destination, seq_id, rfam_acc, constraint, exclusion)
     os.system('rm headers.txt')
 
 
