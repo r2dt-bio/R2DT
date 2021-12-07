@@ -1,4 +1,4 @@
-FROM gcc:6
+FROM gcc:10
 
 RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time vim
 

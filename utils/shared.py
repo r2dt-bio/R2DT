@@ -1,5 +1,7 @@
 import re
 import RNA
+import json
+import requests
 
 def get_r2dt_version_header():
     header = """# R2DT :: visualise RNA secondary structure using templates
@@ -7,7 +9,6 @@ def get_r2dt_version_header():
 # https://github.com/RNAcentral/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
-
 
 def remove_large_insertions_pfam_stk(filename):
     """
@@ -58,37 +59,128 @@ def remove_large_insertions_pfam_stk(filename):
             for line in lines:
                 f.write(line)
 
-def fold_insertions(input_fasta, exclusion):
-    with open(input_fasta, 'r') as f:
-        orig = f.readlines()
-    R2DT_constraint = orig[2].strip()
-    orig_sequence = orig[1].strip()
-    orig_constraint = ''
-    if exclusion:
-        orig_constraint = handle_exclusion(exclusion, R2DT_constraint)
-    else:
-        orig_constraint = R2DT_constraint
-    md = RNA.md()
-    md.min_loop_size = 0
-    fc = RNA.fold_compound(orig_sequence, md)
-    constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
-    fc.hc_add_from_db(orig_constraint, constraint_options)
-    (ss,mfe) = fc.mfe()
-    if mfe < 99999:
-        with open(input_fasta, 'w') as f:
-            f.write(orig[0])
-        constraint_differences = ''
-        for i, val in enumerate(R2DT_constraint):
-            if val == ss[i]:
-                constraint_differences += '-'
-            else:
-                constraint_differences += '*'
-        with open(input_fasta, 'a') as f:
-            f.write(orig_sequence)
-            f.write("\n" + ss)
-            f.write("\n" + constraint_differences)
-    else: 
-        print('Structure exceeds limits of RNAfold, ignoring constraint')
+def get_insertions(filename):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        if len(lines) == 9:
+            sequence = lines[3].split()[1]
+        elif len(lines) == 11:
+            sequence = lines[5].split()[1]
+        trimmed = sequence.replace('-', '')
+    match = re.finditer('[a-z]+', trimmed)
+    return match
+
+def get_full_constraint(filename):
+    constraint = ''
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        if len(lines) == 9:
+            gc_ss = lines[5].split()[3]
+            sequence = lines[3].split()[1]
+        elif len(lines) == 11:
+            gc_ss = lines[7].split()[3]
+            sequence = lines[5].split()[1]
+    deletions = re.finditer('-+', sequence)
+    sub_ss = list(gc_ss)
+    trimmed = sequence.replace('-', '')
+    match = re.finditer('[a-z]+', trimmed)
+    adjust = 0
+    for span in deletions:
+        i = span.start() - adjust
+        j = span.end() - adjust
+        sub_ss = sub_ss[0:i] + sub_ss[j:len(sub_ss)]
+        adjust = adjust + j - i
+    match_arr = set()
+    for span in match:
+        i = span.start() 
+        j = span.end()
+        while(i < j):
+            match_arr.add(i)
+            i += 1
+    for i,val in enumerate(sub_ss):
+        if(i in match_arr):
+            constraint += '.'
+        elif (val == '<' or val == '(' or val == '{'):
+            constraint +=  '('
+        elif (val == '>' or val == ')' or val == '}'):
+            constraint += ')'
+        elif(val == ',' or val == '-' or val == ':'):
+            constraint += 'x'
+        else:
+            constraint += 'x'
+    return constraint
+
+"""
+def fold_insertions_only(sequence, constraint, match):
+    list_seq = list(sequence)
+    list_con = list(constraint)
+    final_list = ''
+    for span in match:
+        i = span.start()
+        j = span.end() + 1
+        subsequence = ''.join(list_seq[i:j])
+        constart = list_con[0:i]
+        subconstraint = ''.join(list_con[i:j])
+        formatted_constraint = subconstraint.replace('(','x').replace(')','x')
+        conend = list_con[j:len(list_con) + 1]
+        md = RNA.md()
+        md.min_loop_size = 0
+        fc = RNA.fold_compound(subsequence, md)
+        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
+        fc.hc_add_from_db(formatted_constraint, constraint_options)
+        (ss,mfe) = fc.mfe()
+        if(mfe < 99999):
+            list_con = constart
+            for i,val in enumerate(ss):
+                if(subconstraint[i] != '.'):
+                    list_con += subconstraint[i]
+                else:
+                    list_con += ss[i]
+            list_con += conend
+            final_list = ''.join(list_con)
+        else:
+            print("Structure exceeds limits of RNAfold, ignoring constraint")
+            return
+    return final_list
+"""
+def fold_insertions_only(sequence, constraint, filename):
+    match = get_insertions(filename)
+    full_constraint = get_full_constraint(filename)
+    full_list_con = list(full_constraint)
+    list_seq = list(sequence)
+    list_con = list(constraint)
+    final_list = ''
+    for span in match:
+        i = span.start()
+        j = span.end() + 1
+        while (i > 1 and (list_con[i - 1] == 'x' or list_con[i - 1] == '.')):
+            i -= 1
+        while (j < (len(list_con) - 2) and (list_con[j + 1] == 'x' or list_con[j + 1] == '.')):
+            j += 1
+        subsequence = ''.join(list_seq[i:j])
+        constart = list_con[0:i]
+        subconstraint = ''.join(list_con[i:j])
+        formatted_constraint = subconstraint.replace('(','x').replace(')','x')
+        conend = list_con[j:len(list_con) + 1]
+        md = RNA.md()
+        md.min_loop_size = 0
+        fc = RNA.fold_compound(subsequence, md)
+        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
+        fc.hc_add_from_db(formatted_constraint, constraint_options)
+        (ss,mfe) = fc.mfe()
+        if(mfe < 99999):
+            list_con = constart
+            for i,val in enumerate(ss):
+                if(subconstraint[i] != '.'):
+                    list_con += subconstraint[i]
+                else:
+                    list_con += ss[i]
+            list_con += conend
+            final_list = ''.join(list_con)
+        else:
+            print("Structure exceeds limits of RNAfold, ignoring constraint")
+            return
+    return final_list
 
 def handle_exclusion(exclusion, R2DT_constraint):
     try:  
@@ -104,7 +196,7 @@ def handle_exclusion(exclusion, R2DT_constraint):
                 temp_constraint = ''
                 for i,val in enumerate(exclusion_string):
                     if exclusion_string[i] == 'x':
-                        if R2DT_constraint[i] != '.':
+                        if R2DT_constraint[i] != ('.' | 'x'):
                             print('Invalid exclusion in position ' + str(i) + ' conflicts with template, constraint ignored')
                             temp_constraint += R2DT_constraint[i]
                         else: 
@@ -115,3 +207,89 @@ def handle_exclusion(exclusion, R2DT_constraint):
     except FileNotFoundError:
         print('Constraint file not found')
         return R2DT_constraint
+        
+def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
+    with open(input_fasta, 'r') as f:
+        orig = f.readlines()
+    R2DT_constraint = orig[2].strip()
+    orig_sequence = orig[1].strip()
+    insertions_only = False
+    fold_full_molecule = False
+    fold_full_molecule_all_constraints_enforced = False
+    if (fold_type):
+        if (fold_type == 'fold_insertions_only'):
+            insertions_only = True
+        elif (fold_type == 'fold_full_molecule'):
+            fold_full_molecule = True
+        elif (fold_type == 'fold_full_molecule_all_constraints_enforced'):
+            fold_full_molecule_all_constraints_enforced = True
+    elif (source == 'rfam'):
+        insertions_only = ['rRNA', 'lncRNA', 'Cis-regulatory element', 'ribozyme', 'CRISPR', 'antisense', 'antitoxin', 'Intron']
+        full_molecule = ['snRNA', 'snoRNA', 'sRNA', 'tRNA']
+        r = requests.get('http://rfam.org/family/{}?content-type=application/json'.format(model_id))
+        if any (x in r.json()['rfam']['curation']['type'] for x in full_molecule):
+            insertions_only = True
+        elif any (x in r.json()['rfam']['curation']['type'] for x in insertions_only):
+            fold_full_molecule = True
+        else:
+            fold_full_molecule = True
+    elif (source == 'gtrnadb'):
+        fold_full_molecule = True
+    elif (source == 'crw' or source == 'ribovision'):
+        insertions_only = True
+    else:
+        insertions_only = True
+
+    if (fold_full_molecule_all_constraints_enforced):
+        constraint = get_full_constraint(filename)[0]
+        final_constraint = ''
+        if exclusion:
+            final_constraint = handle_exclusion(exclusion, constraint)
+        else:
+            final_constraint = constraint
+        md = RNA.md()
+        md.min_loop_size = 0
+        fc = RNA.fold_compound(orig_sequence, md)
+        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
+        fc.hc_add_from_db(final_constraint, constraint_options)
+        (ss,mfe) = fc.mfe()
+        if mfe > 99999:
+            print('Structure exceeds limits of RNAfold, ignoring constraint')
+            return
+    elif (fold_full_molecule):
+        if exclusion:
+            final_constraint = handle_exclusion(exclusion, R2DT_constraint)
+        else:
+            final_constraint = R2DT_constraint
+        md = RNA.md()
+        md.min_loop_size = 0
+        fc = RNA.fold_compound(orig_sequence, md)
+        constraint_options = RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
+        fc.hc_add_from_db(final_constraint, constraint_options)
+        (ss,mfe) = fc.mfe()
+        if mfe > 99999:
+            print('Structure exceeds limits of RNAfold, ignoring constraint')
+            return
+    #Default option
+    elif (insertions_only):
+        constraint = ''
+        if exclusion:
+            constraint = handle_exclusion(exclusion, R2DT_constraint)
+        else:
+            constraint = R2DT_constraint
+        ss = fold_insertions_only(orig_sequence, constraint, filename)
+
+    if ss:
+        with open(input_fasta, 'w') as f:
+            f.write(orig[0])
+        constraint_differences = ''
+        for i, val in enumerate(R2DT_constraint):
+            if val == ss[i]:
+                constraint_differences += '-'
+            else:
+                constraint_differences += '*'
+        with open(input_fasta, 'a') as f:
+            f.write(orig_sequence)
+            f.write("\n" + ss)
+            f.write("\n" + constraint_differences)
+

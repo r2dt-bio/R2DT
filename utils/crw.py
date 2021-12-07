@@ -75,7 +75,8 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constrain
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (rnacentral_id, model_id))
 
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -99,7 +100,7 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constrain
     ))
 
     if constraint:
-        shared.fold_insertions(result_base + '.fasta', exclusion)
+        shared.fold_insertions(result_base + '.fasta', exclusion, 'crw', temp_pfam_stk.name, model_id, None)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 

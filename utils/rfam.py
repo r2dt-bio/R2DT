@@ -478,13 +478,14 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
     if result:
         print("Failed esl-alimanip of %s %s" % (seq_id, model_id))
         return
-    #flagged. Could incorporate ViennaRNA here? What are all temp files?
+
     cmd = 'ali-pfam-lowercase-rf-gap-columns.pl {} > {}'.format(temp_stk.name, temp_pfam_stk.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (seq_id, model_id))
 
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -507,7 +508,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
         return
     
     if constraint:
-        shared.fold_insertions(input_fasta, exclusion)
+        shared.fold_insertions(input_fasta, exclusion, 'rfam', temp_pfam_stk.name, rfam_acc, None)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 

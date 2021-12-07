@@ -249,7 +249,9 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s" % (seq_id))
 
     os.system('cp {} {}/temp_pfam_stk.txt'.format(temp_pfam_stk.name, output_folder))
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -267,7 +269,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
     os.system(cmd)
 
     if constraint:
-        shared.fold_insertions(input_fasta, exclusion)
+        shared.fold_insertions(input_fasta, exclusion, 'gtrnadb', temp_pfam_stk.name, domain + '_' + isotype, None)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 
