@@ -223,6 +223,8 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             fold_full_molecule = True
         elif (fold_type == 'fold_full_molecule_all_constraints_enforced'):
             fold_full_molecule_all_constraints_enforced = True
+        else: 
+            insertions_only = True
     elif (source == 'rfam'):
         insertions_only = ['rRNA', 'lncRNA', 'Cis-regulatory element', 'ribozyme', 'CRISPR', 'antisense', 'antitoxin', 'Intron']
         full_molecule = ['snRNA', 'snoRNA', 'sRNA', 'tRNA']
