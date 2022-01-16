@@ -17,10 +17,9 @@ import tempfile
 import subprocess as sp
 from . import config
 from . import shared
-import RNA
 
 
-def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion):
+def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if ssu_or_lsu.lower() == 'lsu':
@@ -101,7 +100,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, c
     ))
     
     if constraint:
-        shared.fold_insertions(result_base + '.fasta', exclusion, 'ribovision', temp_pfam_stk.name, model_id, None)
+        shared.fold_insertions(result_base + '.fasta', exclusion, 'ribovision', temp_pfam_stk.name, model_id, fold_type)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 

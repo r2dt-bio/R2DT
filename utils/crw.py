@@ -19,7 +19,6 @@ import subprocess as sp
 from . import config
 from . import generate_model_info as modelinfo
 from . import shared
-import RNA
 
 def setup():
     print('Deleting old CRW library')
@@ -33,7 +32,7 @@ def setup():
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
-def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion):
+def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     cm_library = config.CRW_CM_LIBRARY
@@ -100,7 +99,7 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constrain
     ))
 
     if constraint:
-        shared.fold_insertions(result_base + '.fasta', exclusion, 'crw', temp_pfam_stk.name, model_id, None)
+        shared.fold_insertions(result_base + '.fasta', exclusion, 'crw', temp_pfam_stk.name, model_id, fold_type)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 

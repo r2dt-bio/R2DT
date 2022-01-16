@@ -343,24 +343,35 @@ class TestForceTemplate(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
+#@unittest.skip("")
 class TestRNAfold(unittest.TestCase):
-    fasta_input = os.path.join('examples', 'constraint', 'constraint-examples.fasta')
+    fasta_input = os.path.join('examples', 'constraint')
     test_results = os.path.join('tests', 'results', 'constraint')
     precomputed_results = os.path.join('tests', 'examples', 'constraint')
     cmd = 'r2dt.py draw --constraint {} {}'
+    cmd2 = 'r2dt.py draw --constraint --fold_type {} --force_template {} {} {}'
+    fold_type_inputs = {
+        'Halobacteroides_halobius1': 'insertions_only',
+        'Halobacteroides_halobius2': 'full_molecule',
+        'Halobacteroides_halobius3': 'all_constraints_enforced',
+    }
     output_files = {
-        'URS000072BE72-d.5.e.I.iguana.colored.svg',
+        'Halobacteroides_halobius1-d.5.a.H.salinarum.1.colored.svg',
+        'Halobacteroides_halobius2-d.5.a.H.salinarum.1.colored.svg',
+        'Halobacteroides_halobius3-d.5.a.H.salinarum.1.colored.svg',
+        'URS00021C62AE-RF01911.colored.svg',
         'URS0000394A9E-RF00076.colored.svg'
     }
-
     @staticmethod
     def delete_folder(folder):
         os.system('rm -Rf {}'.format(folder))
 
     def setUp(self):
         self.delete_folder(self.test_results)
-        os.system(self.cmd.format(self.fasta_input, self.test_results))
-
+        os.system(self.cmd.format(os.path.join(self.fasta_input, 'constraint-examples.fasta'), self.test_results))
+        for seq_id, fold_type in self.fold_type_inputs.items():
+            input_fasta = os.path.join(self.fasta_input, seq_id + '.fasta')
+            os.system(self.cmd2.format(fold_type, 'd.5.a.H.salinarum.1', input_fasta, self.test_results))
     def test_examples(self):
         for filename in self.output_files:
             new_file = os.path.join(self.test_results, 'results', 'svg', filename)
@@ -371,12 +382,13 @@ class TestRNAfold(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
+#@unittest.skip("")
 class TestExclusions(unittest.TestCase):
     fasta_input = os.path.join('examples', 'constraint', 'Oceanobacillus_iheyensis.fasta')
     exclusion = os.path.join('examples', 'constraint', 'Oceanobacillus_iheyensis.txt')
     test_results = os.path.join('tests', 'results', 'exclusion')
     precomputed_results = os.path.join('tests', 'examples', 'constraint')
-    cmd = 'r2dt.py draw --constraint {} {} {}'.format(fasta_input, test_results, exclusion)
+    cmd = 'r2dt.py draw --constraint --exclusion {} {} {}'.format(exclusion, fasta_input, test_results)
     output_svg = 'Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg'
 
     @staticmethod

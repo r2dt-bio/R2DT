@@ -17,7 +17,6 @@ import os
 import re
 import tempfile
 import subprocess as sp
-import RNA
 
 # import config
 # import shared
@@ -419,7 +418,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exclusion):
+def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if not model_id.startswith('RF'):
@@ -508,7 +507,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
         return
     
     if constraint:
-        shared.fold_insertions(input_fasta, exclusion, 'rfam', temp_pfam_stk.name, rfam_acc, None)
+        shared.fold_insertions(input_fasta, exclusion, 'rfam', temp_pfam_stk.name, rfam_acc, fold_type)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 
@@ -573,7 +572,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
         out.write('\n')
 
 
-def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion):
+def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fold_type):
 
     destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
@@ -602,7 +601,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            visualise_rfam(fasta_input, destination, seq_id, rfam_acc, constraint, exclusion)
+            visualise_rfam(fasta_input, destination, seq_id, rfam_acc, constraint, exclusion, fold_type)
     os.system('rm headers.txt')
 
 

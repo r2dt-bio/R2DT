@@ -94,11 +94,6 @@ RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && 
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
-# Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout a04dedbc43d63e9fb38bbaec1dbd1c0263ea20dc && cd src && make build
-
-COPY examples examples/
-
 #Install ViennaRNA
 RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
     tar -zxvf ViennaRNA-2.4.18.tar.gz && \
@@ -106,6 +101,11 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
     ./configure --with-python3 && \
     make && \
     make install
+
+# Install Traveler
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 5e363fe3079ce5b80103889b9c9e213e1d2a16ff && cd src && make build
+
+COPY examples examples/
 
 # Install python dependencies
 ADD . /rna/r2dt

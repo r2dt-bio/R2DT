@@ -131,7 +131,7 @@ def classify_trna_sequences(fasta_input, output_folder):
     return data
 
 
-def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exclusion):
+def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type):
     destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)
@@ -149,7 +149,7 @@ def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exc
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, constraint, exclusion)
+            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, constraint, exclusion, fold_type)
     os.system('rm headers.txt')
 
 
@@ -200,7 +200,7 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
 
 
-def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, constraint, exclusion):
+def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, constraint, exclusion, fold_type):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_depaired = tempfile.NamedTemporaryFile()
@@ -269,7 +269,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
     os.system(cmd)
 
     if constraint:
-        shared.fold_insertions(input_fasta, exclusion, 'gtrnadb', temp_pfam_stk.name, domain + '_' + isotype, None)
+        shared.fold_insertions(input_fasta, exclusion, 'gtrnadb', temp_pfam_stk.name, domain + '_' + isotype, fold_type)
     elif exclusion:
         print('Exclusion ignored, enable --constraint to add exclusion file')
 
