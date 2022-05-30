@@ -131,7 +131,7 @@ def classify_trna_sequences(fasta_input, output_folder):
     return data
 
 
-def visualise(domain, isotype, fasta_input, output_folder, test):
+def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type):
     destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)
@@ -149,7 +149,7 @@ def visualise(domain, isotype, fasta_input, output_folder, test):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination)
+            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, constraint, exclusion, fold_type)
     os.system('rm headers.txt')
 
 
@@ -200,7 +200,7 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
 
 
-def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder):
+def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, constraint, exclusion, fold_type):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_depaired = tempfile.NamedTemporaryFile()
@@ -249,7 +249,9 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder)
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s" % (seq_id))
 
     os.system('cp {} {}/temp_pfam_stk.txt'.format(temp_pfam_stk.name, output_folder))
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -265,6 +267,11 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder)
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     os.system(cmd)
+
+    if constraint:
+        shared.fold_insertions(input_fasta, exclusion, 'gtrnadb', temp_pfam_stk.name, domain + '_' + isotype, fold_type)
+    elif exclusion:
+        print('Exclusion ignored, enable --constraint to add exclusion file')
 
     log = result_base + '.log'
     cmd = ('traveler '

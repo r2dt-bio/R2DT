@@ -20,7 +20,7 @@ from utils import config, rfam
 
 EXECUTABLE = os.path.join(config.PROJECT_HOME, 'r2dt.py')
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestCovarianceModelDatabase(unittest.TestCase):
 
     @staticmethod
@@ -70,7 +70,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
             self.assertTrue(os.path.exists(cm), '{} not found'.format(cm))
 
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestRibovisionLSU(unittest.TestCase):
     fasta_input = os.path.join('examples', 'lsu-small-example.fasta')
     test_results = os.path.join('tests', 'results', 'ribovision')
@@ -99,7 +99,7 @@ class TestRibovisionLSU(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestRibovisionSSU(unittest.TestCase):
     fasta_input = os.path.join('examples', 'ribovision-ssu-examples.fasta')
     test_results = os.path.join('tests', 'results', 'ribovision-ssu')
@@ -128,7 +128,7 @@ class TestRibovisionSSU(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestRfam(unittest.TestCase):
     rfam_acc = 'RF00162'
     fasta_input = os.path.join('examples', rfam_acc + '.example.fasta')
@@ -161,7 +161,7 @@ class TestRfam(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestCrw(unittest.TestCase):
     label = 'crw'
 
@@ -194,7 +194,7 @@ class TestCrw(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestSingleEntry(unittest.TestCase):
     fasta_input = os.path.join('examples', 'examples.fasta')
     test_results = os.path.join('tests', 'results', 'single-entry')
@@ -229,7 +229,7 @@ class TestSingleEntry(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestGtrnadbDomainIsotype(unittest.TestCase):
     trnascan_model = 'E_Thr'
     fasta_input = os.path.join('examples', 'gtrnadb.{}.fasta'.format(trnascan_model))
@@ -262,7 +262,7 @@ class TestGtrnadbDomainIsotype(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-# @unittest.skip("")
+#@unittest.skip("")
 class TestRnasep(unittest.TestCase):
     fasta_input = os.path.join('examples', 'rnasep.fasta')
     test_results = os.path.join('tests', 'results', 'rnasep')
@@ -307,7 +307,7 @@ class TestRnasep(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
-
+#@unittest.skip("")
 class TestForceTemplate(unittest.TestCase):
     fasta_input = os.path.join('examples', 'force')
     test_results = os.path.join('tests', 'results', 'force')
@@ -343,6 +343,70 @@ class TestForceTemplate(unittest.TestCase):
     def tearDown(self):
         self.delete_folder(self.test_results)
 
+#@unittest.skip("")
+class TestRNAfold(unittest.TestCase):
+    fasta_input = os.path.join('examples', 'constraint')
+    test_results = os.path.join('tests', 'results', 'constraint')
+    precomputed_results = os.path.join('tests', 'examples', 'constraint')
+    cmd = 'r2dt.py draw --constraint {} {}'
+    cmd2 = 'r2dt.py draw --constraint --fold_type {} --force_template {} {} {}'
+    fold_type_inputs = {
+        'Halobacteroides_halobius1': 'insertions_only',
+        'Halobacteroides_halobius2': 'full_molecule',
+        'Halobacteroides_halobius3': 'all_constraints_enforced',
+    }
+    output_files = {
+        'Halobacteroides_halobius1-d.5.a.H.salinarum.1.colored.svg',
+        'Halobacteroides_halobius2-d.5.a.H.salinarum.1.colored.svg',
+        'Halobacteroides_halobius3-d.5.a.H.salinarum.1.colored.svg',
+        'URS00021C62AE-RF01911.colored.svg',
+        'URS0000394A9E-RF00076.colored.svg'
+    }
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd.format(os.path.join(self.fasta_input, 'constraint-examples.fasta'), self.test_results))
+        for seq_id, fold_type in self.fold_type_inputs.items():
+            input_fasta = os.path.join(self.fasta_input, seq_id + '.fasta')
+            os.system(self.cmd2.format(fold_type, 'd.5.a.H.salinarum.1', input_fasta, self.test_results))
+    def test_examples(self):
+        for filename in self.output_files:
+            new_file = os.path.join(self.test_results, 'results', 'svg', filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
+
+#@unittest.skip("")
+class TestExclusions(unittest.TestCase):
+    fasta_input = os.path.join('examples', 'constraint', 'Oceanobacillus_iheyensis.fasta')
+    exclusion = os.path.join('examples', 'constraint', 'Oceanobacillus_iheyensis.txt')
+    test_results = os.path.join('tests', 'results', 'exclusion')
+    precomputed_results = os.path.join('tests', 'examples', 'constraint')
+    cmd = 'r2dt.py draw --constraint --exclusion {} {} {}'.format(exclusion, fasta_input, test_results)
+    output_svg = 'Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg'
+
+    @staticmethod
+    def delete_folder(folder):
+        os.system('rm -Rf {}'.format(folder))
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        new_file = os.path.join(self.test_results, 'results', 'svg', self.output_svg)
+        reference_file = os.path.join(self.precomputed_results, self.output_svg)
+        self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+        self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+    def tearDown(self):
+        self.delete_folder(self.test_results)
 
 if __name__ == '__main__':
     unittest.main()

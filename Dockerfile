@@ -1,4 +1,4 @@
-FROM gcc:6
+FROM gcc:10
 
 RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time vim
 
@@ -94,8 +94,16 @@ RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && 
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
+#Install ViennaRNA
+RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
+    tar -zxvf ViennaRNA-2.4.18.tar.gz && \
+    cd ViennaRNA-2.4.18 && \
+    ./configure --with-python3 && \
+    make && \
+    make install
+
 # Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 8fe8ef303b3a4ca5474ffc82b865895fb1db7814 && cd src && make build
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 5e363fe3079ce5b80103889b9c9e213e1d2a16ff && cd src && make build
 
 COPY examples examples/
 
@@ -116,7 +124,7 @@ ENV PATH="/rna/rscape/bin:$PATH"
 ENV PATH="/rna/jiffy-infernal-hmmer-scripts:$PATH"
 ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
 ENV PATH="/rna/r2dt:$PATH"
-
+ENV PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3"
 WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]

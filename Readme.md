@@ -66,7 +66,7 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](https://www.dropbox.com/s/jkw0zze1fi3m4qw/cms.tar.gz?dl=1) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
+1. Download a [precomputed data library](http://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.2/cms.tar.gz) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
@@ -154,6 +154,35 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 
     ```
     r2dt.py draw --force_template RNAseP_a_P_furiosus_JB examples/force/URS0001BC2932_272844.fasta temp/example
+    ```
+### Constraint-based folding for insertions
+
+If a structure contains insertions that are not present in the R2DT template files, the --constraint flag will allow their folding to be de-novo predicted using the RNAfold algorithm. 
+
+There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
+
+* Let R2DT pick a fold_type  
+    ```
+    r2dt.py draw --constraint <input_fasta> <output_folder>
+    ```
+* Fold insertions (along with adjacent unpaired nucleotides) one at a time. Recommended for large RNAs.
+    ```
+    r2dt.py draw --constraint --fold_type insertions_only <input_fasta> <output_folder>
+    ```
+* Run entire molecule through RNAfold at once. Base pairs predicted from the template are used as constraints for prediction.
+    ```
+    r2dt.py draw --constraint --fold_type full_molecule <input_fasta> <output_folder>
+    ```
+* Run entire molecule through RNAfold at once. Both conserved single-stranded regions and base pairs predicted from the template are used as constraints for prediction.
+    ```
+    r2dt.py draw --constraint --fold_type all_constraints_enforced <input_fasta> <output_folder>
+    ```
+* Prevent certain nucleotides from base pairing. This will only work for base pairs that are de-novo predicted.
+The exclusion file should contain a string the same length as the input sequence composed of '.'s and 'x's. Positions with '.'s are allowed to base pair,
+positions with 'x's are not. 
+Example string: 'xxxx..............xx..............x............xx'
+    ```
+    r2dt.py draw --constraint --exclusion <exclusion_file> <input_fasta> <output_folder>
     ```
 
 ### Other useful commands
