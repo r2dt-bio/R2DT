@@ -231,11 +231,12 @@ We will review the template and reply on GitHub as soon as possible.
 ### Manually creating templates
 
 1. Place new FASTA or BPSEQ file(s) in the `data/new` folder
-2. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
-3. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
-4. Run `r2dt generatemodelinfo <destination>` to add new models to the list of searched models
-5. Update `metadata.tsv` file in the destination directory
-6. Run `r2dt.py list-models` to update a list of all available models
+1. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
+1. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
+1. Run `r2dt.py generatemodelinfo <destination>/cms` to add new models to the list of searched models where `<destination>` is the same folder as in the step above
+1. Update `metadata.tsv` file in the destination directory
+1. Run `r2dt.py list-models` to update a list of all available models
+1. Verify that the templates work as expected by testing on a fasta file with a sequence similar to the template
 
 ### Updating Rfam library
 
