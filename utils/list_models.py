@@ -173,7 +173,7 @@ def get_rfam_models():
         data.append({
             'model_id': model_id,
             'source': 'Rfam',
-            'description': '{} {}'.format(accessions[model_id], descriptions[model_id]),
+            'description': '{} ({})'.format(descriptions[model_id], accessions[model_id]),
         })
     return data
 
