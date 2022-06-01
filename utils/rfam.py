@@ -168,16 +168,16 @@ def generate_traveler_fasta(rfam_acc):
     if not ss_cons:
         print('No SS_CONS found')
     elif len(ss_cons) == len(consensus):
-        if '-' in consensus:
+        if '-' in consensus or '.' in consensus:
             new_ss_cons = []
             new_consensus = []
             for i, nt in enumerate(consensus):
                 if nt == '-' and ss_cons[i] == '.':
                     pass
-                elif nt == '-' and ss_cons[i] in '<>':
-                    # example RF00016
+                elif nt == '-' and ss_cons[i] in '()':
+                    # RF00016 for example
                     new_ss_cons.append(ss_cons[i])
-                    new_consensus.append('N')
+                    new_consensus.append('n')
                 else:
                     new_ss_cons.append(ss_cons[i])
                     new_consensus.append(consensus[i])
@@ -502,11 +502,11 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
     log = result_base + '.log'
-    
+
     if result:
         print("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
         return
-    
+
     if constraint:
         shared.fold_insertions(input_fasta, exclusion, 'rfam', temp_pfam_stk.name, rfam_acc, fold_type)
     elif exclusion:
