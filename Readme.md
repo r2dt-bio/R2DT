@@ -10,7 +10,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 3,700 RNA families from [Rfam](https://rfam.org) (release 14.6)
+ - over 4,000 RNA families from [Rfam](https://rfam.org) (release 14.8)
 
 ![R2DT method overview](./examples/method-overview.png)
 
@@ -157,7 +157,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     ```
 ### Constraint-based folding for insertions
 
-If a structure contains insertions that are not present in the R2DT template files, the --constraint flag will allow their folding to be de-novo predicted using the RNAfold algorithm. 
+If a structure contains insertions that are not present in the R2DT template files, the --constraint flag will allow their folding to be de-novo predicted using the RNAfold algorithm.
 
 There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
 
@@ -179,7 +179,7 @@ There are currently three constraint folding modes available. R2DT will automati
     ```
 * Prevent certain nucleotides from base pairing. This will only work for base pairs that are de-novo predicted.
 The exclusion file should contain a string the same length as the input sequence composed of '.'s and 'x's. Positions with '.'s are allowed to base pair,
-positions with 'x's are not. 
+positions with 'x's are not.
 Example string: 'xxxx..............xx..............x............xx'
     ```
     r2dt.py draw --constraint --exclusion <exclusion_file> <input_fasta> <output_folder>
@@ -266,6 +266,7 @@ We will review the template and reply on GitHub as soon as possible.
 1. Update `metadata.tsv` file in the destination directory
 1. Run `r2dt.py list-models` to update a list of all available models
 1. Verify that the templates work as expected by testing on a fasta file with a sequence similar to the template
+1. Run tests and update the model counts in `TestCovarianceModelDatabase` as needed
 
 ### Updating Rfam library
 
