@@ -575,6 +575,7 @@ def list_models():
     data = lm.list_models()
     for item in data:
         print(item['description'])
+    lm.check_unique_descriptions(data)
     with open(os.path.join(config.DATA, 'models.json'), 'w') as models_file:
         json.dump(data, models_file)
 
