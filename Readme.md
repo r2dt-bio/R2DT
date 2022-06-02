@@ -242,6 +242,7 @@ Example string: 'xxxx..............xx..............x............xx'
 - `fasta`: input sequences and their secondary structure in dot-bracket notation
 - `tsv`: a file `metadata.tsv` listing sequence ids, matching templates, and template sources
 - `thumbnail`: secondary structure diagrams displayed as outlines in SVG format
+- `json`: RNA secondary structure and its layout described using [RNA 2D JSON Schema](https://github.com/LDWLab/RNA2D-data-schema/)
 
 ## How to add new templates
 
