@@ -208,6 +208,12 @@ Example string: 'xxxx..............xx..............x............xx'
     python3 -m unittest tests.tests.TestRibovisionLSU
     ```
 
+* Run tests and keep the results (useful when updating Traveler for example)
+    ```
+    R2DT_KEEP_TEST_RESULTS=1 r2dt.py test
+    R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.TestRnasep
+    ```
+
 * Classify example sequences using Ribotyper
     ```
     perl /rna/ribovore/ribotyper.pl -i data/cms/crw/modelinfo.txt -f examples/pdb.fasta temp/ribotyper-test
