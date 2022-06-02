@@ -103,7 +103,7 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
     make install
 
 # Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 5e363fe3079ce5b80103889b9c9e213e1d2a16ff && cd src && make build
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 40cc9615acc9b27d591a674774c984cff193d5cb && cd src && make build
 
 COPY examples examples/
 
