@@ -254,7 +254,8 @@ def organise_results(results_folder, output_folder):
     svg_folder = os.path.join(destination, 'svg')
     thumbnail_folder = os.path.join(destination, 'thumbnail')
     fasta_folder = os.path.join(destination, 'fasta')
-    for folder in [destination, svg_folder, thumbnail_folder, fasta_folder]:
+    json_folder = os.path.join(destination, 'json')
+    for folder in [destination, svg_folder, thumbnail_folder, fasta_folder, json_folder]:
         os.system('mkdir -p {}'.format(folder))
 
     svgs = glob.glob(os.path.join(results_folder, '*.colored.svg'))
@@ -267,6 +268,7 @@ def organise_results(results_folder, output_folder):
         os.system('mv {0}/*.colored.svg {1}'.format(results_folder, svg_folder))
         os.system('mv {0}/*.thumbnail.svg {1}'.format(results_folder, thumbnail_folder))
         os.system('mv {0}/*.fasta {1}'.format(results_folder, fasta_folder))
+        os.system('mv {0}/*.json {1}'.format(results_folder, json_folder))
 
 
 @cli.group('gtrnadb')
