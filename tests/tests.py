@@ -228,6 +228,12 @@ class TestSingleEntry(unittest.TestCase):
 
     def tearDown(self):
         self.delete_folder(self.test_results)
+    def test_json_files(self):
+        for filename in self.files:
+            filename = filename.replace('svg', 'json')
+            json_file = os.path.join(self.test_results, 'results', 'json', filename)
+            self.assertTrue(os.path.exists(json_file), 'Json file {} does not exist'.format(json_file))
+
 
 #@unittest.skip("")
 class TestGtrnadbDomainIsotype(unittest.TestCase):
