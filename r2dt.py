@@ -513,13 +513,13 @@ def organise_metadata(output_folder, result_folders):
                     if 'gtrnadb' in folder:
                         line = line.replace('PASS', 'GtRNAdb')
                     elif 'crw' in folder:
-                        line = line.replace('PASS', 'CRW')
+                        line = line.replace('PASS', 'CRW').replace('FAIL', 'CRW')
                     elif 'rfam' in folder or 'RF00005' in folder:
-                        line = line.replace('PASS', 'Rfam')
+                        line = line.replace('PASS', 'Rfam').replace('FAIL', 'Rfam')
                     elif 'ribovision-lsu' in folder or 'ribovision-ssu' in folder:
-                        line = line.replace('PASS', 'RiboVision')
+                        line = line.replace('PASS', 'RiboVision').replace('FAIL', 'RiboVision')
                     elif 'rnasep' in folder:
-                        line = line.replace('PASS', 'RNAse P Database')
+                        line = line.replace('PASS', 'RNAse P Database').replace('FAIL', 'RNAse P Database')
                     f_out.write(line)
 
 
