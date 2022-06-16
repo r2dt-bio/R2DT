@@ -371,5 +371,30 @@ class TestExclusions(R2dtTestCase):
         self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
 
 
+#@unittest.skip("")
+class TestSkipRibovoreFilters(R2dtTestCase):
+    fasta_input = os.path.join('examples', 'ribovore-filters.fasta')
+    test_results = os.path.join('tests', 'results', 'skip-ribovore-filters')
+    precomputed_results = os.path.join('tests', 'examples', 'skip-ribovore-filters')
+    cmd_default = 'r2dt.py draw {} {}'.format(fasta_input, test_results)
+    cmd_skip = 'r2dt.py draw --skip_ribovore_filters {} {}'.format(fasta_input, test_results)
+    output_svg = 'URS0000001EB3-RF00661.colored.svg'
+
+    def setUp(self):
+        self.delete_folder(self.test_results)        
+
+    def test_default(self):
+        os.system(self.cmd_default)
+        new_file = os.path.join(self.test_results, 'results', 'svg', self.output_svg)
+        self.assertFalse(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+
+    def test_skip_filters(self):
+        os.system(self.cmd_skip)
+        new_file = os.path.join(self.test_results, 'results', 'svg', self.output_svg)
+        reference_file = os.path.join(self.precomputed_results, self.output_svg)
+        self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+        self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+
 if __name__ == '__main__':
     unittest.main()
