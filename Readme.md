@@ -102,6 +102,24 @@ r2dt.py draw examples/examples.fasta temp/examples
 
 R2DT will automatically select the best matching template and visualise the secondary structures.
 
+#### Skipping ribovore filters
+
+In some cases R2DT may not generate a diagram for a sequence because [ribovore](https://github.com/ncbi/ribovore) detects one or more [unexpected features](https://github.com/ncbi/ribovore/blob/master/documentation/ribotyper.md#unexpectedfeatures), such as having hits on both strands or having too many hits in the same sequence. You can use `--skip_ribovore_filters` to ignore these warnings and attempt to generate a secondary structure diagram anyway.
+
+For example, the following command will produce no results because the sequence is close to a palindrome:
+
+```
+r2dt.py draw examples/ribovore-qc-example.fasta temp/examples
+```
+
+However, the following command generates a [valid diagram](./tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
+
+```
+r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/examples
+```
+
+Please note that this option should be used with caution as sequences with unexpected features often result in poor diagrams.
+
 ### Manually selecting template category
 
 If the RNA type of the input sequences is known in advance, it is possible to bypass the classification steps and achieve faster performance.
