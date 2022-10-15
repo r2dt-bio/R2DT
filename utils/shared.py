@@ -5,7 +5,7 @@ import requests
 
 def get_r2dt_version_header():
     header = """# R2DT :: visualise RNA secondary structure using templates
-# Version 1.2 (August 10, 2021)
+# Version 1.3 (October 2022)
 # https://github.com/RNAcentral/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header

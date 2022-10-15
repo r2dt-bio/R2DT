@@ -2,7 +2,7 @@
 
 _Visualise RNA 2D structure in standard layouts_
 
-**Version 1.2 (August 10, 2021)**
+**Version 1.3 (October 2022)**
 
 The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library representing a wide range of RNAs:
 
