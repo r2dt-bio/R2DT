@@ -10,11 +10,11 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 4,000 RNA families from [Rfam](https://rfam.org) (release 14.8)
+ - RNA families from [Rfam](https://rfam.org) (release 14.8)
 
 ![R2DT method overview](./examples/method-overview.png)
 
-R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
+R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22), and it is also used by [Rfam](https://rfam.org/search#tabview=tab1), [PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1), [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products), and other resources. See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
 
 ## Examples
 
@@ -66,7 +66,7 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.2/cms.tar.gz) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
+1. Download a [precomputed data library](https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.3/cms.tar.gz) _(198 MB, last updated Oct 14, 2022)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
