@@ -40,10 +40,10 @@ RUN \
 
 # Install tRNAScan-SE
 RUN \
-    wget https://github.com/UCSC-LoweLab/tRNAscan-SE/archive/v2.0.5.tar.gz && \
-    tar -xvzf v2.0.5.tar.gz && \
-    rm v2.0.5.tar.gz && \
-    cd tRNAscan-SE-2.0.5 && \
+    wget https://github.com/UCSC-LoweLab/tRNAscan-SE/archive/v2.0.11.tar.gz && \
+    tar -xvzf v2.0.11.tar.gz && \
+    rm v2.0.11.tar.gz && \
+    cd tRNAscan-SE-2.0.11 && \
     ./configure && make && make install
 # Make sure tRNAScan-SE can find Infernal
 RUN \
