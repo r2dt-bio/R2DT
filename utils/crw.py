@@ -20,7 +20,6 @@ from . import config
 from . import generate_model_info as modelinfo
 from . import shared
 
-
 def setup():
     print('Deleting old CRW library')
     os.system('rm -Rf {}'.format(config.CRW_CM_LIBRARY))
@@ -33,7 +32,7 @@ def setup():
     modelinfo.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
-def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
+def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     cm_library = config.CRW_CM_LIBRARY
@@ -75,7 +74,8 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (rnacentral_id, model_id))
 
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -97,6 +97,11 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id):
         rnacentral_id=rnacentral_id,
         model_id=model_id,
     ))
+
+    if constraint:
+        shared.fold_insertions(result_base + '.fasta', exclusion, 'crw', temp_pfam_stk.name, model_id, fold_type)
+    elif exclusion:
+        print('Exclusion ignored, enable --constraint to add exclusion file')
 
     log = result_base + '.log'
     cmd = ('traveler '

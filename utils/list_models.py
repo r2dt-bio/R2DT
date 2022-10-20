@@ -17,6 +17,7 @@ import json
 import os
 import re
 
+from collections import defaultdict
 from utils import config
 
 
@@ -110,6 +111,23 @@ def get_crw_models():
     return data
 
 
+def get_qualifier(model_id):
+    """
+    Return a manually curated string that helps distinguish similarly named
+    templates.
+
+    For example, HS_LSU_3D and mHS_LSU_3D are both Human LSUs but one is found
+    in mitochondria.
+    """
+    if model_id in ['mt_TetT_LSU_3D', 'mHS_LSU_3D']:
+        qualifier = ' (mitochondrial)'
+    elif model_id in ['cSO_23S_3D']:
+        qualifier = ' (chloroplast)'
+    else:
+        qualifier = ''
+    return qualifier
+
+
 def get_models(source, modelinfo_file, metadata_file):
     data = []
     metadata, _ = parse_metadata(metadata_file)
@@ -125,14 +143,11 @@ def get_models(source, modelinfo_file, metadata_file):
         rna_type = ''
 
     for model_id in model_ids:
-        if model_id in metadata:
-            species = metadata[model_id]
-        else:
-            species = ''
+        species = metadata.get(model_id, '')
         data.append({
             'model_id': model_id,
             'source': source,
-            'description': '{} {}'.format(species, rna_type),
+            'description': '{} {}{}'.format(species, rna_type, get_qualifier(model_id)),
         })
     return data
 
@@ -158,9 +173,25 @@ def get_rfam_models():
         data.append({
             'model_id': model_id,
             'source': 'Rfam',
-            'description': '{} {}'.format(accessions[model_id], descriptions[model_id]),
+            'description': '{} ({})'.format(descriptions[model_id], accessions[model_id]),
         })
     return data
+
+
+def check_unique_descriptions(data):
+    """
+    Check if any templates have identical descriptions. This is undesirable
+    because the descriptions are used to manually select a template in the web
+    interface.
+    """
+    counts = defaultdict(list)
+    for entry in data:
+        counts[entry['description']].append(entry['model_id'])
+    for description in counts.keys():
+        if len(counts[description]) > 1:
+            msg = 'Please fix identical descriptions "{}": {}'.format(
+                    description, '; '.join(counts[description]))
+            print(msg)
 
 
 def list_models():

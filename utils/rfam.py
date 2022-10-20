@@ -45,6 +45,7 @@ BLACKLIST = [
     'RF00010', # Bacterial RNase P class A
     'RF00011', # Bacterial RNase P class B
     'RF00373', # Archaeal RNase P
+    'RF00061', # HCV IRES
 ]
 
 
@@ -167,16 +168,16 @@ def generate_traveler_fasta(rfam_acc):
     if not ss_cons:
         print('No SS_CONS found')
     elif len(ss_cons) == len(consensus):
-        if '-' in consensus:
+        if '-' in consensus or '.' in consensus:
             new_ss_cons = []
             new_consensus = []
             for i, nt in enumerate(consensus):
                 if nt == '-' and ss_cons[i] == '.':
                     pass
-                elif nt == '-' and ss_cons[i] in '<>':
-                    # example RF00016
+                elif nt == '-' and ss_cons[i] in '()':
+                    # RF00016 for example
                     new_ss_cons.append(ss_cons[i])
-                    new_consensus.append('N')
+                    new_consensus.append('n')
                 else:
                     new_ss_cons.append(ss_cons[i])
                     new_consensus.append(consensus[i])
@@ -418,7 +419,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
+def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if not model_id.startswith('RF'):
@@ -483,7 +484,8 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (seq_id, model_id))
 
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -499,11 +501,17 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
     input_fasta = os.path.join(output_folder, seq_id + '.fasta')
     cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
     result = os.system(cmd)
+    log = result_base + '.log'
+
     if result:
         print("Failed esl-pfam-sindi2dot-bracket of %s %s" % (seq_id, model_id))
         return
 
-    log = result_base + '.log'
+    if constraint:
+        shared.fold_insertions(input_fasta, exclusion, 'rfam', temp_pfam_stk.name, rfam_acc, fold_type)
+    elif exclusion:
+        print('Exclusion ignored, enable --constraint to add exclusion file')
+
     cmd = ('traveler '
            '--verbose '
            '--target-structure {fasta} '
@@ -520,7 +528,6 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
                map=temp_map.name
             )
     result = os.system(cmd)
-
     if result:
         print('Repeating using Traveler mapping')
         cmd = ('traveler '
@@ -566,7 +573,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id):
         out.write('\n')
 
 
-def generate_2d(rfam_acc, output_folder, fasta, test):
+def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fold_type):
 
     destination = '{}/{}'.format(output_folder, rfam_acc)
     if not os.path.exists(destination):
@@ -595,7 +602,7 @@ def generate_2d(rfam_acc, output_folder, fasta, test):
                 continue
             seq_id = line.split(' ', 1)[0].replace('>', '').strip()
             print(seq_id)
-            visualise_rfam(fasta_input, destination, seq_id, rfam_acc)
+            visualise_rfam(fasta_input, destination, seq_id, rfam_acc, constraint, exclusion, fold_type)
     os.system('rm headers.txt')
 
 

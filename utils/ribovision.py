@@ -14,12 +14,12 @@ limitations under the License.
 import os
 import re
 import tempfile
-
+import subprocess as sp
 from . import config
 from . import shared
 
 
-def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
+def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, constraint, exclusion, fold_type):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     if ssu_or_lsu.lower() == 'lsu':
@@ -75,7 +75,8 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s %s" % (rnacentral_id, model_id))
 
-    shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+    if(not constraint):
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
     cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
     result = os.system(cmd)
@@ -97,6 +98,11 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         rnacentral_id=rnacentral_id.replace('/', '_'),
         model_id=model_id,
     ))
+    
+    if constraint:
+        shared.fold_insertions(result_base + '.fasta', exclusion, 'ribovision', temp_pfam_stk.name, model_id, fold_type)
+    elif exclusion:
+        print('Exclusion ignored, enable --constraint to add exclusion file')
 
     log = result_base + '.log'
     cmd = ('traveler '
@@ -129,7 +135,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
                )
         print(cmd)
         os.system(cmd)
-
+    
     temp_fasta.close()
     temp_sto.close()
     temp_stk.close()
@@ -139,6 +145,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
     os.remove(temp_pfam_stk.name)
 
     overlaps = 0
+    
     with open(log, 'r') as raw:
         for line in raw:
             match = re.search(r'Overlaps count: (\d+)', line)
@@ -153,7 +160,6 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id):
         out.write('\n')
     if ssu_or_lsu != 'rnasep':
         adjust_font_size(result_base)
-
 
 def adjust_font_size(result_base):
     filenames = [result_base + '.colored.svg', result_base + '.svg']

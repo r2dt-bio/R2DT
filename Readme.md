@@ -2,7 +2,7 @@
 
 _Visualise RNA 2D structure in standard layouts_
 
-**Version 1.2 (August 10, 2021)**
+**Version 1.3 (October 2022)**
 
 The R2DT software (RNA 2D Templates) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in standard layouts using a template library representing a wide range of RNAs:
 
@@ -10,11 +10,11 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
  - 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#)
  - tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
  - RNAse P from [Ribonuclease P Database](https://academic.oup.com/nar/article/26/1/351/2379438)
- - over 3,700 RNA families from [Rfam](https://rfam.org) (release 14.6)
+ - RNA families from [Rfam](https://rfam.org) (release 14.8)
 
 ![R2DT method overview](./examples/method-overview.png)
 
-R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22). See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
+R2DT is used by RNAcentral to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22), and it is also used by [Rfam](https://rfam.org/search#tabview=tab1), [PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1), [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products), [SGD](https://www.yeastgenome.org/locus/S000006550/sequence), and other resources. See [method overview](#method-overview) for details or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) in Nature Communications.
 
 ## Examples
 
@@ -66,7 +66,7 @@ R2DT can be used in a number of ways:
 
 ### Initial setup
 
-1. Download a [precomputed data library](https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.2/cms.tar.gz) _(197 MB, last updated Aug 9, 2021)_ and uncompress it.
+1. Download a [precomputed data library](https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.3/cms.tar.gz) _(198 MB, last updated Oct 14, 2022)_ and uncompress it.
 
 2. Enter an interactive Docker terminal session:
 
@@ -101,6 +101,24 @@ r2dt.py draw examples/examples.fasta temp/examples
 ```
 
 R2DT will automatically select the best matching template and visualise the secondary structures.
+
+#### Skipping ribovore filters
+
+In some cases R2DT may not generate a diagram for a sequence because [ribovore](https://github.com/ncbi/ribovore) detects one or more [unexpected features](https://github.com/ncbi/ribovore/blob/master/documentation/ribotyper.md#unexpectedfeatures), such as having hits on both strands or having too many hits in the same sequence. You can use `--skip_ribovore_filters` to ignore these warnings and attempt to generate a secondary structure diagram anyway.
+
+For example, the following command will produce no results because the sequence is close to a palindrome:
+
+```
+r2dt.py draw examples/ribovore-qc-example.fasta temp/examples
+```
+
+However, the following command generates a [valid diagram](./tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
+
+```
+r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/examples
+```
+
+Please note that this option should be used with caution as sequences with unexpected features often result in poor diagrams.
 
 ### Manually selecting template category
 
@@ -155,6 +173,35 @@ In addition, all models are listed in the file [models.json](./data/models.json)
     ```
     r2dt.py draw --force_template RNAseP_a_P_furiosus_JB examples/force/URS0001BC2932_272844.fasta temp/example
     ```
+### Constraint-based folding for insertions
+
+If a structure contains insertions that are not present in the R2DT template files, the --constraint flag will allow their folding to be de-novo predicted using the RNAfold algorithm.
+
+There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
+
+* Let R2DT pick a fold_type  
+    ```
+    r2dt.py draw --constraint <input_fasta> <output_folder>
+    ```
+* Fold insertions (along with adjacent unpaired nucleotides) one at a time. Recommended for large RNAs.
+    ```
+    r2dt.py draw --constraint --fold_type insertions_only <input_fasta> <output_folder>
+    ```
+* Run entire molecule through RNAfold at once. Base pairs predicted from the template are used as constraints for prediction.
+    ```
+    r2dt.py draw --constraint --fold_type full_molecule <input_fasta> <output_folder>
+    ```
+* Run entire molecule through RNAfold at once. Both conserved single-stranded regions and base pairs predicted from the template are used as constraints for prediction.
+    ```
+    r2dt.py draw --constraint --fold_type all_constraints_enforced <input_fasta> <output_folder>
+    ```
+* Prevent certain nucleotides from base pairing. This will only work for base pairs that are de-novo predicted.
+The exclusion file should contain a string the same length as the input sequence composed of '.'s and 'x's. Positions with '.'s are allowed to base pair,
+positions with 'x's are not.
+Example string: 'xxxx..............xx..............x............xx'
+    ```
+    r2dt.py draw --constraint --exclusion <exclusion_file> <input_fasta> <output_folder>
+    ```
 
 ### Other useful commands
 
@@ -177,6 +224,12 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 * Run a [single test](./tests/tests.py)
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
+    ```
+
+* Run tests and keep the results (useful when updating Traveler for example)
+    ```
+    R2DT_KEEP_TEST_RESULTS=1 r2dt.py test
+    R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.TestRnasep
     ```
 
 * Classify example sequences using Ribotyper
@@ -213,6 +266,7 @@ In addition, all models are listed in the file [models.json](./data/models.json)
 - `fasta`: input sequences and their secondary structure in dot-bracket notation
 - `tsv`: a file `metadata.tsv` listing sequence ids, matching templates, and template sources
 - `thumbnail`: secondary structure diagrams displayed as outlines in SVG format
+- `json`: RNA secondary structure and its layout described using [RNA 2D JSON Schema](https://github.com/LDWLab/RNA2D-data-schema/)
 
 ## How to add new templates
 
@@ -231,11 +285,13 @@ We will review the template and reply on GitHub as soon as possible.
 ### Manually creating templates
 
 1. Place new FASTA or BPSEQ file(s) in the `data/new` folder
-2. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
-3. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
-4. Run `r2dt generatemodelinfo <destination>` to add new models to the list of searched models
-5. Update `metadata.tsv` file in the destination directory
-6. Run `r2dt.py list-models` to update a list of all available models
+1. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
+1. Move the new `.cm` and `.tr` files in the destination directory (for example, `ribovision-ssu` is where all SSU templates submitted by the RiboVision group are stored)
+1. Run `r2dt.py generatemodelinfo <destination>/cms` to add new models to the list of searched models where `<destination>` is the same folder as in the step above
+1. Update `metadata.tsv` file in the destination directory
+1. Run `r2dt.py list-models` to update a list of all available models
+1. Verify that the templates work as expected by testing on a fasta file with a sequence similar to the template
+1. Run tests and update the model counts in `TestCovarianceModelDatabase` as needed
 
 ### Updating Rfam library
 
@@ -288,7 +344,8 @@ All R2DT releases are [available](https://github.com/RNAcentral/R2DT/releases) o
 - [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
-- [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn), [Anton I. Petrov](https://www.ebi.ac.uk/about/people/anton-petrov) from [EMBL-EBI](https://www.ebi.ac.uk)
+- [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn)
+- [Anton I. Petrov](https://antonpetrov.com)
 
 :wave: We welcome additional contributions so please feel free to [raise an issue](https://github.com/RNAcentral/R2DT/issues) or submit a pull request.
 
@@ -298,3 +355,4 @@ All R2DT releases are [available](https://github.com/RNAcentral/R2DT/releases) o
 - [David Mathews](http://rna.urmc.rochester.edu/RNAstructure.html) - [RNAstructure software](http://rna.urmc.rochester.edu/RNAstructure.html)
 - [Elena Rivas](http://rivaslab.org/) - [R-scape software](http://eddylab.org/R-scape/)
 - [Zasha Weinberg](https://zashaweinberglab.org) - [R2R software](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-12-3)
+- [Vienna RNA team](https://www.tbi.univie.ac.at/RNA/) - RNAfold software
