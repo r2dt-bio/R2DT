@@ -39,10 +39,11 @@ RNASEP_CM_LIBRARY = os.path.join(RNASEP, 'cms')
 RNASEP_BPSEQ = os.path.join(RNASEP, 'bpseq')
 RNASEP_TRAVELER = os.path.join(RNASEP, 'traveler')
 
-GTRNADB_CM_LIBRARY = os.path.join(DATA, 'cms', 'gtrnadb')
+GTRNADB_CM_LIBRARY = os.path.join(DATA, 'gtrnadb', 'cms')
 GTRNADB_EUK = os.path.join(DATA, 'gtrnadb', 'eukaryota_isotype_specific')
 GTRNADB_BACT = os.path.join(DATA, 'gtrnadb', 'bacteria_isotype_specific')
 GTRNADB_ARCH = os.path.join(DATA, 'gtrnadb', 'archaea_isotype_specific')
+GTRNADB_MITO = os.path.join(DATA, 'gtrnadb', 'vertebrate_mitochondrial')
 
 CM_LIBRARY = os.path.join(DATA, 'cms')
 
