@@ -198,7 +198,7 @@ class TestSingleEntry(R2dtTestCase):
         'URS0000162127_9606-RF00003.colored.svg',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
         'URS0000023412_9606-E_Thr.colored.svg',
-        'URS00000012EC-RF00005.colored.svg',
+        'URS00000012EC-M_Ile.colored.svg',
         'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
     ]
 
