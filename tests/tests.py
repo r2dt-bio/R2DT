@@ -248,6 +248,34 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
 
 
 #@unittest.skip("")
+class TestGtrnadbMitoVert(R2dtTestCase):
+    fasta_input = os.path.join('examples', 'gtrnadb-mito-vert.fasta')
+    test_results = os.path.join('tests', 'results', 'gtrnadb', 'mito-vert')
+    precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', 'mito-vert')
+    cmd = 'r2dt.py draw {} {}'.format(fasta_input, test_results)
+    print(cmd)
+    files = [
+        'URS000061A10B_9606-M_LeuTAA.colored.svg',
+        'URS000054F2AC_109923-M_LeuTAG.colored.svg',
+        'URS0000333A94_392897-M_SerTGA.colored.svg',
+        'URS0000043FFB_392897-M_SerGCT.colored.svg',
+        'URS0000247C4D_392897-M_Cys.colored.svg',
+
+    ]
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, 'results', 'svg', filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+
+#@unittest.skip("")
 class TestRnasep(R2dtTestCase):
     fasta_input = os.path.join('examples', 'rnasep.fasta')
     test_results = os.path.join('tests', 'results', 'rnasep')
@@ -381,7 +409,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     output_svg = 'URS0000001EB3-RF00661.colored.svg'
 
     def setUp(self):
-        self.delete_folder(self.test_results)        
+        self.delete_folder(self.test_results)
 
     def test_default(self):
         os.system(self.cmd_default)
