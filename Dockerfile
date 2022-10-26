@@ -82,7 +82,7 @@ RUN \
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
     cd jiffy-infernal-hmmer-scripts && \
-    git checkout 23b78b30b49b5255bae2cebb3f96fd3a147059a6
+    git checkout aecbbf0436e5a2d3e7612c01194bd222e65430ba
 RUN \
     cd jiffy-infernal-hmmer-scripts && \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
