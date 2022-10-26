@@ -252,7 +252,7 @@ class TestGtrnadbMitoVert(R2dtTestCase):
     fasta_input = os.path.join('examples', 'gtrnadb-mito-vert.fasta')
     test_results = os.path.join('tests', 'results', 'gtrnadb', 'mito-vert')
     precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', 'mito-vert')
-    cmd = 'r2dt.py draw {} {}'.format(fasta_input, test_results)
+    cmd = 'r2dt.py gtrnadb draw {} {}'.format(fasta_input, test_results)
     print(cmd)
     files = [
         'URS000061A10B_9606-M_LeuTAA.colored.svg',
@@ -260,7 +260,6 @@ class TestGtrnadbMitoVert(R2dtTestCase):
         'URS0000333A94_392897-M_SerTGA.colored.svg',
         'URS0000043FFB_392897-M_SerGCT.colored.svg',
         'URS0000247C4D_392897-M_Cys.colored.svg',
-
     ]
 
     def setUp(self):
@@ -269,7 +268,7 @@ class TestGtrnadbMitoVert(R2dtTestCase):
 
     def test_examples(self):
         for filename in self.files:
-            new_file = os.path.join(self.test_results, 'results', 'svg', filename)
+            new_file = os.path.join(self.test_results, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
             self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
