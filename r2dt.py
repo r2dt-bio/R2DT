@@ -591,7 +591,7 @@ def list_models():
 
 
 @cli.command()
-@click.argument('test_name', default=None, type=click.STRING)
+@click.argument('test_name', required=False, default=None, type=click.STRING)
 def test(test_name):
     """
     Run all tests or a special test if provided.
@@ -602,7 +602,7 @@ def test(test_name):
         print(cmd)
         os.system(cmd)
     else:
-        os.system('python3 -m unittest')
+        os.system('R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest')
 
 
 
