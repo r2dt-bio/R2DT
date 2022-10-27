@@ -71,7 +71,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 11)
 
     def test_rnasep_cm_database(self):
-        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 21)
+        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 24)
 
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
