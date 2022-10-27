@@ -224,12 +224,14 @@ Example string: 'xxxx..............xx..............x............xx'
 * Run a [single test](./tests/tests.py)
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
+    r2dt.py test TestRibovisionLSU
     ```
 
 * Run tests and keep the results (useful when updating Traveler for example)
     ```
     R2DT_KEEP_TEST_RESULTS=1 r2dt.py test
     R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.TestRnasep
+    r2dt.py test TestRnasep
     ```
 
 * Classify example sequences using Ribotyper
