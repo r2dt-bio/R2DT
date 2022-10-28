@@ -40,10 +40,10 @@ RUN \
 
 # Install tRNAScan-SE
 RUN \
-    wget https://github.com/UCSC-LoweLab/tRNAscan-SE/archive/v2.0.5.tar.gz && \
-    tar -xvzf v2.0.5.tar.gz && \
-    rm v2.0.5.tar.gz && \
-    cd tRNAscan-SE-2.0.5 && \
+    wget https://github.com/UCSC-LoweLab/tRNAscan-SE/archive/v2.0.11.tar.gz && \
+    tar -xvzf v2.0.11.tar.gz && \
+    rm v2.0.11.tar.gz && \
+    cd tRNAscan-SE-2.0.11 && \
     ./configure && make && make install
 # Make sure tRNAScan-SE can find Infernal
 RUN \
@@ -82,7 +82,7 @@ RUN \
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
     cd jiffy-infernal-hmmer-scripts && \
-    git checkout 23b78b30b49b5255bae2cebb3f96fd3a147059a6
+    git checkout aecbbf0436e5a2d3e7612c01194bd222e65430ba
 RUN \
     cd jiffy-infernal-hmmer-scripts && \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
@@ -103,7 +103,7 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
     make install
 
 # Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 40cc9615acc9b27d591a674774c984cff193d5cb && cd src && make build
+RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && cd src && make build
 
 COPY examples examples/
 

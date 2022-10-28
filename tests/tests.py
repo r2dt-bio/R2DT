@@ -71,7 +71,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         self.verify_cm_database(config.RIBOVISION_SSU_CM_LIBRARY, 11)
 
     def test_rnasep_cm_database(self):
-        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 21)
+        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 24)
 
     def test_rfam_database(self):
         for rfam_acc in rfam.get_all_rfam_acc():
@@ -198,7 +198,7 @@ class TestSingleEntry(R2dtTestCase):
         'URS0000162127_9606-RF00003.colored.svg',
         'URS000080E357_9606-mHS_LSU_3D.colored.svg',
         'URS0000023412_9606-E_Thr.colored.svg',
-        'URS00000012EC-RF00005.colored.svg',
+        'URS00000012EC-M_Ile.colored.svg',
         'URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg',
     ]
 
@@ -242,6 +242,33 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
     def test_examples(self):
         for filename in self.files:
             new_file = os.path.join(self.test_results, self.trnascan_model, filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
+            self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
+
+
+#@unittest.skip("")
+class TestGtrnadbMitoVert(R2dtTestCase):
+    fasta_input = os.path.join('examples', 'gtrnadb-mito-vert.fasta')
+    test_results = os.path.join('tests', 'results', 'gtrnadb', 'mito-vert')
+    precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', 'mito-vert')
+    cmd = 'r2dt.py gtrnadb draw {} {}'.format(fasta_input, test_results)
+    print(cmd)
+    files = [
+        'URS000061A10B_9606-M_LeuTAA.colored.svg',
+        'URS000054F2AC_109923-M_LeuTAG.colored.svg',
+        'URS0000333A94_392897-M_SerTGA.colored.svg',
+        'URS0000043FFB_392897-M_SerGCT.colored.svg',
+        'URS0000247C4D_392897-M_Cys.colored.svg',
+    ]
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, filename)
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), 'File {} does not exist'.format(new_file))
             self.assertTrue(filecmp.cmp(new_file, reference_file), 'File {} does not match'.format(new_file))
@@ -381,7 +408,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     output_svg = 'URS0000001EB3-RF00661.colored.svg'
 
     def setUp(self):
-        self.delete_folder(self.test_results)        
+        self.delete_folder(self.test_results)
 
     def test_default(self):
         os.system(self.cmd_default)

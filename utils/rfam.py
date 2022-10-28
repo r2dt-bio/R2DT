@@ -46,6 +46,7 @@ BLACKLIST = [
     'RF00011', # Bacterial RNase P class B
     'RF00373', # Archaeal RNase P
     'RF00061', # HCV IRES
+    'RF02357', # RNAse P Type T
 ]
 
 

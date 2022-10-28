@@ -46,7 +46,7 @@ R2DT can be used in a number of ways:
     **Singularity**
 
     ```
-    singularity build r2dt docker://rnacentral/r2dt    
+    singularity build r2dt docker://rnacentral/r2dt
     singularity exec r2dt r2dt.py draw --help
     ```
 
@@ -179,7 +179,7 @@ If a structure contains insertions that are not present in the R2DT template fil
 
 There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
 
-* Let R2DT pick a fold_type  
+* Let R2DT pick a fold_type
     ```
     r2dt.py draw --constraint <input_fasta> <output_folder>
     ```
@@ -224,12 +224,14 @@ Example string: 'xxxx..............xx..............x............xx'
 * Run a [single test](./tests/tests.py)
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
+    r2dt.py test TestRibovisionLSU
     ```
 
 * Run tests and keep the results (useful when updating Traveler for example)
     ```
     R2DT_KEEP_TEST_RESULTS=1 r2dt.py test
     R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.TestRnasep
+    r2dt.py test TestRnasep
     ```
 
 * Classify example sequences using Ribotyper
@@ -238,7 +240,7 @@ Example string: 'xxxx..............xx..............x............xx'
     ```
 
 * Generate covariance models and modelinfo files
-    ```    
+    ```
     python3 utils/generate_cm_library.py
     r2dt.py generatemodelinfo <path to covariance models>
     ```
@@ -309,7 +311,7 @@ The following procedure should be done after each Rfam release:
     tar -czvf cms.tar.gz <path/to/new/cms>
     ```
 
-    The folder should contain 3 subfolders: `crw`, `gtrnadb`, and `rfam`.
+    The folder should contain 2 subfolders: `crw` and `rfam`.
 
 1. Update the precomputed library link in Readme
 
@@ -341,9 +343,9 @@ All R2DT releases are [available](https://github.com/RNAcentral/R2DT/releases) o
 
 - [David Hoksza](https://github.com/davidhoksza) (Traveler software)
 - [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
-- [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
-- [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
+- [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), Holly McCann, Caeden Mead, and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/#) team
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://www.soe.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
+- [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Blake Sweeney](https://www.ebi.ac.uk/about/people/blake-sweeney), [Carlos Ribas](https://www.ebi.ac.uk/about/people/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/about/people/fabio-madeira), [Rob Finn](https://www.ebi.ac.uk/about/people/rob-finn)
 - [Anton I. Petrov](https://antonpetrov.com)
 
