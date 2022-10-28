@@ -45,19 +45,22 @@ def get_gtrnadb_models():
     data = []
     for cm_file in glob.glob(os.path.join(config.GTRNADB_CM_LIBRARY, '*.cm')):
         model_id = os.path.basename(cm_file.replace('.cm', ''))
-        short_domain, isotype = model_id.split('_')
+        parts = model_id.split('_')
+        short_domain = parts[0]
         if short_domain == 'E':
             domain = 'Eukaryotes'
         elif short_domain == 'B':
             domain = 'Bacteria'
         elif short_domain == 'A':
             domain = 'Archaea'
+        elif short_domain == 'M':
+            domain = 'Vertebrates mito'
         else:
             domain = ''
         data.append({
             'model_id': model_id,
             'source': 'GtRNAdb',
-            'description': 'tRNA {} ({})'.format(isotype, domain),
+            'description': 'tRNA {} ({})'.format(' '.join(parts[1:]), domain),
         })
     return data
 
