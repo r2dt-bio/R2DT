@@ -11,6 +11,7 @@ Welcome to R2DT's documentation!
    :caption: Contents:
 
    installation
+   usage
 
 Indices and tables
 ==================
