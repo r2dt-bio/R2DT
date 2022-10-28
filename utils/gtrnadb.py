@@ -281,7 +281,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s" % (seq_id))
 
     os.system('cp {} {}/temp_pfam_stk.txt'.format(temp_pfam_stk.name, output_folder))
-    
+
     if(not constraint):
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
@@ -311,6 +311,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
            '--target-structure {fasta} '
            '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
            '--draw {map} {result_base} '
+           '--numbering "13,26" -l '
            '> {log}' ).format(
                fasta=input_fasta,
                result_base=result_base,
@@ -327,6 +328,7 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
                '--target-structure {fasta} '
                '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
                '--all {result_base} '
+                '--numbering "13,26" -l '
                '> {log}' ).format(
                    fasta=input_fasta,
                    result_base=result_base,
