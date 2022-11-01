@@ -36,7 +36,7 @@ For example, the following command will produce no results because the sequence 
 r2dt.py draw examples/ribovore-qc-example.fasta temp/examples
 ```
 
-However, the following command generates a [valid diagram](./tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
+However, the following command generates a [valid diagram](https://github.com/RNAcentral/R2DT/blob/master/tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
 
 ```
 r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/examples
@@ -85,9 +85,9 @@ It is possible to select a specific template and skip the classification step al
     r2dt.py list-models
     ```
 
-In addition, all models are listed in the file [models.json](./data/models.json).
+In addition, all models are listed in the file [models.json](https://github.com/RNAcentral/R2DT/blob/master/data/models.json).
 
-2. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
+1. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
     ```
     r2dt.py draw --force_template <template_id> <input_fasta> <output_folder>
     ```
@@ -134,7 +134,7 @@ Example string: 'xxxx..............xx..............x............xx'
     r2dt.py version
     ```
 
-* Run [all tests](./tests/tests.py)
+* Run [all tests](https://github.com/RNAcentral/R2DT/blob/master/tests/tests.py)
     ```
     r2dt.py test
     ```
@@ -145,7 +145,7 @@ Example string: 'xxxx..............xx..............x............xx'
     python3 -m unittest
     ```
 
-* Run a [single test](./tests/tests.py)
+* Run a [single test](https://github.com/RNAcentral/R2DT/blob/master/tests/tests.py)
     ```
     python3 -m unittest tests.tests.TestRibovisionLSU
     r2dt.py test TestRibovisionLSU
