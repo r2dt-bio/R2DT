@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to R2DT's documentation!
+Welcome to R2DT documentation!
 ================================
 
 .. toctree::
@@ -12,13 +12,6 @@ Welcome to R2DT's documentation!
 
    installation
    usage
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
    templates
    docs
    team
