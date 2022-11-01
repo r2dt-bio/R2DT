@@ -20,4 +20,5 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
    templates
+   docs
    team
