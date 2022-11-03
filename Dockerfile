@@ -67,16 +67,16 @@ RUN \
     cd .. && \
     perl Makefile.PL; make; make test; make install
 
-# Install Python 3.6
-RUN \
-    mkdir python36 && \
-    wget https://www.python.org/ftp/python/3.6.11/Python-3.6.11.tgz && \
-    tar -xvf Python-3.6.11.tgz && \
-    cd Python-3.6.11 && \
-    ./configure --prefix=$RNA/python36/ && \
-    make && make install && \
-    cd .. && \
-    rm -Rf Python-3.6.11
+# # Install Python 3.6
+# RUN \
+#     mkdir python36 && \
+#     wget https://www.python.org/ftp/python/3.6.11/Python-3.6.11.tgz && \
+#     tar -xvf Python-3.6.11.tgz && \
+#     cd Python-3.6.11 && \
+#     ./configure --prefix=$RNA/python36/ && \
+#     make && make install && \
+#     cd .. && \
+#     rm -Rf Python-3.6.11.tgz
 
 # Install jiffy infernal hmmer scripts
 RUN \
