@@ -100,7 +100,9 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
     cd ViennaRNA-2.4.18 && \
     ./configure --with-python3 && \
     make && \
-    make install
+    make install && \
+    cd $RNA && \
+    rm ViennaRNA-2.4.18.tar.gz
 
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && cd src && make build
