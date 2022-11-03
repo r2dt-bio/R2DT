@@ -107,7 +107,7 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && cd src && make build
 
-COPY examples examples/
+# COPY examples examples/
 
 # Install python dependencies
 ADD . /rna/r2dt
