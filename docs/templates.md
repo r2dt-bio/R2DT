@@ -2,11 +2,11 @@
 
 ## Adding new templates
 
-If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues/new) on GitHub including:
+If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues/) on GitHub including:
 
 1. A FASTA or BPSEQ file with a reference sequence and secondary structure - see [FASTA](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00012/RF00012-traveler.fasta) and [BPSEQ](https://github.com/RNAcentral/R2DT/blob/master/data/ribovision-ssu/bpseq/EC_SSU_3D.bpseq) examples
-1. A [Traveler XML file](https://github.com/cusbg/traveler#traveler-intermediate-format) - see [example](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00003/traveler-template.xml)
-1. Description of the new template and any relevant background information
+2. A [Traveler XML file](https://github.com/cusbg/traveler#traveler-intermediate-format) - see [example](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00003/traveler-template.xml)
+3. Description of the new template and any relevant background information
 
 One can create a new template locally using the [generate_cm_library.py](https://github.com/RNAcentral/R2DT/blob/master/utils/generate_cm_library.py) script with the FASTA and XML files described above. It is also possible to generate a new template using a special version of the XRNA software, [XRNA-GT](https://github.com/LDWLab/XRNA-GT).
 

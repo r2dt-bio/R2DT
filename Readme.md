@@ -10,7 +10,7 @@ The R2DT software (RNA 2D Templates) automatically generates [RNA secondary stru
 
 The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two RNAse P, snoRNA, MoCo riboswitch, and U4 snRNA.
 
-![R2DT examples](./examples/r2dt-examples.png)
+![R2DT examples](./docs/r2dt-examples.png)
 
 ## Getting started
 
