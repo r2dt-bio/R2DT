@@ -1,6 +1,9 @@
 # R2DT documentation
 
 [![RTD badge](https://readthedocs.org/projects/r2dt/badge/?version=latest)](https://r2dt.readthedocs.io/en/latest/?badge=latest)
+[![GitHub release](https://img.shields.io/github/release/rnacentral/r2dt.svg)](https://github.com/rnacentral/r2dt/releases/)
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1038/s41467-021-23555-5)](https://doi.org/10.1038/s41467-021-23555-5)
+[![GitHub stars](https://img.shields.io/github/stars/rnacentral/r2dt.svg?style=social&label=Stars&maxAge=2592000)](https://github.com/rnacentral/r2dt/stargazers/)
 
 ## What is R2DT?
 
