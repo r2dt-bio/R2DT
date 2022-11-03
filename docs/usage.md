@@ -1,4 +1,4 @@
-# Command line client
+# Command line reference
 
 Specify the input file in [FASTA format](https://en.wikipedia.org/wiki/FASTA_format) containing one or more RNA sequences as well as the path where the output files will be created (the folder will be created if it does not exist).
 

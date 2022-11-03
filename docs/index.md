@@ -4,15 +4,12 @@
 
 ## What is R2DT?
 
-The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs:
+The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs.
 
- * 3D-structure based SSU and LSU rRNA from [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/)
- * 5S and SSU rRNA from [CRW](http://www.rna.ccbb.utexas.edu)
- * tRNA from [GtRNAdb](http://gtrnadb.ucsc.edu)
- * RNAse P from [Ribonuclease P Database](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC148169/)
- * RNA families from [Rfam](https://rfam.org)
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRrBpjxq-QiArYPuzQiKZBJVFlHR3vEYGkZUV-W1XcrG6hX1eMAoahJmLU9Vf1VlGSVPfaLYqPqp1Ke/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+<br>
 
-See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for more details.
+Find out more [about R2DT](./about.md) or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5).
 
 ## Examples
 
@@ -26,33 +23,23 @@ R2DT can be used in a number of ways:
 
 * [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services (see [](api.md))
-* As a command line tool with [Docker](https://www.docker.com), [Podman](https://podman.io), [Singularity](https://sylabs.io/docs/), or as bare metal installation
+* As a command line tool with [Docker](https://www.docker.com), [Podman](https://podman.io), [Singularity](https://sylabs.io/docs/), or as bare metal [installation](./installation.md)
 
 ## Who uses R2DT?
 
 * RNAcentral uses R2DT to visualise [>20 million RNA secondary structures](https://rnacentral.org/search?q=has_secondary_structure:%22True%22)
-* Rfam displays R2DT diagrams in [sequence similarity search](https://rfam.org/search#tabview=tab1)
 * PDBe uses R2DT to enable interactive navigation between sequence, 2D and 3D structure (for example, [1S72](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1))
+* [Rfam](https://rfam.org/search#tabview=tab1) and [GtRNAdb](http://gtrnadb.ucsc.edu/rnacentral_search.html) display R2DT diagrams in sequence similarity search
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products) and [SGD](https://www.yeastgenome.org/locus/S000006550/sequence) show R2DT diagrams for RNA genes
 
-## Method overview
-
-The R2DT pipeline includes the following steps:
-
-1. **Generate a library of covariance models** using BPSEQ files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
-1. **Select the best matching covariance model** for each input sequence
-using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
-1. **Fold** input sequence into a secondary structure compatible with the template
-using the top scoring covariance model.
-1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
-
-![Method overview](./method-overview.png)
+Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005&sciodt=0,5&cites=12435886377905515481&scipsc=&q=&scisbd=1) &rarr;
 
 ```{eval-rst}
 .. toctree::
    :maxdepth: 2
    :caption: Table of Contents
 
+   about
    installation
    usage
    api
@@ -77,3 +64,10 @@ R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R
 ## Get in touch
 
 If you have any questions or feedback, feel free to [submit a GitHub issue](https://github.com/RNAcentral/r2dt/issues) or contact the [RNAcentral help desk](https://rnacentral.org/contact).
+
+## Find out more
+
+- [R2DT on GitHub](https://github.org/rnacentral/r2dt)
+- [Release 1.3 announcement](https://blog.rnacentral.org/2022/10/r2dt-version-13.html)
+- [RNAcentral help page about R2DT](https://rnacentral.org/help/secondary-structure)
+- [R2DT launch announcement](https://www.ebi.ac.uk/about/news/technology-and-innovation/visualising-rna-structures-using-r2dt/)
