@@ -2,7 +2,7 @@
 
 [![RTD badge](https://readthedocs.org/projects/r2dt/badge/?version=latest)](https://r2dt.readthedocs.io/en/latest/?badge=latest)
 [![GitHub release](https://img.shields.io/github/release/rnacentral/r2dt.svg)](https://github.com/rnacentral/r2dt/releases/)
-[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1038/s41467-021-23555-5)](https://doi.org/10.1038/s41467-021-23555-5)
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1038/s41467-021-23555-5)](https://www.nature.com/articles/s41467-021-23555-5)
 [![GitHub stars](https://img.shields.io/github/stars/rnacentral/r2dt.svg?style=social&label=Stars&maxAge=2592000)](https://github.com/rnacentral/r2dt/stargazers/)
 
 ## What is R2DT?
@@ -70,7 +70,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 
 ## Find out more
 
-- [R2DT on GitHub](https://github.org/rnacentral/r2dt)
+- [R2DT on GitHub](https://github.com/rnacentral/r2dt)
 - [Release 1.3 announcement](https://blog.rnacentral.org/2022/10/r2dt-version-13.html)
 - [RNAcentral help page about R2DT](https://rnacentral.org/help/secondary-structure)
 - [R2DT launch announcement](https://www.ebi.ac.uk/about/news/technology-and-innovation/visualising-rna-structures-using-r2dt/)
