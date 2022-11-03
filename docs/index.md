@@ -12,11 +12,11 @@ The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates 
  * RNAse P from [Ribonuclease P Database](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC148169/)
  * RNA families from [Rfam](https://rfam.org)
 
-![Method overview](./method-overview.png)
-
-Read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for a detailed method description.
+See the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5) for more details.
 
 ## Examples
+
+The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two RNAse P, snoRNA, MoCo riboswitch, and U4 snRNA:
 
 ![Examples](./r2dt-examples.png)
 
@@ -35,6 +35,19 @@ R2DT can be used in a number of ways:
 * PDBe uses R2DT to enable interactive navigation between sequence, 2D and 3D structure (for example, [1S72](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1))
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products) and [SGD](https://www.yeastgenome.org/locus/S000006550/sequence) show R2DT diagrams for RNA genes
 
+## Method overview
+
+The R2DT pipeline includes the following steps:
+
+1. **Generate a library of covariance models** using BPSEQ files from [CRW](http://www.rna.icmb.utexas.edu/DAT/3C/Structure/index.php), RiboVision or another source with [Infernal](http://eddylab.org/infernal/). For best results, remove pseudoknots from the secondary structures using [RemovePseudoknots](https://rna.urmc.rochester.edu/Text/RemovePseudoknots.html) from the RNAStructure package.
+1. **Select the best matching covariance model** for each input sequence
+using [Ribovore](https://github.com/nawrockie/ribovore) or [tRNAScan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/).
+1. **Fold** input sequence into a secondary structure compatible with the template
+using the top scoring covariance model.
+1. **Generate secondary structure diagrams** using [Traveler](https://github.com/davidhoksza/traveler) and the secondary structure layouts.
+
+![Method overview](./method-overview.png)
+
 ```{eval-rst}
 .. toctree::
    :maxdepth: 2
@@ -46,6 +59,7 @@ R2DT can be used in a number of ways:
    templates
    widget
    docs
+   releases
    team
 ```
 
