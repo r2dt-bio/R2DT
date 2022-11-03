@@ -31,12 +31,12 @@ RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
     ./configure && make && make install
 
 # Install RNAStructure
-RUN \
-    wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
-    tar -xvzf RNAstructureSource.tgz && \
-    rm RNAstructureSource.tgz && \
-    cd RNAstructure && \
-    make all
+# RUN \
+#     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
+#     tar -xvzf RNAstructureSource.tgz && \
+#     rm RNAstructureSource.tgz && \
+#     cd RNAstructure && \
+#     make all
 
 # Install tRNAScan-SE
 RUN \
