@@ -83,7 +83,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, c
     if result:
         raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
 
-    cmd = '/rna/python36/bin/python3.6 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    cmd = 'python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
@@ -98,7 +98,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, c
         rnacentral_id=rnacentral_id.replace('/', '_'),
         model_id=model_id,
     ))
-    
+
     if constraint:
         shared.fold_insertions(result_base + '.fasta', exclusion, 'ribovision', temp_pfam_stk.name, model_id, fold_type)
     elif exclusion:
@@ -135,7 +135,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, c
                )
         print(cmd)
         os.system(cmd)
-    
+
     temp_fasta.close()
     temp_sto.close()
     temp_stk.close()
@@ -145,7 +145,7 @@ def visualise(ssu_or_lsu, fasta_input, output_folder, rnacentral_id, model_id, c
     os.remove(temp_pfam_stk.name)
 
     overlaps = 0
-    
+
     with open(log, 'r') as raw:
         for line in raw:
             match = re.search(r'Overlaps count: (\d+)', line)

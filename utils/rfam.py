@@ -493,7 +493,7 @@ def visualise_rfam(fasta_input, output_folder, seq_id, model_id, constraint, exc
     if result:
         raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s %s" % (seq_id, model_id))
 
-    cmd = '/rna/python36/bin/python3.6 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    cmd = 'python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
