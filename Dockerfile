@@ -39,7 +39,7 @@ RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
     cd rscape && \
     ./configure && make && make install
 
-# Install RNAStructure
+# Install RNAStructure - only needed for updating CRW templates
 # RUN \
 #     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
 #     tar -xvzf RNAstructureSource.tgz && \
@@ -76,17 +76,6 @@ RUN \
     cd .. && \
     perl Makefile.PL; make; make install
 
-# # Install Python 3.6
-# RUN \
-#     mkdir python36 && \
-#     wget https://www.python.org/ftp/python/3.6.11/Python-3.6.11.tgz && \
-#     tar -xvf Python-3.6.11.tgz && \
-#     cd Python-3.6.11 && \
-#     ./configure --prefix=$RNA/python36/ && \
-#     make && make install && \
-#     cd .. && \
-#     rm -Rf Python-3.6.11.tgz
-
 # Install jiffy infernal hmmer scripts
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
@@ -119,8 +108,6 @@ RUN git clone https://github.com/cusbg/traveler && \
     git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && \
     cd src && \
     make build
-
-# COPY examples examples/
 
 # Install python dependencies
 ADD . /rna/r2dt
