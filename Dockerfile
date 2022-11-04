@@ -74,7 +74,7 @@ RUN \
     mv easel-Bio-Easel-0.09 easel && \
     rm easel-Bio-Easel-0.09.zip && \
     cd .. && \
-    perl Makefile.PL; make; make test; make install
+    perl Makefile.PL; make; make install
 
 # # Install Python 3.6
 # RUN \
@@ -103,7 +103,7 @@ RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && 
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
-#Install ViennaRNA
+# Install ViennaRNA
 RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
     tar -zxvf ViennaRNA-2.4.18.tar.gz && \
     cd ViennaRNA-2.4.18 && \
