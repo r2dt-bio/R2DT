@@ -1,6 +1,15 @@
 FROM gcc:10
 
-RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time vim
+RUN apt-get update && apt-get install -y \
+    gzip \
+    less \
+    moreutils \
+    python3 \
+    python3-pip \
+    time \
+    vim \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV RNA /rna
 
