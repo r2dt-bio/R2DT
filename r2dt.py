@@ -596,7 +596,6 @@ def test(test_name):
     """
     Run all tests or a special test if provided.
     """
-    print(shared.get_r2dt_version_header())
     if test_name:
         cmd = 'R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.{0}'.format(test_name)
         print(cmd)

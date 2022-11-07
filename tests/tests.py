@@ -253,7 +253,6 @@ class TestGtrnadbMitoVert(R2dtTestCase):
     test_results = os.path.join('tests', 'results', 'gtrnadb', 'mito-vert')
     precomputed_results = os.path.join('tests', 'examples', 'gtrnadb', 'mito-vert')
     cmd = 'r2dt.py gtrnadb draw {} {}'.format(fasta_input, test_results)
-    print(cmd)
     files = [
         'URS000061A10B_9606-M_LeuTAA.colored.svg',
         'URS000054F2AC_109923-M_LeuTAG.colored.svg',

@@ -82,7 +82,7 @@ def visualise_crw(fasta_input, output_folder, rnacentral_id, model_id, constrain
     if result:
         raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
 
-    cmd = '/rna/python36/bin/python3.6 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    cmd = 'python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
     result = os.system(cmd)
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))

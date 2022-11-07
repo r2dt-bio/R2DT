@@ -1,6 +1,15 @@
 FROM gcc:10
 
-RUN apt-get update && apt-get install -y moreutils python3 python3-pip gzip less wget time vim
+RUN apt-get update && apt-get install -y \
+    gzip \
+    less \
+    moreutils \
+    python3 \
+    python3-pip \
+    time \
+    vim \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV RNA /rna
 
@@ -30,13 +39,13 @@ RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
     cd rscape && \
     ./configure && make && make install
 
-# Install RNAStructure
-RUN \
-    wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
-    tar -xvzf RNAstructureSource.tgz && \
-    rm RNAstructureSource.tgz && \
-    cd RNAstructure && \
-    make all
+# Install RNAStructure - only needed for updating CRW templates
+# RUN \
+#     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
+#     tar -xvzf RNAstructureSource.tgz && \
+#     rm RNAstructureSource.tgz && \
+#     cd RNAstructure && \
+#     make all
 
 # Install tRNAScan-SE
 RUN \
@@ -65,18 +74,7 @@ RUN \
     mv easel-Bio-Easel-0.09 easel && \
     rm easel-Bio-Easel-0.09.zip && \
     cd .. && \
-    perl Makefile.PL; make; make test; make install
-
-# Install Python 3.6
-RUN \
-    mkdir python36 && \
-    wget https://www.python.org/ftp/python/3.6.11/Python-3.6.11.tgz && \
-    tar -xvf Python-3.6.11.tgz && \
-    cd Python-3.6.11 && \
-    ./configure --prefix=$RNA/python36/ && \
-    make && make install && \
-    cd .. && \
-    rm -Rf Python-3.6.11
+    perl Makefile.PL; make; make install
 
 # Install jiffy infernal hmmer scripts
 RUN \
@@ -94,18 +92,22 @@ RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && 
 RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
 RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
-#Install ViennaRNA
+# Install ViennaRNA
 RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
     tar -zxvf ViennaRNA-2.4.18.tar.gz && \
     cd ViennaRNA-2.4.18 && \
     ./configure --with-python3 && \
     make && \
-    make install
+    make install && \
+    cd $RNA && \
+    rm ViennaRNA-2.4.18.tar.gz
 
 # Install Traveler
-RUN git clone https://github.com/cusbg/traveler && cd traveler && git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && cd src && make build
-
-COPY examples examples/
+RUN git clone https://github.com/cusbg/traveler && \
+    cd traveler && \
+    git checkout 2ba11bf95518f9bee02f91dc1388ed8e22764eef && \
+    cd src && \
+    make build
 
 # Install python dependencies
 ADD . /rna/r2dt
