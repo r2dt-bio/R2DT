@@ -62,8 +62,7 @@ RUN \
 # Install Bio-Easel
 RUN \
     cpan install Inline && \
-    cpan install Inline::C
-RUN \
+    cpan install Inline::C && \
     git clone https://github.com/nawrockie/Bio-Easel.git && \
     cd Bio-Easel && \
     git checkout e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 && \
@@ -80,9 +79,7 @@ RUN \
 RUN \
     git clone https://github.com/nawrockie/jiffy-infernal-hmmer-scripts.git && \
     cd jiffy-infernal-hmmer-scripts && \
-    git checkout aecbbf0436e5a2d3e7612c01194bd222e65430ba
-RUN \
-    cd jiffy-infernal-hmmer-scripts && \
+    git checkout aecbbf0436e5a2d3e7612c01194bd222e65430ba && \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
     chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
 
@@ -115,18 +112,19 @@ ADD requirements.txt $RNA/r2dt/requirements.txt
 RUN pip3 install -r $RNA/r2dt/requirements.txt
 
 # Setup environmental variables
-ENV RIBODIR="$RNA/ribovore" RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" RIBOEASELDIR="$RNA/infernal-1.1.2/bin"
-ENV EPNOPTDIR="$RNA/epn-options" EPNOFILEDIR="$RNA/epn-ofile" EPNTESTDIR="$RNA/epn-test"
-ENV RIBOTIMEDIR="/usr/bin"
-ENV BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib"
-ENV PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
-ENV LC_ALL="C.UTF-8" LANG="C.UTF-8"
-ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:$PATH"
-ENV PATH="/rna/rscape/bin:$PATH"
-ENV PATH="/rna/jiffy-infernal-hmmer-scripts:$PATH"
-ENV PATH="/rna/RNAstructure/exe:$PATH" DATAPATH="/rna/RNAstructure/data_tables/"
-ENV PATH="/rna/r2dt:$PATH"
-ENV PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3"
+ENV RIBODIR="$RNA/ribovore" \
+    RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" \
+    RIBOEASELDIR="$RNA/infernal-1.1.2/bin" \
+    EPNOPTDIR="$RNA/epn-options" \
+    EPNOFILEDIR="$RNA/epn-ofile" \
+    EPNTESTDIR="$RNA/epn-test" \
+    RIBOTIMEDIR="/usr/bin" \
+    BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
+    PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB" \
+    LC_ALL="C.UTF-8" LANG="C.UTF-8" \
+    DATAPATH="/rna/RNAstructure/data_tables/" \
+    PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3" \
+    PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH"
 WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]
