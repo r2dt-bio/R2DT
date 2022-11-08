@@ -20,39 +20,39 @@ import glob
 
 
 def convert_bpseq_to_fasta(bpseq):
-    fasta = bpseq.replace('.bpseq', '.fasta')
+    fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = 'python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}'.format(
-            bpseq=bpseq,
-            fasta=fasta
+        cmd = "python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}".format(
+            bpseq=bpseq, fasta=fasta
         )
         os.system(cmd)
     return fasta
 
 
 def break_pseudoknots(fasta):
-    fasta_no_knots = fasta.replace('-with-knots.fasta', '.fasta')
+    fasta_no_knots = fasta.replace("-with-knots.fasta", ".fasta")
     if not os.path.exists(fasta_no_knots):
-        cmd = 'RemovePseudoknots -b {fasta} {fasta_no_knots}'.format(
-            fasta=fasta,
-            fasta_no_knots=fasta_no_knots
+        cmd = "RemovePseudoknots -b {fasta} {fasta_no_knots}".format(
+            fasta=fasta, fasta_no_knots=fasta_no_knots
         )
         os.system(cmd)
     return fasta_no_knots
 
 
 def convert_fasta_to_stockholm(fasta):
-    stockholm = fasta.replace('.fasta', '.sto')
-    model_id = os.path.basename(stockholm).replace('.sto', '')
+    stockholm = fasta.replace(".fasta", ".sto")
+    model_id = os.path.basename(stockholm).replace(".sto", "")
     if not os.path.exists(stockholm):
-        with open(fasta, 'r') as f_input:
-            with open(stockholm, 'w') as f_output:
-                   lines = f_input.readlines()
-                   f_output.write('# STOCKHOLM 1.0\n')
-                   f_output.write('\n')
-                   f_output.write('{0}{1}\n'.format(model_id.ljust(60), lines[1].strip()))
-                   f_output.write('{0}{1}\n'.format('#=GC SS_cons'.ljust(60), lines[2].strip()))
-                   f_output.write('//\n')
+        with open(fasta, "r") as f_input:
+            with open(stockholm, "w") as f_output:
+                lines = f_input.readlines()
+                f_output.write("# STOCKHOLM 1.0\n")
+                f_output.write("\n")
+                f_output.write("{0}{1}\n".format(model_id.ljust(60), lines[1].strip()))
+                f_output.write(
+                    "{0}{1}\n".format("#=GC SS_cons".ljust(60), lines[2].strip())
+                )
+                f_output.write("//\n")
     return stockholm
 
 
@@ -61,23 +61,22 @@ def copy_cm_evalues(cm):
     Update covariance files genenrated from CRW covariance models
     by copying E-values from Rfam CMs.
     """
-    if not os.path.exists('RF00177.cm'):
-        cmd = 'wget -O RF00177.cm http://rfam.org/family/RF00177/cm'
+    if not os.path.exists("RF00177.cm"):
+        cmd = "wget -O RF00177.cm http://rfam.org/family/RF00177/cm"
         os.system(cmd)
-    cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl RF00177.cm {cm}'.format(cm=cm)
+    cmd = "perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl RF00177.cm {cm}".format(
+        cm=cm
+    )
     os.system(cmd)
-    os.system('rm {}.old'.format(cm))
+    os.system("rm {}.old".format(cm))
 
 
 def build_cm(stockholm, cm_library):
-    cm = os.path.join(cm_library, os.path.basename(stockholm).replace('.sto', '.cm'))
+    cm = os.path.join(cm_library, os.path.basename(stockholm).replace(".sto", ".cm"))
     if not os.path.exists(cm):
-        cmd = 'cmbuild {cm} {stockholm}'.format(
-            cm=cm,
-            stockholm=stockholm
-        )
+        cmd = "cmbuild {cm} {stockholm}".format(cm=cm, stockholm=stockholm)
         os.system(cmd)
         copy_cm_evalues(cm)
     else:
-        print('CM already exists {}'.format(cm))
+        print("CM already exists {}".format(cm))
     return cm

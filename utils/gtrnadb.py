@@ -22,22 +22,22 @@ from . import shared
 
 
 def setup():
-    base = '/usr/local/lib/tRNAscan-SE/models'
+    base = "/usr/local/lib/tRNAscan-SE/models"
     cm_dbs = {
-        'TRNAinf-arch-iso': 'A',
-        'TRNAinf-bact-iso': 'B',
-        'TRNAinf-euk-iso': 'E',
-        'TRNAinf-mito-vert': 'M',
+        "TRNAinf-arch-iso": "A",
+        "TRNAinf-bact-iso": "B",
+        "TRNAinf-euk-iso": "E",
+        "TRNAinf-mito-vert": "M",
     }
     for cm, domain in cm_dbs.items():
         path = Path(os.path.join(base, cm))
-        with path.open('r') as raw:
+        with path.open("r") as raw:
             for line in raw:
                 line = line.strip()
-                if line.startswith('NAME'):
-                    _, name = re.split('\s+', line, maxsplit=1)
-                    if 'mito' not in str(path):
-                        _, isotype = name.split('-', 1)
+                if line.startswith("NAME"):
+                    _, name = re.split("\s+", line, maxsplit=1)
+                    if "mito" not in str(path):
+                        _, isotype = name.split("-", 1)
                     else:
                         isotype = name
                     get_trnascan_cm(domain, isotype)
@@ -51,28 +51,31 @@ def parse_trnascan_output(filename):
     URS0000023412_9606 	1	1 	73	Thr	TGT	0	0	60.2
     """
     data = {}
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         for i, line in enumerate(f):
             if i in [0, 1, 2]:
-                continue # skip 3 header lines
-            parts = line.split('\t')
+                continue  # skip 3 header lines
+            parts = line.split("\t")
             data[parts[0].strip()] = {
-                'score': float(parts[8].strip()),
-                'isotype': parts[4].strip(),
-                'anticodon': parts[5].strip(),
-                'note': parts[9].lower().strip(),
-                'start': int(parts[2].strip()),
-                'end': int(parts[3].strip()),
+                "score": float(parts[8].strip()),
+                "isotype": parts[4].strip(),
+                "anticodon": parts[5].strip(),
+                "note": parts[9].lower().strip(),
+                "start": int(parts[2].strip()),
+                "end": int(parts[3].strip()),
             }
     return data
 
 
 def run_trnascan(fasta_input, output_folder, domain):
-    output_file = os.path.join(output_folder, domain + '-' + os.path.basename(fasta_input).replace('.fasta', '.txt'))
-    if domain == 'M':
-        domain = 'M vert'
+    output_file = os.path.join(
+        output_folder,
+        domain + "-" + os.path.basename(fasta_input).replace(".fasta", ".txt"),
+    )
+    if domain == "M":
+        domain = "M vert"
     if not os.path.exists(output_file):
-        cmd = 'tRNAscan-SE -{domain} -o {output_file} {input}'.format(
+        cmd = "tRNAscan-SE -{domain} -o {output_file} {input}".format(
             domain=domain,
             input=fasta_input,
             output_file=output_file,
@@ -86,7 +89,7 @@ def skip_trna(entry):
     """
     Some tRNAs should not be drawn and need to be skipped.
     """
-    if 'pseudo' in entry['note'] or entry['isotype'] in ['Undet', 'Sup']:
+    if "pseudo" in entry["note"] or entry["isotype"] in ["Undet", "Sup"]:
         return True
     return False
 
@@ -94,80 +97,99 @@ def skip_trna(entry):
 def classify_trna_sequences(fasta_input, output_folder):
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
-    mito_vert = run_trnascan(fasta_input, output_folder, 'M')
-    bacteria = run_trnascan(fasta_input, output_folder, 'B')
-    archaea = run_trnascan(fasta_input, output_folder, 'A')
-    eukaryotes = run_trnascan(fasta_input, output_folder, 'E')
+    mito_vert = run_trnascan(fasta_input, output_folder, "M")
+    bacteria = run_trnascan(fasta_input, output_folder, "B")
+    archaea = run_trnascan(fasta_input, output_folder, "A")
+    eukaryotes = run_trnascan(fasta_input, output_folder, "E")
 
     rna_ids = set()
     rna_ids.update(
         list(mito_vert.keys()),
         list(bacteria.keys()),
         list(archaea.keys()),
-        list(eukaryotes.keys())
+        list(eukaryotes.keys()),
     )
 
     data = []
     for rna_id in rna_ids:
         values = [
-            bacteria[rna_id]['score'] if rna_id in bacteria else -1000,
-            archaea[rna_id]['score'] if rna_id in archaea else -1000,
-            eukaryotes[rna_id]['score'] if rna_id in eukaryotes else -1000,
-            mito_vert[rna_id]['score'] if rna_id in mito_vert else -1000,
+            bacteria[rna_id]["score"] if rna_id in bacteria else -1000,
+            archaea[rna_id]["score"] if rna_id in archaea else -1000,
+            eukaryotes[rna_id]["score"] if rna_id in eukaryotes else -1000,
+            mito_vert[rna_id]["score"] if rna_id in mito_vert else -1000,
         ]
         maximum = values.index(max(values))
         if maximum == 0:
             if skip_trna(bacteria[rna_id]):
                 continue
-            bacteria[rna_id]['domain'] = 'B'
-            bacteria[rna_id]['id'] = rna_id
+            bacteria[rna_id]["domain"] = "B"
+            bacteria[rna_id]["id"] = rna_id
             data.append(bacteria[rna_id])
         elif maximum == 1:
             if skip_trna(archaea[rna_id]):
                 continue
-            archaea[rna_id]['domain'] = 'A'
-            archaea[rna_id]['id'] = rna_id
+            archaea[rna_id]["domain"] = "A"
+            archaea[rna_id]["id"] = rna_id
             data.append(archaea[rna_id])
         elif maximum == 2:
             if skip_trna(eukaryotes[rna_id]):
                 continue
-            eukaryotes[rna_id]['domain'] = 'E'
-            eukaryotes[rna_id]['id'] = rna_id
+            eukaryotes[rna_id]["domain"] = "E"
+            eukaryotes[rna_id]["id"] = rna_id
             data.append(eukaryotes[rna_id])
         elif maximum == 3:
-            mito_vert[rna_id]['domain'] = 'M'
-            mito_vert[rna_id]['id'] = rna_id
-            if mito_vert[rna_id]['isotype'] in ['Leu', 'Ser']:
+            mito_vert[rna_id]["domain"] = "M"
+            mito_vert[rna_id]["id"] = rna_id
+            if mito_vert[rna_id]["isotype"] in ["Leu", "Ser"]:
                 # LeuTAA, LeuTAG, SerGCT, SerTGA
-                mito_vert[rna_id]['isotype'] = mito_vert[rna_id]['isotype'] + mito_vert[rna_id]['anticodon']
+                mito_vert[rna_id]["isotype"] = (
+                    mito_vert[rna_id]["isotype"] + mito_vert[rna_id]["anticodon"]
+                )
             data.append(mito_vert[rna_id])
 
-    with open(os.path.join(output_folder, 'hits.txt'), 'w') as f_out:
+    with open(os.path.join(output_folder, "hits.txt"), "w") as f_out:
         for entry in data:
-            f_out.write('{}\t{}_{}\tPASS\n'.format(entry['id'], entry['domain'], entry['isotype']))
+            f_out.write(
+                "{}\t{}_{}\tPASS\n".format(
+                    entry["id"], entry["domain"], entry["isotype"]
+                )
+            )
     return data
 
 
-def visualise(domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type):
-    destination = '{}/{}'.format(output_folder, '_'.join([domain, isotype]))
+def visualise(
+    domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type
+):
+    destination = "{}/{}".format(output_folder, "_".join([domain, isotype]))
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    if not os.path.exists(fasta_input + '.ssi'):
-        cmd = 'esl-sfetch --index {}'.format(fasta_input)
+    if not os.path.exists(fasta_input + ".ssi"):
+        cmd = "esl-sfetch --index {}".format(fasta_input)
         os.system(cmd)
 
     cmd = "grep '>' {} > headers.txt"
     os.system(cmd.format(fasta_input))
 
-    with open('headers.txt', 'r') as f:
+    with open("headers.txt", "r") as f:
         for i, line in enumerate(f):
             if test and i > 10:
                 continue
-            seq_id = line.split(' ', 1)[0].replace('>', '').strip()
+            seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
-            generate_2d(domain, isotype, seq_id, None, None, fasta_input, destination, constraint, exclusion, fold_type)
-    os.system('rm headers.txt')
+            generate_2d(
+                domain,
+                isotype,
+                seq_id,
+                None,
+                None,
+                fasta_input,
+                destination,
+                constraint,
+                exclusion,
+                fold_type,
+            )
+    os.system("rm headers.txt")
 
 
 def get_trnascan_cm(domain, isotype):
@@ -176,63 +198,88 @@ def get_trnascan_cm(domain, isotype):
     """
     if not os.path.exists(config.GTRNADB_CM_LIBRARY):
         os.mkdir(config.GTRNADB_CM_LIBRARY)
-    cm_output = Path(config.GTRNADB_CM_LIBRARY) / '{}_{}.cm'.format(domain, isotype)
+    cm_output = Path(config.GTRNADB_CM_LIBRARY) / "{}_{}.cm".format(domain, isotype)
     if cm_output.exists():
         return str(cm_output)
 
-    cm_library = Path('/usr/local/lib/tRNAscan-SE/models')
-    if domain == 'A':
-        cm_library = cm_library / 'TRNAinf-arch-iso'
-        cm_name = 'arch-' + isotype
-    elif domain == 'B':
-        cm_library = cm_library / 'TRNAinf-bact-iso'
-        cm_name = 'bact-' + isotype
-    elif domain == 'E':
-        cm_library = cm_library / 'TRNAinf-euk-iso'
-        cm_name = 'euk-' + isotype
-    elif domain == 'M':
-        cm_library = cm_library / 'TRNAinf-mito-vert'
+    cm_library = Path("/usr/local/lib/tRNAscan-SE/models")
+    if domain == "A":
+        cm_library = cm_library / "TRNAinf-arch-iso"
+        cm_name = "arch-" + isotype
+    elif domain == "B":
+        cm_library = cm_library / "TRNAinf-bact-iso"
+        cm_name = "bact-" + isotype
+    elif domain == "E":
+        cm_library = cm_library / "TRNAinf-euk-iso"
+        cm_name = "euk-" + isotype
+    elif domain == "M":
+        cm_library = cm_library / "TRNAinf-mito-vert"
         cm_name = isotype
     else:
         raise ValueError("Unknown domain: %s" % domain)
 
-    with cm_output.open('w') as out:
-        cmd = ['cmfetch', str(cm_library), cm_name]
+    with cm_output.open("w") as out:
+        cmd = ["cmfetch", str(cm_library), cm_name]
         sp.check_call(cmd, stdout=out)
     return cm_output
 
 
 def get_traveler_template_xml(domain, isotype):
-    if domain == 'A':
-        return os.path.join(config.GTRNADB_ARCH, 'arch-{}-traveler-template.xml'.format(isotype))
-    elif domain == 'B':
-        return os.path.join(config.GTRNADB_BACT, 'bact-{}-traveler-template.xml'.format(isotype))
-    elif domain == 'M':
-        if 'Leu' in isotype or 'Ser' in isotype:
-            isotype = isotype[0:3] + '_' + isotype[3:6]
-        return os.path.join(config.GTRNADB_MITO, 'mito_vert_{}-traveler-template.xml'.format(isotype))
-    elif domain == 'E':
-        return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler-template.xml'.format(isotype))
+    if domain == "A":
+        return os.path.join(
+            config.GTRNADB_ARCH, "arch-{}-traveler-template.xml".format(isotype)
+        )
+    elif domain == "B":
+        return os.path.join(
+            config.GTRNADB_BACT, "bact-{}-traveler-template.xml".format(isotype)
+        )
+    elif domain == "M":
+        if "Leu" in isotype or "Ser" in isotype:
+            isotype = isotype[0:3] + "_" + isotype[3:6]
+        return os.path.join(
+            config.GTRNADB_MITO, "mito_vert_{}-traveler-template.xml".format(isotype)
+        )
+    elif domain == "E":
+        return os.path.join(
+            config.GTRNADB_EUK, "euk-{}-traveler-template.xml".format(isotype)
+        )
     else:
         raise ValueError("Unknown domain %s" % domain)
 
 
 def get_traveler_fasta(domain, isotype):
-    if domain == 'A':
-        return os.path.join(config.GTRNADB_ARCH, 'arch-{}-traveler.fasta'.format(isotype))
-    elif domain == 'B':
-        return os.path.join(config.GTRNADB_BACT, 'bact-{}-traveler.fasta'.format(isotype))
-    elif domain == 'M':
-        if 'Leu' in isotype or 'Ser' in isotype:
-            isotype = isotype[0:3] + '_' + isotype[3:6]
-        return os.path.join(config.GTRNADB_MITO, 'mito_vert_{}-traveler.fasta'.format(isotype))
-    elif domain == 'E':
-        return os.path.join(config.GTRNADB_EUK, 'euk-{}-traveler.fasta'.format(isotype))
+    if domain == "A":
+        return os.path.join(
+            config.GTRNADB_ARCH, "arch-{}-traveler.fasta".format(isotype)
+        )
+    elif domain == "B":
+        return os.path.join(
+            config.GTRNADB_BACT, "bact-{}-traveler.fasta".format(isotype)
+        )
+    elif domain == "M":
+        if "Leu" in isotype or "Ser" in isotype:
+            isotype = isotype[0:3] + "_" + isotype[3:6]
+        return os.path.join(
+            config.GTRNADB_MITO, "mito_vert_{}-traveler.fasta".format(isotype)
+        )
+    elif domain == "E":
+        return os.path.join(config.GTRNADB_EUK, "euk-{}-traveler.fasta".format(isotype))
     else:
         raise ValueError("Unknown domain %s" % domain)
 
 
-def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder, constraint, exclusion, fold_type):
+def generate_2d(
+    domain,
+    isotype,
+    seq_id,
+    start,
+    end,
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+):
     temp_fasta = tempfile.NamedTemporaryFile()
     temp_sto = tempfile.NamedTemporaryFile()
     temp_depaired = tempfile.NamedTemporaryFile()
@@ -241,22 +288,22 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
     temp_afa = tempfile.NamedTemporaryFile()
     temp_map = tempfile.NamedTemporaryFile()
 
-    if not os.path.exists(fasta_input + '.ssi'):
-        cmd = 'esl-sfetch --index {}'.format(fasta_input)
+    if not os.path.exists(fasta_input + ".ssi"):
+        cmd = "esl-sfetch --index {}".format(fasta_input)
         os.system(cmd)
 
-    cmd = 'esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}'.format(
+    cmd = "esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}".format(
         fasta_input=fasta_input,
         seq_id=seq_id,
         temp_fasta=temp_fasta.name,
-        seq_range='-c {}..{}'.format(start, end) if start and end else ''
+        seq_range="-c {}..{}".format(start, end) if start and end else "",
     )
     os.system(cmd)
 
     cmd = "cmalign {trnascan_cm} {temp_fasta} > {temp_sto}".format(
         trnascan_cm=get_trnascan_cm(domain, isotype),
         temp_fasta=temp_fasta.name,
-        temp_sto=temp_sto.name
+        temp_sto=temp_sto.name,
     )
     result = os.system(cmd)
     if result:
@@ -264,78 +311,99 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
         return
 
     # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
-    cmd = 'esl-alidepair.pl --nc 0.5 {} {}'.format(temp_sto.name, temp_depaired.name)
+    cmd = "esl-alidepair.pl --nc 0.5 {} {}".format(temp_sto.name, temp_depaired.name)
     result = os.system(cmd)
     if result:
         print("Failed esl-alidepair for {}".format(seq_id))
 
-    cmd = 'esl-alimanip --rna --sindi --outformat pfam {} > {}'.format(temp_depaired.name, temp_stk.name)
+    cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
+        temp_depaired.name, temp_stk.name
+    )
     result = os.system(cmd)
     if result:
         print("Failed esl-alimanip for %s" % (seq_id))
         return
 
-    cmd = 'ali-pfam-lowercase-rf-gap-columns.pl -s {} > {}'.format(temp_stk.name, temp_pfam_stk.name)
+    cmd = "ali-pfam-lowercase-rf-gap-columns.pl -s {} > {}".format(
+        temp_stk.name, temp_pfam_stk.name
+    )
     result = os.system(cmd)
     if result:
         raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s" % (seq_id))
 
-    os.system('cp {} {}/temp_pfam_stk.txt'.format(temp_pfam_stk.name, output_folder))
+    os.system("cp {} {}/temp_pfam_stk.txt".format(temp_pfam_stk.name, output_folder))
 
-    if(not constraint):
+    if not constraint:
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
 
-    cmd = 'ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}'.format(temp_pfam_stk.name, temp_afa.name)
+    cmd = "ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}".format(
+        temp_pfam_stk.name, temp_afa.name
+    )
     result = os.system(cmd)
     if result:
         raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s" % (seq_id))
 
-    cmd = 'python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}'.format(temp_afa.name, temp_map.name)
+    cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
+        temp_afa.name, temp_map.name
+    )
     result = os.system(cmd)
     if result:
         raise ValueError("Failed infernal2mapping for %s" % (cmd))
 
-    result_base = os.path.join(output_folder, seq_id.replace('/', '-') + '-' + domain + '_' + isotype)
-    input_fasta = os.path.join(output_folder, seq_id + '.fasta')
-    cmd = 'ali-pfam-sindi2dot-bracket.pl {} > {}'.format(temp_stk.name, input_fasta)
+    result_base = os.path.join(
+        output_folder, seq_id.replace("/", "-") + "-" + domain + "_" + isotype
+    )
+    input_fasta = os.path.join(output_folder, seq_id + ".fasta")
+    cmd = "ali-pfam-sindi2dot-bracket.pl {} > {}".format(temp_stk.name, input_fasta)
     os.system(cmd)
 
     if constraint:
-        shared.fold_insertions(input_fasta, exclusion, 'gtrnadb', temp_pfam_stk.name, domain + '_' + isotype, fold_type)
+        shared.fold_insertions(
+            input_fasta,
+            exclusion,
+            "gtrnadb",
+            temp_pfam_stk.name,
+            domain + "_" + isotype,
+            fold_type,
+        )
     elif exclusion:
-        print('Exclusion ignored, enable --constraint to add exclusion file')
+        print("Exclusion ignored, enable --constraint to add exclusion file")
 
-    log = result_base + '.log'
-    cmd = ('traveler '
-           '--verbose '
-           '--target-structure {fasta} '
-           '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
-           '--draw {map} {result_base} '
-           '--numbering "13,26" -l '
-           '> {log}' ).format(
-               fasta=input_fasta,
-               result_base=result_base,
-               traveler_template_xml=get_traveler_template_xml(domain, isotype),
-               traveler_fasta=get_traveler_fasta(domain, isotype),
-               log=log,
-               map=temp_map.name
-            )
+    log = result_base + ".log"
+    cmd = (
+        "traveler "
+        "--verbose "
+        "--target-structure {fasta} "
+        "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
+        "--draw {map} {result_base} "
+        '--numbering "13,26" -l '
+        "> {log}"
+    ).format(
+        fasta=input_fasta,
+        result_base=result_base,
+        traveler_template_xml=get_traveler_template_xml(domain, isotype),
+        traveler_fasta=get_traveler_fasta(domain, isotype),
+        log=log,
+        map=temp_map.name,
+    )
     result = os.system(cmd)
     if result:
-        print('Repeating using Traveler mapping')
-        cmd = ('traveler '
-               '--verbose '
-               '--target-structure {fasta} '
-               '--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} '
-               '--all {result_base} '
-                '--numbering "13,26" -l '
-               '> {log}' ).format(
-                   fasta=input_fasta,
-                   result_base=result_base,
-                   traveler_template_xml=get_traveler_template_xml(domain, isotype),
-                   traveler_fasta=get_traveler_fasta(domain, isotype),
-                   log=log
-                )
+        print("Repeating using Traveler mapping")
+        cmd = (
+            "traveler "
+            "--verbose "
+            "--target-structure {fasta} "
+            "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
+            "--all {result_base} "
+            '--numbering "13,26" -l '
+            "> {log}"
+        ).format(
+            fasta=input_fasta,
+            result_base=result_base,
+            traveler_template_xml=get_traveler_template_xml(domain, isotype),
+            traveler_fasta=get_traveler_fasta(domain, isotype),
+            log=log,
+        )
         print(cmd)
         result = os.system(cmd)
 
@@ -349,19 +417,19 @@ def generate_2d(domain, isotype, seq_id, start, end, fasta_input, output_folder,
     temp_afa.close()
     temp_map.close()
 
-    cmd = 'rm -f {0}/*.xml {0}/*.ps'.format(output_folder)
+    cmd = "rm -f {0}/*.xml {0}/*.ps".format(output_folder)
     os.system(cmd)
 
     overlaps = 0
-    with open(log, 'r') as raw:
+    with open(log, "r") as raw:
         for line in raw:
-            match = re.search(r'Overlaps count: (\d+)', line)
+            match = re.search(r"Overlaps count: (\d+)", line)
             if match:
                 if overlaps:
-                    print('ERROR: Saw too many overlap counts')
+                    print("ERROR: Saw too many overlap counts")
                     break
                 overlaps = int(match.group(1))
 
-    with open(result_base + '.overlaps', 'w') as out:
+    with open(result_base + ".overlaps", "w") as out:
         out.write(str(overlaps))
-        out.write('\n')
+        out.write("\n")
