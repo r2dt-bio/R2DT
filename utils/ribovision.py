@@ -54,28 +54,23 @@ def visualise(
     temp_afa = tempfile.NamedTemporaryFile()
     temp_map = tempfile.NamedTemporaryFile()
 
-    cmd = "esl-sfetch %s %s > %s" % (fasta_input, rnacentral_id, temp_fasta.name)
+    cmd = f"esl-sfetch {fasta_input} {rnacentral_id} > {temp_fasta.name}"
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed esl-sfetch for: %s" % rnacentral_id)
+        raise ValueError(f"Failed esl-sfetch for: {rnacentral_id}")
 
     model_path = os.path.join(cm_library, model_id + ".cm")
     if not os.path.exists(model_path):
-        print("Model not found %s" % model_path)
+        print(f"Model not found {model_path}")
         return
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        cmd = "cmalign %s %s %s > %s" % (
-            options,
-            model_path,
-            temp_fasta.name,
-            temp_sto.name,
-        )
+        cmd = f"cmalign {options} {model_path} {temp_fasta.name} > {temp_sto.name}"
         result = os.system(cmd)
         if not result:
             break
     else:
-        print("Failed cmalign of %s to %s" % (rnacentral_id, model_id))
+        print(f"Failed cmalign of {rnacentral_id} to {model_id}")
         return
 
     cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
@@ -83,17 +78,14 @@ def visualise(
     )
     result = os.system(cmd)
     if result:
-        print("Failed esl-alimanip for %s %s" % (rnacentral_id, model_id))
+        print(f"Failed esl-alimanip for {rnacentral_id} {model_id}")
         return
 
-    cmd = "ali-pfam-lowercase-rf-gap-columns.pl {} > {}".format(
-        temp_stk.name, temp_pfam_stk.name
-    )
+    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl {temp_stk.name} > {temp_pfam_stk.name}"
     result = os.system(cmd)
     if result:
         raise ValueError(
-            "Failed ali-pfam-lowercase-rf-gap-columns for %s %s"
-            % (rnacentral_id, model_id)
+            f"Failed ali-pfam-lowercase-rf-gap-columns for {rnacentral_id} {model_id}"
         )
 
     if not constraint:
@@ -105,7 +97,7 @@ def visualise(
     result = os.system(cmd)
     if result:
         raise ValueError(
-            "Failed ali-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id)
+            f"Failed ali-pfam-sindi2dot-bracket for {rnacentral_id} {model_id}"
         )
 
     cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
@@ -113,7 +105,7 @@ def visualise(
     )
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed infernal2mapping for %s" % (cmd))
+        raise ValueError(f"Failed infernal2mapping for {cmd}")
 
     cmd = "ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta" % (
         temp_pfam_stk.name,
@@ -123,15 +115,12 @@ def visualise(
     )
     result = os.system(cmd)
     if result:
-        print("Failed esl-pfam-sindi2dot-bracket for %s %s" % (rnacentral_id, model_id))
+        print(f"Failed esl-pfam-sindi2dot-bracket for {rnacentral_id} {model_id}")
         return
 
     result_base = os.path.join(
         output_folder,
-        "{rnacentral_id}-{model_id}".format(
-            rnacentral_id=rnacentral_id.replace("/", "_"),
-            model_id=model_id,
-        ),
+        f"{rnacentral_id.replace('/', '_')}-{model_id}",
     )
 
     if constraint:
@@ -213,5 +202,5 @@ def adjust_font_size(result_base):
     for filename in filenames:
         if not os.path.exists(filename):
             continue
-        cmd = """sed -i 's/font-size: 7px;/font-size: 4px;/' {}""".format(filename)
+        cmd = f"""sed -i 's/font-size: 7px;/font-size: 4px;/' {filename}"""
         os.system(cmd)

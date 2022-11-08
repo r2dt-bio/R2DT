@@ -75,11 +75,7 @@ def run_trnascan(fasta_input, output_folder, domain):
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
-        cmd = "tRNAscan-SE -{domain} -o {output_file} {input}".format(
-            domain=domain,
-            input=fasta_input,
-            output_file=output_file,
-        )
+        cmd = f"tRNAscan-SE -{domain} -o {output_file} {fasta_input}"
         print(cmd)
         os.system(cmd)
     return parse_trnascan_output(output_file)
@@ -150,9 +146,7 @@ def classify_trna_sequences(fasta_input, output_folder):
     with open(os.path.join(output_folder, "hits.txt"), "w") as f_out:
         for entry in data:
             f_out.write(
-                "{}\t{}_{}\tPASS\n".format(
-                    entry["id"], entry["domain"], entry["isotype"]
-                )
+                f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n"
             )
     return data
 
@@ -160,12 +154,12 @@ def classify_trna_sequences(fasta_input, output_folder):
 def visualise(
     domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type
 ):
-    destination = "{}/{}".format(output_folder, "_".join([domain, isotype]))
+    destination = f"{output_folder}/{'_'.join([domain, isotype])}"
     if not os.path.exists(destination):
         os.makedirs(destination)
 
     if not os.path.exists(fasta_input + ".ssi"):
-        cmd = "esl-sfetch --index {}".format(fasta_input)
+        cmd = f"esl-sfetch --index {fasta_input}"
         os.system(cmd)
 
     cmd = "grep '>' {} > headers.txt"
@@ -198,7 +192,7 @@ def get_trnascan_cm(domain, isotype):
     """
     if not os.path.exists(config.GTRNADB_CM_LIBRARY):
         os.mkdir(config.GTRNADB_CM_LIBRARY)
-    cm_output = Path(config.GTRNADB_CM_LIBRARY) / "{}_{}.cm".format(domain, isotype)
+    cm_output = Path(config.GTRNADB_CM_LIBRARY) / f"{domain}_{isotype}.cm"
     if cm_output.exists():
         return str(cm_output)
 
@@ -216,7 +210,7 @@ def get_trnascan_cm(domain, isotype):
         cm_library = cm_library / "TRNAinf-mito-vert"
         cm_name = isotype
     else:
-        raise ValueError("Unknown domain: %s" % domain)
+        raise ValueError(f"Unknown domain: {domain}")
 
     with cm_output.open("w") as out:
         cmd = ["cmfetch", str(cm_library), cm_name]
@@ -227,45 +221,45 @@ def get_trnascan_cm(domain, isotype):
 def get_traveler_template_xml(domain, isotype):
     if domain == "A":
         return os.path.join(
-            config.GTRNADB_ARCH, "arch-{}-traveler-template.xml".format(isotype)
+            config.GTRNADB_ARCH, f"arch-{isotype}-traveler-template.xml"
         )
     elif domain == "B":
         return os.path.join(
-            config.GTRNADB_BACT, "bact-{}-traveler-template.xml".format(isotype)
+            config.GTRNADB_BACT, f"bact-{isotype}-traveler-template.xml"
         )
     elif domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
         return os.path.join(
-            config.GTRNADB_MITO, "mito_vert_{}-traveler-template.xml".format(isotype)
+            config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler-template.xml"
         )
     elif domain == "E":
         return os.path.join(
-            config.GTRNADB_EUK, "euk-{}-traveler-template.xml".format(isotype)
+            config.GTRNADB_EUK, f"euk-{isotype}-traveler-template.xml"
         )
     else:
-        raise ValueError("Unknown domain %s" % domain)
+        raise ValueError(f"Unknown domain {domain}")
 
 
 def get_traveler_fasta(domain, isotype):
     if domain == "A":
         return os.path.join(
-            config.GTRNADB_ARCH, "arch-{}-traveler.fasta".format(isotype)
+            config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta"
         )
     elif domain == "B":
         return os.path.join(
-            config.GTRNADB_BACT, "bact-{}-traveler.fasta".format(isotype)
+            config.GTRNADB_BACT, f"bact-{isotype}-traveler.fasta"
         )
     elif domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
         return os.path.join(
-            config.GTRNADB_MITO, "mito_vert_{}-traveler.fasta".format(isotype)
+            config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler.fasta"
         )
     elif domain == "E":
-        return os.path.join(config.GTRNADB_EUK, "euk-{}-traveler.fasta".format(isotype))
+        return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler.fasta")
     else:
-        raise ValueError("Unknown domain %s" % domain)
+        raise ValueError(f"Unknown domain {domain}")
 
 
 def generate_2d(
@@ -289,7 +283,7 @@ def generate_2d(
     temp_map = tempfile.NamedTemporaryFile()
 
     if not os.path.exists(fasta_input + ".ssi"):
-        cmd = "esl-sfetch --index {}".format(fasta_input)
+        cmd = f"esl-sfetch --index {fasta_input}"
         os.system(cmd)
 
     cmd = "esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}".format(
@@ -307,21 +301,21 @@ def generate_2d(
     )
     result = os.system(cmd)
     if result:
-        print("Failed cmalign of %s to %s" % (seq_id, isotype))
+        print(f"Failed cmalign of {seq_id} to {isotype}")
         return
 
     # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
-    cmd = "esl-alidepair.pl --nc 0.5 {} {}".format(temp_sto.name, temp_depaired.name)
+    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto.name} {temp_depaired.name}"
     result = os.system(cmd)
     if result:
-        print("Failed esl-alidepair for {}".format(seq_id))
+        print(f"Failed esl-alidepair for {seq_id}")
 
     cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
         temp_depaired.name, temp_stk.name
     )
     result = os.system(cmd)
     if result:
-        print("Failed esl-alimanip for %s" % (seq_id))
+        print(f"Failed esl-alimanip for {seq_id}")
         return
 
     cmd = "ali-pfam-lowercase-rf-gap-columns.pl -s {} > {}".format(
@@ -329,9 +323,9 @@ def generate_2d(
     )
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed ali-pfam-lowercase-rf-gap-columns for %s" % (seq_id))
+        raise ValueError(f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id}")
 
-    os.system("cp {} {}/temp_pfam_stk.txt".format(temp_pfam_stk.name, output_folder))
+    os.system(f"cp {temp_pfam_stk.name} {output_folder}/temp_pfam_stk.txt")
 
     if not constraint:
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
@@ -341,20 +335,20 @@ def generate_2d(
     )
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed ali-pfam-sindi2dot-bracket for %s" % (seq_id))
+        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id}")
 
     cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
         temp_afa.name, temp_map.name
     )
     result = os.system(cmd)
     if result:
-        raise ValueError("Failed infernal2mapping for %s" % (cmd))
+        raise ValueError(f"Failed infernal2mapping for {cmd}")
 
     result_base = os.path.join(
         output_folder, seq_id.replace("/", "-") + "-" + domain + "_" + isotype
     )
     input_fasta = os.path.join(output_folder, seq_id + ".fasta")
-    cmd = "ali-pfam-sindi2dot-bracket.pl {} > {}".format(temp_stk.name, input_fasta)
+    cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_stk.name} > {input_fasta}"
     os.system(cmd)
 
     if constraint:

@@ -29,15 +29,13 @@ CM_LIBRARY = os.path.join(ribovision_folder, "cms")
 def convert_bpseq_to_fasta(bpseq):
     fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = "python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}".format(
-            bpseq=bpseq, fasta=fasta
-        )
+        cmd = f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}"
         os.system(cmd)
     return fasta
 
 
 def main():
-    for bpseq in glob.glob("%s/*.bpseq" % BPSEQ_LOCATION):
+    for bpseq in glob.glob(f"{BPSEQ_LOCATION}/*.bpseq"):
         print(os.path.basename(bpseq).replace(".bpseq", ""))
         fasta = convert_bpseq_to_fasta(bpseq)
         stockholm = convert_fasta_to_stockholm(fasta)

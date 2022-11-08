@@ -230,9 +230,7 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             ]
             full_molecule = ["snRNA", "snoRNA", "sRNA", "tRNA", "miRNA"]
             r = requests.get(
-                "http://rfam.org/family/{}?content-type=application/json".format(
-                    model_id
-                )
+                f"http://rfam.org/family/{model_id}?content-type=application/json"
             )
             if any(x in r.json()["rfam"]["curation"]["type"] for x in full_molecule):
                 fold_type = "full_molecule"

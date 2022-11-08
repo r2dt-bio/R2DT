@@ -22,9 +22,7 @@ import glob
 def convert_bpseq_to_fasta(bpseq):
     fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = "python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}".format(
-            bpseq=bpseq, fasta=fasta
-        )
+        cmd = f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}"
         os.system(cmd)
     return fasta
 
@@ -32,9 +30,7 @@ def convert_bpseq_to_fasta(bpseq):
 def break_pseudoknots(fasta):
     fasta_no_knots = fasta.replace("-with-knots.fasta", ".fasta")
     if not os.path.exists(fasta_no_knots):
-        cmd = "RemovePseudoknots -b {fasta} {fasta_no_knots}".format(
-            fasta=fasta, fasta_no_knots=fasta_no_knots
-        )
+        cmd = f"RemovePseudoknots -b {fasta} {fasta_no_knots}"
         os.system(cmd)
     return fasta_no_knots
 
@@ -48,9 +44,9 @@ def convert_fasta_to_stockholm(fasta):
                 lines = f_input.readlines()
                 f_output.write("# STOCKHOLM 1.0\n")
                 f_output.write("\n")
-                f_output.write("{0}{1}\n".format(model_id.ljust(60), lines[1].strip()))
+                f_output.write(f"{model_id.ljust(60)}{lines[1].strip()}\n")
                 f_output.write(
-                    "{0}{1}\n".format("#=GC SS_cons".ljust(60), lines[2].strip())
+                    f"{'#=GC SS_cons'.ljust(60)}{lines[2].strip()}\n"
                 )
                 f_output.write("//\n")
     return stockholm
@@ -68,15 +64,15 @@ def copy_cm_evalues(cm):
         cm=cm
     )
     os.system(cmd)
-    os.system("rm {}.old".format(cm))
+    os.system(f"rm {cm}.old")
 
 
 def build_cm(stockholm, cm_library):
     cm = os.path.join(cm_library, os.path.basename(stockholm).replace(".sto", ".cm"))
     if not os.path.exists(cm):
-        cmd = "cmbuild {cm} {stockholm}".format(cm=cm, stockholm=stockholm)
+        cmd = f"cmbuild {cm} {stockholm}"
         os.system(cmd)
         copy_cm_evalues(cm)
     else:
-        print("CM already exists {}".format(cm))
+        print(f"CM already exists {cm}")
     return cm

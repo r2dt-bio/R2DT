@@ -61,7 +61,7 @@ def get_gtrnadb_models():
             {
                 "model_id": model_id,
                 "source": "GtRNAdb",
-                "description": "tRNA {} ({})".format(" ".join(parts[1:]), domain),
+                "description": f"tRNA {' '.join(parts[1:])} ({domain})",
             }
         )
     return data
@@ -111,7 +111,7 @@ def get_crw_models():
             {
                 "model_id": model_id,
                 "source": "CRW",
-                "description": "{} {} {}".format(species, rna_type, model_id),
+                "description": f"{species} {rna_type} {model_id}",
             }
         )
 
@@ -155,9 +155,7 @@ def get_models(source, modelinfo_file, metadata_file):
             {
                 "model_id": model_id,
                 "source": source,
-                "description": "{} {}{}".format(
-                    species, rna_type, get_qualifier(model_id)
-                ),
+                "description": f"{species} {rna_type}{get_qualifier(model_id)}",
             }
         )
     return data
@@ -189,9 +187,7 @@ def get_rfam_models():
             {
                 "model_id": model_id,
                 "source": "Rfam",
-                "description": "{} ({})".format(
-                    descriptions[model_id], accessions[model_id]
-                ),
+                "description": f"{descriptions[model_id]} ({accessions[model_id]})",
             }
         )
     return data

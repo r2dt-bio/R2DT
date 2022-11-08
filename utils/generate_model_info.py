@@ -24,7 +24,7 @@ from . import config
 def allowed_names(cm_library):
     from . import rfam
 
-    for cm in glob.glob("%s/*.cm" % cm_library):
+    for cm in glob.glob(f"{cm_library}/*.cm"):
         model_name = None
         if "all.cm" in cm:
             continue
@@ -42,7 +42,7 @@ def allowed_names(cm_library):
             model_name = os.path.basename(cm).replace(".cm", "")
 
         if not model_name:
-            raise ValueError("Could not find model_name for %s" % cm)
+            raise ValueError(f"Could not find model_name for {cm}")
         yield (model_name, cm)
 
 
@@ -50,7 +50,7 @@ def generate_model_info(cm_library, rna_type="SSU"):
     if not os.path.exists(cm_library):
         raise ValueError("Missing CM directory: " + cm_library)
 
-    print("Processing files in {}".format(cm_library))
+    print(f"Processing files in {cm_library}")
 
     all_cm_path = os.path.join(cm_library, "all.cm")
     modelinfo = os.path.join(cm_library, "modelinfo.txt")
