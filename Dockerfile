@@ -120,11 +120,11 @@ ENV RIBODIR="$RNA/ribovore" \
     EPNTESTDIR="$RNA/epn-test" \
     RIBOTIMEDIR="/usr/bin" \
     BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
-    PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB" \
     LC_ALL="C.UTF-8" LANG="C.UTF-8" \
     DATAPATH="/rna/RNAstructure/data_tables/" \
-    PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3" \
-    PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH"
+    PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3"
+ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
+    PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]
