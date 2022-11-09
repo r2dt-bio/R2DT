@@ -63,9 +63,7 @@ def get_traveler_template_xml(rfam_acc):
 
 
 def get_traveler_fasta(rfam_acc):
-    filename = os.path.join(
-        config.RFAM_DATA, rfam_acc, f"{rfam_acc}-traveler.fasta"
-    )
+    filename = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}-traveler.fasta")
     return filename
 
 
@@ -517,9 +515,7 @@ def visualise_rfam(
     )
     result = os.system(cmd)
     if result:
-        raise ValueError(
-            f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}"
-        )
+        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
 
     cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
         temp_afa.name, temp_map.name

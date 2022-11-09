@@ -827,9 +827,7 @@ def force_draw(
     if not model_type:
         print("Error: Model not found. Please check model_id")
         return
-    print(
-        f"Visualising sequence {seq_id} using the {model_id} model from {model_type}"
-    )
+    print(f"Visualising sequence {seq_id} using the {model_id} model from {model_type}")
     os.system(f"esl-sfetch --index {fasta_input}")
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))

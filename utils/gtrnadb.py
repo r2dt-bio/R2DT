@@ -145,9 +145,7 @@ def classify_trna_sequences(fasta_input, output_folder):
 
     with open(os.path.join(output_folder, "hits.txt"), "w") as f_out:
         for entry in data:
-            f_out.write(
-                f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n"
-            )
+            f_out.write(f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n")
     return data
 
 
@@ -234,28 +232,20 @@ def get_traveler_template_xml(domain, isotype):
             config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler-template.xml"
         )
     elif domain == "E":
-        return os.path.join(
-            config.GTRNADB_EUK, f"euk-{isotype}-traveler-template.xml"
-        )
+        return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler-template.xml")
     else:
         raise ValueError(f"Unknown domain {domain}")
 
 
 def get_traveler_fasta(domain, isotype):
     if domain == "A":
-        return os.path.join(
-            config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta"
-        )
+        return os.path.join(config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta")
     elif domain == "B":
-        return os.path.join(
-            config.GTRNADB_BACT, f"bact-{isotype}-traveler.fasta"
-        )
+        return os.path.join(config.GTRNADB_BACT, f"bact-{isotype}-traveler.fasta")
     elif domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
-        return os.path.join(
-            config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler.fasta"
-        )
+        return os.path.join(config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler.fasta")
     elif domain == "E":
         return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler.fasta")
     else:
