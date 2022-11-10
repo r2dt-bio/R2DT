@@ -43,17 +43,21 @@
     ```
 
     - `-it` - start an interactive session
-    - `-v <path_to_cms>:/rna/r2dt/data/cms` - mount the precomputed data library folder `<path_to_cms>` as `/rna/r2dt/data/cms` inside the container. :warning: Note that `<path_to_cms>` should be a full path.
+    - `-v $R2DT_LIBRARY:/rna/r2dt/data/cms` - mount the precomputed data library folder as `/rna/r2dt/data/cms` inside the container. ⚠️ Note that `<path_to_cms>` should be a full path.
     - make the current working directory available inside the container as `/rna/r2dt/temp`:
-        ```
+        ```bash
         -v `pwd`:/rna/r2dt/temp
         ```
 
     Any file placed in `/rna/r2dt/temp` within the container will be available on the host machine after the Docker container exits. The current directory is mounted inside the container so that all code and data changes are instantly reflected in the container.
 
-    Alternatively, start a session with docker-compose:
+## Setup a development environment
+
+It is recommended to use `docker-compose`:
     ```bash
-    docker-compose run cli
+    R2DT_LIBRARY=<path to precomputed library> docker-compose run cli
     ```
+
+By default, it will use the
 
 If it is not possible to use containers, follow instructions in the [Dockerfile](https://github.com/RNAcentral/R2DT/blob/master/Dockerfile) to install all the requirements manually.

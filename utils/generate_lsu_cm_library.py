@@ -20,31 +20,28 @@ from generate_cm_library import build_cm, convert_fasta_to_stockholm
 
 here = os.path.realpath(os.path.dirname(__file__))
 project_folder = os.path.dirname(here)
-ribovision_folder = os.path.join(project_folder, 'data', 'ribovision-lsu')
+ribovision_folder = os.path.join(project_folder, "data", "ribovision-lsu")
 
-BPSEQ_LOCATION = os.path.join(ribovision_folder, 'bpseq')
-CM_LIBRARY = os.path.join(ribovision_folder, 'cms')
+BPSEQ_LOCATION = os.path.join(ribovision_folder, "bpseq")
+CM_LIBRARY = os.path.join(ribovision_folder, "cms")
 
 
 def convert_bpseq_to_fasta(bpseq):
-    fasta = bpseq.replace('.bpseq', '.fasta')
+    fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = 'python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}'.format(
-            bpseq=bpseq,
-            fasta=fasta
-        )
+        cmd = f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}"
         os.system(cmd)
     return fasta
 
 
 def main():
-    for bpseq in glob.glob('%s/*.bpseq' % BPSEQ_LOCATION):
-        print(os.path.basename(bpseq).replace('.bpseq', ''))
+    for bpseq in glob.glob(f"{BPSEQ_LOCATION}/*.bpseq"):
+        print(os.path.basename(bpseq).replace(".bpseq", ""))
         fasta = convert_bpseq_to_fasta(bpseq)
         stockholm = convert_fasta_to_stockholm(fasta)
         build_cm(stockholm, CM_LIBRARY)
-    print('Done')
+    print("Done")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

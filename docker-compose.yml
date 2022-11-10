@@ -1,10 +1,10 @@
 version: '2'
 services:
   cli:
-    # image: rnacentral/r2dt:dev
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: rnacentral/r2dt:${R2DT_TAG:-latest}
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     volumes:
       - .:/rna/r2dt
       - ${R2DT_LIBRARY}:/rna/r2dt/data/cms
