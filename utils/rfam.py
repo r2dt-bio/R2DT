@@ -442,25 +442,14 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fold_type):
-
+def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type):
+    """
+    Loop over the sequences in fasta file and visualise each
+    using the family template.
+    """
     destination = f"{output_folder}/{rfam_acc}"
     if not os.path.exists(destination):
         os.makedirs(destination)
-
-    if not fasta:
-        # use Rfam sequences
-        fasta_input = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.fa")
-        if not os.path.exists(fasta_input):
-            url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/fasta_files/{}.fa.gz".format(
-                rfam_acc
-            )
-            cmd = "wget -O {fasta_input}.gz {url} && gunzip {fasta_input}.gz".format(
-                url=url, fasta_input=fasta_input
-            )
-            os.system(cmd)
-    else:
-        fasta_input = fasta
 
     if not os.path.exists(fasta_input + ".ssi"):
         cmd = f"esl-sfetch --index {fasta_input}"
@@ -471,8 +460,6 @@ def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fol
 
     with open("headers.txt", "r") as f:
         for i, line in enumerate(f):
-            if test and i > 10:
-                continue
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
             ribovision.visualise(

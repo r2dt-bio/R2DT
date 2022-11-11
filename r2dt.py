@@ -681,21 +681,17 @@ def rfam_blacklist():
 
 @rfam_group.command("draw")
 @click.option(
-    "--test", default=False, is_flag=True, help="Process only the first 10 sequences"
-)
-@click.option(
     "--constraint", default=False, is_flag=True, help="Fold insertions using RNAfold"
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
-@click.argument("rfam_accession", type=click.STRING)
+@click.argument("rfam_acc", type=click.STRING)
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rfam_draw(
-    rfam_accession,
+    rfam_acc,
     fasta_input,
     output_folder,
-    test=None,
     constraint=None,
     exclusion=None,
     fold_type=None,
@@ -706,26 +702,18 @@ def rfam_draw(
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
     print(shared.get_r2dt_version_header())
-    print(rfam_accession)
-    if rfam_accession == "all":
-        rfam_accs = rfam.get_all_rfam_acc()
+    print(rfam_acc)
+    if rfam.has_structure(rfam_acc):
+        rfam.generate_2d(
+            rfam_acc,
+            output_folder,
+            fasta_input,
+            constraint,
+            exclusion,
+            fold_type,
+        )
     else:
-        rfam_accs = [rfam_accession]
-
-    for rfam_acc in rfam_accs:
-        if rfam.has_structure(rfam_acc):
-            rfam.rscape2traveler(rfam_acc)
-            rfam.generate_2d(
-                rfam_acc,
-                output_folder,
-                fasta_input,
-                test,
-                constraint,
-                exclusion,
-                fold_type,
-            )
-        else:
-            print(f"{rfam_acc} does not have a conserved secondary structure")
+        print(f"{rfam_acc} does not have a conserved secondary structure")
 
 
 @rfam_group.command("validate")
