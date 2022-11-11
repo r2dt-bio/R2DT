@@ -31,16 +31,20 @@ def visualise(
         os.makedirs(output_folder)
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
-        templates = config.RIBOVISION_LSU_TRAVELER
-        bpseq = config.RIBOVISION_LSU_BPSEQ
+        template_layout = config.RIBOVISION_LSU_TRAVELER
+        template_structure = config.RIBOVISION_LSU_BPSEQ
     elif rna_type.lower() == "ssu":
         cm_library = config.RIBOVISION_SSU_CM_LIBRARY
-        templates = config.RIBOVISION_SSU_TRAVELER
-        bpseq = config.RIBOVISION_SSU_BPSEQ
+        template_layout = config.RIBOVISION_SSU_TRAVELER
+        template_structure = config.RIBOVISION_SSU_BPSEQ
     elif rna_type.lower() == "rnasep":
         cm_library = config.RNASEP_CM_LIBRARY
-        templates = config.RNASEP_TRAVELER
-        bpseq = config.RNASEP_BPSEQ
+        template_layout = config.RNASEP_TRAVELER
+        template_structure = config.RNASEP_BPSEQ
+    elif rna_type.lower() == "crw":
+        cm_library = config.CRW_CM_LIBRARY
+        template_layout = config.CRW_PS_LIBRARY
+        template_structure = config.CRW_FASTA_LIBRARY
     else:
         print("Please specify RNA type")
         return
@@ -126,7 +130,7 @@ def visualise(
         shared.fold_insertions(
             f"{result_base}.fasta",
             exclusion,
-            "ribovision",
+            rna_type,
             temp_pfam_stk,
             model_id,
             fold_type,
@@ -134,11 +138,15 @@ def visualise(
     elif exclusion:
         print("Exclusion ignored, enable --constraint to add exclusion file")
 
+    if rna_type == "crw":
+        traveler_params = f"--template-structure {template_layout}/{model_id}.ps {template_structure}/{model_id}.fasta"
+    else:
+        traveler_params = f"--template-structure --file-format traveler {template_layout}/{model_id}.tr {template_structure}/{model_id}.fasta"
+
     log = result_base + ".log"
     cmd = (
         "traveler --verbose "
-        f"--target-structure {result_base}.fasta "
-        f"--template-structure --file-format traveler {templates}/{model_id}.tr {bpseq}/{model_id}.fasta "
+        f"--target-structure {result_base}.fasta {traveler_params} "
         f"--draw {temp_map} {result_base} > {log}"
     )
     print(cmd)
@@ -148,8 +156,7 @@ def visualise(
         print("Repeating using Traveler mapping")
         cmd = (
             "traveler --verbose "
-            f"--target-structure {result_base}.fasta "
-            f"--template-structure --file-format traveler {templates}/{model_id}.tr {bpseq}/{model_id}.fasta "
+            f"--target-structure {result_base}.fasta {traveler_params} "
             "--all {result_base} > {log}"
         )
         print(cmd)

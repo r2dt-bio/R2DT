@@ -556,7 +556,8 @@ def rrna_draw(
     ) as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            crw.visualise_crw(
+            ribovision.visualise(
+                "crw",
                 fasta_input,
                 output_folder,
                 rnacentral_id,
