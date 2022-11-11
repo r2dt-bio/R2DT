@@ -15,6 +15,7 @@ import os
 import re
 from . import config
 from . import shared
+from . import rfam
 
 
 def visualise(
@@ -45,6 +46,14 @@ def visualise(
         cm_library = config.CRW_CM_LIBRARY
         template_layout = config.CRW_PS_LIBRARY
         template_structure = config.CRW_FASTA_LIBRARY
+    elif rna_type.lower() == "rfam":
+        if not model_id.startswith("RF"):
+            rfam_acc = rfam.get_rfam_acc_by_id(model_id)
+        else:
+            rfam_acc = model_id
+        model_path = rfam.get_rfam_cm(rfam_acc)
+        template_layout = rfam.get_traveler_template_xml(rfam_acc)
+        template_structure = rfam.get_traveler_fasta(rfam_acc)
     else:
         print("Please specify RNA type")
         return
@@ -65,10 +74,11 @@ def visualise(
         raise ValueError(f"Failed esl-sfetch for: {seq_id}")
 
     # check that the model exists
-    model_path = os.path.join(cm_library, model_id + ".cm")
-    if not os.path.exists(model_path):
-        print(f"Model not found {model_path}")
-        return
+    if rna_type != "rfam":
+        model_path = os.path.join(cm_library, model_id + ".cm")
+        if not os.path.exists(model_path):
+            print(f"Model not found {model_path}")
+            return
 
     # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
@@ -79,6 +89,18 @@ def visualise(
             break
     else:
         print(f"Failed cmalign of {seq_id} to {model_id}")
+        return
+
+    has_conserved_structure = False
+    with open(temp_sto, "r") as f:
+        for line in f.readlines():
+            if line.startswith("#=GC SS_cons"):
+                if "<" in line:
+                    has_conserved_structure = True
+                else:
+                    print("This RNA does not have a conserved structure")
+                break
+    if not has_conserved_structure:
         return
 
     # impose consensus secondary structure and convert to pfam format
@@ -140,6 +162,8 @@ def visualise(
 
     if rna_type == "crw":
         traveler_params = f"--template-structure {template_layout}/{model_id}.ps {template_structure}/{model_id}.fasta"
+    elif rna_type == "rfam":
+        traveler_params = f"--template-structure --file-format traveler {template_layout} {template_structure} "
     else:
         traveler_params = f"--template-structure --file-format traveler {template_layout}/{model_id}.tr {template_structure}/{model_id}.fasta"
 

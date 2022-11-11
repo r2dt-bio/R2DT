@@ -22,6 +22,7 @@ import subprocess as sp
 # import shared
 # import generate_model_info as mi
 from . import config
+from . import ribovision
 from . import shared
 from . import generate_model_info as mi
 
@@ -441,171 +442,6 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-def visualise_rfam(
-    fasta_input, output_folder, seq_id, model_id, constraint, exclusion, fold_type
-):
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    if not model_id.startswith("RF"):
-        rfam_acc = get_rfam_acc_by_id(model_id)
-    else:
-        rfam_acc = model_id
-    rfam_cm = get_rfam_cm(rfam_acc)
-    try:
-        rscape2traveler(rfam_acc)
-    except:
-        print(f"Could not get traveler data for {rfam_acc}")
-        return
-
-    temp_fasta = tempfile.NamedTemporaryFile()
-    temp_sto = tempfile.NamedTemporaryFile()
-    temp_stk = tempfile.NamedTemporaryFile()
-    temp_pfam_stk = tempfile.NamedTemporaryFile(delete=False)
-    temp_afa = tempfile.NamedTemporaryFile()
-    temp_map = tempfile.NamedTemporaryFile()
-
-    cmd = f"esl-sfetch {fasta_input} {seq_id} > {temp_fasta.name}"
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed esl-sfetch for: {seq_id}")
-
-    cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
-    for options in cm_options:
-        cmd = f"cmalign {options} {rfam_cm} {temp_fasta.name} > {temp_sto.name}"
-        result = os.system(cmd)
-        if not result:
-            break
-    else:
-        print(f"Failed cmalign of {seq_id} to {model_id}")
-        return
-
-    has_conserved_structure = False
-    with open(temp_sto.name, "r") as f:
-        for line in f.readlines():
-            if line.startswith("#=GC SS_cons "):
-                if "<" in line:
-                    has_conserved_structure = True
-                else:
-                    print("This RNA does not have a conserved structure")
-                break
-
-    if not has_conserved_structure:
-        return
-
-    cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
-        temp_sto.name, temp_stk.name
-    )
-    result = os.system(cmd)
-    if result:
-        print(f"Failed esl-alimanip of {seq_id} {model_id}")
-        return
-
-    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl {temp_stk.name} > {temp_pfam_stk.name}"
-    result = os.system(cmd)
-    if result:
-        raise ValueError(
-            f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
-        )
-
-    if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
-
-    cmd = "ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}".format(
-        temp_pfam_stk.name, temp_afa.name
-    )
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
-
-    cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
-        temp_afa.name, temp_map.name
-    )
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed infernal2mapping for {cmd}")
-
-    result_base = os.path.join(output_folder, seq_id.replace("/", "-") + "-" + rfam_acc)
-    input_fasta = os.path.join(output_folder, seq_id + ".fasta")
-    cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_stk.name} > {input_fasta}"
-    result = os.system(cmd)
-    log = result_base + ".log"
-
-    if result:
-        print(f"Failed esl-pfam-sindi2dot-bracket of {seq_id} {model_id}")
-        return
-
-    if constraint:
-        shared.fold_insertions(
-            input_fasta, exclusion, "rfam", temp_pfam_stk.name, rfam_acc, fold_type
-        )
-    elif exclusion:
-        print("Exclusion ignored, enable --constraint to add exclusion file")
-
-    cmd = (
-        "traveler "
-        "--verbose "
-        "--target-structure {fasta} "
-        "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
-        "--draw {map} {result_base} "
-        "> {log}"
-    ).format(
-        fasta=input_fasta,
-        result_base=result_base,
-        rfam_acc=rfam_acc,
-        rfam_data=config.RFAM_DATA,
-        traveler_template_xml=get_traveler_template_xml(rfam_acc),
-        traveler_fasta=get_traveler_fasta(rfam_acc),
-        log=log,
-        map=temp_map.name,
-    )
-    result = os.system(cmd)
-    if result:
-        print("Repeating using Traveler mapping")
-        cmd = (
-            "traveler "
-            "--verbose "
-            "--target-structure {fasta} "
-            "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
-            "--all {result_base} "
-            "> {log}"
-        ).format(
-            fasta=input_fasta,
-            result_base=result_base,
-            rfam_acc=rfam_acc,
-            rfam_data=config.RFAM_DATA,
-            traveler_template_xml=get_traveler_template_xml(rfam_acc),
-            traveler_fasta=get_traveler_fasta(rfam_acc),
-            log=log,
-        )
-        print(cmd)
-        os.system(cmd)
-
-    temp_fasta.close()
-    temp_sto.close()
-    temp_stk.close()
-    temp_pfam_stk.close()
-    temp_afa.close()
-    temp_map.close()
-    os.remove(temp_pfam_stk.name)
-
-    cmd = "rm -f {0}/*.xml {0}/*.ps".format(output_folder)
-    os.system(cmd)
-
-    overlaps = 0
-    with open(log, "r") as raw:
-        for line in raw:
-            match = re.search(r"Overlaps count: (\d+)", line)
-            if match:
-                if overlaps:
-                    print("ERROR: Saw too many overlap counts")
-                    break
-                overlaps = int(match.group(1))
-
-    with open(result_base + ".overlaps", "w") as out:
-        out.write(str(overlaps))
-        out.write("\n")
-
-
 def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fold_type):
 
     destination = f"{output_folder}/{rfam_acc}"
@@ -639,7 +475,8 @@ def generate_2d(rfam_acc, output_folder, fasta, test, constraint, exclusion, fol
                 continue
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
-            visualise_rfam(
+            ribovision.visualise(
+                "rfam",
                 fasta_input,
                 destination,
                 seq_id,

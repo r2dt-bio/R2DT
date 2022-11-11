@@ -234,7 +234,8 @@ def draw(
     ) as f:
         for line in f.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            rfam.visualise_rfam(
+            ribovision.visualise(
+                "rfam",
                 fasta_input,
                 rfam_output,
                 rnacentral_id,
@@ -834,8 +835,15 @@ def force_draw(
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
     if model_type == "rfam":
-        rfam.visualise_rfam(
-            fasta_input, output, seq_id, model_id, constraint, exclusion, fold_type
+        ribovision.visualise(
+            "rfam",
+            fasta_input,
+            output,
+            seq_id,
+            model_id,
+            constraint,
+            exclusion,
+            fold_type,
         )
     elif model_type == "ribovision_ssu":
         ribovision.visualise(
