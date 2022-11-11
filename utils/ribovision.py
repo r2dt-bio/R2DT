@@ -157,7 +157,7 @@ def visualise(
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
-            "--all {result_base} > {log}"
+            f"--all {result_base} > {log}"
         )
         print(cmd)
         os.system(cmd)
