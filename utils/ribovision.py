@@ -48,12 +48,7 @@ def visualise(
         template_structure = config.CRW_FASTA_LIBRARY
     elif rna_type.lower() == "rfam":
         if not model_id.startswith("RF"):
-            rfam_acc = rfam.get_rfam_acc_by_id(model_id)
-        else:
-            rfam_acc = model_id
-        model_path = rfam.get_rfam_cm(rfam_acc)
-        template_layout = rfam.get_traveler_template_xml(rfam_acc)
-        template_structure = rfam.get_traveler_fasta(rfam_acc)
+            model_id = rfam.get_rfam_acc_by_id(model_id)
     else:
         print("Please specify RNA type")
         return
@@ -74,7 +69,11 @@ def visualise(
         raise ValueError(f"Failed esl-sfetch for: {seq_id}")
 
     # check that the model exists
-    if rna_type != "rfam":
+    if rna_type == "rfam":
+        model_path = rfam.get_rfam_cm(model_id)
+        template_layout = rfam.get_traveler_template_xml(model_id)
+        template_structure = rfam.get_traveler_fasta(model_id)
+    else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
             print(f"Model not found {model_path}")
