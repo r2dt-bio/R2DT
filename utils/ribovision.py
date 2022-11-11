@@ -13,17 +13,15 @@ limitations under the License.
 
 import os
 import re
-import tempfile
-import subprocess as sp
 from . import config
 from . import shared
 
 
 def visualise(
-    ssu_or_lsu,
+    rna_type,
     fasta_input,
     output_folder,
-    rnacentral_id,
+    seq_id,
     model_id,
     constraint,
     exclusion,
@@ -31,104 +29,105 @@ def visualise(
 ):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    if ssu_or_lsu.lower() == "lsu":
+    if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         templates = config.RIBOVISION_LSU_TRAVELER
         bpseq = config.RIBOVISION_LSU_BPSEQ
-    elif ssu_or_lsu.lower() == "ssu":
+    elif rna_type.lower() == "ssu":
         cm_library = config.RIBOVISION_SSU_CM_LIBRARY
         templates = config.RIBOVISION_SSU_TRAVELER
         bpseq = config.RIBOVISION_SSU_BPSEQ
-    elif ssu_or_lsu.lower() == "rnasep":
+    elif rna_type.lower() == "rnasep":
         cm_library = config.RNASEP_CM_LIBRARY
         templates = config.RNASEP_TRAVELER
         bpseq = config.RNASEP_BPSEQ
     else:
-        print("Please specify LSU or SSU")
+        print("Please specify RNA type")
         return
 
-    temp_fasta = tempfile.NamedTemporaryFile()
-    temp_sto = tempfile.NamedTemporaryFile()
-    temp_stk = tempfile.NamedTemporaryFile()
-    temp_pfam_stk = tempfile.NamedTemporaryFile(delete=False)
-    temp_afa = tempfile.NamedTemporaryFile()
-    temp_map = tempfile.NamedTemporaryFile()
+    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
+    temp_fasta = filename_template.replace("type", "fasta")
+    temp_sto = filename_template.replace("type", "sto")
+    temp_stk = filename_template.replace("type", "stk")
+    temp_post_prob = filename_template.replace("type", "post_prob")
+    temp_pfam_stk = filename_template.replace("type", "pfam_stk")
+    temp_afa = filename_template.replace("type", "afa")
+    temp_map = filename_template.replace("type", "map")
 
-    cmd = f"esl-sfetch {fasta_input} {rnacentral_id} > {temp_fasta.name}"
+    # get sequence from fasta file
+    cmd = f"esl-sfetch {fasta_input} {seq_id} > {temp_fasta}"
     result = os.system(cmd)
     if result:
-        raise ValueError(f"Failed esl-sfetch for: {rnacentral_id}")
+        raise ValueError(f"Failed esl-sfetch for: {seq_id}")
 
+    # check that the model exists
     model_path = os.path.join(cm_library, model_id + ".cm")
     if not os.path.exists(model_path):
         print(f"Model not found {model_path}")
         return
+
+    # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        cmd = f"cmalign {options} {model_path} {temp_fasta.name} > {temp_sto.name}"
+        cmd = f"cmalign {options} {model_path} {temp_fasta} > {temp_sto}"
         result = os.system(cmd)
         if not result:
             break
     else:
-        print(f"Failed cmalign of {rnacentral_id} to {model_id}")
+        print(f"Failed cmalign of {seq_id} to {model_id}")
         return
 
-    cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
-        temp_sto.name, temp_stk.name
-    )
+    # impose consensus secondary structure and convert to pfam format
+    cmd = f"esl-alimanip --rna --sindi --outformat pfam {temp_sto} > {temp_stk}"
     result = os.system(cmd)
     if result:
-        print(f"Failed esl-alimanip for {rnacentral_id} {model_id}")
+        print(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
-    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl {temp_stk.name} > {temp_pfam_stk.name}"
+    # store posterior probabilities in tsv file
+    shared.get_infernal_posterior_probabilities(temp_stk, temp_post_prob)
+
+    # convert nts that are in RF-gap columns to lowercase
+    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl {temp_stk} > {temp_pfam_stk}"
     result = os.system(cmd)
     if result:
         raise ValueError(
-            f"Failed ali-pfam-lowercase-rf-gap-columns for {rnacentral_id} {model_id}"
+            f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
         )
 
     if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
 
-    cmd = "ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}".format(
-        temp_pfam_stk.name, temp_afa.name
-    )
+    # convert stockholm to aligned fasta with WUSS secondary structure
+    cmd = f"ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {temp_pfam_stk} > {temp_afa}"
     result = os.system(cmd)
     if result:
-        raise ValueError(
-            f"Failed ali-pfam-sindi2dot-bracket for {rnacentral_id} {model_id}"
-        )
+        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
 
-    cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
-        temp_afa.name, temp_map.name
-    )
+    # generate traveler infernal mapping file
+    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
     result = os.system(cmd)
     if result:
         raise ValueError(f"Failed infernal2mapping for {cmd}")
 
-    cmd = "ali-pfam-sindi2dot-bracket.pl %s > %s/%s-%s.fasta" % (
-        temp_pfam_stk.name,
-        output_folder,
-        rnacentral_id.replace("/", "_"),
-        model_id,
-    )
-    result = os.system(cmd)
-    if result:
-        print(f"Failed esl-pfam-sindi2dot-bracket for {rnacentral_id} {model_id}")
-        return
-
     result_base = os.path.join(
         output_folder,
-        f"{rnacentral_id.replace('/', '_')}-{model_id}",
+        f"{seq_id.replace('/', '_')}-{model_id}",
     )
+
+    # convert stockholm to fasta with dot bracket secondary structure
+    cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
+    result = os.system(cmd)
+    if result:
+        print(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+        return
 
     if constraint:
         shared.fold_insertions(
-            result_base + ".fasta",
+            f"{result_base}.fasta",
             exclusion,
             "ribovision",
-            temp_pfam_stk.name,
+            temp_pfam_stk,
             model_id,
             fold_type,
         )
@@ -137,18 +136,10 @@ def visualise(
 
     log = result_base + ".log"
     cmd = (
-        "traveler "
-        "--verbose "
-        "--target-structure {result_base}.fasta "
-        "--template-structure --file-format traveler {traveler_templates}/{model_id}.tr {ribovision_bpseq}/{model_id}.fasta "
-        "--draw {map} {result_base} > {log}"
-    ).format(
-        result_base=result_base,
-        model_id=model_id,
-        traveler_templates=templates,
-        ribovision_bpseq=bpseq,
-        log=log,
-        map=temp_map.name,
+        "traveler --verbose "
+        f"--target-structure {result_base}.fasta "
+        f"--template-structure --file-format traveler {templates}/{model_id}.tr {bpseq}/{model_id}.fasta "
+        f"--draw {temp_map} {result_base} > {log}"
     )
     print(cmd)
     result = os.system(cmd)
@@ -156,48 +147,40 @@ def visualise(
     if result:
         print("Repeating using Traveler mapping")
         cmd = (
-            "traveler "
-            "--verbose "
-            "--target-structure {result_base}.fasta "
-            "--template-structure --file-format traveler {traveler_templates}/{model_id}.tr {ribovision_bpseq}/{model_id}.fasta "
+            "traveler --verbose "
+            f"--target-structure {result_base}.fasta "
+            f"--template-structure --file-format traveler {templates}/{model_id}.tr {bpseq}/{model_id}.fasta "
             "--all {result_base} > {log}"
-        ).format(
-            result_base=result_base,
-            model_id=model_id,
-            traveler_templates=templates,
-            ribovision_bpseq=bpseq,
-            log=log,
         )
         print(cmd)
         os.system(cmd)
 
-    temp_fasta.close()
-    temp_sto.close()
-    temp_stk.close()
-    temp_pfam_stk.close()
-    temp_afa.close()
-    temp_map.close()
-    os.remove(temp_pfam_stk.name)
-
     overlaps = 0
-
     with open(log, "r") as raw:
         for line in raw:
             match = re.search(r"Overlaps count: (\d+)", line)
             if match:
                 if overlaps:
-                    print("ERROR: Saw too many overlap counts")
+                    print("ERROR: Saw too many overlaps")
                     break
                 overlaps = int(match.group(1))
-
     with open(result_base + ".overlaps", "w") as out:
-        out.write(str(overlaps))
-        out.write("\n")
-    if ssu_or_lsu != "rnasep":
+        out.write("f{overlaps}\n")
+    if rna_type != "rnasep":
         adjust_font_size(result_base)
+
+    # clean up
+    os.remove(temp_fasta)
+    os.remove(temp_sto)
+    os.remove(temp_stk)
+    os.remove(temp_afa)
+    os.remove(temp_map)
 
 
 def adjust_font_size(result_base):
+    """
+    Decrease font-size for large diagrams.
+    """
     filenames = [result_base + ".colored.svg", result_base + ".svg"]
     for filename in filenames:
         if not os.path.exists(filename):
