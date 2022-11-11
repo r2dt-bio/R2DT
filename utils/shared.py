@@ -299,3 +299,35 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             f.write(orig_sequence)
             f.write("\n" + ss)
             f.write("\n" + constraint_differences)
+
+
+def get_infernal_posterior_probabilities(input_file, output_file):
+    """
+    Parse an Infernal stockholm alignment in Pfam format.
+    Return a tsv file with posterior probabilities
+    that can be used to propagate the values to JSON
+    and colour the SVGs.
+    """
+    sequence = ""
+    post_prob = ""
+    with open(input_file, "r") as f_in:
+        for line in f_in:
+            match = re.match(r"^#=GR\s+.+?\s+PP\s+([123456789*.]+)$", line)
+            if match:
+                post_prob = match.group(1)
+                next
+            if line.startswith("#="):
+                continue
+            match = re.match(r"^.+?\s{2,}(.+?)$", line)
+            if match:
+                sequence = match.group(1)
+                next
+    with open(output_file, "w") as f_out:
+        header = ["residue_index", "residue_name", "posterior_probability"]
+        f_out.write("\t".join(header) + "\n")
+        for index, (nt, prob) in enumerate(
+            zip(list(sequence), list(post_prob)), start=1
+        ):
+            if nt == "-":
+                continue
+            f_out.write(f"{index}\t{nt}\t{prob}\n")
