@@ -879,8 +879,15 @@ def force_draw(
             fold_type,
         )
     elif model_type == "crw":
-        crw.visualise_crw(
-            fasta_input, output, seq_id, model_id, constraint, exclusion, fold_type
+        ribovision.visualise(
+            "crw",
+            fasta_input,
+            output,
+            seq_id,
+            model_id,
+            constraint,
+            exclusion,
+            fold_type,
         )
     elif model_type == "gtrnadb":
         domain, isotype = model_id.split("_")
