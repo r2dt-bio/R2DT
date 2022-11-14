@@ -99,6 +99,15 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.
     cd $RNA && \
     rm ViennaRNA-2.4.18.tar.gz
 
+# Install develop branch of easel
+RUN git clone https://github.com/EddyRivasLab/easel && \
+    cd easel && \
+    git checkout develop && \
+    autoconf && \
+    ./configure && \
+    make && \
+    make check
+
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
     cd traveler && \
