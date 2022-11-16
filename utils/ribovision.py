@@ -28,8 +28,10 @@ def visualise(
     exclusion,
     fold_type,
 ):
+    """Main visualisation routine that invokes Traveler."""
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         template_layout = config.RIBOVISION_LSU_TRAVELER
@@ -49,11 +51,12 @@ def visualise(
     elif rna_type.lower() == "rfam":
         if not model_id.startswith("RF"):
             model_id = rfam.get_rfam_acc_by_id(model_id)
+        temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
+        temp_acc_list = filename_template.replace("type", "seed_list")
     else:
         print("Please specify RNA type")
         return
 
-    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
     temp_fasta = filename_template.replace("type", "fasta")
     temp_sto = filename_template.replace("type", "sto")
     temp_stk = filename_template.replace("type", "stk")
@@ -73,6 +76,10 @@ def visualise(
         model_path = rfam.get_rfam_cm(model_id)
         template_layout = rfam.get_traveler_template_xml(model_id)
         template_structure = rfam.get_traveler_fasta(model_id)
+        # download seed alignment and list its accessions
+        rfam_seed = rfam.download_rfam_seed(model_id)
+        cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
+        os.system(cmd)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -82,7 +89,10 @@ def visualise(
     # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        cmd = f"cmalign {options} {model_path} {temp_fasta} > {temp_sto}"
+        if rna_type == "rfam":
+            cmd = f"cmalign --mapali {rfam_seed} --mapstr {options} {model_path} {temp_fasta} > {temp_sto_unfiltered}"
+        else:
+            cmd = f"cmalign {options} {model_path} {temp_fasta} > {temp_sto}"
         result = os.system(cmd)
         if not result:
             break
@@ -90,9 +100,13 @@ def visualise(
         print(f"Failed cmalign of {seq_id} to {model_id}")
         return
 
+    if rna_type == "rfam":
+        cmd = f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} > {temp_sto}"
+        os.system(cmd)
+
     has_conserved_structure = False
-    with open(temp_sto, "r") as f:
-        for line in f.readlines():
+    with open(temp_sto, "r", encoding="utf-8") as f_stockholm:
+        for line in f_stockholm.readlines():
             if line.startswith("#=GC SS_cons"):
                 if "<" in line:
                     has_conserved_structure = True
@@ -103,7 +117,7 @@ def visualise(
         return
 
     # impose consensus secondary structure and convert to pfam format
-    cmd = f"esl-alimanip --rna --sindi --outformat pfam {temp_sto} > {temp_stk}"
+    cmd = f"/rna/easel/miniapps/esl-alimanip --rna --sindi --outformat pfam {temp_sto} > {temp_stk}"
     result = os.system(cmd)
     if result:
         print(f"Failed esl-alimanip for {seq_id} {model_id}")
@@ -130,10 +144,9 @@ def visualise(
         raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
 
     # generate traveler infernal mapping file
+    infernal_mapping_failed = True
     cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed infernal2mapping for {cmd}")
+    infernal_mapping_failed = os.system(cmd)
 
     result_base = os.path.join(
         output_folder,
@@ -172,10 +185,11 @@ def visualise(
         f"--target-structure {result_base}.fasta {traveler_params} "
         f"--draw {temp_map} {result_base} > {log}"
     )
-    print(cmd)
-    result = os.system(cmd)
+    if not infernal_mapping_failed:
+        print(cmd)
+        traveler_failed = os.system(cmd)
 
-    if result:
+    if infernal_mapping_failed or traveler_failed:
         print("Repeating using Traveler mapping")
         cmd = (
             "traveler --verbose "
@@ -186,7 +200,7 @@ def visualise(
         os.system(cmd)
 
     overlaps = 0
-    with open(log, "r") as raw:
+    with open(log, "r", encoding="utf-8") as raw:
         for line in raw:
             match = re.search(r"Overlaps count: (\d+)", line)
             if match:
@@ -194,7 +208,7 @@ def visualise(
                     print("ERROR: Saw too many overlaps")
                     break
                 overlaps = int(match.group(1))
-    with open(result_base + ".overlaps", "w") as out:
+    with open(f"{result_base}.overlaps", "w", encoding="utf-8") as out:
         out.write(f"{overlaps}\n")
     if rna_type != "rnasep":
         adjust_font_size(result_base)
@@ -205,6 +219,9 @@ def visualise(
     os.remove(temp_stk)
     os.remove(temp_afa)
     os.remove(temp_map)
+    if rna_type == "rfam":
+        os.remove(temp_sto_unfiltered)
+        os.remove(temp_acc_list)
 
 
 def adjust_font_size(result_base):
