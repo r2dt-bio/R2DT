@@ -186,6 +186,39 @@ class TestRfamAccession(R2dtTestCase):
             )
 
 
+class TestRfam(R2dtTestCase):
+    """
+    Sequences from different Rfam families with pseudoknots.
+    """
+
+    fasta_input = os.path.join("examples", "rfam.fasta")
+    test_results = os.path.join("tests", "results", "rfam", "combined")
+    precomputed_results = os.path.join("tests", "examples", "rfam", "combined")
+    cmd = f"{EXECUTABLE} draw {fasta_input} {test_results}"
+    files = [
+        "URS00021ED9B3_2697049-RF00507.colored.svg",
+        "URS000080E2F0_93929-RF01734.colored.svg",
+        "URS0000868535_32630-RF01750.colored.svg",
+    ]
+
+    def setUp(self):
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
+
+    def test_examples(self):
+        for filename in self.files:
+            new_file = os.path.join(self.test_results, "results", "svg", filename)
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(
+                os.path.exists(new_file),
+                f"File {new_file} does not exist",
+            )
+            self.assertTrue(
+                filecmp.cmp(new_file, reference_file),
+                f"File {new_file} does not match",
+            )
+
+
 # @unittest.skip("")
 class TestCrw(R2dtTestCase):
     label = "crw"
