@@ -195,7 +195,7 @@ def visualise(
                     break
                 overlaps = int(match.group(1))
     with open(result_base + ".overlaps", "w") as out:
-        out.write("f{overlaps}\n")
+        out.write(f"{overlaps}\n")
     if rna_type != "rnasep":
         adjust_font_size(result_base)
 
