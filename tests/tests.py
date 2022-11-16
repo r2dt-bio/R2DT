@@ -151,7 +151,11 @@ class TestRibovisionSSU(R2dtTestCase):
 
 
 # @unittest.skip("")
-class TestRfam(R2dtTestCase):
+class TestRfamAccession(R2dtTestCase):
+    """
+    Test Rfam visualisation when providing specific Rfam accession.
+    """
+
     rfam_acc = "RF00162"
     fasta_input = os.path.join("examples", rfam_acc + ".example.fasta")
     test_results = os.path.join("tests", "results", "rfam")
