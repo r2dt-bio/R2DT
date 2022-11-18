@@ -51,7 +51,7 @@ def remove_large_insertions_pfam_stk(filename):
             print("Unexpected number of lines in pfam stk")
             return
         # the tilda and period characters represent insert states in WUSS notation
-        match = re.finditer(r"([\.~]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
+        match = re.finditer(r"([\.~_:]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
         if not match:
             return
         for span in match:
@@ -92,9 +92,9 @@ def remove_large_insertions_pfam_stk(filename):
             lines[7] = re.sub(r"@+", "~~~~", gr_ss)
             lines[8] = re.sub(r"@+", "~~~~", gc_ss_cons)
             lines[9] = re.sub(r"@+", "xxxx", gc_rf)
-        with open(filename, "w", encoding="utf-8") as f_stockholm:
-            for line in lines:
-                f_stockholm.write(line)
+    with open(filename, "w", encoding="utf-8") as f_stockholm:
+        for line in lines:
+            f_stockholm.write(line)
 
 
 def get_insertions(filename):
