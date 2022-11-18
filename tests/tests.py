@@ -22,6 +22,9 @@ class R2dtTestCase(unittest.TestCase):
     """Base class for R2DT tests."""
 
     test_results = "test_folder"
+    test_results_subfolder = ""
+    files = []
+    precomputed_results = ""
 
     @staticmethod
     def delete_folder(folder):
@@ -33,6 +36,43 @@ class R2dtTestCase(unittest.TestCase):
             print(f"Test results can be found in {self.test_results}")
         else:
             self.delete_folder(self.test_results)
+
+    @staticmethod
+    def create_webpage(filename, before, after):
+        """Create an HTML file comparing the reference SVG with a new one."""
+        with open(filename, "w", encoding="utf-8") as f_html:
+            f_html.write("<html><body>")
+            with open(before, "r", encoding="utf-8") as f_before:
+                svg = f_before.read()
+            f_html.write(svg)
+            with open(after, "r", encoding="utf-8") as f_after:
+                svg = f_after.read()
+            f_html.write(svg)
+            f_html.write("</body></html>")
+
+    def check_examples(self):
+        """Check that files exist and are identical to examples."""
+        count = 0
+        html_files = []
+        for loop_id, filename in enumerate(self.files):
+            new_file = os.path.join(
+                self.test_results, self.test_results_subfolder, filename
+            )
+            reference_file = os.path.join(self.precomputed_results, filename)
+            self.assertTrue(os.path.exists(new_file))
+            is_identical = filecmp.cmp(new_file, reference_file)
+            if not is_identical:
+                filename = os.path.join(
+                    "tests", f"{self.__class__.__name__}_{loop_id}.html"
+                )
+                self.create_webpage(filename, reference_file, new_file)
+                count += 1
+                html_files.append(filename)
+        self.assertEqual(
+            count, 0, f"Found {count} out of {len(self.files)} non-identical SVG files"
+        )
+        if html_files:
+            print(f"Please inspect {', '.join(html_files)}")
 
 
 class TestCovarianceModelDatabase(unittest.TestCase):
@@ -126,14 +166,7 @@ class TestRibovisionLSU(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestRibovisionSSU(R2dtTestCase):
@@ -154,14 +187,7 @@ class TestRibovisionSSU(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestRfamAccession(R2dtTestCase):
@@ -170,6 +196,7 @@ class TestRfamAccession(R2dtTestCase):
     rfam_acc = "RF00162"
     fasta_input = os.path.join("examples", rfam_acc + ".example.fasta")
     test_results = os.path.join("tests", "results", "rfam")
+    test_results_subfolder = rfam_acc
     precomputed_results = os.path.join("tests", "examples", "rfam", rfam_acc)
     cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results}"
     files = [
@@ -186,14 +213,7 @@ class TestRfamAccession(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, self.rfam_acc, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestRfam(R2dtTestCase):
@@ -203,6 +223,7 @@ class TestRfam(R2dtTestCase):
 
     fasta_input = os.path.join("examples", "rfam.fasta")
     test_results = os.path.join("tests", "results", "rfam", "combined")
+    test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "rfam", "combined")
     cmd = f"r2dt.py draw {fasta_input} {test_results}"
     files = [
@@ -217,24 +238,13 @@ class TestRfam(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, "results", "svg", filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(
-                os.path.exists(new_file),
-                f"File {new_file} does not exist",
-            )
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestCrw(R2dtTestCase):
     """Check that the CRW templates work."""
 
     label = "crw"
-
     fasta_input = os.path.join("examples", label + "-examples.fasta")
     test_results = os.path.join("tests", "results", label)
     precomputed_results = os.path.join("tests", "examples", label)
@@ -252,14 +262,7 @@ class TestCrw(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestSingleEntry(R2dtTestCase):
@@ -267,6 +270,7 @@ class TestSingleEntry(R2dtTestCase):
 
     fasta_input = os.path.join("examples", "examples.fasta")
     test_results = os.path.join("tests", "results", "single-entry")
+    test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "single-entry")
     cmd = f"r2dt.py draw {fasta_input} {test_results}"
     files = [
@@ -286,14 +290,7 @@ class TestSingleEntry(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, "results", "svg", filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
     def test_json_files(self):
         """Check that files exist and are identical to examples."""
@@ -312,6 +309,7 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
     trnascan_model = "E_Thr"
     fasta_input = os.path.join("examples", f"gtrnadb.{trnascan_model}.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb")
+    test_results_subfolder = trnascan_model
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", trnascan_model)
     cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr"
     files = [
@@ -328,14 +326,7 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, self.trnascan_model, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestGtrnadbMitoVert(R2dtTestCase):
@@ -359,14 +350,7 @@ class TestGtrnadbMitoVert(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestRnasep(R2dtTestCase):
@@ -403,14 +387,7 @@ class TestRnasep(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.files:
-            new_file = os.path.join(self.test_results, filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestForceTemplate(R2dtTestCase):
@@ -453,6 +430,7 @@ class TestRNAfold(R2dtTestCase):
 
     fasta_input = os.path.join("examples", "constraint")
     test_results = os.path.join("tests", "results", "constraint")
+    test_results_subfolder = "results/svg"
     precomputed_results = os.path.join("tests", "examples", "constraint")
     cmd = "r2dt.py draw --constraint {} {}"
     cmd2 = "r2dt.py draw --constraint --fold_type {} --force_template {} {} {}"
@@ -487,14 +465,7 @@ class TestRNAfold(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for filename in self.output_files:
-            new_file = os.path.join(self.test_results, "results", "svg", filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestExclusions(R2dtTestCase):
@@ -529,10 +500,11 @@ class TestSkipRibovoreFilters(R2dtTestCase):
 
     fasta_input = os.path.join("examples", "ribovore-filters.fasta")
     test_results = os.path.join("tests", "results", "skip-ribovore-filters")
+    test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "skip-ribovore-filters")
     cmd_default = f"r2dt.py draw {fasta_input} {test_results}"
     cmd_skip = f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results}"
-    output_svg = "URS0000001EB3-RF00661.colored.svg"
+    files = ["URS0000001EB3-RF00661.colored.svg"]
 
     def setUp(self):
         self.delete_folder(self.test_results)
@@ -540,19 +512,15 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     def test_default(self):
         """Check that the default command without an extra option fails."""
         os.system(self.cmd_default)
-        new_file = os.path.join(self.test_results, "results", "svg", self.output_svg)
+        new_file = os.path.join(
+            self.test_results, self.test_results_subfolder, self.files[0]
+        )
         self.assertFalse(os.path.exists(new_file), f"File {new_file} does not exist")
 
     def test_skip_filters(self):
         """Check that the new option works."""
         os.system(self.cmd_skip)
-        new_file = os.path.join(self.test_results, "results", "svg", self.output_svg)
-        reference_file = os.path.join(self.precomputed_results, self.output_svg)
-        self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-        self.assertTrue(
-            filecmp.cmp(new_file, reference_file),
-            f"File {new_file} does not match",
-        )
+        self.check_examples()
 
 
 if __name__ == "__main__":
