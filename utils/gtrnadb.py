@@ -21,20 +21,21 @@ from . import ribovision
 
 
 def setup():
-    base = "/usr/local/lib/tRNAscan-SE/models"
+    """Extract tRNAScan covariance models as separate files."""
+    base = os.path.join("usr", "local", "lib", "tRNAscan-SE", "models")
     cm_dbs = {
         "TRNAinf-arch-iso": "A",
         "TRNAinf-bact-iso": "B",
         "TRNAinf-euk-iso": "E",
         "TRNAinf-mito-vert": "M",
     }
-    for cm, domain in cm_dbs.items():
-        path = Path(os.path.join(base, cm))
-        with path.open("r") as raw:
+    for cm_file, domain in cm_dbs.items():
+        path = Path(os.path.join(base, cm_file))
+        with path.open("r", encoding="utf-8") as raw:
             for line in raw:
                 line = line.strip()
                 if line.startswith("NAME"):
-                    _, name = re.split("\s+", line, maxsplit=1)
+                    _, name = re.split(r"\s+", line, maxsplit=1)
                     if "mito" not in str(path):
                         _, isotype = name.split("-", 1)
                     else:
@@ -50,8 +51,8 @@ def parse_trnascan_output(filename):
     URS0000023412_9606 	1	1 	73	Thr	TGT	0	0	60.2
     """
     data = {}
-    with open(filename, "r") as f:
-        for i, line in enumerate(f):
+    with open(filename, "r", encoding="utf-8") as f_trnascan:
+        for i, line in enumerate(f_trnascan):
             if i in [0, 1, 2]:
                 continue  # skip 3 header lines
             parts = line.split("\t")
@@ -67,6 +68,7 @@ def parse_trnascan_output(filename):
 
 
 def run_trnascan(fasta_input, output_folder, domain):
+    """Launch tRNAScan-SE and return parsed results."""
     output_file = os.path.join(
         output_folder,
         domain + "-" + os.path.basename(fasta_input).replace(".fasta", ".txt"),
@@ -142,7 +144,7 @@ def classify_trna_sequences(fasta_input, output_folder):
                 )
             data.append(mito_vert[rna_id])
 
-    with open(os.path.join(output_folder, "hits.txt"), "w") as f_out:
+    with open(os.path.join(output_folder, "hits.txt"), "w", encoding="utf-8") as f_out:
         for entry in data:
             f_out.write(f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n")
     return data
@@ -151,19 +153,20 @@ def classify_trna_sequences(fasta_input, output_folder):
 def visualise(
     domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type
 ):
+    filename = "headers.txt"
     destination = f"{output_folder}/{'_'.join([domain, isotype])}"
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    if not os.path.exists(fasta_input + ".ssi"):
+    if not os.path.exists(f"{fasta_input}.ssi"):
         cmd = f"esl-sfetch --index {fasta_input}"
         os.system(cmd)
 
-    cmd = "grep '>' {} > headers.txt"
-    os.system(cmd.format(fasta_input))
+    cmd = f"grep '>' {fasta_input} > {filename}"
+    os.system(cmd)
 
-    with open("headers.txt", "r") as f:
-        for i, line in enumerate(f):
+    with open(filename, "r", encoding="utf-8") as f_headers:
+        for i, line in enumerate(f_headers):
             if test and i > 10:
                 continue
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
@@ -182,7 +185,7 @@ def visualise(
                 None,
                 None,
             )
-    os.system("rm headers.txt")
+    os.system(f"rm {filename}")
 
 
 def get_trnascan_cm(domain, isotype):
@@ -218,6 +221,7 @@ def get_trnascan_cm(domain, isotype):
 
 
 def get_traveler_template_xml(domain, isotype):
+    """Get Traveler template with coordinates."""
     if domain == "A":
         return os.path.join(
             config.GTRNADB_ARCH, f"arch-{isotype}-traveler-template.xml"
@@ -239,6 +243,7 @@ def get_traveler_template_xml(domain, isotype):
 
 
 def get_traveler_fasta(domain, isotype):
+    """Get Traveler structure file."""
     if domain == "A":
         return os.path.join(config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta")
     elif domain == "B":
