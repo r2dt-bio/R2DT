@@ -1,10 +1,26 @@
+"""
+Copyright [2009-present] EMBL-European Bioinformatics Institute
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 import re
 import RNA
-import json
 import requests
 
 
+MAX_INSERTIONS = 100
+
+
 def get_r2dt_version_header():
+    """Return a welcome message including release information."""
     header = """# R2DT :: visualise RNA secondary structure using templates
 # Version 1.3 (October 2022)
 # https://github.com/RNAcentral/R2DT
@@ -17,9 +33,8 @@ def remove_large_insertions_pfam_stk(filename):
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
     """
-    MAX_INSERTIONS = 100
-    with open(filename, "r") as f:
-        lines = f.readlines()
+    with open(filename, "r", encoding="utf-8") as f_stockholm:
+        lines = f_stockholm.readlines()
         if len(lines) == 9:
             sequence = lines[3]
             gr_pp = lines[4]
@@ -77,27 +92,27 @@ def remove_large_insertions_pfam_stk(filename):
             lines[7] = re.sub(r"@+", "~~~~", gr_ss)
             lines[8] = re.sub(r"@+", "~~~~", gc_ss_cons)
             lines[9] = re.sub(r"@+", "xxxx", gc_rf)
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f_stockholm:
             for line in lines:
-                f.write(line)
+                f_stockholm.write(line)
 
 
 def get_insertions(filename):
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8") as f:
         lines = f.readlines()
         if len(lines) == 9:
             sequence = lines[3].split()[1]
         elif len(lines) == 11:
             sequence = lines[5].split()[1]
         trimmed = sequence.replace("-", "")
-    match = re.finditer("[a-z]+", trimmed)
+    match = re.finditer(r"[a-z]+", trimmed)
     return match
 
 
 def get_full_constraint(filename):
     constraint = ""
-    with open(filename, "r") as f:
-        lines = f.readlines()
+    with open(filename, "r", encoding="utf-8") as f_stockholm:
+        lines = f_stockholm.readlines()
         if len(lines) == 9:
             gc_ss = lines[5].split()[3]
             sequence = lines[3].split()[1]
@@ -107,7 +122,7 @@ def get_full_constraint(filename):
     deletions = re.finditer("-+", sequence)
     sub_ss = list(gc_ss)
     trimmed = sequence.replace("-", "")
-    match = re.finditer("[a-z]+", trimmed)
+    match = re.finditer(r"[a-z]+", trimmed)
     adjust = 0
     for span in deletions:
         i = span.start() - adjust
@@ -162,7 +177,7 @@ def fold_insertions_only(sequence, constraint, filename):
         (ss, mfe) = fc.mfe()
         if mfe < 99999:
             list_con = constart
-            for i, val in enumerate(ss):
+            for i, _ in enumerate(ss):
                 if subconstraint[i] != ".":
                     list_con += subconstraint[i]
                 else:
@@ -175,48 +190,48 @@ def fold_insertions_only(sequence, constraint, filename):
     return final_list
 
 
-def handle_exclusion(exclusion, R2DT_constraint):
+def handle_exclusion(exclusion, r2dt_constraint):
     try:
-        with open(exclusion, "r") as f:
+        with open(exclusion, "r", encoding="utf-8") as f:
             exclusion_string = f.read().strip()
-            if len(exclusion_string) != len(R2DT_constraint):
+            if len(exclusion_string) != len(r2dt_constraint):
                 print("Exclusion ignored, not same length as sequence")
-                return R2DT_constraint
-            elif re.search("[^\.x]", exclusion_string):
+                return r2dt_constraint
+            elif re.search(r"[^\.x]", exclusion_string):
                 print("Invalid characters in exclusion string, should only be . and x")
-                return R2DT_constraint
+                return r2dt_constraint
             else:
                 temp_constraint = ""
-                for i, val in enumerate(exclusion_string):
+                for i, _ in enumerate(exclusion_string):
                     if exclusion_string[i] == "x":
-                        if R2DT_constraint[i] != "." and R2DT_constraint[i] != "x":
+                        if r2dt_constraint[i] != "." and r2dt_constraint[i] != "x":
                             print(
                                 "Invalid exclusion in position "
                                 + str(i)
                                 + " conflicts with template, constraint ignored"
                             )
-                            temp_constraint += R2DT_constraint[i]
+                            temp_constraint += r2dt_constraint[i]
                         else:
                             temp_constraint += "x"
                     else:
-                        temp_constraint += R2DT_constraint[i]
+                        temp_constraint += r2dt_constraint[i]
                 return temp_constraint
     except FileNotFoundError:
         print("Constraint file not found")
-        return R2DT_constraint
+        return r2dt_constraint
 
 
 def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
-    with open(input_fasta, "r") as f:
+    with open(input_fasta, "r", encoding="utf-8") as f:
         orig = f.readlines()
-    R2DT_constraint = orig[2].strip()
+    r2dt_constraint = orig[2].strip()
     orig_sequence = orig[1].strip()
     ss = ""
-    if (
-        fold_type != "insertions_only"
-        and fold_type != "full_molecule"
-        and fold_type != "all_constraints_enforced"
-    ):
+    if fold_type not in [
+        "insertions_only",
+        "full_molecule",
+        "all_constraints_enforced",
+    ]:
         if source == "rfam":
             insertions_only = [
                 "rRNA",
@@ -230,7 +245,8 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             ]
             full_molecule = ["snRNA", "snoRNA", "sRNA", "tRNA", "miRNA"]
             r = requests.get(
-                f"http://rfam.org/family/{model_id}?content-type=application/json"
+                f"http://rfam.org/family/{model_id}?content-type=application/json",
+                timeout=60,
             )
             if any(x in r.json()["rfam"]["curation"]["type"] for x in full_molecule):
                 fold_type = "full_molecule"
@@ -264,9 +280,9 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             return
     elif fold_type == "full_molecule":
         if exclusion:
-            final_constraint = handle_exclusion(exclusion, R2DT_constraint)
+            final_constraint = handle_exclusion(exclusion, r2dt_constraint)
         else:
-            final_constraint = R2DT_constraint
+            final_constraint = r2dt_constraint
         md = RNA.md()
         md.min_loop_size = 0
         fc = RNA.fold_compound(orig_sequence, md)
@@ -282,20 +298,20 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
     elif fold_type == "insertions_only":
         constraint = ""
         if exclusion:
-            constraint = handle_exclusion(exclusion, R2DT_constraint)
+            constraint = handle_exclusion(exclusion, r2dt_constraint)
         else:
-            constraint = R2DT_constraint
+            constraint = r2dt_constraint
         ss = fold_insertions_only(orig_sequence, constraint, filename)
     if ss:
-        with open(input_fasta, "w") as f:
+        with open(input_fasta, "w", encoding="utf-8") as f:
             f.write(orig[0])
         constraint_differences = ""
-        for i, val in enumerate(R2DT_constraint):
+        for i, val in enumerate(r2dt_constraint):
             if val == ss[i]:
                 constraint_differences += "-"
             else:
                 constraint_differences += "*"
-        with open(input_fasta, "a") as f:
+        with open(input_fasta, "a", encoding="utf-8") as f:
             f.write(orig_sequence)
             f.write("\n" + ss)
             f.write("\n" + constraint_differences)
@@ -310,19 +326,19 @@ def get_infernal_posterior_probabilities(input_file, output_file):
     """
     sequence = ""
     post_prob = ""
-    with open(input_file, "r") as f_in:
+    with open(input_file, "r", encoding="utf-8") as f_in:
         for line in f_in:
             match = re.match(r"^#=GR\s+.+?\s+PP\s+([123456789*.]+)$", line)
             if match:
                 post_prob = match.group(1)
-                next
+                continue
             if line.startswith("#="):
                 continue
             match = re.match(r"^.+?\s{2,}(.+?)$", line)
             if match:
                 sequence = match.group(1)
-                next
-    with open(output_file, "w") as f_out:
+                continue
+    with open(output_file, "w", encoding="utf-8") as f_out:
         header = ["residue_index", "residue_name", "posterior_probability"]
         f_out.write("\t".join(header) + "\n")
         for index, (nt, prob) in enumerate(
