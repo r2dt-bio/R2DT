@@ -118,7 +118,7 @@ def visualise(
         os.system(cmd)
 
     # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
-    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired}"
+    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired} > /dev/null"
     result = os.system(cmd)
     if result:
         print(f"Failed esl-alidepair for {seq_id}")
