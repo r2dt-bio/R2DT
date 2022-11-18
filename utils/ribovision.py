@@ -14,6 +14,7 @@ limitations under the License.
 import os
 import re
 from . import config
+from . import gtrnadb
 from . import shared
 from . import rfam
 
@@ -27,6 +28,10 @@ def visualise(
     constraint,
     exclusion,
     fold_type,
+    domain=None,
+    isotype=None,
+    start=None,
+    end=None,
 ):
     """Main visualisation routine that invokes Traveler."""
     if not os.path.exists(output_folder):
@@ -53,12 +58,15 @@ def visualise(
             model_id = rfam.get_rfam_acc_by_id(model_id)
         temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
         temp_acc_list = filename_template.replace("type", "seed_list")
+    elif rna_type.lower() == "gtrnadb":
+        model_id = domain + "_" + isotype
     else:
         print("Please specify RNA type")
         return
 
     temp_fasta = filename_template.replace("type", "fasta")
     temp_sto = filename_template.replace("type", "sto")
+    temp_depaired = filename_template.replace("type", "depaired")
     temp_stk = filename_template.replace("type", "stk")
     temp_post_prob = filename_template.replace("type", "post_prob")
     temp_pfam_stk = filename_template.replace("type", "pfam_stk")
@@ -66,7 +74,8 @@ def visualise(
     temp_map = filename_template.replace("type", "map")
 
     # get sequence from fasta file
-    cmd = f"esl-sfetch {fasta_input} {seq_id} > {temp_fasta}"
+    seq_range = f"-c {start}..{end}" if start and end else ""
+    cmd = f"esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}"
     result = os.system(cmd)
     if result:
         raise ValueError(f"Failed esl-sfetch for: {seq_id}")
@@ -80,6 +89,10 @@ def visualise(
         rfam_seed = rfam.download_rfam_seed(model_id)
         cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
         os.system(cmd)
+    elif rna_type == "gtrnadb":
+        model_path = gtrnadb.get_trnascan_cm(domain, isotype)
+        template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
+        template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -104,6 +117,12 @@ def visualise(
         cmd = f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} > {temp_sto}"
         os.system(cmd)
 
+    # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
+    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired}"
+    result = os.system(cmd)
+    if result:
+        print(f"Failed esl-alidepair for {seq_id}")
+
     has_conserved_structure = False
     with open(temp_sto, "r", encoding="utf-8") as f_stockholm:
         for line in f_stockholm.readlines():
@@ -117,7 +136,7 @@ def visualise(
         return
 
     # impose consensus secondary structure and convert to pfam format
-    cmd = f"/rna/easel/miniapps/esl-alimanip --rna --sindi --outformat pfam {temp_sto} > {temp_stk}"
+    cmd = f"/rna/easel/miniapps/esl-alimanip --rna --sindi --outformat pfam {temp_depaired} > {temp_stk}"
     result = os.system(cmd)
     if result:
         print(f"Failed esl-alimanip for {seq_id} {model_id}")
@@ -148,10 +167,15 @@ def visualise(
     cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
     infernal_mapping_failed = os.system(cmd)
 
-    result_base = os.path.join(
-        output_folder,
-        f"{seq_id.replace('/', '_')}-{model_id}",
-    )
+    if rna_type == "gtrnadb":
+        result_base = os.path.join(
+            output_folder, seq_id.replace("/", "-") + "-" + domain + "_" + isotype
+        )
+    else:
+        result_base = os.path.join(
+            output_folder,
+            f"{seq_id.replace('/', '_')}-{model_id}",
+        )
 
     # convert stockholm to fasta with dot bracket secondary structure
     cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
@@ -176,6 +200,8 @@ def visualise(
         traveler_params = f"--template-structure {template_layout}/{model_id}.ps {template_structure}/{model_id}.fasta"
     elif rna_type == "rfam":
         traveler_params = f"--template-structure --file-format traveler {template_layout} {template_structure} "
+    elif rna_type == "gtrnadb":
+        traveler_params = f'--template-structure --file-format traveler {template_layout} {template_structure} --numbering "13,26" -l '
     else:
         traveler_params = f"--template-structure --file-format traveler {template_layout}/{model_id}.tr {template_structure}/{model_id}.fasta"
 
@@ -216,6 +242,7 @@ def visualise(
     # clean up
     os.remove(temp_fasta)
     os.remove(temp_sto)
+    os.remove(temp_depaired)
     os.remove(temp_stk)
     os.remove(temp_afa)
     os.remove(temp_map)

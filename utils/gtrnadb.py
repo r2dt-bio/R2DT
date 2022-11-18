@@ -13,12 +13,11 @@ limitations under the License.
 
 import os
 import re
-import tempfile
 import subprocess as sp
 from pathlib import Path
 
 from . import config
-from . import shared
+from . import ribovision
 
 
 def setup():
@@ -169,17 +168,19 @@ def visualise(
                 continue
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
-            generate_2d(
-                domain,
-                isotype,
-                seq_id,
-                None,
-                None,
+            ribovision.visualise(
+                "gtrnadb",
                 fasta_input,
                 destination,
+                seq_id,
+                None,
                 constraint,
                 exclusion,
                 fold_type,
+                domain,
+                isotype,
+                None,
+                None,
             )
     os.system("rm headers.txt")
 
@@ -250,170 +251,3 @@ def get_traveler_fasta(domain, isotype):
         return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler.fasta")
     else:
         raise ValueError(f"Unknown domain {domain}")
-
-
-def generate_2d(
-    domain,
-    isotype,
-    seq_id,
-    start,
-    end,
-    fasta_input,
-    output_folder,
-    constraint,
-    exclusion,
-    fold_type,
-):
-    temp_fasta = tempfile.NamedTemporaryFile()
-    temp_sto = tempfile.NamedTemporaryFile()
-    temp_depaired = tempfile.NamedTemporaryFile()
-    temp_stk = tempfile.NamedTemporaryFile()
-    temp_pfam_stk = tempfile.NamedTemporaryFile(delete=False)
-    temp_afa = tempfile.NamedTemporaryFile()
-    temp_map = tempfile.NamedTemporaryFile()
-
-    if not os.path.exists(fasta_input + ".ssi"):
-        cmd = f"esl-sfetch --index {fasta_input}"
-        os.system(cmd)
-
-    cmd = "esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}".format(
-        fasta_input=fasta_input,
-        seq_id=seq_id,
-        temp_fasta=temp_fasta.name,
-        seq_range="-c {}..{}".format(start, end) if start and end else "",
-    )
-    os.system(cmd)
-
-    cmd = "cmalign {trnascan_cm} {temp_fasta} > {temp_sto}".format(
-        trnascan_cm=get_trnascan_cm(domain, isotype),
-        temp_fasta=temp_fasta.name,
-        temp_sto=temp_sto.name,
-    )
-    result = os.system(cmd)
-    if result:
-        print(f"Failed cmalign of {seq_id} to {isotype}")
-        return
-
-    # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
-    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto.name} {temp_depaired.name}"
-    result = os.system(cmd)
-    if result:
-        print(f"Failed esl-alidepair for {seq_id}")
-
-    cmd = "esl-alimanip --rna --sindi --outformat pfam {} > {}".format(
-        temp_depaired.name, temp_stk.name
-    )
-    result = os.system(cmd)
-    if result:
-        print(f"Failed esl-alimanip for {seq_id}")
-        return
-
-    cmd = "ali-pfam-lowercase-rf-gap-columns.pl -s {} > {}".format(
-        temp_stk.name, temp_pfam_stk.name
-    )
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id}")
-
-    os.system(f"cp {temp_pfam_stk.name} {output_folder}/temp_pfam_stk.txt")
-
-    if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk.name)
-
-    cmd = "ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {} > {}".format(
-        temp_pfam_stk.name, temp_afa.name
-    )
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id}")
-
-    cmd = "python3 /rna/traveler/utils/infernal2mapping.py -i {} > {}".format(
-        temp_afa.name, temp_map.name
-    )
-    result = os.system(cmd)
-    if result:
-        raise ValueError(f"Failed infernal2mapping for {cmd}")
-
-    result_base = os.path.join(
-        output_folder, seq_id.replace("/", "-") + "-" + domain + "_" + isotype
-    )
-    input_fasta = os.path.join(output_folder, seq_id + ".fasta")
-    cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_stk.name} > {input_fasta}"
-    os.system(cmd)
-
-    if constraint:
-        shared.fold_insertions(
-            input_fasta,
-            exclusion,
-            "gtrnadb",
-            temp_pfam_stk.name,
-            domain + "_" + isotype,
-            fold_type,
-        )
-    elif exclusion:
-        print("Exclusion ignored, enable --constraint to add exclusion file")
-
-    log = result_base + ".log"
-    cmd = (
-        "traveler "
-        "--verbose "
-        "--target-structure {fasta} "
-        "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
-        "--draw {map} {result_base} "
-        '--numbering "13,26" -l '
-        "> {log}"
-    ).format(
-        fasta=input_fasta,
-        result_base=result_base,
-        traveler_template_xml=get_traveler_template_xml(domain, isotype),
-        traveler_fasta=get_traveler_fasta(domain, isotype),
-        log=log,
-        map=temp_map.name,
-    )
-    result = os.system(cmd)
-    if result:
-        print("Repeating using Traveler mapping")
-        cmd = (
-            "traveler "
-            "--verbose "
-            "--target-structure {fasta} "
-            "--template-structure --file-format traveler {traveler_template_xml} {traveler_fasta} "
-            "--all {result_base} "
-            '--numbering "13,26" -l '
-            "> {log}"
-        ).format(
-            fasta=input_fasta,
-            result_base=result_base,
-            traveler_template_xml=get_traveler_template_xml(domain, isotype),
-            traveler_fasta=get_traveler_fasta(domain, isotype),
-            log=log,
-        )
-        print(cmd)
-        result = os.system(cmd)
-
-    print(cmd)
-
-    temp_fasta.close()
-    temp_sto.close()
-    temp_depaired.close()
-    temp_stk.close()
-    temp_pfam_stk.close()
-    temp_afa.close()
-    temp_map.close()
-
-    cmd = "rm -f {0}/*.xml {0}/*.ps".format(output_folder)
-    os.system(cmd)
-
-    overlaps = 0
-    with open(log, "r") as raw:
-        for line in raw:
-            match = re.search(r"Overlaps count: (\d+)", line)
-            if match:
-                if overlaps:
-                    print("ERROR: Saw too many overlap counts")
-                    break
-                overlaps = int(match.group(1))
-
-    with open(result_base + ".overlaps", "w") as out:
-        out.write(str(overlaps))
-        out.write("\n")

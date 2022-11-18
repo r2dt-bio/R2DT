@@ -316,17 +316,19 @@ def draw(
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print(f"Analysing {len(subset)} sequences with GtRNAdb")
         for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
-            gtrnadb.generate_2d(
-                trna["domain"],
-                trna["isotype"],
-                trna["id"],
-                trna["start"],
-                trna["end"],
+            ribovision.visualise(
+                "gtrnadb",
                 fasta_input,
                 output_folder + "/gtrnadb",
+                trna["id"],
+                None,
                 constraint,
                 exclusion,
                 fold_type,
+                trna["domain"],
+                trna["isotype"],
+                trna["start"],
+                trna["end"],
             )
 
     # Rfam tRNA
@@ -461,17 +463,19 @@ def gtrnadb_draw(
         )
     else:
         for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-            gtrnadb.generate_2d(
-                trna["domain"],
-                trna["isotype"],
-                trna["id"],
-                trna["start"],
-                trna["end"],
+            ribovision.visualise(
+                "gtrnadb",
                 fasta_input,
                 output_folder,
+                trna["id"],
+                None,
                 constraint,
                 exclusion,
                 fold_type,
+                trna["domain"],
+                trna["isotype"],
+                trna["start"],
+                trna["end"],
             )
 
 
