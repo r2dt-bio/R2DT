@@ -17,6 +17,7 @@ import glob
 import json
 import os
 import re
+import shutil
 
 import click
 from colorhash import ColorHash
@@ -25,6 +26,7 @@ from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info, s
 from utils import generate_model_info as gmi
 from utils import list_models as lm
 from utils import generate_cm_library as gcl
+from tests import tests
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
@@ -931,6 +933,27 @@ def test(test_name):
         os.system(cmd)
     else:
         os.system("R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest")
+
+
+@cli.command()
+@click.argument("test_name", required=True, type=click.STRING)
+def update_test_examples(test_name):
+    """Update test examples for a given test."""
+    try:
+        class_ = getattr(tests, test_name)
+    except AttributeError:
+        print(f"Error: {test_name} is not found in tests.py")
+        return
+    test_instance = class_()
+    for example_file in test_instance.files:
+        print(example_file)
+        old_filename = os.path.join(
+            test_instance.test_results,
+            test_instance.test_results_subfolder,
+            example_file,
+        )
+        new_filename = os.path.join(test_instance.precomputed_results, example_file)
+        shutil.copyfile(old_filename, new_filename)
 
 
 @cli.command()
