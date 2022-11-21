@@ -46,9 +46,10 @@ Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005
    installation
    usage
    api
-   templates
    widget
+   templates
    docs
+   testing
    releases
    team
 ```

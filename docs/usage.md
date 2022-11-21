@@ -133,30 +133,6 @@ Please note that this option should be used with caution as sequences with unexp
     r2dt.py version
     ```
 
-* Run [all tests](https://github.com/RNAcentral/R2DT/blob/master/tests/tests.py)
-    ```bash
-    r2dt.py test
-    ```
-
-    or
-
-    ```bash
-    python3 -m unittest
-    ```
-
-* Run a [single test](https://github.com/RNAcentral/R2DT/blob/master/tests/tests.py)
-    ```bash
-    python3 -m unittest tests.tests.TestRibovisionLSU
-    r2dt.py test TestRibovisionLSU
-    ```
-
-* Run tests and keep the results (useful when updating Traveler for example)
-    ```bash
-    R2DT_KEEP_TEST_RESULTS=1 r2dt.py test
-    R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.TestRnasep
-    r2dt.py test TestRnasep
-    ```
-
 * Classify example sequences using Ribotyper
     ```bash
     perl /rna/ribovore/ribotyper.pl -i data/cms/crw/modelinfo.txt -f examples/pdb.fasta temp/ribotyper-test
