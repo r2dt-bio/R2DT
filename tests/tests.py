@@ -476,9 +476,10 @@ class TestExclusions(R2dtTestCase):
     )
     exclusion = os.path.join("examples", "constraint", "Oceanobacillus_iheyensis.txt")
     test_results = os.path.join("tests", "results", "exclusion")
+    test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "constraint")
     cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results}"
-    output_svg = "Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"
+    files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
 
     def setUp(self):
         self.delete_folder(self.test_results)
@@ -486,13 +487,7 @@ class TestExclusions(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        new_file = os.path.join(self.test_results, "results", "svg", self.output_svg)
-        reference_file = os.path.join(self.precomputed_results, self.output_svg)
-        self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-        self.assertTrue(
-            filecmp.cmp(new_file, reference_file),
-            f"File {new_file} does not match",
-        )
+        self.check_examples()
 
 
 class TestSkipRibovoreFilters(R2dtTestCase):
