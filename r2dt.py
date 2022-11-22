@@ -22,7 +22,7 @@ import shutil
 import click
 from colorhash import ColorHash
 
-from utils import crw, rfam, ribovision, gtrnadb, config, generate_model_info, shared
+from utils import crw, rfam, ribovision, gtrnadb, config, shared
 from utils import generate_model_info as gmi
 from utils import list_models as lm
 from utils import generate_cm_library as gcl
@@ -38,21 +38,21 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
         output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
     )
     if not os.path.exists(ribotyper_long_out):
-        cmd = "ribotyper.pl --skipval -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}".format(
-            cm_library=cm_library, fasta_input=fasta_input, output_folder=output_folder
-        )
+        cmd = f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}"
         print(cmd)
         os.system(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
     if not skip_ribovore_filters:
         cmd = (
-            "cat %s | grep -v '^#' | grep -v MultipleHits | grep PASS | awk -v OFS='\t' '{print $2, $8, $3}' > %s"
-            % (ribotyper_long_out, f_out)
+            f"cat {ribotyper_long_out} | grep -v '^#' | "
+            f"grep -v MultipleHits | grep PASS | "
+            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
         )
     else:
         cmd = (
-            "cat %s | grep -v '^#' | grep -v NoHits | awk -v OFS='\t' '{print $2, $8, $3}' > %s"
-            % (ribotyper_long_out, f_out)
+            f"cat {ribotyper_long_out} | grep -v '^#' "
+            f"| grep -v NoHits | "
+            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
         )
     os.system(cmd)
     return f_out
@@ -121,7 +121,7 @@ def get_seq_ids(input_fasta):
     Get a list of sequence ids from a fasta file.
     """
     seq_ids = set()
-    with open(input_fasta, "r") as f_in:
+    with open(input_fasta, "r", encoding="utf-8") as f_in:
         for line in f_in:
             if line.startswith(">"):
                 match = re.search(r">(.*?)\s", line)
@@ -138,7 +138,7 @@ def get_hits(folder):
     hits_file = os.path.join(folder, "hits.txt")
     if not os.path.exists(hits_file):
         return hits
-    with open(hits_file, "r") as f_in:
+    with open(hits_file, "r", encoding="utf-8") as f_in:
         for line in f_in:
             hits.add(line.split("\t")[0])
     return hits
@@ -150,9 +150,9 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     from <fasta_input>.
     """
     index_filename = output_filename + ".txt"
-    with open(index_filename, "w") as f_out:
+    with open(index_filename, "w", encoding="utf-8") as f_out:
         for seq_id in seq_ids:
-            f_out.write(seq_id + "\n")
+            f_out.write(f"{seq_id}\n")
     cmd = f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}"
     os.system(cmd)
     os.system("esl-sfetch --index " + output_filename)
@@ -233,8 +233,9 @@ def draw(
             skip_ribovore_filters,
         ),
         "r",
-    ) as f:
-        for line in f.readlines():
+        encoding="utf-8",
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
             ribovision.visualise(
                 "rfam",
@@ -346,7 +347,6 @@ def draw(
                 "RF00005",
                 output_folder,
                 subset_fasta,
-                False,
                 constraint,
                 exclusion,
                 fold_type,
@@ -371,6 +371,7 @@ def draw(
 
 
 def organise_results(results_folder, output_folder):
+    """Move files to the final folder structure."""
     destination = os.path.join(output_folder, "results")
     svg_folder = os.path.join(destination, "svg")
     thumbnail_folder = os.path.join(destination, "thumbnail")
@@ -386,11 +387,12 @@ def organise_results(results_folder, output_folder):
         os.system(f"mkdir -p {folder}")
 
     svgs = glob.glob(os.path.join(results_folder, "*.colored.svg"))
-    if len(svgs):
+    if svgs:
         for svg in svgs:
-            with open(svg, "r") as f_svg:
+            with open(svg, "r", encoding="utf-8") as f_svg:
                 thumbnail = generate_thumbnail(f_svg.read(), svg)
-                with open(svg.replace(".colored.", ".thumbnail."), "w") as f_thumbnail:
+                thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
+                with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
                     f_thumbnail.write(thumbnail)
         os.system(f"mv {results_folder}/*.colored.svg {svg_folder}")
         os.system(f"mv {results_folder}/*.thumbnail.svg {thumbnail_folder}")
@@ -403,7 +405,6 @@ def gtrnadb_group():
     """
     Use tRNA templates for structure visualisation.
     """
-    pass
 
 
 @gtrnadb_group.command("setup")
@@ -486,7 +487,6 @@ def rnasep_group():
     """
     Use RNAse P templates for structure visualisation.
     """
-    pass
 
 
 @rnasep_group.command("draw")
@@ -513,8 +513,9 @@ def rnasep_draw(
             fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
         ),
         "r",
-    ) as f:
-        for line in f.readlines():
+        encoding="utf-8",
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
             ribovision.visualise(
                 "rnasep",
@@ -533,7 +534,6 @@ def crw_group():
     """
     Use CRW templates for structure visualisation.
     """
-    pass
 
 
 @crw_group.command("draw")
@@ -560,8 +560,9 @@ def rrna_draw(
             fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
         ),
         "r",
-    ) as f:
-        for line in f.readlines():
+        encoding="utf-8",
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
             ribovision.visualise(
                 "crw",
@@ -580,7 +581,6 @@ def ribovision_group():
     """
     Use RiboVision templates for structure visualisation.
     """
-    pass
 
 
 @ribovision_group.command("draw_lsu")
@@ -610,8 +610,9 @@ def ribovision_draw_lsu(
             skip_ribovore_filters,
         ),
         "r",
-    ) as f:
-        for line in f.readlines():
+        encoding="utf-8",
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
             ribovision.visualise(
                 "lsu",
@@ -652,8 +653,9 @@ def ribovision_draw_ssu(
             skip_ribovore_filters,
         ),
         "r",
-    ) as f:
-        for line in f.readlines():
+        encoding="utf-8",
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
             ribovision.visualise(
                 "ssu",
@@ -672,7 +674,6 @@ def rfam_group():
     """
     Use Rfam templates for structure visualisation.
     """
-    pass
 
 
 @rfam_group.command("blacklisted")
@@ -732,26 +733,27 @@ def rfam_validate(rfam_accession, output):
     be output to the given file, otherwise it will not.
     """
     if rfam_accession not in rfam.blacklisted():
-        output.write(rfam_accession + "\n")
+        output.write(f"{rfam_accession}\n")
 
 
 def generate_thumbnail(image, description):
+    """Generate a thumbnail SVG as an outline of the 2D diagram."""
     move_to_start_position = None
     color = ColorHash(description).hex
     points = []
-    for i, line in enumerate(image.split("\n")):
+    for _, line in enumerate(image.split("\n")):
         if "width" in line and not "stroke-width" in line:
             width = re.findall(r'width="(\d+(\.\d+)?)"', line)
         if "height" in line:
             height = re.findall(r'height="(\d+(\.\d+)?)"', line)
-        for nt in re.finditer(
-            '<text x="(\d+)(\.\d+)?" y="(\d+)(\.\d+)?".*?</text>', line
+        for nt_block in re.finditer(
+            r'<text x="(\d+)(\.\d+)?" y="(\d+)(\.\d+)?".*?</text>', line
         ):
-            if "numbering-label" in nt.group(0):
+            if "numbering-label" in nt_block.group(0):
                 continue
             if not move_to_start_position:
-                move_to_start_position = f"M{nt.group(1)} {nt.group(3)} "
-            points.append(f"L{nt.group(1)} {nt.group(3)}")
+                move_to_start_position = f"M{nt_block.group(1)} {nt_block.group(3)} "
+            points.append(f"L{nt_block.group(1)} {nt_block.group(3)}")
     if len(points) < 200:
         stroke_width = "3"
     elif len(points) < 500:
@@ -760,8 +762,11 @@ def generate_thumbnail(image, description):
         stroke_width = "4"
     else:
         stroke_width = "2"
-    thumbnail = '<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}"><path style="stroke:{};stroke-width:{}px;fill:none;" d="'.format(
-        width[0][0], height[0][0], color, stroke_width
+    thumbnail = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{width[0][0]}" height="{height[0][0]}">'
+        f'<path style="stroke:{color};stroke-width:{stroke_width}px;'
+        f'fill:none;" d="'
     )
     thumbnail += move_to_start_position
     thumbnail += " ".join(points)
@@ -775,12 +780,12 @@ def organise_metadata(output_folder, result_folders):
     """
     tsv_folder = os.path.join(output_folder, "results", "tsv")
     os.system(f"mkdir -p {tsv_folder}")
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
+    with open(os.path.join(tsv_folder, "metadata.tsv"), "w", encoding="utf-8") as f_out:
         for folder in result_folders:
             hits = os.path.join(folder, "hits.txt")
             if not os.path.exists(hits):
                 continue
-            with open(hits, "r") as f_hits:
+            with open(hits, "r", encoding="utf-8") as f_hits:
                 for line in f_hits.readlines():
                     if "gtrnadb" in folder:
                         line = line.replace("PASS", "GtRNAdb")
@@ -902,7 +907,9 @@ def force_draw(
         "ribovision_lsu": "RiboVision",
         "rnasep": "RNAse P database",
     }
-    with open(os.path.join(metadata_folder, "metadata.tsv"), "a") as f_out:
+    with open(
+        os.path.join(metadata_folder, "metadata.tsv"), "a", encoding="utf-8"
+    ) as f_out:
         line = f"{seq_id}\t{model_id}\t{label_mapping[model_type]}\n"
         f_out.write(line)
 
@@ -917,7 +924,9 @@ def list_models():
     for item in data:
         print(item["description"])
     lm.check_unique_descriptions(data)
-    with open(os.path.join(config.DATA, "models.json"), "w") as models_file:
+    with open(
+        os.path.join(config.DATA, "models.json"), "w", encoding="utf-8"
+    ) as models_file:
         json.dump(data, models_file)
 
 
