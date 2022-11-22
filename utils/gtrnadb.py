@@ -154,9 +154,8 @@ def visualise(
     domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type
 ):
     filename = "headers.txt"
-    destination = f"{output_folder}/{'_'.join([domain, isotype])}"
-    if not os.path.exists(destination):
-        os.makedirs(destination)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
     if not os.path.exists(f"{fasta_input}.ssi"):
         cmd = f"esl-sfetch --index {fasta_input}"
@@ -174,7 +173,7 @@ def visualise(
             ribovision.visualise(
                 "gtrnadb",
                 fasta_input,
-                destination,
+                output_folder,
                 seq_id,
                 None,
                 constraint,

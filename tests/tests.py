@@ -59,7 +59,7 @@ class R2dtTestCase(unittest.TestCase):
                 self.test_results, self.test_results_subfolder, filename
             )
             reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file))
+            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
             is_identical = filecmp.cmp(new_file, reference_file)
             if not is_identical:
                 filename = os.path.join(
@@ -309,7 +309,6 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
     trnascan_model = "E_Thr"
     fasta_input = os.path.join("examples", f"gtrnadb.{trnascan_model}.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb")
-    test_results_subfolder = trnascan_model
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", trnascan_model)
     cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr"
     files = [
@@ -395,34 +394,28 @@ class TestForceTemplate(R2dtTestCase):
 
     fasta_input = os.path.join("examples", "force")
     test_results = os.path.join("tests", "results", "force")
+    test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "force")
     cmd = "r2dt.py draw --force_template {} {} {}"
-    cases = {  # pylint: disable=duplicate-key
-        "URS00000F9D45_9606": "d.5.b.E.coli",  # CRW: human 5S with E. coli 5S
-        "URS0000704D22_9606": "EC_SSU_3D",  # RiboVision SSU: Human SSU with E.coli
-        "URS000020CCFC_274": "EC_LSU_3D",  # RiboVision LSU: T. thermophilus with E.coli
-        "URS00000A1A88_9606": "B_Thr",  # GtRNAdb: human E_Thr with B_Thr
-        "URS00000A1A88_9606": "RF00005",  # GtRNAdb E_Thr using Rfam tRNA
-        "URS0001BC2932_272844": "RNAseP_a_P_furiosus_JB",  # RNAse P: P. abyssi with P.furiosus
-    }
+    files = [
+        "URS00000F9D45_9606-d.5.b.E.coli.colored.svg",  # CRW: human 5S with E. coli 5S
+        "URS0000704D22_9606-EC_SSU_3D.colored.svg",  # RiboVision SSU: Human SSU with E.coli
+        "URS000020CCFC_274-EC_LSU_3D.colored.svg",  # RiboVision LSU: T. thermophilus with E.coli
+        "URS00000A1A88_9606-B_Thr.colored.svg",  # GtRNAdb: human E_Thr with B_Thr
+        "URS00000A1A88_9606-RF00005.colored.svg",  # GtRNAdb E_Thr using Rfam tRNA
+        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",  # RNAse P: P. abyssi with P.furiosus
+    ]
 
     def setUp(self):
         self.delete_folder(self.test_results)
-        for seq_id, model_id in self.cases.items():
+        for filename in self.files:
+            seq_id, model_id = filename.replace(".colored.svg", "").split("-")
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
             os.system(self.cmd.format(model_id, input_fasta, self.test_results))
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
-        for seq_id, model_id in self.cases.items():
-            filename = f"{seq_id}-{model_id}.colored.svg"
-            new_file = os.path.join(self.test_results, "results", "svg", filename)
-            reference_file = os.path.join(self.precomputed_results, filename)
-            self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            self.assertTrue(
-                filecmp.cmp(new_file, reference_file),
-                f"File {new_file} does not match",
-            )
+        self.check_examples()
 
 
 class TestRNAfold(R2dtTestCase):
