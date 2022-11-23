@@ -17,7 +17,7 @@ import subprocess as sp
 from pathlib import Path
 
 from . import config
-from . import ribovision
+from . import core
 
 
 def setup():
@@ -170,7 +170,7 @@ def visualise(
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
-            ribovision.visualise(
+            core.visualise(
                 "gtrnadb",
                 fasta_input,
                 output_folder,

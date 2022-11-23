@@ -18,7 +18,7 @@ import re
 import subprocess as sp
 
 from . import config
-from . import ribovision
+from . import core
 from . import generate_model_info as mi
 
 
@@ -457,7 +457,7 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
-            ribovision.visualise(
+            core.visualise(
                 "rfam",
                 fasta_input,
                 destination,

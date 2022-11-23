@@ -23,7 +23,7 @@ import subprocess as sp
 import click
 from colorhash import ColorHash
 
-from utils import rfam, ribovision, gtrnadb, config, shared
+from utils import core, rfam, gtrnadb, config, shared
 from utils import generate_model_info as gmi
 from utils import list_models as lm
 from utils import generate_cm_library as gcl
@@ -243,7 +243,7 @@ def draw(
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            ribovision.visualise(
+            core.visualise(
                 "rfam",
                 fasta_input,
                 rfam_output,
@@ -325,7 +325,7 @@ def draw(
         get_subset_fasta(fasta_input, subset_fasta, subset)
         print(f"Analysing {len(subset)} sequences with GtRNAdb")
         for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
-            ribovision.visualise(
+            core.visualise(
                 "gtrnadb",
                 fasta_input,
                 output_folder + "/gtrnadb",
@@ -467,7 +467,7 @@ def gtrnadb_draw(
         )
     else:
         for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
-            ribovision.visualise(
+            core.visualise(
                 "gtrnadb",
                 fasta_input,
                 output_folder,
@@ -519,7 +519,7 @@ def rnasep_draw(
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            ribovision.visualise(
+            core.visualise(
                 "rnasep",
                 fasta_input,
                 output_folder,
@@ -567,7 +567,7 @@ def rrna_draw(
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            ribovision.visualise(
+            core.visualise(
                 "crw",
                 fasta_input,
                 output_folder,
@@ -618,7 +618,7 @@ def ribovision_draw_lsu(
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            ribovision.visualise(
+            core.visualise(
                 "lsu",
                 fasta_input,
                 output_folder,
@@ -662,7 +662,7 @@ def ribovision_draw_ssu(
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
-            ribovision.visualise(
+            core.visualise(
                 "ssu",
                 fasta_input,
                 output_folder,
@@ -840,7 +840,7 @@ def force_draw(
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
     if model_type == "rfam":
-        ribovision.visualise(
+        core.visualise(
             "rfam",
             fasta_input,
             output,
@@ -851,7 +851,7 @@ def force_draw(
             fold_type,
         )
     elif model_type == "ribovision_ssu":
-        ribovision.visualise(
+        core.visualise(
             "ssu",
             fasta_input,
             output,
@@ -862,7 +862,7 @@ def force_draw(
             fold_type,
         )
     elif model_type == "ribovision_lsu":
-        ribovision.visualise(
+        core.visualise(
             "lsu",
             fasta_input,
             output,
@@ -873,7 +873,7 @@ def force_draw(
             fold_type,
         )
     elif model_type == "rnasep":
-        ribovision.visualise(
+        core.visualise(
             "rnasep",
             fasta_input,
             output,
@@ -884,7 +884,7 @@ def force_draw(
             fold_type,
         )
     elif model_type == "crw":
-        ribovision.visualise(
+        core.visualise(
             "crw",
             fasta_input,
             output,
