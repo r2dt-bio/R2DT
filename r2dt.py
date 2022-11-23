@@ -18,11 +18,12 @@ import json
 import os
 import re
 import shutil
+import subprocess as sp
 
 import click
 from colorhash import ColorHash
 
-from utils import crw, rfam, ribovision, gtrnadb, config, shared
+from utils import rfam, ribovision, gtrnadb, config, shared
 from utils import generate_model_info as gmi
 from utils import list_models as lm
 from utils import generate_cm_library as gcl
@@ -82,9 +83,22 @@ def setup():
     print(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
-    crw.setup()
+    crw_setup()
     rfam.setup()
     gtrnadb.setup()
+
+
+def crw_setup():
+    """Setup CRW CM library."""
+    print("Deleting old CRW library")
+    os.system(f"rm -Rf {config.CRW_CM_LIBRARY}")
+    print("Extracting precomputed CRW archive")
+    cmd = ["tar", "xf", "crw-cms.tar.gz"]
+    sp.check_output(cmd, cwd=config.DATA)
+    cmd = ["mv", "crw-cms", os.path.join(config.CM_LIBRARY, "crw")]
+    sp.check_output(cmd, cwd=config.DATA)
+    print("Generating CRW modelinfo file")
+    gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
 @cli.command()
