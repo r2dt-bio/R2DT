@@ -19,6 +19,7 @@ from . import generate_model_info as modelinfo
 
 
 def setup():
+    """Setup CRW CM library."""
     print("Deleting old CRW library")
     os.system(f"rm -Rf {config.CRW_CM_LIBRARY}")
     print("Extracting precomputed CRW archive")

@@ -98,8 +98,9 @@ def remove_large_insertions_pfam_stk(filename):
 
 
 def get_insertions(filename):
-    with open(filename, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    """Extract insertions to be folded."""
+    with open(filename, "r", encoding="utf-8") as f_stockholm:
+        lines = f_stockholm.readlines()
         if len(lines) == 9:
             sequence = lines[3].split()[1]
         elif len(lines) == 11:
@@ -110,6 +111,7 @@ def get_insertions(filename):
 
 
 def get_full_constraint(filename):
+    """Get folding constraint from an Infernal alignment."""
     constraint = ""
     with open(filename, "r", encoding="utf-8") as f_stockholm:
         lines = f_stockholm.readlines()
@@ -151,6 +153,7 @@ def get_full_constraint(filename):
 
 
 def fold_insertions_only(sequence, constraint, filename):
+    """Use RNAfold to fold insertions."""
     match = get_insertions(filename)
     list_seq = list(sequence)
     list_con = list(constraint)

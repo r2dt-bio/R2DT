@@ -38,7 +38,10 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
         output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
     )
     if not os.path.exists(ribotyper_long_out):
-        cmd = f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt -f {fasta_input} {output_folder}"
+        cmd = (
+            f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt "
+            f"-f {fasta_input} {output_folder}"
+        )
         print(cmd)
         os.system(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
@@ -58,20 +61,9 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     return f_out
 
 
-def symlink_cms(source):
-    for cm_file in glob.glob(os.path.join(source, "*.cm")):
-        if "all.cm" not in cm_file:
-            target = os.path.join(
-                os.path.abspath(config.CM_LIBRARY), os.path.basename(cm_file)
-            )
-            if not os.path.exists(target):
-                cmd = f"ln -s {os.path.abspath(cm_file)} {target}"
-                os.system(cmd)
-
-
 @click.group()
 def cli():
-    pass
+    """Required click stub function."""
 
 
 @cli.command()
@@ -419,9 +411,6 @@ def gtrnadb_setup():
 
 @gtrnadb_group.command("draw")
 @click.option(
-    "--test", default=False, is_flag=True, help="Process only the first 10 sequences"
-)
-@click.option(
     "--domain",
     default=False,
     type=click.STRING,
@@ -442,7 +431,6 @@ def gtrnadb_draw(
     output_folder,
     domain="",
     isotype="",
-    test=None,
     constraint=None,
     exclusion=None,
     fold_type=None,
@@ -459,7 +447,6 @@ def gtrnadb_draw(
             isotype.capitalize(),
             fasta_input,
             output_folder,
-            test,
             constraint,
             exclusion,
             fold_type,
@@ -506,6 +493,7 @@ def rnasep_group():
 def rnasep_draw(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
+    """Draw 2D diagrams using RNAse P templates."""
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -553,6 +541,7 @@ def crw_group():
 def rrna_draw(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
+    """Draw 2D diagrams using CRW templates."""
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -600,6 +589,7 @@ def ribovision_group():
 def ribovision_draw_lsu(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
+    """Draw 2D diagrams using LSU templates from RiboVision."""
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -643,6 +633,7 @@ def ribovision_draw_lsu(
 def ribovision_draw_ssu(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
+    """Draw 2D diagrams using SSU templates from RiboVision."""
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -823,6 +814,7 @@ def force_draw(
     exclusion=None,
     fold_type=None,
 ):
+    """Draw 2D diagrams using a specified template."""
     print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
@@ -890,9 +882,8 @@ def force_draw(
         )
     elif model_type == "gtrnadb":
         domain, isotype = model_id.split("_")
-        test = False
         gtrnadb.visualise(
-            domain, isotype, fasta_input, output, test, constraint, exclusion, fold_type
+            domain, isotype, fasta_input, output, constraint, exclusion, fold_type
         )
     # organise results into folders
     organise_results(output, output_folder)

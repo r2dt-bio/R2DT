@@ -92,6 +92,7 @@ def skip_trna(entry):
 
 
 def classify_trna_sequences(fasta_input, output_folder):
+    """Run tRNAScan-SE 2.0 and select the matching model."""
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
     mito_vert = run_trnascan(fasta_input, output_folder, "M")
@@ -151,8 +152,9 @@ def classify_trna_sequences(fasta_input, output_folder):
 
 
 def visualise(
-    domain, isotype, fasta_input, output_folder, test, constraint, exclusion, fold_type
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
 ):
+    """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -165,9 +167,7 @@ def visualise(
     os.system(cmd)
 
     with open(filename, "r", encoding="utf-8") as f_headers:
-        for i, line in enumerate(f_headers):
-            if test and i > 10:
-                continue
+        for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
             ribovision.visualise(
