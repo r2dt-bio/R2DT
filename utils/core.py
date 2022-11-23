@@ -75,10 +75,13 @@ def visualise(
 
     # get sequence from fasta file
     seq_range = f"-c {start}..{end}" if start and end else ""
+    if not os.path.exists(f"{fasta_input}.ssi"):
+        cmd = f"esl-sfetch --index {fasta_input}"
+        os.system(cmd)
     cmd = f"esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}"
     result = os.system(cmd)
     if result:
-        raise ValueError(f"Failed esl-sfetch for: {seq_id}")
+        raise ValueError(f"Failed esl-sfetch for: {seq_id} in {cmd}")
 
     # check that the model exists
     if rna_type == "rfam":
@@ -103,7 +106,10 @@ def visualise(
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
         if rna_type == "rfam":
-            cmd = f"cmalign --mapali {rfam_seed} --mapstr {options} {model_path} {temp_fasta} > {temp_sto_unfiltered}"
+            cmd = (
+                f"cmalign --mapali {rfam_seed} --mapstr {options} "
+                f"{model_path} {temp_fasta} > {temp_sto_unfiltered}"
+            )
         else:
             cmd = f"cmalign {options} {model_path} {temp_fasta} > {temp_sto}"
         result = os.system(cmd)
@@ -114,7 +120,10 @@ def visualise(
         return
 
     if rna_type == "rfam":
-        cmd = f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} > {temp_sto}"
+        cmd = (
+            f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} "
+            f"{temp_sto_unfiltered} > {temp_sto}"
+        )
         os.system(cmd)
 
     # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
@@ -136,7 +145,10 @@ def visualise(
         return
 
     # impose consensus secondary structure and convert to pfam format
-    cmd = f"/rna/easel/miniapps/esl-alimanip --rna --sindi --outformat pfam {temp_depaired} > {temp_stk}"
+    cmd = (
+        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
+        f"--outformat pfam {temp_depaired} > {temp_stk}"
+    )
     result = os.system(cmd)
     if result:
         print(f"Failed esl-alimanip for {seq_id} {model_id}")
@@ -164,7 +176,8 @@ def visualise(
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
-    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
+    cmd = f"python3 /rna/r2dt/infernal2mapping.py -i {temp_afa} > {temp_map}"
+    print(cmd)
     infernal_mapping_failed = os.system(cmd)
 
     if rna_type == "gtrnadb":
@@ -197,13 +210,27 @@ def visualise(
         print("Exclusion ignored, enable --constraint to add exclusion file")
 
     if rna_type == "crw":
-        traveler_params = f"--template-structure {template_layout}/{model_id}.ps {template_structure}/{model_id}.fasta"
+        traveler_params = (
+            f"--template-structure {template_layout}/{model_id}.ps "
+            f"{template_structure}/{model_id}.fasta"
+        )
     elif rna_type == "rfam":
-        traveler_params = f"--template-structure --file-format traveler {template_layout} {template_structure} "
+        traveler_params = (
+            f"--template-structure --file-format traveler "
+            f"{template_layout} {template_structure} "
+        )
     elif rna_type == "gtrnadb":
-        traveler_params = f'--template-structure --file-format traveler {template_layout} {template_structure} --numbering "13,26" -l '
+        traveler_params = (
+            f"--template-structure --file-format traveler "
+            f"{template_layout} {template_structure} "
+            f'--numbering "13,26" -l '
+        )
     else:
-        traveler_params = f"--template-structure --file-format traveler {template_layout}/{model_id}.tr {template_structure}/{model_id}.fasta"
+        traveler_params = (
+            f"--template-structure --file-format traveler "
+            f"{template_layout}/{model_id}.tr "
+            f"{template_structure}/{model_id}.fasta"
+        )
 
     log = result_base + ".log"
     cmd = (
