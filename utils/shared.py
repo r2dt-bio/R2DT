@@ -12,9 +12,9 @@ limitations under the License.
 """
 
 import re
-import RNA
-import requests
 
+import requests  # pylint: disable=import-error
+import RNA  # pylint: disable=import-error
 
 MAX_INSERTIONS = 100
 
@@ -110,6 +110,7 @@ def get_insertions(filename):
     return match
 
 
+# pylint: disable-next=too-many-locals
 def get_full_constraint(filename):
     """Get folding constraint from an Infernal alignment."""
     constraint = ""
@@ -141,17 +142,18 @@ def get_full_constraint(filename):
     for i, val in enumerate(sub_ss):
         if i in match_arr:
             constraint += "."
-        elif val == "<" or val == "(" or val == "{":
+        elif val in ["<", "(", "{"]:
             constraint += "("
-        elif val == ">" or val == ")" or val == "}":
+        elif val in [">", ")", "}"]:
             constraint += ")"
-        elif val == "," or val == "-" or val == ":":
+        elif val in [",", "-", ":"]:
             constraint += "x"
         else:
             constraint += "x"
     return constraint
 
 
+# pylint: disable-next=too-many-locals
 def fold_insertions_only(sequence, constraint, filename):
     """Use RNAfold to fold insertions."""
     match = get_insertions(filename)
@@ -170,66 +172,68 @@ def fold_insertions_only(sequence, constraint, filename):
         subconstraint = "".join(list_con[i:j])
         formatted_constraint = subconstraint.replace("(", "x").replace(")", "x")
         conend = list_con[j : len(list_con) + 1]
-        md = RNA.md()
-        md.min_loop_size = 0
-        fc = RNA.fold_compound(subsequence, md)
+        model_details = RNA.md()
+        model_details.min_loop_size = 0
+        fold_compound = RNA.fold_compound(subsequence, model_details)
         constraint_options = (
             RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
         )
-        fc.hc_add_from_db(formatted_constraint, constraint_options)
-        (ss, mfe) = fc.mfe()
-        if mfe < 99999:
+        fold_compound.hc_add_from_db(formatted_constraint, constraint_options)
+        (secondary_structure, min_free_energy) = fold_compound.mfe()
+        if min_free_energy < 99999:
             list_con = constart
-            for i, _ in enumerate(ss):
+            for i, _ in enumerate(secondary_structure):
                 if subconstraint[i] != ".":
                     list_con += subconstraint[i]
                 else:
-                    list_con += ss[i]
+                    list_con += secondary_structure[i]
             list_con += conend
         else:
             print("Structure exceeds limits of RNAfold, ignoring constraint")
-            return
+            return None
     final_list = "".join(list_con).replace("x", ".")
     return final_list
 
 
 def handle_exclusion(exclusion, r2dt_constraint):
+    """Process secondary structure exclusion file."""
     try:
-        with open(exclusion, "r", encoding="utf-8") as f:
-            exclusion_string = f.read().strip()
+        with open(exclusion, "r", encoding="utf-8") as f_exclusion:
+            exclusion_string = f_exclusion.read().strip()
             if len(exclusion_string) != len(r2dt_constraint):
                 print("Exclusion ignored, not same length as sequence")
                 return r2dt_constraint
-            elif re.search(r"[^\.x]", exclusion_string):
+            if re.search(r"[^\.x]", exclusion_string):
                 print("Invalid characters in exclusion string, should only be . and x")
                 return r2dt_constraint
-            else:
-                temp_constraint = ""
-                for i, _ in enumerate(exclusion_string):
-                    if exclusion_string[i] == "x":
-                        if r2dt_constraint[i] != "." and r2dt_constraint[i] != "x":
-                            print(
-                                "Invalid exclusion in position "
-                                + str(i)
-                                + " conflicts with template, constraint ignored"
-                            )
-                            temp_constraint += r2dt_constraint[i]
-                        else:
-                            temp_constraint += "x"
-                    else:
+            temp_constraint = ""
+            for i, _ in enumerate(exclusion_string):
+                if exclusion_string[i] == "x":
+                    if r2dt_constraint[i] != "." and r2dt_constraint[i] != "x":
+                        print(
+                            "Invalid exclusion in position "
+                            + str(i)
+                            + " conflicts with template, constraint ignored"
+                        )
                         temp_constraint += r2dt_constraint[i]
-                return temp_constraint
+                    else:
+                        temp_constraint += "x"
+                else:
+                    temp_constraint += r2dt_constraint[i]
+            return temp_constraint
     except FileNotFoundError:
         print("Constraint file not found")
         return r2dt_constraint
 
 
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements
 def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
-    with open(input_fasta, "r", encoding="utf-8") as f:
-        orig = f.readlines()
+    """Fold insertions using RNAfold."""
+    with open(input_fasta, "r", encoding="utf-8") as f_fasta:
+        orig = f_fasta.readlines()
     r2dt_constraint = orig[2].strip()
     orig_sequence = orig[1].strip()
-    ss = ""
+    secondary_structure = ""
     if fold_type not in [
         "insertions_only",
         "full_molecule",
@@ -247,14 +251,17 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
                 "Intron",
             ]
             full_molecule = ["snRNA", "snoRNA", "sRNA", "tRNA", "miRNA"]
-            r = requests.get(
+            rfam_api = requests.get(
                 f"http://rfam.org/family/{model_id}?content-type=application/json",
                 timeout=60,
             )
-            if any(x in r.json()["rfam"]["curation"]["type"] for x in full_molecule):
+            if any(
+                x in rfam_api.json()["rfam"]["curation"]["type"] for x in full_molecule
+            ):
                 fold_type = "full_molecule"
             elif any(
-                x in r.json()["rfam"]["curation"]["type"] for x in insertions_only
+                x in rfam_api.json()["rfam"]["curation"]["type"]
+                for x in insertions_only
             ):
                 fold_type = "insertions_only"
             else:
@@ -270,15 +277,15 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             final_constraint = handle_exclusion(exclusion, constraint)
         else:
             final_constraint = constraint
-        md = RNA.md()
-        md.min_loop_size = 0
-        fc = RNA.fold_compound(orig_sequence, md)
+        model_details = RNA.md()
+        model_details.min_loop_size = 0
+        fold_compound = RNA.fold_compound(orig_sequence, model_details)
         constraint_options = (
             RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
         )
-        fc.hc_add_from_db(final_constraint, constraint_options)
-        (ss, mfe) = fc.mfe()
-        if mfe > 99999:
+        fold_compound.hc_add_from_db(final_constraint, constraint_options)
+        (secondary_structure, min_free_energy) = fold_compound.mfe()
+        if min_free_energy > 99999:
             print("Structure exceeds limits of RNAfold, ignoring constraint")
             return
     elif fold_type == "full_molecule":
@@ -286,15 +293,15 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             final_constraint = handle_exclusion(exclusion, r2dt_constraint)
         else:
             final_constraint = r2dt_constraint
-        md = RNA.md()
-        md.min_loop_size = 0
-        fc = RNA.fold_compound(orig_sequence, md)
+        model_details = RNA.md()
+        model_details.min_loop_size = 0
+        fold_compound = RNA.fold_compound(orig_sequence, model_details)
         constraint_options = (
             RNA.CONSTRAINT_DB | RNA.CONSTRAINT_DB_ENFORCE_BP | RNA.CONSTRAINT_DB_DEFAULT
         )
-        fc.hc_add_from_db(final_constraint, constraint_options)
-        (ss, mfe) = fc.mfe()
-        if mfe > 99999:
+        fold_compound.hc_add_from_db(final_constraint, constraint_options)
+        (secondary_structure, min_free_energy) = fold_compound.mfe()
+        if min_free_energy > 99999:
             print("Structure exceeds limits of RNAfold, ignoring constraint")
             return
     # Default option
@@ -304,20 +311,20 @@ def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_typ
             constraint = handle_exclusion(exclusion, r2dt_constraint)
         else:
             constraint = r2dt_constraint
-        ss = fold_insertions_only(orig_sequence, constraint, filename)
-    if ss:
-        with open(input_fasta, "w", encoding="utf-8") as f:
-            f.write(orig[0])
+        secondary_structure = fold_insertions_only(orig_sequence, constraint, filename)
+    if secondary_structure:
+        with open(input_fasta, "w", encoding="utf-8") as f_fasta:
+            f_fasta.write(orig[0])
         constraint_differences = ""
         for i, val in enumerate(r2dt_constraint):
-            if val == ss[i]:
+            if val == secondary_structure[i]:
                 constraint_differences += "-"
             else:
                 constraint_differences += "*"
-        with open(input_fasta, "a", encoding="utf-8") as f:
-            f.write(orig_sequence)
-            f.write("\n" + ss)
-            f.write("\n" + constraint_differences)
+        with open(input_fasta, "a", encoding="utf-8") as f_fasta:
+            f_fasta.write(orig_sequence)
+            f_fasta.write("\n" + secondary_structure)
+            f_fasta.write("\n" + constraint_differences)
 
 
 def get_infernal_posterior_probabilities(input_file, output_file):
@@ -344,9 +351,9 @@ def get_infernal_posterior_probabilities(input_file, output_file):
     with open(output_file, "w", encoding="utf-8") as f_out:
         header = ["residue_index", "residue_name", "posterior_probability"]
         f_out.write("\t".join(header) + "\n")
-        for index, (nt, prob) in enumerate(
+        for index, (nucleotide, prob) in enumerate(
             zip(list(sequence), list(post_prob)), start=1
         ):
-            if nt == "-":
+            if nucleotide == "-":
                 continue
-            f_out.write(f"{index}\t{nt}\t{prob}\n")
+            f_out.write(f"{index}\t{nucleotide}\t{prob}\n")
