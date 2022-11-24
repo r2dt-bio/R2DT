@@ -13,12 +13,14 @@ limitations under the License.
 
 import os
 import re
-from . import config
-from . import gtrnadb
-from . import shared
-from . import rfam
+
+from . import config, gtrnadb, rfam, shared
 
 
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
 def visualise(
     rna_type,
     fasta_input,
@@ -176,7 +178,7 @@ def visualise(
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
-    cmd = f"python3 /rna/r2dt/infernal2mapping.py -i {temp_afa} > {temp_map}"
+    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
     print(cmd)
     infernal_mapping_failed = os.system(cmd)
 
