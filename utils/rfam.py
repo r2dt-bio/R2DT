@@ -17,10 +17,8 @@ import os
 import re
 import subprocess as sp
 
-from . import config
-from . import core
+from . import config, core
 from . import generate_model_info as mi
-
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -56,25 +54,26 @@ def blacklisted():
 
 
 def get_traveler_template_xml(rfam_acc):
+    """Get a path to a template file given an Rfam accession."""
     filename = os.path.join(config.RFAM_DATA, rfam_acc, "traveler-template.xml")
     return filename
 
 
 def get_traveler_fasta(rfam_acc):
+    """Get a path to a consensus structure FASTA given an Rfam accession."""
     filename = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}-traveler.fasta")
     return filename
 
 
 def get_rfam_cm(rfam_acc):
+    """Get a path to an Rfam covariance model given an accession."""
     if rfam_acc == "RF00005":
         return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + ".cm")
     return os.path.join(config.CM_LIBRARY, "rfam", rfam_acc + ".cm")
 
 
 def get_rfam_cms():
-    """
-    Fetch Rfam covariance models excluding blacklisted models.
-    """
+    """Fetch Rfam covariance models excluding blacklisted models."""
     rfam_cm_location = os.path.join(config.CM_LIBRARY, "rfam")
     rfam_whitelisted_cm = os.path.join(rfam_cm_location, "all.cm")
     print("Deleting old Rfam library")
@@ -84,7 +83,11 @@ def get_rfam_cms():
     rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
     if not os.path.exists(rfam_cm):
-        cmd = f"wget -O {rfam_cm}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz && gunzip {rfam_cm}.gz"
+        cmd = (
+            f"wget -O {rfam_cm}.gz "
+            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz "
+            f"&& gunzip {rfam_cm}.gz"
+        )
         os.system(cmd)
     print("Indexing Rfam.cm")
     if not os.path.exists(f"{rfam_cm}.ssi"):
@@ -107,10 +110,12 @@ def get_rfam_cms():
             os.system(cmd)
     print("Cleaning up")
     os.system(f"rm {rfam_cm}")
-    os.system(f"rm {rfam_cm + '.ssi'}")
+    os.system(f"rm {rfam_cm}.ssi")
 
 
 def setup_trna_cm():
+    """Make sure the RF00005 tRNA model exists as it is used as a fallback
+    for all tRNA models that do not match tRNAScan-SE."""
     rfam_acc = "RF00005"
     trna_cm = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
     os.system(f"mkdir -p {os.path.join(config.RFAM_DATA, rfam_acc)}")
@@ -123,6 +128,7 @@ def setup_trna_cm():
 
 
 def setup(accessions=None):
+    """Setup Rfam template library."""
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
     if not accessions:
@@ -134,17 +140,17 @@ def setup(accessions=None):
     setup_trna_cm()
 
 
+# pylint: disable-next=too-many-branches
 def generate_traveler_fasta(rfam_acc):
     """
     Generate fasta format for Rfam consensus.
 
-    Example:
+    Example (truncated):
 
     >RF00162
-    NNCUUAUCNAGAGNGGYRGAGGGAYNGGCCCNRUGAARCCNCRGCAACCNNYNNNNNNNNNRNNANGGUGCYAANUCCNRCNRNNNNNNNNNNNYNGRRAGAURAGRR
-    ((((((((......(((...(((.....)))......)))..(((.((((((.........)))..))))))........((((.........))))...))))))))
+    NNCUUAUCNAGAGNGGYRGAGGGAYNGGCCC
+    ((((((((......(((...(((.....)))
     """
-
     ss_cons = ""
     consensus = ""
 
@@ -155,8 +161,8 @@ def generate_traveler_fasta(rfam_acc):
     if len(seeds) != 1:
         print("Error: unusual number of seed alignments")
 
-    with open(seeds[0], "r", encoding="utf-8") as f:
-        for line in f.readlines():
+    with open(seeds[0], "r", encoding="utf-8") as f_seed:
+        for line in f_seed.readlines():
             if line.startswith("#=GC SS_cons "):
                 parts = line.split()
                 ss_cons += parts[2].replace("<", "(").replace(">", ")")
@@ -170,10 +176,10 @@ def generate_traveler_fasta(rfam_acc):
         if "-" in consensus or "." in consensus:
             new_ss_cons = []
             new_consensus = []
-            for i, nt in enumerate(consensus):
-                if nt == "-" and ss_cons[i] == ".":
+            for i, nucleotide in enumerate(consensus):
+                if nucleotide == "-" and ss_cons[i] == ".":
                     pass
-                elif nt == "-" and ss_cons[i] in "()":
+                elif nucleotide == "-" and ss_cons[i] in "()":
                     # RF00016 for example
                     new_ss_cons.append(ss_cons[i])
                     new_consensus.append("n")
@@ -183,15 +189,16 @@ def generate_traveler_fasta(rfam_acc):
             ss_cons = "".join(new_ss_cons)
             consensus = "".join(new_consensus)
 
-        with open(get_traveler_fasta(rfam_acc), "w", encoding="utf-8") as f:
-            f.write(f">{rfam_acc}\n")
-            f.write(f"{consensus.upper()}\n")
-            f.write(f"{ss_cons}\n")
+        with open(get_traveler_fasta(rfam_acc), "w", encoding="utf-8") as f_seed:
+            f_seed.write(f">{rfam_acc}\n")
+            f_seed.write(f"{consensus.upper()}\n")
+            f_seed.write(f"{ss_cons}\n")
     else:
         print("Error: structure and consensus have different lengths")
 
 
 def convert_path_to_text(line):
+    # pylint: disable=line-too-long
     """
     <!--
     <path
@@ -205,11 +212,10 @@ def convert_path_to_text(line):
     """
     match = re.search(r'd="M (\d+(\.\d+)?) (\d+(\.\d+)?) ', line)
     if match:
-        x = float(match.group(1))
-        y = float(match.group(3))
-        # new_x = x - 3.75 - (0.72 * 2)
-        new_x = x - 5.115
-        new_y = y + 2.9
+        x_coord = float(match.group(1))
+        y_coord = float(match.group(3))
+        new_x = x_coord - 5.115
+        new_y = y_coord + 2.9
 
         text = """
         <text x="{}" y="{}" id="foobar">
@@ -219,34 +225,34 @@ def convert_path_to_text(line):
         xml = """<point x="{:.2f}" y="{:.2f}" b="N"/>\n"""
 
         return (text.format(new_x, new_y), xml.format(new_x, new_y))
-    else:
-        print(line)
-        print("convert_path_to_text did not find a match")
+    print(line)
+    print("convert_path_to_text did not find a match")
+    return ""
 
 
 def convert_text_to_xml(line):
+    # pylint: disable=line-too-long
     """
     # <text x="209.519" y="231.111" id="text1002"><tspan x="209.519" y="231.111" fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">R</tspan></text>
     # <point x="209.52" y="0.52" b="231.111"/>
 
     <text x="85.8067" y="195.025" id="text1002"><tspan x="85.8067" y="195.025" fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">C</tspan></text>
     """
-    # match = re.search(r'<text x="(\d+\.\d+)" y="(\d+\.\d+)".+>(\w)</tspan></text>', line)
     match = re.search(
         r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(\w)</tspan></text>', line
     )
-
     if match:
         point = '<point x="{:.2f}" y="{:.2f}" b="{}"/>\n'
         return point.format(
             float(match.group(1)), float(match.group(3)), match.group(5)
         )
-    else:
-        print(line)
-        print("convert_text_to_xml did not find a match")
+    print(line)
+    print("convert_text_to_xml did not find a match")
+    return ""
 
 
 def download_rfam_seed(rfam_acc):
+    """Fetch Rfam seed alignment using the API."""
     output = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.seed")
     if not os.path.exists(output):
         url = f"https://rfam.org/family/{rfam_acc}/alignment"
@@ -256,10 +262,14 @@ def download_rfam_seed(rfam_acc):
 
 
 def get_all_rfam_acc():
+    """Get a list of Rfam accessions from an FTP database dump file."""
     rfam_accs = []
     family_file = os.path.join(config.RFAM_DATA, "family.txt")
     if not os.path.exists(family_file):
-        cmd = f"wget -O {family_file}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        cmd = (
+            f"wget -O {family_file}.gz "
+            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        )
         try:
             sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
         except sp.CalledProcessError as error:
@@ -273,8 +283,8 @@ def get_all_rfam_acc():
             sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
         except sp.CalledProcessError as error:
             print(f"Error {error.output}")
-    with open(family_file, encoding="utf8", errors="ignore") as f:
-        for line in f:
+    with open(family_file, encoding="utf8", errors="ignore") as f_db_dump:
+        for line in f_db_dump:
             if line.startswith("RF"):
                 rfam_acc = line[:7]
                 if rfam_acc in BLACKLIST:
@@ -285,9 +295,15 @@ def get_all_rfam_acc():
 
 
 def get_rfam_acc_by_id(rfam_id):
+    """Get Rfam accession corresponding to an Rfam ID.
+    Example: return RF00162 for SAM riboswitch."""
     family_file = os.path.join(config.RFAM_DATA, "family.txt")
     if not os.path.exists(family_file):
-        cmd = f"wget -O {family_file}.gz ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && gunzip {family_file}.gz"
+        cmd = (
+            f"wget -O {family_file}.gz "
+            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && "
+            f"gunzip {family_file}.gz"
+        )
         os.system(cmd)
 
     with open(family_file, encoding="utf8", errors="ignore") as raw:
@@ -305,7 +321,7 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     running R-scape.
     """
     seed_no_pk = os.path.join(
-        os.path.dirname(rfam_seed), "nopk-" + os.path.basename(rfam_seed)
+        os.path.dirname(rfam_seed), f"nopk-{os.path.basename(rfam_seed)}"
     )
     with io.open(rfam_seed, "r", encoding="latin-1") as f_seed_in:
         with open(seed_no_pk, "w", encoding="utf-8") as f_seed_out:
@@ -347,6 +363,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     """
     Convert R-scape SVG into SVG with 1 line per element.
     """
+    # pylint: disable=consider-using-f-string
     output = os.path.join(destination, "rscape-one-line.svg")
     cmd = (
         r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | "
@@ -420,27 +437,25 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
 
 
 def rscape2traveler(rfam_acc):
-    """ """
+    """Create a Traveler XML template based on an
+    R-scape consensus 2D layout."""
     destination = os.path.join(config.RFAM_DATA, rfam_acc)
     if not os.path.exists(destination):
         os.makedirs(destination)
-
     if os.path.exists(get_traveler_fasta(rfam_acc)) and os.path.exists(
         get_traveler_template_xml(rfam_acc)
     ):
         return
-
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
     generate_traveler_fasta(rfam_acc)
 
 
+# pylint: disable-next=too-many-arguments
 def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type):
-    """
-    Loop over the sequences in fasta file and visualise each
-    using the family template.
-    """
+    """Loop over the sequences in fasta file and visualise each
+    using the family template."""
     destination = f"{output_folder}/{rfam_acc}"
     if not os.path.exists(destination):
         os.makedirs(destination)
@@ -454,7 +469,7 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
     os.system(cmd)
 
     with open(headers, "r", encoding="utf-8") as f_headers:
-        for _, line in enumerate(f_headers):
+        for line in f_headers:
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
             core.visualise(
@@ -488,18 +503,15 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     subfolder = os.path.join(output_folder, rfam_acc)
     os.system(f"mkdir -p {subfolder}")
     tblout = os.path.join(subfolder, "cmsearch.tblout")
-    cmd = "cmsearch --nohmm -o {output} --tblout {tblout} {cm} {fasta_input}".format(
-        cm=os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm"),
-        output=os.path.join(subfolder, "cmsearch.out.txt"),
-        tblout=tblout,
-        fasta_input=fasta_input,
-    )
+    outfile = os.path.join(subfolder, "cmsearch.out.txt")
+    cm_file = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
+    cmd = f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}"
     print(cmd)
     os.system(cmd)
     hits = os.path.join(subfolder, "hits.txt")
     cmd = (
-        "cat %s | grep -v '^#' | grep -v '?' | awk -v OFS='\t' '{print $1, $4, \"PASS\"}' > %s"
-        % (tblout, hits)
+        f"cat {tblout} | grep -v '^#' | grep -v '?' | "
+        f"awk -v OFS='\t' '{{print $1, $4, \"PASS\"}}' > {hits}"
     )
     os.system(cmd)
     ids = set()
