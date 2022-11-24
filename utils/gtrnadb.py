@@ -16,8 +16,7 @@ import re
 import subprocess as sp
 from pathlib import Path
 
-from . import config
-from . import core
+from . import config, core
 
 
 def setup():
@@ -151,6 +150,7 @@ def classify_trna_sequences(fasta_input, output_folder):
     return data
 
 
+# pylint: disable-next=too-many-arguments
 def visualise(
     domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
 ):
@@ -225,33 +225,31 @@ def get_traveler_template_xml(domain, isotype):
         return os.path.join(
             config.GTRNADB_ARCH, f"arch-{isotype}-traveler-template.xml"
         )
-    elif domain == "B":
+    if domain == "B":
         return os.path.join(
             config.GTRNADB_BACT, f"bact-{isotype}-traveler-template.xml"
         )
-    elif domain == "M":
+    if domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
         return os.path.join(
             config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler-template.xml"
         )
-    elif domain == "E":
+    if domain == "E":
         return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler-template.xml")
-    else:
-        raise ValueError(f"Unknown domain {domain}")
+    raise ValueError(f"Unknown domain {domain}")
 
 
 def get_traveler_fasta(domain, isotype):
     """Get Traveler structure file."""
     if domain == "A":
         return os.path.join(config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta")
-    elif domain == "B":
+    if domain == "B":
         return os.path.join(config.GTRNADB_BACT, f"bact-{isotype}-traveler.fasta")
-    elif domain == "M":
+    if domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
         return os.path.join(config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler.fasta")
-    elif domain == "E":
+    if domain == "E":
         return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler.fasta")
-    else:
-        raise ValueError(f"Unknown domain {domain}")
+    raise ValueError(f"Unknown domain {domain}")
