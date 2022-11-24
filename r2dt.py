@@ -20,14 +20,16 @@ import re
 import shutil
 import subprocess as sp
 
-import click
-from colorhash import ColorHash
+import click  # pylint: disable=import-error
+from colorhash import ColorHash  # pylint: disable=import-error
 
-from utils import core, rfam, gtrnadb, config, shared
-from utils import generate_model_info as gmi
-from utils import list_models as lm
-from utils import generate_cm_library as gcl
 from tests import tests
+from utils import config, core
+from utils import generate_cm_library as gcl
+from utils import generate_model_info as gmi
+from utils import gtrnadb
+from utils import list_models as lm
+from utils import rfam, shared
 
 
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
@@ -185,6 +187,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     help="Ignore ribovore QC checks",
 )
 @click.pass_context
+# pylint: disable-next=too-many-arguments, too-many-locals, too-many-statements
 def draw(
     ctx,
     fasta_input,
@@ -452,6 +455,7 @@ def gtrnadb_draw(
     """
     Visualise sequences using GtRNAdb templates.
     """
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
 
@@ -508,6 +512,7 @@ def rnasep_draw(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
     """Draw 2D diagrams using RNAse P templates."""
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -556,6 +561,7 @@ def rrna_draw(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
     """Draw 2D diagrams using CRW templates."""
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -604,6 +610,7 @@ def ribovision_draw_lsu(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
     """Draw 2D diagrams using LSU templates from RiboVision."""
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -648,6 +655,7 @@ def ribovision_draw_ssu(
     fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
 ):
     """Draw 2D diagrams using SSU templates from RiboVision."""
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
@@ -713,6 +721,7 @@ def rfam_draw(
 
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     print(rfam_acc)
     if rfam.has_structure(rfam_acc):
@@ -829,6 +838,7 @@ def force_draw(
     fold_type=None,
 ):
     """Draw 2D diagrams using a specified template."""
+    # pylint: disable=too-many-arguments
     print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
