@@ -12,11 +12,10 @@ limitations under the License.
 """
 
 
-import os
 import glob
+import os
 import re
 import shutil
-
 
 from . import rfam
 
