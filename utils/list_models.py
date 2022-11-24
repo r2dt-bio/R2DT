@@ -16,8 +16,8 @@ import glob
 import json
 import os
 import re
-
 from collections import defaultdict
+
 from utils import config
 
 
