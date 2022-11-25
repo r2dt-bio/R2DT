@@ -351,9 +351,11 @@ def get_infernal_posterior_probabilities(input_file, output_file):
     with open(output_file, "w", encoding="utf-8") as f_out:
         header = ["residue_index", "residue_name", "posterior_probability"]
         f_out.write("\t".join(header) + "\n")
-        for index, (nucleotide, prob) in enumerate(
-            zip(list(sequence), list(post_prob)), start=1
-        ):
+        index = 1
+        for nucleotide, prob in zip(list(sequence), list(post_prob)):
             if nucleotide == "-":
                 continue
+            if prob == "*":
+                prob = 10
             f_out.write(f"{index}\t{nucleotide}\t{prob}\n")
+            index += 1
