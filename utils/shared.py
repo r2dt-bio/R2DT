@@ -47,6 +47,12 @@ def remove_large_insertions_pfam_stk(filename):
             gr_ss = lines[7]
             gc_ss_cons = lines[8]
             gc_rf = lines[9]
+        elif len(lines) == 3:
+            sequence = lines[0]
+            gr_pp = ""
+            gr_ss = lines[1]
+            gc_ss_cons = lines[2]
+            gc_rf = ""
         else:
             print("Unexpected number of lines in pfam stk")
             return
@@ -60,11 +66,12 @@ def remove_large_insertions_pfam_stk(filename):
                 + "@" * (span.end() - span.start())
                 + sequence[span.end() :]
             )
-            gr_pp = (
-                gr_pp[: span.start()]
-                + "@" * (span.end() - span.start())
-                + gr_pp[span.end() :]
-            )
+            if gr_pp:
+                gr_pp = (
+                    gr_pp[: span.start()]
+                    + "@" * (span.end() - span.start())
+                    + gr_pp[span.end() :]
+                )
             gr_ss = (
                 gr_ss[: span.start()]
                 + "@" * (span.end() - span.start())
@@ -75,11 +82,12 @@ def remove_large_insertions_pfam_stk(filename):
                 + "@" * (span.end() - span.start())
                 + gc_ss_cons[span.end() :]
             )
-            gc_rf = (
-                gc_rf[: span.start()]
-                + "@" * (span.end() - span.start())
-                + gc_rf[span.end() :]
-            )
+            if gc_rf:
+                gc_rf = (
+                    gc_rf[: span.start()]
+                    + "@" * (span.end() - span.start())
+                    + gc_rf[span.end() :]
+                )
         if len(lines) == 9:
             lines[3] = re.sub(r"@+", "XXXX", sequence)
             lines[4] = re.sub(r"@+", "XXXX", gr_pp)
@@ -92,6 +100,10 @@ def remove_large_insertions_pfam_stk(filename):
             lines[7] = re.sub(r"@+", "~~~~", gr_ss)
             lines[8] = re.sub(r"@+", "~~~~", gc_ss_cons)
             lines[9] = re.sub(r"@+", "xxxx", gc_rf)
+        elif len(lines) == 3:
+            lines[0] = re.sub(r"@+", "XXXX", sequence)
+            lines[1] = re.sub(r"@+", "~~~~", gr_ss)
+            lines[2] = re.sub(r"@+", "~~~~", gc_ss_cons)
     with open(filename, "w", encoding="utf-8") as f_stockholm:
         for line in lines:
             f_stockholm.write(line)
@@ -99,6 +111,7 @@ def remove_large_insertions_pfam_stk(filename):
 
 def get_insertions(filename):
     """Extract insertions to be folded."""
+    sequence = ""
     with open(filename, "r", encoding="utf-8") as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 9:
