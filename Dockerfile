@@ -111,7 +111,7 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
     cd traveler && \
-    git checkout 981cf70331e308ab6bf906b9bf5c188b4e629c63 && \
+    git checkout 9d7771b2652cec35c59f44d01fe7b27d6f783114 && \
     cd src && \
     make build
 
