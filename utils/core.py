@@ -268,6 +268,20 @@ def visualise(
     if rna_type != "rnasep":
         adjust_font_size(result_base)
 
+    # add metadata to json file
+    cmd = (
+        f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
+        f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
+    )
+    result = os.system(cmd)
+
+    # add colors
+    cmd = (
+        f"python3 /rna/traveler/utils/json2svg.py -p utils/colorscheme.json "
+        f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+    )
+    result = os.system(cmd)
+
     # clean up
     os.remove(temp_fasta)
     os.remove(temp_sto)
