@@ -32,38 +32,6 @@ from utils import list_models as lm
 from utils import rfam, shared
 
 
-def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
-    """
-    Run ribotyper on the fasta sequences to select the best matching covariance
-    model.
-    """
-    ribotyper_long_out = os.path.join(
-        output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
-    )
-    if not os.path.exists(ribotyper_long_out):
-        cmd = (
-            f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt "
-            f"-f {fasta_input} {output_folder}"
-        )
-        print(cmd)
-        os.system(cmd)
-    f_out = os.path.join(output_folder, "hits.txt")
-    if not skip_ribovore_filters:
-        cmd = (
-            f"cat {ribotyper_long_out} | grep -v '^#' | "
-            f"grep -v MultipleHits | grep PASS | "
-            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
-        )
-    else:
-        cmd = (
-            f"cat {ribotyper_long_out} | grep -v '^#' "
-            f"| grep -v NoHits | "
-            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
-        )
-    os.system(cmd)
-    return f_out
-
-
 @click.group()
 def cli():
     """Required click stub function."""
@@ -235,7 +203,7 @@ def draw(
     # Rfam
     print(f"Analysing {len(all_seq_ids)} sequences with Rfam")
     with open(
-        get_ribotyper_output(
+        shared.get_ribotyper_output(
             fasta_input,
             rfam_output,
             os.path.join(config.CM_LIBRARY, "rfam"),
@@ -516,7 +484,7 @@ def rnasep_draw(
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
-        get_ribotyper_output(
+        shared.get_ribotyper_output(
             fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
         ),
         "r",
@@ -565,7 +533,7 @@ def rrna_draw(
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
-        get_ribotyper_output(
+        shared.get_ribotyper_output(
             fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
         ),
         "r",
@@ -614,7 +582,7 @@ def ribovision_draw_lsu(
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
-        get_ribotyper_output(
+        shared.get_ribotyper_output(
             fasta_input,
             output_folder,
             config.RIBOVISION_LSU_CM_LIBRARY,
@@ -659,7 +627,7 @@ def ribovision_draw_ssu(
     print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
-        get_ribotyper_output(
+        shared.get_ribotyper_output(
             fasta_input,
             output_folder,
             config.RIBOVISION_SSU_CM_LIBRARY,

@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import os
 import re
 
 import requests  # pylint: disable=import-error
@@ -26,6 +27,38 @@ def get_r2dt_version_header():
 # https://github.com/RNAcentral/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
+
+
+def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
+    """
+    Run ribotyper on the fasta sequences to select the best matching covariance
+    model.
+    """
+    ribotyper_long_out = os.path.join(
+        output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
+    )
+    if not os.path.exists(ribotyper_long_out):
+        cmd = (
+            f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt "
+            f"-f {fasta_input} {output_folder}"
+        )
+        print(cmd)
+        os.system(cmd)
+    f_out = os.path.join(output_folder, "hits.txt")
+    if not skip_ribovore_filters:
+        cmd = (
+            f"cat {ribotyper_long_out} | grep -v '^#' | "
+            f"grep -v MultipleHits | grep PASS | "
+            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
+        )
+    else:
+        cmd = (
+            f"cat {ribotyper_long_out} | grep -v '^#' "
+            f"| grep -v NoHits | "
+            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
+        )
+    os.system(cmd)
+    return f_out
 
 
 def remove_large_insertions_pfam_stk(filename):
