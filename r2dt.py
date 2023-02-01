@@ -363,16 +363,18 @@ def organise_results(results_folder, output_folder):
     ]:
         os.system(f"mkdir -p {folder}")
 
-    svgs = glob.glob(os.path.join(results_folder, "*.colored.svg"))
+    svgs = glob.glob(os.path.join(results_folder, "*.svg"))
     if svgs:
         for svg in svgs:
+            if "colored" not in svg:
+                continue
             with open(svg, "r", encoding="utf-8") as f_svg:
                 thumbnail = generate_thumbnail(f_svg.read(), svg)
                 thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
                 with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
                     f_thumbnail.write(thumbnail)
-        os.system(f"mv {results_folder}/*.colored.svg {svg_folder}")
         os.system(f"mv {results_folder}/*.thumbnail.svg {thumbnail_folder}")
+        os.system(f"mv {results_folder}/*.svg {svg_folder}")
         os.system(f"mv {results_folder}/*.fasta {fasta_folder}")
         os.system(f"mv {results_folder}/*.json {json_folder}")
 
