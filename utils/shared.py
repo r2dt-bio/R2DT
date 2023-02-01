@@ -16,6 +16,7 @@ import re
 
 import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
+from colorhash import ColorHash  # pylint: disable=import-error
 
 MAX_INSERTIONS = 100
 
@@ -405,3 +406,41 @@ def get_infernal_posterior_probabilities(input_file, output_file):
                 prob = 10
             f_out.write(f"{index}\t{nucleotide}\t{prob}\n")
             index += 1
+
+
+def generate_thumbnail(image, description):
+    """Generate a thumbnail SVG as an outline of the 2D diagram."""
+    move_to_start_position = None
+    color = ColorHash(description).hex
+    points = []
+    for _, line in enumerate(image.split("\n")):
+        if "width" in line and not "stroke-width" in line:
+            width = re.findall(r'width="(\d+(\.\d+)?)"', line)
+        if "height" in line:
+            height = re.findall(r'height="(\d+(\.\d+)?)"', line)
+        for nt_block in re.finditer(
+            r'<text x="(\d+)(\.\d+)?" y="(\d+)(\.\d+)?".*?</text>', line
+        ):
+            if "numbering-label" in nt_block.group(0):
+                continue
+            if not move_to_start_position:
+                move_to_start_position = f"M{nt_block.group(1)} {nt_block.group(3)} "
+            points.append(f"L{nt_block.group(1)} {nt_block.group(3)}")
+    if len(points) < 200:
+        stroke_width = "3"
+    elif len(points) < 500:
+        stroke_width = "4"
+    elif len(points) < 3000:
+        stroke_width = "4"
+    else:
+        stroke_width = "2"
+    thumbnail = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{width[0][0]}" height="{height[0][0]}">'
+        f'<path style="stroke:{color};stroke-width:{stroke_width}px;'
+        f'fill:none;" d="'
+    )
+    thumbnail += move_to_start_position
+    thumbnail += " ".join(points)
+    thumbnail += '"/></svg>'
+    return thumbnail
