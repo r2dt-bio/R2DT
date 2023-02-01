@@ -131,7 +131,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
             f_out.write(f"{seq_id}\n")
     cmd = f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}"
     os.system(cmd)
-    os.system("esl-sfetch --index " + output_filename)
+    os.system(f"esl-sfetch --index {output_filename} > /dev/null")
 
 
 @cli.command()
