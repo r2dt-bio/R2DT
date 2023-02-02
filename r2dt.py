@@ -429,7 +429,7 @@ def gtrnadb_draw(
     os.system(f"mkdir -p {output_folder}")
 
     if domain and isotype:
-        gtrnadb.visualise(
+        core.visualise_trna(
             domain.upper(),
             isotype.capitalize(),
             fasta_input,
@@ -837,7 +837,7 @@ def force_draw(
         )
     elif model_type == "gtrnadb":
         domain, isotype = model_id.split("_")
-        gtrnadb.visualise(
+        core.visualise_trna(
             domain, isotype, fasta_input, output, constraint, exclusion, fold_type
         )
     # organise results into folders

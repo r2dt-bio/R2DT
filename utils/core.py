@@ -304,3 +304,40 @@ def adjust_font_size(result_base):
             continue
         cmd = f"""sed -i 's/font-size: 7px;/font-size: 4px;/' {filename}"""
         os.system(cmd)
+
+
+# pylint: disable-next=too-many-arguments
+def visualise_trna(
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
+):
+    """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
+    filename = "headers.txt"
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    if not os.path.exists(f"{fasta_input}.ssi"):
+        cmd = f"esl-sfetch --index {fasta_input}"
+        os.system(cmd)
+
+    cmd = f"grep '>' {fasta_input} > {filename}"
+    os.system(cmd)
+
+    with open(filename, "r", encoding="utf-8") as f_headers:
+        for _, line in enumerate(f_headers):
+            seq_id = line.split(" ", 1)[0].replace(">", "").strip()
+            print(seq_id)
+            visualise(
+                "gtrnadb",
+                fasta_input,
+                output_folder,
+                seq_id,
+                None,
+                constraint,
+                exclusion,
+                fold_type,
+                domain,
+                isotype,
+                None,
+                None,
+            )
+    os.system(f"rm {filename}")

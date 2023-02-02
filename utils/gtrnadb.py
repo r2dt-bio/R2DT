@@ -16,7 +16,7 @@ import re
 import subprocess as sp
 from pathlib import Path
 
-from . import config, core
+from . import config
 
 
 def setup():
@@ -148,43 +148,6 @@ def classify_trna_sequences(fasta_input, output_folder):
         for entry in data:
             f_out.write(f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n")
     return data
-
-
-# pylint: disable-next=too-many-arguments
-def visualise(
-    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
-):
-    """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
-    filename = "headers.txt"
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    if not os.path.exists(f"{fasta_input}.ssi"):
-        cmd = f"esl-sfetch --index {fasta_input}"
-        os.system(cmd)
-
-    cmd = f"grep '>' {fasta_input} > {filename}"
-    os.system(cmd)
-
-    with open(filename, "r", encoding="utf-8") as f_headers:
-        for _, line in enumerate(f_headers):
-            seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
-            core.visualise(
-                "gtrnadb",
-                fasta_input,
-                output_folder,
-                seq_id,
-                None,
-                constraint,
-                exclusion,
-                fold_type,
-                domain,
-                isotype,
-                None,
-                None,
-            )
-    os.system(f"rm {filename}")
 
 
 def get_trnascan_cm(domain, isotype):
