@@ -21,6 +21,7 @@ from utils import config, rfam
 class R2dtTestCase(unittest.TestCase):
     """Base class for R2DT tests."""
 
+    cmd = ""
     test_results = "test_folder"
     test_results_subfolder = ""
     files = []
@@ -30,6 +31,11 @@ class R2dtTestCase(unittest.TestCase):
     def delete_folder(folder):
         """Delete test folder"""
         os.system(f"rm -Rf {folder}")
+
+    def setUp(self):
+        print(self.__class__.__name__)
+        self.delete_folder(self.test_results)
+        os.system(self.cmd)
 
     def tearDown(self):
         if os.environ.get("R2DT_KEEP_TEST_RESULTS", False) == "1":
@@ -96,6 +102,11 @@ class TestCovarianceModelDatabase(unittest.TestCase):
             ]
         )
 
+    def setUp(self):
+        """Print the name of the test class."""
+        print(self.__class__.__name__)
+        return super().setUp()
+
     def verify_cm_database(self, location, count):
         """Check that the required files exist."""
         print(f"Verifying models in {location}")
@@ -160,10 +171,6 @@ class TestRibovisionLSU(R2dtTestCase):
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
     ]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -180,10 +187,6 @@ class TestRibovisionSSU(R2dtTestCase):
         "hits.txt",
         "URS00002A2E83_10090-HS_SSU_3D.colored.svg",
     ]
-
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -207,10 +210,6 @@ class TestRfamAccession(R2dtTestCase):
         "URS000008638F_224308-RF00162.colored.svg",
     ]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -232,10 +231,6 @@ class TestRfam(R2dtTestCase):
         "URS0000868535_32630-RF01750.colored.svg",
     ]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -255,10 +250,6 @@ class TestCrw(R2dtTestCase):
         "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
         "URS000001AE2D_4932-d.16.e.S.cerevisiae.colored.svg",
     ]
-
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -283,10 +274,6 @@ class TestSingleEntry(R2dtTestCase):
         "URS00000012EC-M_Ile.colored.svg",
         "URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg",
     ]
-
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -319,10 +306,6 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
         "URS00001D9AFB_9606-E_Thr.colored.svg",
     ]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -342,10 +325,6 @@ class TestGtrnadbMitoVert(R2dtTestCase):
         "URS0000043FFB_392897-M_SerGCT.colored.svg",
         "URS0000247C4D_392897-M_Cys.colored.svg",
     ]
-
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -380,10 +359,6 @@ class TestRnasep(R2dtTestCase):
         "URS000013F331_9606-RNAseP_e_H_sapiens_3D.colored.svg",
     ]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -403,10 +378,12 @@ class TestForceTemplate(R2dtTestCase):
         "URS000020CCFC_274-EC_LSU_3D.colored.svg",  # RiboVision LSU: T. thermophilus with E.coli
         "URS00000A1A88_9606-B_Thr.colored.svg",  # GtRNAdb: human E_Thr with B_Thr
         "URS00000A1A88_9606-RF00005.colored.svg",  # GtRNAdb E_Thr using Rfam tRNA
-        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",  # RNAse P: P. abyssi with P.furiosus
+        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",
+        # RNAse P: P. abyssi with P.furiosus
     ]
 
     def setUp(self):
+        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         for filename in self.files:
             seq_id, model_id = filename.replace(".colored.svg", "").split("-")
@@ -441,6 +418,7 @@ class TestRNAfold(R2dtTestCase):
     }
 
     def setUp(self):
+        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         os.system(
             self.cmd.format(
@@ -474,10 +452,6 @@ class TestExclusions(R2dtTestCase):
     cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results}"
     files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
 
-    def setUp(self):
-        self.delete_folder(self.test_results)
-        os.system(self.cmd)
-
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
@@ -495,6 +469,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     files = ["URS0000001EB3-RF00661.colored.svg"]
 
     def setUp(self):
+        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
 
     def test_default(self):
