@@ -41,9 +41,8 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     if not os.path.exists(ribotyper_long_out):
         cmd = (
             f"ribotyper.pl --skipval -i {cm_library}/modelinfo.txt "
-            f"-f {fasta_input} {output_folder}"
+            f"-f {fasta_input} {output_folder} > /dev/null"
         )
-        print(cmd)
         os.system(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
     if not skip_ribovore_filters:

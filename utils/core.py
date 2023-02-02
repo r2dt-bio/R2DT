@@ -179,7 +179,6 @@ def visualise(
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
     cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    print(cmd)
     infernal_mapping_failed = os.system(cmd)
 
     if rna_type == "gtrnadb":
@@ -241,11 +240,12 @@ def visualise(
         f"--draw {temp_map} {result_base} > {log}"
     )
     if not infernal_mapping_failed:
-        print(cmd)
         traveler_failed = os.system(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        print("Repeating using Traveler mapping")
+        print("Traveler with Infernal mapping failed:")
+        print(cmd)
+        print("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "

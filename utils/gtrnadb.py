@@ -75,7 +75,7 @@ def run_trnascan(fasta_input, output_folder, domain):
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
-        cmd = f"tRNAscan-SE -{domain} -o {output_file} {fasta_input}"
+        cmd = f"tRNAscan-SE -q -{domain} -o {output_file} {fasta_input}"
         print(cmd)
         os.system(cmd)
     return parse_trnascan_output(output_file)

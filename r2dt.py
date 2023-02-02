@@ -128,7 +128,9 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     with open(index_filename, "w", encoding="utf-8") as f_out:
         for seq_id in seq_ids:
             f_out.write(f"{seq_id}\n")
-    cmd = f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}"
+    cmd = (
+        f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename} > /dev/null"
+    )
     os.system(cmd)
     os.system(f"esl-sfetch --index {output_filename} > /dev/null")
 
@@ -147,6 +149,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", default=False, is_flag=True)
 @click.option(
     "--skip_ribovore_filters",
     default=False,
@@ -154,7 +157,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     help="Ignore ribovore QC checks",
 )
 @click.pass_context
-# pylint: disable-next=too-many-arguments, too-many-locals, too-many-statements
+# pylint: disable-next=too-many-arguments, too-many-locals, too-many-statements, too-many-branches
 def draw(
     ctx,
     fasta_input,
@@ -163,13 +166,15 @@ def draw(
     constraint,
     exclusion,
     fold_type,
+    quiet,
     skip_ribovore_filters,
 ):
     """
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     all_seq_ids = get_seq_ids(fasta_input)
 
     if force_template:
@@ -182,6 +187,7 @@ def draw(
                 constraint,
                 exclusion,
                 fold_type,
+                quiet=True,
             )
         return
 
@@ -197,7 +203,7 @@ def draw(
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
     os.system(f"cp {fasta_input} {subset_fasta}")
-    os.system("esl-sfetch --index " + subset_fasta)
+    os.system(f"esl-sfetch --index {subset_fasta} > /dev/null")
 
     # Rfam
     print(f"Analysing {len(all_seq_ids)} sequences with Rfam")
@@ -237,6 +243,7 @@ def draw(
             constraint=constraint,
             exclusion=exclusion,
             fold_type=fold_type,
+            quiet=True,
             skip_ribovore_filters=skip_ribovore_filters,
         )
 
@@ -253,6 +260,7 @@ def draw(
             constraint=constraint,
             exclusion=exclusion,
             fold_type=fold_type,
+            quiet=True,
             skip_ribovore_filters=skip_ribovore_filters,
         )
 
@@ -269,6 +277,7 @@ def draw(
             constraint=constraint,
             exclusion=exclusion,
             fold_type=fold_type,
+            quiet=True,
             skip_ribovore_filters=skip_ribovore_filters,
         )
 
@@ -285,6 +294,7 @@ def draw(
             constraint=constraint,
             exclusion=exclusion,
             fold_type=fold_type,
+            quiet=True,
             skip_ribovore_filters=skip_ribovore_filters,
         )
 
@@ -410,6 +420,7 @@ def gtrnadb_setup():
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def gtrnadb_draw(
@@ -420,12 +431,14 @@ def gtrnadb_draw(
     constraint=None,
     exclusion=None,
     fold_type=None,
+    quiet=False,
 ):
     """
     Visualise sequences using GtRNAdb templates.
     """
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
 
     if domain and isotype:
@@ -475,14 +488,22 @@ def rnasep_group():
     is_flag=True,
     help="Ignore ribovore QC checks",
 )
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rnasep_draw(
-    fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
 ):
     """Draw 2D diagrams using RNAse P templates."""
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
         shared.get_ribotyper_output(
@@ -518,6 +539,7 @@ def crw_group():
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.option(
     "--skip_ribovore_filters",
     default=False,
@@ -527,11 +549,18 @@ def crw_group():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rrna_draw(
-    fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
 ):
     """Draw 2D diagrams using CRW templates."""
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
         shared.get_ribotyper_output(
@@ -567,6 +596,7 @@ def ribovision_group():
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.option(
     "--skip_ribovore_filters",
     default=False,
@@ -576,11 +606,18 @@ def ribovision_group():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def ribovision_draw_lsu(
-    fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
 ):
     """Draw 2D diagrams using LSU templates from RiboVision."""
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
         shared.get_ribotyper_output(
@@ -612,6 +649,7 @@ def ribovision_draw_lsu(
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.option(
     "--skip_ribovore_filters",
     default=False,
@@ -621,11 +659,18 @@ def ribovision_draw_lsu(
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def ribovision_draw_ssu(
-    fasta_input, output_folder, constraint, exclusion, fold_type, skip_ribovore_filters
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
 ):
     """Draw 2D diagrams using SSU templates from RiboVision."""
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     os.system(f"mkdir -p {output_folder}")
     with open(
         shared.get_ribotyper_output(
@@ -674,6 +719,7 @@ def rfam_blacklist():
 )
 @click.option("--exclusion", default=None)
 @click.option("--fold_type", default=None)
+@click.option("--quiet", "-q", is_flag=True, default=False)
 @click.argument("rfam_acc", type=click.STRING)
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
@@ -684,6 +730,7 @@ def rfam_draw(
     constraint=None,
     exclusion=None,
     fold_type=None,
+    quiet=False,
 ):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
@@ -691,7 +738,8 @@ def rfam_draw(
     RFAM_ACCESSION - Rfam family to process (RF00001, RF00002 etc)
     """
     # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     print(rfam_acc)
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
@@ -767,16 +815,18 @@ def force_draw(
     constraint=None,
     exclusion=None,
     fold_type=None,
+    quiet=False,
 ):
     """Draw 2D diagrams using a specified template."""
-    # pylint: disable=too-many-arguments
-    print(shared.get_r2dt_version_header())
+    # pylint: disable=too-many-arguments, too-many-locals
+    if not quiet:
+        print(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
         print("Error: Model not found. Please check model_id")
         return
     print(f"Visualising sequence {seq_id} using the {model_id} model from {model_type}")
-    os.system(f"esl-sfetch --index {fasta_input}")
+    os.system(f"esl-sfetch --index {fasta_input} > /dev/null")
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
