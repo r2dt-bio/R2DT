@@ -13,7 +13,6 @@ limitations under the License.
 
 import os
 import re
-import subprocess as sp
 from pathlib import Path
 
 from . import config
@@ -70,7 +69,7 @@ def run_trnascan(fasta_input, output_folder, domain):
     """Launch tRNAScan-SE and return parsed results."""
     output_file = os.path.join(
         output_folder,
-        domain + "-" + os.path.basename(fasta_input).replace(".fasta", ".txt"),
+        domain + "-" + os.path.basename(fasta_input).replace(".fa", ".txt"),
     )
     if domain == "M":
         domain = "M vert"
@@ -176,9 +175,11 @@ def get_trnascan_cm(domain, isotype):
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
-    with cm_output.open("w") as out:
-        cmd = ["cmfetch", str(cm_library), cm_name]
-        sp.check_call(cmd, stdout=out)
+    cmd = f"cmfetch -o {cm_output} {cm_library} {cm_name}"
+    result = os.system(cmd)
+    if result:
+        os.remove(cm_output)
+        cm_output = None
     return cm_output
 
 

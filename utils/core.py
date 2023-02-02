@@ -21,6 +21,7 @@ from . import config, gtrnadb, rfam, shared
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-statements
+# pylint: disable=too-many-return-statements
 def visualise(
     rna_type,
     fasta_input,
@@ -96,6 +97,9 @@ def visualise(
         os.system(cmd)
     elif rna_type == "gtrnadb":
         model_path = gtrnadb.get_trnascan_cm(domain, isotype)
+        if not model_path:
+            print(f"Covariance model not found for {domain} {isotype}")
+            return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     else:
