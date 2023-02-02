@@ -37,6 +37,10 @@ def visualise(
     end=None,
 ):
     """Main visualisation routine that invokes Traveler."""
+    if model_id:
+        print(f"Visualising {seq_id} with {model_id}")
+    else:
+        print(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
