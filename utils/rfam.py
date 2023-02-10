@@ -416,6 +416,9 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                         continue
                     if '<path fill="none" stroke="#000000"' in line:
                         continue
+                    # circles indicating GU pairs
+                    if '<path fill="#000000" stroke="none"' in line:
+                        continue
                     if "&apos;" in line:
                         continue
                     if "pk" in line:

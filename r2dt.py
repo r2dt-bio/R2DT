@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
+# pylint: disable=too-many-lines
 import glob
 import json
 import os
@@ -28,7 +28,7 @@ from utils import generate_cm_library as gcl
 from utils import generate_model_info as gmi
 from utils import gtrnadb
 from utils import list_models as lm
-from utils import rfam, shared
+from utils import r2r, rfam, shared
 
 
 @click.group()
@@ -383,7 +383,8 @@ def organise_results(results_folder, output_folder):
                 with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
                     f_thumbnail.write(thumbnail)
         os.system(f"mv {results_folder}/*.thumbnail.svg {thumbnail_folder}")
-        os.system(f"mv {results_folder}/*.svg {svg_folder}")
+        os.system(f"mv {results_folder}/*.colored.svg {svg_folder}")
+        os.system(f"mv {results_folder}/*.enriched.svg {svg_folder}")
         os.system(f"mv {results_folder}/*.fasta {fasta_folder}")
         os.system(f"mv {results_folder}/*.json {json_folder}")
 
@@ -908,6 +909,37 @@ def force_draw(
     ) as f_out:
         line = f"{seq_id}\t{model_id}\t{label_mapping[model_type]}\n"
         f_out.write(line)
+
+
+@cli.command()
+@click.argument("fasta-input", type=click.Path())
+@click.argument("output-folder", type=click.Path())
+def templatefree(fasta_input, output_folder):
+    """
+    Run template-free visualisation using R2R to generate a layout.
+    """
+    print(shared.get_r2dt_version_header())
+    results_folder = os.path.join(output_folder, "results")
+    r2r_folder = os.path.join(output_folder, "r2r")
+    os.system(f"mkdir -p {output_folder}")
+    os.system(f"mkdir -p {results_folder}")
+    os.system(f"mkdir -p {r2r_folder}")
+    seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
+    r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
+    r2r_svg = r2r.run_r2r(r2r_folder)
+    rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
+    rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
+    r2r.run_traveler(fasta_input, r2r_folder, seq_id)
+    organise_results(r2r_folder, output_folder)
+    tsv_folder = os.path.join(results_folder, "tsv")
+    os.system(f"mkdir -p {tsv_folder}")
+    with open(os.path.join(tsv_folder, "metadata.tsv"), "w", encoding="utf-8") as f_out:
+        f_out.write(f"{seq_id}\tR2R\tR2R\n")
+    shutil.copyfile(
+        fasta_input,
+        os.path.join(results_folder, "fasta", f"{seq_id}.fasta"),
+    )
+    print("Done")
 
 
 @cli.command()

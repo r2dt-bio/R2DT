@@ -486,5 +486,20 @@ class TestSkipRibovoreFilters(R2dtTestCase):
         self.check_examples()
 
 
+class TestTemplateFree(R2dtTestCase):
+    """Check that the templatefree visualisation works."""
+
+    fasta_input = os.path.join("examples", "template-free.fasta")
+    test_results = os.path.join("tests", "results", "template-free")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "template-free")
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results}"
+    files = ["3SKZ_B.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
