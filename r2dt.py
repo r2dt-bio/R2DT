@@ -360,35 +360,28 @@ def draw(
 
 def organise_results(results_folder, output_folder):
     """Move files to the final folder structure."""
+    folders = {}
+    labels = ["svg", "fasta", "json", "thumbnail"]
     destination = os.path.join(output_folder, "results")
-    svg_folder = os.path.join(destination, "svg")
-    thumbnail_folder = os.path.join(destination, "thumbnail")
-    fasta_folder = os.path.join(destination, "fasta")
-    json_folder = os.path.join(destination, "json")
-    for folder in [
-        destination,
-        svg_folder,
-        thumbnail_folder,
-        fasta_folder,
-        json_folder,
-    ]:
-        os.system(f"mkdir -p {folder}")
-
+    for label in labels:
+        folders[label] = os.path.join(destination, label)
+        os.system(f"mkdir -p {folders[label]}")
     svgs = glob.glob(os.path.join(results_folder, "*.svg"))
-    if svgs:
-        for svg in svgs:
-            if "colored" not in svg:
-                continue
-            with open(svg, "r", encoding="utf-8") as f_svg:
-                thumbnail = shared.generate_thumbnail(f_svg.read(), svg)
-                thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
-                with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
-                    f_thumbnail.write(thumbnail)
-        os.system(f"mv {results_folder}/*.thumbnail.svg {thumbnail_folder}")
-        os.system(f"mv {results_folder}/*.colored.svg {svg_folder}")
-        os.system(f"mv {results_folder}/*.enriched.svg {svg_folder}")
-        os.system(f"mv {results_folder}/*.fasta {fasta_folder}")
-        os.system(f"mv {results_folder}/*.json {json_folder}")
+    if not svgs:
+        return
+    for svg in svgs:
+        if "colored" not in svg:
+            continue
+        with open(svg, "r", encoding="utf-8") as f_svg:
+            thumbnail = shared.generate_thumbnail(f_svg.read(), svg)
+            thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
+            with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
+                f_thumbnail.write(thumbnail)
+    os.system(f"mv {results_folder}/*.thumbnail.svg {folders['thumbnail']}")
+    os.system(f"mv {results_folder}/*.colored.svg {folders['svg']}")
+    os.system(f"mv {results_folder}/*.enriched.svg {folders['svg']} > /dev/null 2>&1")
+    os.system(f"mv {results_folder}/*.fasta {folders['fasta']} > /dev/null 2>&1")
+    os.system(f"mv {results_folder}/*.json {folders['json']}")
 
 
 @cli.group("gtrnadb")
