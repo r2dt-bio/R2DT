@@ -284,11 +284,12 @@ def visualise(
     result = os.system(cmd)
 
     # add colors
-    cmd = (
-        f"python3 /rna/traveler/utils/json2svg.py -p utils/colorscheme.json "
-        f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
-    )
-    result = os.system(cmd)
+    if result == 0:
+        cmd = (
+            f"python3 /rna/traveler/utils/json2svg.py -p utils/colorscheme.json "
+            f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+        )
+        result = os.system(cmd)
 
     # clean up
     os.remove(temp_fasta)
