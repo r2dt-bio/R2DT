@@ -99,7 +99,7 @@ RUN \
     cd autoconf-2.71 && \
     ./configure && \
     make && \
-    make install \
+    make install && \
     cd $RNA && \
     rm autoconf-2.71.tar.gz && \
     rm -Rf autoconf-2.71
