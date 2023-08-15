@@ -17,20 +17,6 @@ RUN mkdir $RNA
 
 WORKDIR $RNA
 
-# Install Infernal
-RUN \
-    cd $RNA && \
-    curl -OL http://eddylab.org/infernal/infernal-1.1.2.tar.gz && \
-    tar -xvzf infernal-1.1.2.tar.gz && \
-    cd infernal-1.1.2 && \
-    ./configure --prefix=$RNA/infernal-1.1.2 && \
-    make && \
-    make install && \
-    cd easel && \
-    make install && \
-    cd $RNA && \
-    rm infernal-1.1.2.tar.gz
-
 # Install R-scape
 RUN wget http://rivaslab.org/software/rscape/rscape.tar.gz && \
     tar -xvzf rscape.tar.gz && \
@@ -55,10 +41,6 @@ RUN \
     rm v2.0.11.tar.gz && \
     cd tRNAscan-SE-2.0.11 && \
     ./configure && make && make install
-# Make sure tRNAScan-SE can find Infernal
-RUN \
-    ln -s /rna/infernal-1.1.2/src/cmsearch /usr/local/bin/cmsearch && \
-    ln -s /rna/infernal-1.1.2/src/cmscan /usr/local/bin/cmscan
 
 # Install Bio-Easel
 RUN \
@@ -83,12 +65,6 @@ RUN \
     git checkout 31d6c3b826d432a30620507830749cee58e15e68 && \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
     chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
-
-# Install ribovore
-RUN git clone https://github.com/nawrockie/epn-ofile.git && cd epn-ofile && git fetch && git fetch --tags && git checkout ribovore-0.40
-RUN git clone https://github.com/nawrockie/epn-options.git && cd epn-options && git fetch && git fetch --tags && git checkout ribovore-0.40
-RUN git clone https://github.com/nawrockie/epn-test.git && cd epn-test && git fetch && git fetch --tags && git checkout ribovore-0.40
-RUN git clone https://github.com/ncbi/ribovore.git && cd ribovore && git fetch && git fetch --tags && git checkout ribovore-0.40
 
 # Install ViennaRNA
 RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-2.4.18.tar.gz && \
@@ -123,6 +99,19 @@ RUN \
     ./configure && \
     make && \
     make install
+
+# Install Ribovore and Infernal
+RUN \
+    mkdir -p $RNA/ribovore && \
+    cd $RNA/ribovore && \
+    wget https://raw.githubusercontent.com/ncbi/ribovore/r2dt/infdev-install.sh && \
+    chmod +x infdev-install.sh && \
+    ./infdev-install.sh "linux"
+
+# Make sure tRNAScan-SE can find Infernal
+RUN \
+    ln -s /rna/ribovore/infernal/src/cmsearch /usr/local/bin/cmsearch && \
+    ln -s /rna/ribovore/infernal/src/cmscan /usr/local/bin/cmscan
 
 # Install python dependencies
 ADD . /rna/r2dt
