@@ -8,13 +8,13 @@ If you would like to submit a new template or replace an existing one, please [s
 2. A [Traveler XML file](https://github.com/cusbg/traveler#traveler-intermediate-format) - see [example](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00003/traveler-template.xml)
 3. Description of the new template and any relevant background information
 
-One can create a new template locally using the [generate_cm_library.py](https://github.com/RNAcentral/R2DT/blob/master/utils/generate_cm_library.py) script with the FASTA and XML files described above. It is also possible to generate a new template using a special version of the XRNA software, [XRNA-GT](https://github.com/LDWLab/XRNA-GT).
-
 :warning: GitHub currently does not support attaching files with `.fasta` or `.bpseq` extensions so please attach the files as `.txt`.
 
 We will review the template and reply on GitHub as soon as possible.
 
 ## Manually creating templates
+
+### Creating templates using FASTA/BPSEQ and Traveler XML files
 
 1. Place new FASTA or BPSEQ file(s) in the `data/new` folder
 1. Run `r2dt.py generatecm`. The command will generate new `.cm` file(s) with the covariance models
@@ -24,6 +24,27 @@ We will review the template and reply on GitHub as soon as possible.
 1. Run `r2dt.py list-models` to update a list of all available models
 1. Verify that the templates work as expected by testing on a fasta file with a sequence similar to the template
 1. Run tests and update the model counts in `TestCovarianceModelDatabase` as needed
+
+### Creating templates using RNA 2D JSON Schema files
+
+It is possible to generate new templates using [RNA 2D JSON Schema](https://github.com/LDWLab/RNA2D-data-schema/) files as input.
+
+1. Generate a structure using R2DT on the command line and locate the JSON output file
+1. Upload JSON file to the [interactive editor](https://ldwlab.github.io/XRNA-TypeScript/)
+1. Manually edit the layout
+1. Download the edited structure as a new JSON file and save it in the `data/new` folder
+1. Run the following command:
+
+    ```bash
+    r2dt.py generate-template data/new/<input.json>
+    ```
+
+1. The new Traveler template, covariance model, and a fasta file will be generated in the `data/new` folder.
+
+### Other ways of creating templates
+
+- One can also create new templates locally using the [generate_cm_library.py](https://github.com/RNAcentral/R2DT/blob/master/utils/generate_cm_library.py) script with the FASTA and XML files described above.
+- It is also possible to generate a new template using a special version of the XRNA software, [XRNA-GT](https://github.com/LDWLab/XRNA-GT).
 
 ## Updating Rfam templates
 

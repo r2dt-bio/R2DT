@@ -13,7 +13,6 @@ limitations under the License.
 
 import os
 
-
 here = os.path.realpath(os.path.dirname(__file__))
 PROJECT_HOME = os.path.dirname(here)
 DATA = os.path.join(PROJECT_HOME, "data")

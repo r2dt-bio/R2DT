@@ -13,6 +13,9 @@
     cd R2DT
     # Build and tag a Docker image
     docker build -t rnacentral/r2dt .
+
+    # To build on Apple silicon and push to Docker Hub:
+    docker buildx build --platform linux/amd64 -t rnacentral/r2dt .
     ```
 
     Or build a Singularity image:
@@ -53,11 +56,10 @@
 
 ## Setup a development environment
 
-It is recommended to use `docker-compose`:
+Set up a precomputed library as described above and use `docker-compose`:
+
     ```bash
     R2DT_LIBRARY=<path to precomputed library> docker-compose run cli
     ```
-
-By default, it will use the
 
 If it is not possible to use containers, follow instructions in the [Dockerfile](https://github.com/RNAcentral/R2DT/blob/master/Dockerfile) to install all the requirements manually.

@@ -16,12 +16,13 @@ import glob
 import json
 import os
 import re
-
 from collections import defaultdict
+
 from utils import config
 
 
 def get_model_type(model_id):
+    """Get a manually curated RNA type for a given model."""
     folder_mapping = {
         "GtRNAdb": "gtrnadb",
         "Rfam": "rfam",
@@ -31,7 +32,9 @@ def get_model_type(model_id):
         "RNAse P Database": "rnasep",
     }
     model_type = None
-    with open(os.path.join(config.DATA, "models.json"), "r") as models_json:
+    with open(
+        os.path.join(config.DATA, "models.json"), "r", encoding="utf-8"
+    ) as models_json:
         data = json.load(models_json)
         for model in data:
             if model_id == model["model_id"]:
@@ -42,6 +45,7 @@ def get_model_type(model_id):
 
 
 def get_gtrnadb_models():
+    """Get a list of tRNA models from tRNAScan-SE 2.0 used as templates."""
     data = []
     for cm_file in glob.glob(os.path.join(config.GTRNADB_CM_LIBRARY, "*.cm")):
         model_id = os.path.basename(cm_file.replace(".cm", ""))
@@ -68,9 +72,12 @@ def get_gtrnadb_models():
 
 
 def parse_metadata(metadata_file):
+    """Parse metadata file to get RNA types.
+    Example file: data/ribovision-lsu/metadata.tsv
+    """
     metadata = {}
     rna_types = {}
-    with open(metadata_file, "r") as f_metadata:
+    with open(metadata_file, "r", encoding="utf-8") as f_metadata:
         for i, line in enumerate(f_metadata):
             if i == 0:
                 continue
@@ -81,8 +88,9 @@ def parse_metadata(metadata_file):
 
 
 def parse_modelinfo(modelinfo_file):
+    """Return a list of model ids listed in modelinfo.txt"""
     model_ids = []
-    with open(modelinfo_file, "r") as f_modelinfo:
+    with open(modelinfo_file, "r", encoding="utf-8") as f_modelinfo:
         for line in f_modelinfo:
             if "all.cm" in line:
                 continue
@@ -92,6 +100,7 @@ def parse_modelinfo(modelinfo_file):
 
 
 def get_crw_models():
+    """Get a list of all CRW models used as templates."""
     data = []
     modelinfo_file = os.path.join(config.CRW_CM_LIBRARY, "modelinfo.txt")
     metadata_file = os.path.join(config.DATA, "crw-metadata.tsv")
@@ -100,10 +109,7 @@ def get_crw_models():
     model_ids = parse_modelinfo(modelinfo_file)
 
     for model_id in model_ids:
-        if model_id in metadata:
-            species = metadata[model_id]
-        else:
-            species = ""
+        species = metadata.get(model_id, "")
         rna_type = rna_types[model_id].replace("_", " ")
         if "intron" in rna_type:
             continue
@@ -136,6 +142,7 @@ def get_qualifier(model_id):
 
 
 def get_models(source, modelinfo_file, metadata_file):
+    """Get a list of models used as templates."""
     data = []
     metadata, _ = parse_metadata(metadata_file)
     model_ids = parse_modelinfo(modelinfo_file)
@@ -148,7 +155,6 @@ def get_models(source, modelinfo_file, metadata_file):
         rna_type = "RNAse P"
     else:
         rna_type = ""
-
     for model_id in model_ids:
         species = metadata.get(model_id, "")
         data.append(
@@ -162,6 +168,7 @@ def get_models(source, modelinfo_file, metadata_file):
 
 
 def get_rfam_models():
+    """Get a list of all Rfam models used as templates."""
     data = [
         {
             "model_id": "RF00005",
@@ -172,7 +179,6 @@ def get_rfam_models():
     modelinfo_file = os.path.join(config.DATA, "cms", "rfam", "modelinfo.txt")
     model_ids = parse_modelinfo(modelinfo_file)
     accessions = {}
-
     descriptions = {}
     with open(
         os.path.join(config.RFAM_DATA, "family.txt"), encoding="utf8", errors="ignore"
@@ -181,7 +187,6 @@ def get_rfam_models():
             fields = re.split(r"\t", line)
             descriptions[fields[1]] = fields[3]
             accessions[fields[1]] = fields[0]
-
     for model_id in model_ids:
         data.append(
             {
@@ -202,15 +207,17 @@ def check_unique_descriptions(data):
     counts = defaultdict(list)
     for entry in data:
         counts[entry["description"]].append(entry["model_id"])
-    for description in counts.keys():
-        if len(counts[description]) > 1:
-            msg = 'Please fix identical descriptions "{}": {}'.format(
-                description, "; ".join(counts[description])
+    for description, occurences in counts.items():
+        if len(occurences) > 1:
+            msg = (
+                f"Please fix identical descriptions: "
+                f'"{description}": {"; ".join(occurences)}'
             )
             print(msg)
 
 
 def list_models():
+    """Get a list of all R2DT templates."""
     data = []
     data = data + get_gtrnadb_models()
     data = data + get_crw_models()
