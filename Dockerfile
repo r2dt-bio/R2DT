@@ -116,6 +116,14 @@ RUN git clone https://github.com/cusbg/traveler && \
     cd src && \
     make build
 
+RUN \
+    wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz && \
+    tar xzvf autoconf-2.71.tar.gz && \
+    cd autoconf-2.71 && \
+    ./configure && \
+    make && \
+    make install
+
 # Install python dependencies
 ADD . /rna/r2dt
 ADD requirements.txt $RNA/r2dt/requirements.txt
