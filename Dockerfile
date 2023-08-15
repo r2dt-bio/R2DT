@@ -32,11 +32,12 @@ RUN \
     rm infernal-1.1.2.tar.gz
 
 # Install R-scape
-RUN wget http://eddylab.org/software/rscape/rscape.tar.gz && \
+RUN wget http://rivaslab.org/software/rscape/rscape.tar.gz && \
     tar -xvzf rscape.tar.gz && \
     mv rscape_* rscape && \
     rm rscape.tar.gz && \
     cd rscape && \
+    cp /usr/share/automake-1.16/config.guess $RNA/rscape/lib/R2R/R2R-current/config.guess && \
     ./configure && make && make install
 
 # Install RNAStructure - only needed for updating CRW templates
