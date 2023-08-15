@@ -74,11 +74,11 @@ class R2dtTestCase(unittest.TestCase):
                 self.create_webpage(filename, reference_file, new_file)
                 count += 1
                 html_files.append(filename)
+        if html_files:
+            print(f"Please inspect {', '.join(html_files)}")
         self.assertEqual(
             count, 0, f"Found {count} out of {len(self.files)} non-identical SVG files"
         )
-        if html_files:
-            print(f"Please inspect {', '.join(html_files)}")
 
 
 class TestCovarianceModelDatabase(unittest.TestCase):
