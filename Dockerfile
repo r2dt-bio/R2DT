@@ -100,9 +100,9 @@ RUN \
     ./configure && \
     make && \
     make install \
-    cd .. && \
+    cd $RNA && \
     rm autoconf-2.71.tar.gz && \
-    rm -rf autoconf-2.71
+    rm -Rf autoconf-2.71
 
 # Install Ribovore and Infernal
 RUN \
