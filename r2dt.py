@@ -356,6 +356,7 @@ def draw(
 
     # clean up
     os.system(f"rm {output_folder}/subset*")
+    os.system(f"rm -f {fasta_input}.ssi")
 
 
 def organise_results(results_folder, output_folder):
