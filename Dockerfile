@@ -119,19 +119,27 @@ ADD requirements.txt $RNA/r2dt/requirements.txt
 RUN pip3 install -r $RNA/r2dt/requirements.txt
 
 # Setup environmental variables
-ENV RIBODIR="$RNA/ribovore" \
-    RIBOINFERNALDIR="$RNA/infernal-1.1.2/bin" \
-    RIBOEASELDIR="$RNA/infernal-1.1.2/bin" \
-    EPNOPTDIR="$RNA/epn-options" \
-    EPNOFILEDIR="$RNA/epn-ofile" \
-    EPNTESTDIR="$RNA/epn-test" \
-    RIBOTIMEDIR="/usr/bin" \
+ENV \
+    RIBOINSTALLDIR="$RNA/ribovore" \
+    RIBOEASELDIR="$RNA/ribovore/infernal/easel/miniapps" \
+    RIBOTIMEDIR=/usr/bin \
+    RIBODIR="$RNA/ribovore/ribovore" \
     BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
     LC_ALL="C.UTF-8" LANG="C.UTF-8" \
     DATAPATH="/rna/RNAstructure/data_tables/" \
     PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-2.4.18/interfaces/Python3"
-ENV PATH="$RNA/traveler/bin:$RIBODIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
-    PERL5LIB="$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
+ENV \
+    RIBOSCRIPTSDIR="$RIBOINSTALLDIR/ribovore" \
+    RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/src" \
+    RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
+    RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
+    VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
+    BLASTDB="$VECPLUSDIR/univec-files":"$RRNASENSORDIR":"$BLASTDB" \
+    RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor"
+ENV \
+    PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH" \
+    PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
+    PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 WORKDIR /rna/r2dt
 
 ENTRYPOINT ["/bin/bash"]
