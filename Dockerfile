@@ -92,13 +92,17 @@ RUN git clone https://github.com/cusbg/traveler && \
     cd src && \
     make build
 
+# Install autoconf required by Infernal
 RUN \
     wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz && \
     tar xzvf autoconf-2.71.tar.gz && \
     cd autoconf-2.71 && \
     ./configure && \
     make && \
-    make install
+    make install \
+    cd .. && \
+    rm autoconf-2.71.tar.gz && \
+    rm -rf autoconf-2.71
 
 # Install Ribovore and Infernal
 RUN \
