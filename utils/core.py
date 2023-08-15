@@ -75,9 +75,12 @@ def visualise(
     temp_sto = filename_template.replace("type", "sto")
     temp_depaired = filename_template.replace("type", "depaired")
     temp_stk = filename_template.replace("type", "stk")
+    temp_stk_original = filename_template.replace("type", "stk_original")
     temp_post_prob = filename_template.replace("type", "post_prob")
     temp_pfam_stk = filename_template.replace("type", "pfam_stk")
+    temp_pfam_stk_original = filename_template.replace("type", "pfam_stk_original")
     temp_afa = filename_template.replace("type", "afa")
+    temp_afa_original = filename_template.replace("type", "afa_original")
     temp_map = filename_template.replace("type", "map")
 
     # get sequence from fasta file
@@ -131,8 +134,9 @@ def visualise(
 
     if rna_type == "rfam":
         cmd = (
-            f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} "
-            f"{temp_sto_unfiltered} > {temp_sto}"
+            f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
+            f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
+            f"{temp_sto}"
         )
         os.system(cmd)
 
@@ -164,11 +168,29 @@ def visualise(
         print(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
+    # impose consensus secondary structure and convert to pfam format
+    cmd = (
+        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
+        f"--outformat pfam {temp_sto} > {temp_stk_original}"
+    )
+    result = os.system(cmd)
+    if result:
+        print(f"Failed esl-alimanip for {seq_id} {model_id}")
+        return
+
     # store posterior probabilities in tsv file
     shared.get_infernal_posterior_probabilities(temp_stk, temp_post_prob)
 
     # convert nts that are in RF-gap columns to lowercase
-    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl {temp_stk} > {temp_pfam_stk}"
+    # the -s option is critical to enable infernal2mapping
+    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl -s {temp_stk} > {temp_pfam_stk}"
+    result = os.system(cmd)
+    if result:
+        raise ValueError(
+            f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
+        )
+
+    cmd = f"ali-pfam-lowercase-rf-gap-columns.pl -s {temp_stk_original} > {temp_pfam_stk_original}"
     result = os.system(cmd)
     if result:
         raise ValueError(
@@ -177,12 +199,29 @@ def visualise(
 
     if not constraint:
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
+        shared.remove_large_insertions_pfam_stk(temp_pfam_stk_original)
 
     # convert stockholm to aligned fasta with WUSS secondary structure
     cmd = f"ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {temp_pfam_stk} > {temp_afa}"
     result = os.system(cmd)
     if result:
         raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+
+    cmd = (
+        f"ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {temp_pfam_stk_original} > "
+        f"{temp_afa_original}"
+    )
+    result = os.system(cmd)
+    if result:
+        raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+
+    # add original, non-depaired secondary structure
+    with open(temp_afa_original, "r", encoding="utf-8") as f_temp_afa_original:
+        lines = f_temp_afa_original.readlines()
+        ss_cons_original = lines[5]
+    with open(temp_afa, "a", encoding="utf-8") as f_temp_afa:
+        f_temp_afa.write(">SS_cons_original\n")
+        f_temp_afa.write(ss_cons_original)
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
