@@ -45,6 +45,7 @@ Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005
    about
    installation
    usage
+   annotations
    api
    widget
    templates
