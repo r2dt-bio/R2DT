@@ -3,11 +3,13 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+# pylint: skip-file
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "R2DT"
-copyright = "2022"
+copyright = "2023"
 author = "R2DT Team"
 
 # -- General configuration ---------------------------------------------------
