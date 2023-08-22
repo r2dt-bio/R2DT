@@ -62,4 +62,4 @@ Set up a precomputed library as described above and use `docker-compose`:
 R2DT_LIBRARY=<path to precomputed library> docker-compose run cli
 ```
 
-If it is not possible to use containers, follow instructions in the [Dockerfile](https://github.com/RNAcentral/R2DT/blob/master/Dockerfile) to install all the requirements manually.
+If it is not possible to use containers, follow instructions in the [Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/Dockerfile) to install all the requirements manually.
