@@ -57,6 +57,7 @@ Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005
    :maxdepth: 2
    :caption: Table of Contents
 
+   self
    about
    installation
    usage
