@@ -65,7 +65,7 @@ It is possible to select a specific template and skip the classification step al
     r2dt.py list-models
     ```
 
-In addition, all models are listed in the file [models.json](https://github.com/RNAcentral/R2DT/blob/master/data/models.json).
+In addition, all models are listed in the file [models.json](https://github.com/RNAcentral/R2DT/blob/main/data/models.json).
 
 1. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
     ```bash
@@ -134,7 +134,7 @@ The output files are organised in the standard way and include SVG and RNA 2D JS
 
 ## Skipping ribovore filters
 
-In some cases R2DT may not generate a diagram for a sequence because [ribovore](https://github.com/ncbi/ribovore) detects one or more [unexpected features](https://github.com/ncbi/ribovore/blob/master/documentation/ribotyper.md#unexpectedfeatures), such as having hits on both strands or having too many hits in the same sequence. You can use `--skip_ribovore_filters` to ignore these warnings and attempt to generate a secondary structure diagram anyway.
+In some cases R2DT may not generate a diagram for a sequence because [ribovore](https://github.com/ncbi/ribovore) detects one or more [unexpected features](https://github.com/ncbi/ribovore/blob/main/documentation/ribotyper.md#unexpectedfeatures), such as having hits on both strands or having too many hits in the same sequence. You can use `--skip_ribovore_filters` to ignore these warnings and attempt to generate a secondary structure diagram anyway.
 
 For example, the following command will produce no results because the sequence is close to a palindrome:
 
@@ -142,7 +142,7 @@ For example, the following command will produce no results because the sequence 
 r2dt.py draw examples/ribovore-qc-example.fasta temp/examples
 ```
 
-However, the following command generates a [valid diagram](https://github.com/RNAcentral/R2DT/blob/master/tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
+However, the following command generates a [valid diagram](https://github.com/RNAcentral/R2DT/blob/main/tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
 
 ```bash
 r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/examples

@@ -6,7 +6,7 @@ R2DT powers the secondary structure visualisations in [RNAcentral](https://rnace
 
 ![R2DT examples](../images/r2dt-examples-labelled.png)
 
-You can [find out more about R2DT](https://www.embl.org/news/science/visualising-rna-structures-using-r2dt/) in on the EMBL website, including a story about how R2DT helped with public engagement in primary schools, or visualise your RNA sequence using the [R2DT web server](http://rnacentral.org/r2dt).
+You can [find out more about R2DT](https://www.embl.org/news/science/visualising-rna-structures-using-r2dt/) in on the EMBL website, including a story about how R2DT helped with public engagement in primary schools, or visualise your RNA sequence using the [R2DT web server](https://rnacentral.org/r2dt).
 
 R2DT is the result of a community effort across several disciplines, including 6 different groups in 3 countries. We would like to thank everyone who contributed to this project!
 

@@ -64,7 +64,7 @@ If you use R2DT in your work, please consider citing the following paper:
 
 ## License
 
-R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R2DT/blob/master/LICENSE).
+R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R2DT/blob/main/LICENSE).
 
 ## Get in touch
 

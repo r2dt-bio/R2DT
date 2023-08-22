@@ -4,8 +4,8 @@
 
 If you would like to submit a new template or replace an existing one, please [submit an issue](https://github.com/RNAcentral/R2DT/issues/) on GitHub including:
 
-1. A FASTA or BPSEQ file with a reference sequence and secondary structure - see [FASTA](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00012/RF00012-traveler.fasta) and [BPSEQ](https://github.com/RNAcentral/R2DT/blob/master/data/ribovision-ssu/bpseq/EC_SSU_3D.bpseq) examples
-2. A [Traveler XML file](https://github.com/cusbg/traveler#traveler-intermediate-format) - see [example](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00003/traveler-template.xml)
+1. A FASTA or BPSEQ file with a reference sequence and secondary structure - see [FASTA](https://github.com/RNAcentral/R2DT/blob/main/data/rfam/RF00012/RF00012-traveler.fasta) and [BPSEQ](https://github.com/RNAcentral/R2DT/blob/main/data/ribovision-ssu/bpseq/EC_SSU_3D.bpseq) examples
+2. A [Traveler XML file](https://github.com/cusbg/traveler#traveler-intermediate-format) - see [example](https://github.com/RNAcentral/R2DT/blob/main/data/rfam/RF00003/traveler-template.xml)
 3. Description of the new template and any relevant background information
 
 :warning: GitHub currently does not support attaching files with `.fasta` or `.bpseq` extensions so please attach the files as `.txt`.
@@ -43,7 +43,7 @@ It is possible to generate new templates using [RNA 2D JSON Schema](https://gith
 
 ### Other ways of creating templates
 
-- One can also create new templates locally using the [generate_cm_library.py](https://github.com/RNAcentral/R2DT/blob/master/utils/generate_cm_library.py) script with the FASTA and XML files described above.
+- One can also create new templates locally using the [generate_cm_library.py](https://github.com/RNAcentral/R2DT/blob/main/utils/generate_cm_library.py) script with the FASTA and XML files described above.
 - It is also possible to generate a new template using a special version of the XRNA software, [XRNA-GT](https://github.com/LDWLab/XRNA-GT).
 
 ## Updating Rfam templates
@@ -65,4 +65,4 @@ The following procedure should be done after each Rfam release:
     ```bash
     r2dt.py list-models
     ```
-1. ⚠️ Note that the [tRNA Rfam Traveler template](https://github.com/RNAcentral/R2DT/blob/master/data/rfam/RF00005/traveler-template.xml) has been manually edited to match the standard tRNA layout so the automatically generated `traveler-template.xml` file should be discarded and the current version should be kept.
+1. ⚠️ Note that the [tRNA Rfam Traveler template](https://github.com/RNAcentral/R2DT/blob/main/data/rfam/RF00005/traveler-template.xml) has been manually edited to match the standard tRNA layout so the automatically generated `traveler-template.xml` file should be discarded and the current version should be kept.

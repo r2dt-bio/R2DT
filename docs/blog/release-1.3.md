@@ -2,7 +2,7 @@
 
 ![Release 1.3 cover image](../images/release-1.3/cover-image.png)
 
-We are pleased to announce the release of [R2DT](http://rnacentral.org/r2dt) version 1.3 that introduces constrained folding functionality as well as new and updated templates. Read on to find out more or head to [GitHub](https://github.com/RNAcentral/R2DT) or the RNAcentral [web app](http://rnacentral.org/r2dt) to start using the new software.
+We are pleased to announce the release of [R2DT](https://rnacentral.org/r2dt) version 1.3 that introduces constrained folding functionality as well as new and updated templates. Read on to find out more or head to [GitHub](https://github.com/RNAcentral/R2DT) or the RNAcentral [web app](https://rnacentral.org/r2dt) to start using the new software.
 
 ## Constrained folding
 
@@ -24,7 +24,7 @@ In order to add base pairs for the unfolded regions that are not modelled by the
 
 ![constrained folding modes](../images/release-1.3/constrained-folding-modes.png)
 
-To use constrained folding include the `--constraint` option on the command line or choose one of the modes in the advanced options of the [web app](http://rnacentral.org/r2dt). The folding mode is automatically selected based on molecule type but can be manually overridden with `–fold_type` parameter or using a dropdown:
+To use constrained folding include the `--constraint` option on the command line or choose one of the modes in the advanced options of the [web app](https://rnacentral.org/r2dt). The folding mode is automatically selected based on molecule type but can be manually overridden with `--fold_type` parameter or using a dropdown:
 
 ![constrained folding dropdown](../images/release-1.3/constrained-folding-dropdown.png)
 
