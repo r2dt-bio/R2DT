@@ -128,7 +128,7 @@ r2dt.py templatefree examples/template-free.fasta temp/template-free-example
 
 Output diagram:
 
-![Template free visualisation example](./template-free-example.png)
+![Template free visualisation example](./images/template-free-example.png)
 
 The output files are organised in the standard way and include SVG and RNA 2D JSON Schema files. The JSON file can be uploaded in the [interactive editor](https://ldwlab.github.io/XRNA-TypeScript/) for further manual editing, if necessary.
 
