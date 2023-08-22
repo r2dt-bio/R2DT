@@ -1,6 +1,6 @@
 # Updating documentation
 
-The R2DT documentation is generated using [Sphinx](https://www.sphinx-doc.org/en/master/) and [MyST](https://myst-parser.readthedocs.io/en/latest/).
+The R2DT documentation is generated using [Sphinx](https://www.sphinx-doc.org/en/master/) and [MyST](https://myst-parser.readthedocs.io/en/latest/). The docs are deployed automatically to [Read the Docs](https://readthedocs.org/accounts/login/?next=/dashboard/).
 
 To generate documentation locally:
 
@@ -20,5 +20,6 @@ To generate documentation locally:
 
 To check that all URLs are live:
 ```bash
+cd docs
 make linkcheck
 ```

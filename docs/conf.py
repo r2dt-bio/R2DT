@@ -35,4 +35,5 @@ html_static_path = ["_static"]
 html_theme_options = {
     # Toc options
     "collapse_navigation": False,
+    "max_depth": -1,
 }
