@@ -72,20 +72,49 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 
 ```{eval-rst}
 .. toctree::
-   :maxdepth: 2
-   :caption: Table of Contents
+   :caption: About R2DT
+   :name: about_r2dt
+   :maxdepth: 1
+   :hidden:
 
    self
    about
+```
+
+```{eval-rst}
+.. toctree::
+   :caption: Getting started
+   :name: getting_started
+   :hidden:
+   :maxdepth: 1
+
    installation
    usage
    annotations
    api
    widget
+```
+
+```{eval-rst}
+.. toctree::
+   :caption: Updating R2DT
+   :name: updating_r2dt
+   :hidden:
+   :maxdepth: 1
+
    templates
    docs
    testing
    releases
+```
+
+```{eval-rst}
+.. toctree::
+   :caption: Project info
+   :name: project_info
+   :hidden:
+   :maxdepth: 1
+
    team
    blog
 ```
