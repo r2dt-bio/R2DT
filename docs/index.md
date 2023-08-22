@@ -35,7 +35,7 @@ Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature
 
 The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two RNAse P, snoRNA, MoCo riboswitch, and U4 snRNA:
 
-![Examples](./r2dt-examples.png)
+![Examples](./images/r2dt-examples-labelled.png)
 
 ## Getting started
 
@@ -54,10 +54,6 @@ R2DT can be used in a number of ways:
 * [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2)).
 
 Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005&sciodt=0,5&cites=12435886377905515481&scipsc=&q=&scisbd=1) &rarr;
-
-```{eval-rst}
-.. Note:: It's bigger than a bread box.
-```
 
 ## Citation
 
@@ -91,6 +87,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
    testing
    releases
    team
+   blog
 ```
 
 ## GitHub
