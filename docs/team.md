@@ -6,6 +6,7 @@
 - [Eric Nawrocki](https://github.com/nawrockie) (Ribovore and Infernal software)
 - [Anton S. Petrov](https://cool.gatech.edu/people/petrov-anton), [Loren D. Williams](https://cool.gatech.edu/people/williams-loren-dean), Holly McCann, Caeden Mead, and the [RiboVision](http://apollo.chemistry.gatech.edu/RiboVision/) team
 - [Todd Lowe](https://users.soe.ucsc.edu/~lowe/) and [Patricia Chan](https://engineering.ucsc.edu/people/pchan) from [GtRNAdb](http://gtrnadb.ucsc.edu)
+- [Craig Zirbel](https://www.bgsu.edu/arts-and-sciences/mathematics-and-statistics/faculty-and-staff/craig-zirbel.html) and [Jacob Mitchell](https://www.linkedin.com/in/jacobirvingmitchell/) (FR3D and JAR3D software)
 - [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Blake Sweeney](https://www.ebi.ac.uk/people/person/blake-sweeney/), [Carlos Ribas](https://www.ebi.ac.uk/people/person/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/people/person/fabio-madeira/), [Rob Finn](https://www.ebi.ac.uk/people/person/rob-finn/)
 - [Anton I. Petrov](https://antonpetrov.com)
