@@ -1,4 +1,4 @@
-# Annotations
+# Annotations and data layers
 
 Starting with version 1.4, R2DT can visualise additional annotations as **data layers** on top of the secondary structure diagrams.
 
