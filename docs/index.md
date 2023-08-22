@@ -24,10 +24,12 @@ The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates 
     />
   <script type="text/javascript" src="https://rnacentral.github.io/r2dt-web/dist/r2dt-web.js"></script>
 
+## How does it work?
+
+Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the slides from a recent talk:
+
 <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRrBpjxq-QiArYPuzQiKZBJVFlHR3vEYGkZUV-W1XcrG6hX1eMAoahJmLU9Vf1VlGSVPfaLYqPqp1Ke/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 <br>
-
-Find out more [about R2DT](./about.md) or read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5).
 
 ## Examples
 
@@ -49,8 +51,28 @@ R2DT can be used in a number of ways:
 * PDBe uses R2DT to enable interactive navigation between sequence, 2D and 3D structure (for example, [1S72](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1))
 * [Rfam](https://rfam.org/search#tabview=tab1) and [GtRNAdb](http://gtrnadb.ucsc.edu/rnacentral_search.html) display R2DT diagrams in sequence similarity search
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products) and [SGD](https://www.yeastgenome.org/locus/S000006550/sequence) show R2DT diagrams for RNA genes
+* [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2)).
 
 Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005&sciodt=0,5&cites=12435886377905515481&scipsc=&q=&scisbd=1) &rarr;
+
+```{eval-rst}
+.. Note:: It's bigger than a bread box.
+```
+
+## Citation
+
+If you use R2DT in your work, please consider citing the following paper:
+
+> **R2DT is a framework for predicting and visualising RNA secondary structure using templates**
+> [Nature Communications](https://www.nature.com/articles/s41467-021-23555-5)
+
+## License
+
+R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R2DT/blob/master/LICENSE).
+
+## Get in touch
+
+If you have any questions or feedback, feel free to [submit a GitHub issue](https://github.com/RNAcentral/r2dt/issues) or contact the [RNAcentral help desk](https://rnacentral.org/contact).
 
 ```{eval-rst}
 .. toctree::
@@ -71,24 +93,6 @@ Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005
    team
 ```
 
-## Citation
+## GitHub
 
-If you use R2DT in your work, please consider citing the following paper:
-
-> **R2DT is a framework for predicting and visualising RNA secondary structure using templates**
-> [Nature Communications](https://www.nature.com/articles/s41467-021-23555-5)
-
-## License
-
-R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R2DT/blob/master/LICENSE).
-
-## Get in touch
-
-If you have any questions or feedback, feel free to [submit a GitHub issue](https://github.com/RNAcentral/r2dt/issues) or contact the [RNAcentral help desk](https://rnacentral.org/contact).
-
-## Find out more
-
-- [R2DT on GitHub](https://github.com/rnacentral/r2dt)
-- [Release 1.3 announcement](https://blog.rnacentral.org/2022/10/r2dt-version-13.html)
-- [RNAcentral help page about R2DT](https://rnacentral.org/help/secondary-structure)
-- [R2DT launch announcement](https://www.ebi.ac.uk/about/news/technology-and-innovation/visualising-rna-structures-using-r2dt/)
+Contribute to the [R2DT project on GitHub](https://github.com/rnacentral/r2dt) &rarr;
