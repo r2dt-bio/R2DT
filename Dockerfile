@@ -116,6 +116,7 @@ RUN \
 RUN \
     ln -s /rna/ribovore/infernal/src/cmsearch /usr/local/bin/cmsearch && \
     ln -s /rna/ribovore/infernal/src/cmscan /usr/local/bin/cmscan
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Install python dependencies
 ADD . /rna/r2dt
