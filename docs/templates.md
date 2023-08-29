@@ -30,7 +30,7 @@ We will review the template and reply on GitHub as soon as possible.
 It is possible to generate new templates using [RNA 2D JSON Schema](https://github.com/LDWLab/RNA2D-data-schema/) files as input.
 
 1. Generate a structure using R2DT on the command line and locate the JSON output file
-1. Upload JSON file to the [interactive editor](https://ldwlab.github.io/XRNA-TypeScript/)
+1. Upload JSON file to an [interactive editor](https://ldwlab.github.io/XRNA-React)
 1. Manually edit the layout
 1. Download the edited structure as a new JSON file and save it in the `data/new` folder
 1. Run the following command:
