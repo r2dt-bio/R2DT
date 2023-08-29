@@ -14,9 +14,27 @@ limitations under the License.
 import filecmp
 import os
 import unittest
+from pathlib import Path
+
+from PIL import Image, ImageChops
+from cairosvg import svg2png
 
 from utils.runner import runner
 from utils import config, rfam
+
+
+def _svg_to_png(filepath: Path) -> None:
+    svg2png(
+        bytestring=filepath.read_bytes(),
+        write_to=str(filepath.absolute()).replace(".svg", ".png"),
+    )
+
+
+def _get_png(filepath: str) -> Path:
+    png_path = filepath.replace(".svg", ".png")
+    if not Path(png_path).exists():
+        _svg_to_png(Path(filepath))
+    return Path(png_path)
 
 
 class R2dtTestCase(unittest.TestCase):
@@ -57,6 +75,22 @@ class R2dtTestCase(unittest.TestCase):
             f_html.write(svg)
             f_html.write("</body></html>")
 
+    def _are_identical(self, reference_file: str, new_file: str) -> bool:
+        if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
+            new_file.endswith(".png") or new_file.endswith(".svg")
+        ):
+            reference_png, new_png = _get_png(reference_file), _get_png(new_file)
+
+            reference_image = Image.open(reference_png.absolute()).convert("RGB")
+            new_image = Image.open(new_png.absolute()).convert("RGB")
+            diff = ImageChops.difference(reference_image, new_image)
+
+            return not bool(
+                diff.getbbox()
+            )  # if diff.getbbox():  #     return False  # else:  #     return True
+        else:
+            return filecmp.cmp(new_file, reference_file, shallow=False)
+
     def check_examples(self):
         """Check that files exist and are identical to examples."""
         count = 0
@@ -67,7 +101,7 @@ class R2dtTestCase(unittest.TestCase):
             )
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            is_identical = filecmp.cmp(new_file, reference_file)
+            is_identical = self._are_identical(reference_file, new_file)
             if not is_identical:
                 filename = os.path.join(
                     "tests", f"{self.__class__.__name__}_{loop_id}.html"
@@ -379,8 +413,7 @@ class TestForceTemplate(R2dtTestCase):
         "URS000020CCFC_274-EC_LSU_3D.colored.svg",  # RiboVision LSU: T. thermophilus with E.coli
         "URS00000A1A88_9606-B_Thr.colored.svg",  # GtRNAdb: human E_Thr with B_Thr
         "URS00000A1A88_9606-RF00005.colored.svg",  # GtRNAdb E_Thr using Rfam tRNA
-        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",
-        # RNAse P: P. abyssi with P.furiosus
+        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",  # RNAse P: P. abyssi with P.furiosus
     ]
 
     def setUp(self):
