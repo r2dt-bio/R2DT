@@ -1,4 +1,4 @@
-# About R2DT
+# Method overview
 
 R2DT (which stands for RNA 2D Templates) is a software package that visualises RNA secondary structure in standard layouts representing a wide range of RNAs:
 
@@ -8,7 +8,7 @@ R2DT (which stands for RNA 2D Templates) is a software package that visualises R
  * RNAse P from [Ribonuclease P Database](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC148169/)
  * RNA families from [Rfam](https://rfam.org)
 
-## Method overview
+## Pipeline
 
 The R2DT pipeline includes the following steps:
 
@@ -22,6 +22,6 @@ using the top scoring covariance model.
 
 1. **Generate secondary structure diagrams** using [Traveler](https://github.com/cusbg/traveler) and the secondary structure layouts.
 
-![Method overview](./method-overview.png)
+![Method overview](./images/method-overview.png)
 
 For a detailed method description see the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5).
