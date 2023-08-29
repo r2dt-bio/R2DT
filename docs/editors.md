@@ -39,7 +39,7 @@ Watch RNAcanvas editing R2DT output in action:
 ```
 
 ```{admonition} Note
-Please note that currently it is not possible to change the position of the nucleotides.
+Please note that currently it is not possible to change the position of the nucleotides using RNAcanvas but it can be done with XRNA-React.
 ```
 
 ## XRNA-React
