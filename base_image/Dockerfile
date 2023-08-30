@@ -132,19 +132,22 @@ ENV \
     BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
     LC_ALL="C.UTF-8" LANG="C.UTF-8" \
     DATAPATH="/rna/RNAstructure/data_tables/" \
-    PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-${ViennaRNA_VER}/interfaces/Python3" \
+    PYTHONPATH="$PYTHONPATH:/rna/ViennaRNA-${ViennaRNA_VER}/interfaces/Python3"
+ENV \
     RIBOSCRIPTSDIR="$RIBOINSTALLDIR/ribovore" \
     RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/src" \
     RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
     RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
     VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
     BLASTDB="$VECPLUSDIR/univec-files":"$RRNASENSORDIR":"$BLASTDB" \
-    RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor" \
+    RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor"
+
+ENV \
     PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH" \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB"
 
-WORKDIR ${RNA}/r2dt
+WORKDIR /rna/r2dtWORKDIR ${RNA}/r2dt
 
 ENTRYPOINT ["/bin/bash"]
 
