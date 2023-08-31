@@ -24,7 +24,7 @@ RUN mkdir $RNA
 WORKDIR $RNA
 
 
-RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && chmod +X bin/micromamba
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && chmod +X bin/micromamba && mkdir -p /root/micromamba
 RUN eval "$(./bin/micromamba shell hook -s posix)" && \
     micromamba activate && \
     micromamba config append channels defaults && \
