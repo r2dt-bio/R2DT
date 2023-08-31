@@ -97,6 +97,7 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
     cd traveler/src && \
+    git checkout 0ee67cbb9c5aaa2f98340065fd047c9a8feea53e && \
     make -j 4 build
 
 ## Install autoconf required by Infernal
