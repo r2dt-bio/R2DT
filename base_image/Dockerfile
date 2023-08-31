@@ -1,4 +1,4 @@
-FROM gcc:13
+FROM gcc:10
 
 ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 \
