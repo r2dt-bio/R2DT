@@ -1,10 +1,10 @@
-FROM gcc:10
+FROM gcc:13
 
 ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 \
     BioEasel_VER=0.09 \
 # Note: Changing version from 2.4.x to other versions may require changes to the ViennaRNA installation code below
-    ViennaRNA_VER=2.4.18 \
+    ViennaRNA_VER=2.6.3 \
     autoconf_VER=2.71 \
     RNA=/rna
 
@@ -65,7 +65,7 @@ RUN \
     chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
 
 # Install ViennaRNA
-RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-${ViennaRNA_VER}.tar.gz && \
+RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_6_x/ViennaRNA-${ViennaRNA_VER}.tar.gz && \
     tar -zxvf ViennaRNA-${ViennaRNA_VER}.tar.gz && \
     cd ViennaRNA-${ViennaRNA_VER} && \
     ./configure -q --with-python3 && \
