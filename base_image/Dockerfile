@@ -9,7 +9,7 @@ ENV tRNAscan_VER=2.0.11 \
     RNA=/rna
 
 
-RUN apt-get update && apt-get install -q -y \
+RUN apt-get update && apt-get install -qq -y --no-install-recommends \
     gzip \
     less \
     moreutils \
@@ -96,9 +96,8 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
 
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
-    cd traveler && \
-    git checkout v3.0.0 & \
-    cd src && make -j 4 build
+    cd traveler/src && \
+    make -j 4 build
 
 ## Install autoconf required by Infernal
 #RUN \
