@@ -39,6 +39,7 @@ jobs:
           images: rnacentral/r2dt-base
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v4
         with:
           labels: ${{ steps.docker_meta.outputs.labels }}
