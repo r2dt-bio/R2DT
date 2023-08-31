@@ -116,7 +116,9 @@ RUN \
     cd $RNA/ribovore && \
     wget https://raw.githubusercontent.com/ncbi/ribovore/r2dt/infdev-install.sh && \
     chmod +x infdev-install.sh && \
-    ./infdev-install.sh "linux"
+    ./infdev-install.sh "linux" && \
+    cd $RNA/ribovore && \
+    rm -Rf ncbi-blast vecscreen_plus_taxonomy rRNA_sensor
 
 # Make sure tRNAScan-SE can find Infernal
 RUN \
@@ -150,4 +152,3 @@ ENV \
 WORKDIR /rna/r2dtWORKDIR ${RNA}/r2dt
 
 ENTRYPOINT ["/bin/bash"]
-
