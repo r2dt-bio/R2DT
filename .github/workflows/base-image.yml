@@ -46,6 +46,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           file: base_image/Dockerfile
           context: base_image
+          platforms: linux/amd64,linux/arm64
 
 
       - name: Find comment for image tags
