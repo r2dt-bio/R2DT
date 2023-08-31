@@ -18,15 +18,14 @@ RUN apt-get update && apt-get install -q -y \
     time \
     vim \
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/{apt,dpkg,cache,log}
 
 RUN mkdir $RNA
 WORKDIR $RNA
 
 
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && chmod +X bin/micromamba
-RUN ./bin/micromamba shell init -s bash -p ~/micromamba && \
-    source ~/.bashrc && \
+RUN eval "$(./bin/micromamba shell hook -s posix)" && \
     micromamba activate && \
     micromamba config append channels defaults && \
     micromamba config append channels bioconda && \
@@ -98,9 +97,8 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
     cd traveler && \
-    git checkout 0ee67cbb9c5aaa2f98340065fd047c9a8feea53e && \
-    cd src && \
-    make -j 4 build
+    git checkout v3.0.0 & \
+    cd src && make -j 4 build
 
 ## Install autoconf required by Infernal
 #RUN \
