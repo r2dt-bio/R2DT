@@ -5,6 +5,7 @@ ENV tRNAscan_VER=2.0.11 \
     BioEasel_VER=0.09 \
 # Note: Changing version from 2.4.x to other versions may require changes to the ViennaRNA installation code below
     ViennaRNA_VER=2.4.18 \
+    autoconf_VER=2.71 \
     RNA=/rna
 
 
@@ -29,7 +30,7 @@ RUN wget http://rivaslab.org/software/rscape/rscape.tar.gz && \
     rm rscape.tar.gz && \
     cd rscape && \
     cp /usr/share/automake-1.16/config.guess $RNA/rscape/lib/R2R/R2R-current/config.guess && \
-    ./configure && make -j 4 && make install
+    ./configure -q && make -j 4 && make install
 
 
 # Install tRNAScan-SE
@@ -38,7 +39,7 @@ RUN \
     tar -xzf v${tRNAscan_VER}.tar.gz && \
     rm v${tRNAscan_VER}.tar.gz && \
     cd tRNAscan-SE-${tRNAscan_VER} && \
-    ./configure && make -j 4 && make install
+    ./configure -q && make -j 4 && make install
 
 # Install Bio-Easel
 RUN \
@@ -67,7 +68,7 @@ RUN \
 RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-${ViennaRNA_VER}.tar.gz && \
     tar -zxvf ViennaRNA-${ViennaRNA_VER}.tar.gz && \
     cd ViennaRNA-${ViennaRNA_VER} && \
-    ./configure --with-python3 && \
+    ./configure -q --with-python3 && \
     make -j 4 && \
     make install && \
     cd $RNA && \
@@ -78,9 +79,8 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
     cd easel && \
     git checkout develop && \
     autoconf && \
-    ./configure && \
-    make -j 4 && \
-    make check
+    ./configure -q && \
+    make -j 4
 
 # Install Traveler
 RUN git clone https://github.com/cusbg/traveler && \
@@ -88,6 +88,18 @@ RUN git clone https://github.com/cusbg/traveler && \
     git checkout 0ee67cbb9c5aaa2f98340065fd047c9a8feea53e && \
     cd src && \
     make -j 4 build
+
+# Install autoconf required by Infernal
+RUN \
+    wget http://ftp.gnu.org/gnu/autoconf/autoconf-${autoconf_VER}.tar.gz && \
+    tar xzvf autoconf-${autoconf_VER}.tar.gz && \
+    cd autoconf-${autoconf_VER} && \
+    ./configure -q && \
+    make -j 4 && make install && \
+    cd $RNA && \
+    rm autoconf-${autoconf_VER}.tar.gz && \
+    rm -Rf autoconf-${autoconf_VER}
+
 
 # Install Ribovore and Infernal
 RUN \
