@@ -48,7 +48,6 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          push: true
           labels: ${{ steps.docker_meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -56,6 +55,7 @@ jobs:
           file: base_image/Dockerfile
           context: base_image
           platforms:  ${{ matrix.platform }}
+          outputs: type=image,name=rnacentral/r2dt-base,push-by-digest=true,name-canonical=true,push=true
 
 
       - name: Find comment for image tags
