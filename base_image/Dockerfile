@@ -1,15 +1,14 @@
-FROM gcc:11
+FROM gcc:13
 
 ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 \
     BioEasel_VER=0.09 \
 # Note: Changing version from 2.4.x to other versions may require changes to the ViennaRNA installation code below
     ViennaRNA_VER=2.4.18 \
-    autoconf_VER=2.71 \
     RNA=/rna
 
 
-RUN apt-get update && apt-get install --no-install-recommends -q -y \
+RUN apt-get update && apt-get install -q -y \
     gzip \
     less \
     moreutils \
@@ -30,15 +29,8 @@ RUN wget http://rivaslab.org/software/rscape/rscape.tar.gz && \
     rm rscape.tar.gz && \
     cd rscape && \
     cp /usr/share/automake-1.16/config.guess $RNA/rscape/lib/R2R/R2R-current/config.guess && \
-    ./configure && make && make install
+    ./configure && make -j 4 && make install
 
-# Install RNAStructure - only needed for updating CRW templates
-# RUN \
-#     wget http://rna.urmc.rochester.edu/Releases/current/RNAstructureSource.tgz && \
-#     tar -xzf RNAstructureSource.tgz && \
-#     rm RNAstructureSource.tgz && \
-#     cd RNAstructure && \
-#     make all
 
 # Install tRNAScan-SE
 RUN \
@@ -46,12 +38,11 @@ RUN \
     tar -xzf v${tRNAscan_VER}.tar.gz && \
     rm v${tRNAscan_VER}.tar.gz && \
     cd tRNAscan-SE-${tRNAscan_VER} && \
-    ./configure && make && make install
+    ./configure && make -j 4 && make install
 
 # Install Bio-Easel
 RUN \
-    cpan install Inline && \
-    cpan install Inline::C && \
+    cpan install Inline Inline::C && \
     git clone https://github.com/nawrockie/Bio-Easel.git && \
     cd Bio-Easel && \
     git checkout ${BioEasel_COMMIT} && \
@@ -62,7 +53,7 @@ RUN \
     mv easel-Bio-Easel-${BioEasel_VER} easel && \
     rm easel-Bio-Easel-${BioEasel_VER}.zip && \
     cd .. && \
-    perl Makefile.PL; make; make install
+    perl Makefile.PL; make -j 4; make install
 
 # Install jiffy infernal hmmer scripts
 RUN \
@@ -77,7 +68,7 @@ RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_4_x/ViennaRNA-${
     tar -zxvf ViennaRNA-${ViennaRNA_VER}.tar.gz && \
     cd ViennaRNA-${ViennaRNA_VER} && \
     ./configure --with-python3 && \
-    make && \
+    make -j 4 && \
     make install && \
     cd $RNA && \
     rm ViennaRNA-${ViennaRNA_VER}.tar.gz
@@ -88,7 +79,7 @@ RUN git clone https://github.com/EddyRivasLab/easel && \
     git checkout develop && \
     autoconf && \
     ./configure && \
-    make && \
+    make -j 4 && \
     make check
 
 # Install Traveler
@@ -96,19 +87,7 @@ RUN git clone https://github.com/cusbg/traveler && \
     cd traveler && \
     git checkout 0ee67cbb9c5aaa2f98340065fd047c9a8feea53e && \
     cd src && \
-    make build
-
-# Install autoconf required by Infernal
-RUN \
-    wget http://ftp.gnu.org/gnu/autoconf/autoconf-${autoconf_VER}.tar.gz && \
-    tar xzvf autoconf-${autoconf_VER}.tar.gz && \
-    cd autoconf-${autoconf_VER} && \
-    ./configure && \
-    make && \
-    make install && \
-    cd $RNA && \
-    rm autoconf-${autoconf_VER}.tar.gz && \
-    rm -Rf autoconf-${autoconf_VER}
+    make -j 4 build
 
 # Install Ribovore and Infernal
 RUN \
