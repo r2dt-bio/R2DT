@@ -23,6 +23,18 @@ RUN apt-get update && apt-get install -q -y \
 RUN mkdir $RNA
 WORKDIR $RNA
 
+
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && chmod +X bin/micromamba
+RUN ./bin/micromamba shell init -s bash -p ~/micromamba && \
+    source ~/.bashrc && \
+    micromamba activate && \
+    micromamba config append channels defaults && \
+    micromamba config append channels bioconda && \
+    micromamba config append channels conda-forge && \
+    micromamba config set channel_priority strict && \
+    micromamba install viennarna
+
+
 # Install R-scape
 RUN wget http://rivaslab.org/software/rscape/rscape.tar.gz && \
     tar -xzf rscape.tar.gz && \
@@ -64,20 +76,21 @@ RUN \
     echo '#!/usr/bin/env perl' | cat - ali-pfam-sindi2dot-bracket.pl | sponge ali-pfam-sindi2dot-bracket.pl && \
     chmod +x $RNA/jiffy-infernal-hmmer-scripts/*.pl
 
-# Install ViennaRNA
-RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_6_x/ViennaRNA-${ViennaRNA_VER}.tar.gz && \
-    tar -zxvf ViennaRNA-${ViennaRNA_VER}.tar.gz && \
-    cd ViennaRNA-${ViennaRNA_VER} && \
-    ./configure -q --with-python3 && \
-    make -j 4 && \
-    make install && \
-    cd $RNA && \
-    rm ViennaRNA-${ViennaRNA_VER}.tar.gz
+## Install ViennaRNA
+#RUN wget https://www.tbi.univie.ac.at/RNA/download/sourcecode/2_6_x/ViennaRNA-${ViennaRNA_VER}.tar.gz && \
+#    tar -zxvf ViennaRNA-${ViennaRNA_VER}.tar.gz && \
+#    cd ViennaRNA-${ViennaRNA_VER} && \
+#    ./configure -q --with-python3 && \
+#    make -j 4 && \
+#    make install && \
+#    cd $RNA && \
+#    rm ViennaRNA-${ViennaRNA_VER}.tar.gz
+
+
 
 # Install develop branch of easel
 RUN git clone https://github.com/EddyRivasLab/easel && \
     cd easel && \
-    git checkout develop && \
     autoconf && \
     ./configure -q && \
     make -j 4
@@ -89,25 +102,23 @@ RUN git clone https://github.com/cusbg/traveler && \
     cd src && \
     make -j 4 build
 
-# Install autoconf required by Infernal
-RUN \
-    wget http://ftp.gnu.org/gnu/autoconf/autoconf-${autoconf_VER}.tar.gz && \
-    tar xzvf autoconf-${autoconf_VER}.tar.gz && \
-    cd autoconf-${autoconf_VER} && \
-    ./configure -q && \
-    make -j 4 && make install && \
-    cd $RNA && \
-    rm autoconf-${autoconf_VER}.tar.gz && \
-    rm -Rf autoconf-${autoconf_VER}
+## Install autoconf required by Infernal
+#RUN \
+#    wget http://ftp.gnu.org/gnu/autoconf/autoconf-${autoconf_VER}.tar.gz && \
+#    tar xzvf autoconf-${autoconf_VER}.tar.gz && \
+#    cd autoconf-${autoconf_VER} && \
+#    ./configure -q && \
+#    make -j 4 && make install && \
+#    cd $RNA && \
+#    rm autoconf-${autoconf_VER}.tar.gz && \
+#    rm -Rf autoconf-${autoconf_VER}
 
 
 # Install Ribovore and Infernal
 RUN \
     mkdir -p $RNA/ribovore && \
     cd $RNA/ribovore && \
-    wget https://raw.githubusercontent.com/ncbi/ribovore/r2dt/infdev-install.sh && \
-    chmod +x infdev-install.sh && \
-    ./infdev-install.sh "linux" && \
+    curl -sSL https://raw.githubusercontent.com/ncbi/ribovore/master/install.sh | bash -s -- "linux" && \
     cd $RNA/ribovore && \
     rm -Rf ncbi-blast vecscreen_plus_taxonomy rRNA_sensor
 
@@ -134,6 +145,19 @@ ENV \
     VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
     BLASTDB="$VECPLUSDIR/univec-files":"$RRNASENSORDIR":"$BLASTDB" \
     RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor"
+
+ENV \
+    RIBOSCRIPTSDIR="$RIBOINSTALLDIR/ribovore" \
+    RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/binaries" \
+    RIBOEASELDIR="$RIBOINSTALLDIR/infernal/binaries" \
+    RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
+    RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
+    RIBOTIMEDIR=/usr/bin \
+    RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor" \
+    VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
+    BLASTDB="$VECPLUSDIR/univec-files":"$RRNASENSORDIR":"$BLASTDB" \
+    PERL5LIB="$RIBOSCRIPTSDIR":"$RIBOSEQUIPDIR":"$VECPLUSDIR":"$PERL5LIB" \
+    PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH"
 
 ENV \
     PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH" \
