@@ -39,7 +39,7 @@ RUN \
 RUN \
     cd Bio-Easel && perl Makefile.PL
 RUN \
-    cd Bio-Easel && make &&  make install
+    cd Bio-Easel && make &&  make install DESTDIR=/install/
 
 FROM build AS easel
 
