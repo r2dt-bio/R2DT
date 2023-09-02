@@ -12,10 +12,15 @@ limitations under the License.
 """
 
 import glob
+import gzip
 import io
 import os
 import re
+import shutil
 import subprocess as sp
+from pathlib import Path
+
+import requests
 
 from . import config, core
 from . import generate_model_info as mi
@@ -83,12 +88,24 @@ def get_rfam_cms():
     rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
     if not os.path.exists(rfam_cm):
-        cmd = (
-            f"wget -O {rfam_cm}.gz "
-            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz "
-            f"&& gunzip {rfam_cm}.gz"
-        )
-        os.system(cmd)
+        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
+        rfam_cm_path = Path(rfam_cm).with_suffix('.gz')
+
+        # Download the file
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        with rfam_cm_path.open('wb') as out_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                out_file.write(chunk)
+
+        # Decompress the file
+        with gzip.open(rfam_cm_path, 'rb') as f_in:
+            with rfam_cm_path.with_suffix('').open('wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+        rfam_cm_path.unlink()  # Remove the .gz file after decompression
+
     print("Indexing Rfam.cm")
     if not os.path.exists(f"{rfam_cm}.ssi"):
         os.system(f"cmfetch --index {rfam_cm}")
@@ -117,14 +134,22 @@ def setup_trna_cm():
     """Make sure the RF00005 tRNA model exists as it is used as a fallback
     for all tRNA models that do not match tRNAScan-SE."""
     rfam_acc = "RF00005"
-    trna_cm = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
-    os.system(f"mkdir -p {os.path.join(config.RFAM_DATA, rfam_acc)}")
-    if not os.path.exists(trna_cm):
-        cmd = f"wget -O {trna_cm} https://rfam.org/family/{rfam_acc}/cm"
-        os.system(cmd)
-        rscape2traveler(rfam_acc)
-        if not os.path.exists(trna_cm):
-            raise Exception(f"Rfam tRNA CM not found in {trna_cm}")
+    trna_cm_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.cm"
+
+    # Create the directory if it doesn't exist
+    trna_cm_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Download the file if it doesn't exist
+    if not trna_cm_path.exists():
+        url = f"https://rfam.org/family/{rfam_acc}/cm"
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        trna_cm_path.write_bytes(response.content)
+
+        rscape2traveler(rfam_acc)  # Assuming this is a function you've defined elsewhere
+
+        if not trna_cm_path.exists():
+            raise Exception(f"Rfam tRNA CM not found in {trna_cm_path}")
 
 
 def setup(accessions=None):
@@ -253,43 +278,50 @@ def convert_text_to_xml(line):
 
 def download_rfam_seed(rfam_acc):
     """Fetch Rfam seed alignment using the API."""
-    output = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.seed")
-    if not os.path.exists(output):
+    output_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.seed"
+
+    # Download the file if it doesn't exist
+    if not output_path.exists():
         url = f"https://rfam.org/family/{rfam_acc}/alignment"
-        cmd = f"wget -O {output} {url}"
-        os.system(cmd)
-    return output
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        output_path.write_text(response.text)
+
+    return str(output_path)
 
 
 def get_all_rfam_acc():
     """Get a list of Rfam accessions from an FTP database dump file."""
     rfam_accs = []
-    family_file = os.path.join(config.RFAM_DATA, "family.txt")
-    if not os.path.exists(family_file):
-        cmd = (
-            f"wget -O {family_file}.gz "
-            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
-        )
-        try:
-            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
-        except sp.CalledProcessError as error:
-            print(f"Error {error.output}")
+    family_file_path = Path(config.RFAM_DATA) / "family.txt"
 
-        if not os.path.exists(f"{family_file}.gz"):
-            print("Family file not downloaded")
+    # Download the file if it doesn't exist
+    if not family_file_path.exists():
+        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for HTTP errors
 
-        cmd = f"gunzip {family_file}.gz"
-        try:
-            sp.check_output([cmd], shell=True, stderr=sp.STDOUT)
-        except sp.CalledProcessError as error:
-            print(f"Error {error.output}")
-    with open(family_file, encoding="utf8", errors="ignore") as f_db_dump:
+        gzipped_path = family_file_path.with_suffix(".txt.gz")
+        with gzipped_path.open('wb') as out_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                out_file.write(chunk)
+
+        # Decompress the file
+        with gzip.open(gzipped_path, 'rt', errors="ignore") as f_in:
+            with family_file_path.open('w') as f_out:
+                for line in f_in:
+                    f_out.write(line)
+
+        gzipped_path.unlink()  # Remove the .gz file after decompression
+
+    with family_file_path.open(errors="ignore") as f_db_dump:
         for line in f_db_dump:
             if line.startswith("RF"):
                 rfam_acc = line[:7]
-                if rfam_acc in BLACKLIST:
+                if rfam_acc in BLACKLIST:  # Assuming BLACKLIST is defined somewhere in your code
                     continue
                 rfam_accs.append(rfam_acc)
+
     print(f"Found {len(rfam_accs)} Rfam accessions")
     return rfam_accs
 
@@ -297,20 +329,32 @@ def get_all_rfam_acc():
 def get_rfam_acc_by_id(rfam_id):
     """Get Rfam accession corresponding to an Rfam ID.
     Example: return RF00162 for SAM riboswitch."""
-    family_file = os.path.join(config.RFAM_DATA, "family.txt")
-    if not os.path.exists(family_file):
-        cmd = (
-            f"wget -O {family_file}.gz "
-            f"ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz && "
-            f"gunzip {family_file}.gz"
-        )
-        os.system(cmd)
+    family_file_path = Path(config.RFAM_DATA) / "family.txt"
+    # Download and decompress the file if it doesn't exist
+    if not family_file_path.exists():
+        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for HTTP errors
 
-    with open(family_file, encoding="utf8", errors="ignore") as raw:
+        gzipped_path = family_file_path.with_suffix(".txt.gz")
+        with gzipped_path.open('wb') as out_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                out_file.write(chunk)
+
+        # Decompress the file
+        with gzip.open(gzipped_path, 'rt', errors="ignore") as f_in:
+            with family_file_path.open('w') as f_out:
+                for line in f_in:
+                    f_out.write(line)
+
+        gzipped_path.unlink()  # Remove the .gz file after decompression
+
+    with family_file_path.open(errors="ignore") as raw:
         for line in raw:
             parts = line.split()
             if parts[1] == rfam_id:
                 return parts[0]
+
     raise ValueError(f"Cannot find Rfam accession for: {rfam_id}")
 
 

@@ -19,6 +19,8 @@ import os
 import re
 import shutil
 import subprocess as sp
+import tarfile
+import time
 
 import click  # pylint: disable=import-error
 
@@ -31,6 +33,20 @@ from utils import list_models as lm
 from utils import r2r, rfam
 from utils import rna2djsonschema as r2djs
 from utils import shared
+
+
+class Timer:
+    def __init__(self, msg: str):
+        self.msg = msg
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = time.time()
+        self.interval = self.end - self.start
+        print(f"=== Elapsed time for {self.msg}: {self.interval:.2f} seconds ===")
 
 
 @click.group()
@@ -61,13 +77,22 @@ def setup():
 
 def crw_setup():
     """Setup CRW CM library."""
-    print("Deleting old CRW library")
-    os.system(f"rm -Rf {config.CRW_CM_LIBRARY}")
+    if os.path.exists(config.CRW_CM_LIBRARY):
+        print("Deleting old CRW library")
+        shutil.rmtree(config.CRW_CM_LIBRARY)
+
+    # Extract the tar.gz file
     print("Extracting precomputed CRW archive")
-    cmd = ["tar", "xf", "crw-cms.tar.gz"]
-    sp.check_output(cmd, cwd=config.DATA)
-    cmd = ["mv", "crw-cms", os.path.join(config.CM_LIBRARY, "crw")]
-    sp.check_output(cmd, cwd=config.DATA)
+    with tarfile.open(os.path.join(config.DATA, "crw-cms.tar.gz"), "r:gz") as tar:
+        tar.extractall(path=config.DATA)
+
+    # Move the directory
+    source_dir = os.path.join(config.DATA, "crw-cms")
+    destination_dir = os.path.join(config.CM_LIBRARY, "crw")
+
+    if os.path.exists(source_dir):
+        shutil.move(source_dir, destination_dir)
+
     print("Generating CRW modelinfo file")
     gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
@@ -127,7 +152,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     from <fasta_input>.
     """
     index_filename = output_filename + ".txt"
-    with open(index_filename, "w", encoding="utf-8") as f_out:
+    with open(index_filename, "w") as f_out:
         for seq_id in seq_ids:
             f_out.write(f"{seq_id}\n")
     cmd = (
@@ -209,136 +234,141 @@ def draw(
 
     # Rfam
     print(f"Analysing {len(all_seq_ids)} sequences with Rfam")
-    with open(
-        shared.get_ribotyper_output(
-            fasta_input,
-            rfam_output,
-            os.path.join(config.CM_LIBRARY, "rfam"),
-            skip_ribovore_filters,
-        ),
-        "r",
-        encoding="utf-8",
-    ) as f_ribotyper:
-        for line in f_ribotyper.readlines():
-            rnacentral_id, model_id, _ = line.split("\t")
-            core.visualise(
-                "rfam",
+    with Timer("Rfam"):
+        with open(
+            shared.get_ribotyper_output(
                 fasta_input,
                 rfam_output,
-                rnacentral_id,
-                model_id,
-                constraint,
-                exclusion,
-                fold_type,
-            )
+                os.path.join(config.CM_LIBRARY, "rfam"),
+                skip_ribovore_filters,
+            ),
+        ) as f_ribotyper:
+            for line in f_ribotyper.readlines():
+                rnacentral_id, model_id, _ = line.split("\t")
+                core.visualise(
+                    "rfam",
+                    fasta_input,
+                    rfam_output,
+                    rnacentral_id,
+                    model_id,
+                    constraint,
+                    exclusion,
+                    fold_type,
+                )
 
     # RiboVision SSU
     hits = hits.union(get_hits(rfam_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with RiboVision SSU")
-        ctx.invoke(
-            ribovision_draw_ssu,
-            fasta_input=subset_fasta,
-            output_folder=ribovision_ssu_output,
-            constraint=constraint,
-            exclusion=exclusion,
-            fold_type=fold_type,
-            quiet=True,
-            skip_ribovore_filters=skip_ribovore_filters,
-        )
+        with Timer("RV SSU"):
+            print(f"Analysing {len(subset)} sequences with RiboVision SSU")
+            ctx.invoke(
+                ribovision_draw_ssu,
+                fasta_input=subset_fasta,
+                output_folder=ribovision_ssu_output,
+                constraint=constraint,
+                exclusion=exclusion,
+                fold_type=fold_type,
+                quiet=True,
+                skip_ribovore_filters=skip_ribovore_filters,
+            )
 
     # CRW
     hits = hits.union(get_hits(ribovision_ssu_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with CRW")
-        ctx.invoke(
-            rrna_draw,
-            fasta_input=subset_fasta,
-            output_folder=crw_output,
-            constraint=constraint,
-            exclusion=exclusion,
-            fold_type=fold_type,
-            quiet=True,
-            skip_ribovore_filters=skip_ribovore_filters,
-        )
+        with Timer("CRW"):
+            print(f"Analysing {len(subset)} sequences with CRW")
+            ctx.invoke(
+                rrna_draw,
+                fasta_input=subset_fasta,
+                output_folder=crw_output,
+                constraint=constraint,
+                exclusion=exclusion,
+                fold_type=fold_type,
+                quiet=True,
+                skip_ribovore_filters=skip_ribovore_filters,
+            )
 
     # RiboVision LSU
     hits = hits.union(get_hits(crw_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with RiboVision LSU")
-        ctx.invoke(
-            ribovision_draw_lsu,
-            fasta_input=subset_fasta,
-            output_folder=ribovision_lsu_output,
-            constraint=constraint,
-            exclusion=exclusion,
-            fold_type=fold_type,
-            quiet=True,
-            skip_ribovore_filters=skip_ribovore_filters,
-        )
+        with Timer("LSU"):
+            print(f"Analysing {len(subset)} sequences with RiboVision LSU")
+            ctx.invoke(
+                ribovision_draw_lsu,
+                fasta_input=subset_fasta,
+                output_folder=ribovision_lsu_output,
+                constraint=constraint,
+                exclusion=exclusion,
+                fold_type=fold_type,
+                quiet=True,
+                skip_ribovore_filters=skip_ribovore_filters,
+            )
 
     # RNAse P
     hits = hits.union(get_hits(ribovision_lsu_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with RNAse P models")
-        ctx.invoke(
-            rnasep_draw,
-            fasta_input=subset_fasta,
-            output_folder=rnasep_output,
-            constraint=constraint,
-            exclusion=exclusion,
-            fold_type=fold_type,
-            quiet=True,
-            skip_ribovore_filters=skip_ribovore_filters,
-        )
+        with Timer("RNAse P"):
+            print(f"Analysing {len(subset)} sequences with RNAse P models")
+            ctx.invoke(
+                rnasep_draw,
+                fasta_input=subset_fasta,
+                output_folder=rnasep_output,
+                constraint=constraint,
+                exclusion=exclusion,
+                fold_type=fold_type,
+                quiet=True,
+                skip_ribovore_filters=skip_ribovore_filters,
+            )
 
     # GtRNAdb
     hits = hits.union(get_hits(rnasep_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with GtRNAdb")
-        for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
-            core.visualise(
-                "gtrnadb",
-                fasta_input,
-                output_folder + "/gtrnadb",
-                trna["id"],
-                None,
-                constraint,
-                exclusion,
-                fold_type,
-                trna["domain"],
-                trna["isotype"],
-                trna["start"],
-                trna["end"],
-            )
+        with Timer("GtRNAdb"):
+            print(f"Analysing {len(subset)} sequences with GtRNAdb")
+            for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
+                core.visualise(
+                    "gtrnadb",
+                    fasta_input,
+                    output_folder + "/gtrnadb",
+                    trna["id"],
+                    None,
+                    constraint,
+                    exclusion,
+                    fold_type,
+                    trna["domain"],
+                    trna["isotype"],
+                    trna["start"],
+                    trna["end"],
+                )
 
     # Rfam tRNA
     hits = hits.union(get_hits(gtrnadb_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        print(f"Analysing {len(subset)} sequences with Rfam tRNA")
-        trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, "RF00005")
-        if trna_ids:
-            get_subset_fasta(fasta_input, subset_fasta, trna_ids)
-            rfam.generate_2d(
-                "RF00005",
-                output_folder,
-                subset_fasta,
-                constraint,
-                exclusion,
-                fold_type,
-            )
+        with Timer("Rfam tRNA"):
+            print(f"Analysing {len(subset)} sequences with Rfam tRNA")
+            trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, "RF00005")
+            if trna_ids:
+                get_subset_fasta(fasta_input, subset_fasta, trna_ids)
+                rfam.generate_2d(
+                    "RF00005",
+                    output_folder,
+                    subset_fasta,
+                    constraint,
+                    exclusion,
+                    fold_type,
+                )
 
     # move svg files to the final location
     result_folders = [
@@ -506,8 +536,6 @@ def rnasep_draw(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
         ),
-        "r",
-        encoding="utf-8",
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -563,8 +591,6 @@ def rrna_draw(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
         ),
-        "r",
-        encoding="utf-8",
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -623,8 +649,6 @@ def ribovision_draw_lsu(
             config.RIBOVISION_LSU_CM_LIBRARY,
             skip_ribovore_filters,
         ),
-        "r",
-        encoding="utf-8",
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -676,8 +700,6 @@ def ribovision_draw_ssu(
             config.RIBOVISION_SSU_CM_LIBRARY,
             skip_ribovore_filters,
         ),
-        "r",
-        encoding="utf-8",
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -996,7 +1018,7 @@ def generatecm():
     """
     print(shared.get_r2dt_version_header())
     for bpseq in glob.glob(f"{config.BPSEQ_LOCATION}/*.bpseq"):
-        fasta = gcl.convert_bpseq_to_fasta(bpseq)
+        gcl.convert_bpseq_to_fasta(bpseq)
     for fasta in glob.glob(f"{config.BPSEQ_LOCATION}/*.fasta"):
         print(os.path.basename(fasta).replace(".fasta", ""))
         # fasta_no_knots = break_pseudoknots(fasta)

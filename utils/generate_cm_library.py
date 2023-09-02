@@ -12,6 +12,10 @@ limitations under the License.
 """
 
 import os
+import subprocess
+from pathlib import Path
+
+import requests
 
 
 def convert_bpseq_to_fasta(bpseq):
@@ -54,16 +58,23 @@ def copy_cm_evalues(cm_filename):
     by copying E-values from Rfam CMs.
     """
     rfam_acc = "RF00177"
-    example_cm_filename = os.path.join("temp", f"{rfam_acc}.cm")
-    if not os.path.exists(example_cm_filename):
-        cmd = f"wget -O {rfam_acc}.cm http://rfam.org/family/{rfam_acc}/cm"
-        os.system(cmd)
-    cmd = (
-        f"perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl "
-        f"{rfam_acc}.cm {cm_filename}"
-    )
-    os.system(cmd)
-    os.system(f"rm {cm_filename}.old")
+    example_cm_path = Path("temp") / f"{rfam_acc}.cm"
+    # Download the file if it doesn't exist
+    if not example_cm_path.exists():
+        url = f"http://rfam.org/family/{rfam_acc}/cm"
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        example_cm_path.write_bytes(response.content)
+
+    # Run the Perl script
+    perl_script_path = Path("/rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl")
+    cm_filename_path = Path(cm_filename)
+
+    subprocess.run([str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True)
+
+    # Remove the .old file
+    old_file_path = cm_filename_path.with_suffix(".cm.old")
+    old_file_path.unlink(missing_ok=True)
 
 
 def build_cm(stockholm, cm_library):

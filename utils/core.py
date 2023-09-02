@@ -134,7 +134,7 @@ def visualise(
 
     if rna_type == "rfam":
         cmd = (
-            f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
+            f"esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
             f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
             f"{temp_sto}"
         )
@@ -160,7 +160,7 @@ def visualise(
 
     # impose consensus secondary structure and convert to pfam format
     cmd = (
-        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
+        f"esl-alimanip --rna --sindi "
         f"--outformat pfam {temp_depaired} > {temp_stk}"
     )
     result = os.system(cmd)
@@ -170,7 +170,7 @@ def visualise(
 
     # impose consensus secondary structure and convert to pfam format
     cmd = (
-        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
+        f"esl-alimanip --rna --sindi "
         f"--outformat pfam {temp_sto} > {temp_stk_original}"
     )
     result = os.system(cmd)

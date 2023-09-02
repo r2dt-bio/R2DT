@@ -20,7 +20,7 @@ from . import config
 
 def setup():
     """Extract tRNAScan covariance models as separate files."""
-    base = os.path.join("usr", "local", "lib", "tRNAscan-SE", "models")
+    base = os.path.join("usr", "lib", "tRNAscan-SE", "models")
     cm_dbs = {
         "TRNAinf-arch-iso": "A",
         "TRNAinf-bact-iso": "B",
@@ -74,7 +74,7 @@ def run_trnascan(fasta_input, output_folder, domain):
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
-        cmd = f"tRNAscan-SE -q -{domain} -o {output_file} {fasta_input}"
+        cmd = f"tRNAscan-SE -c /usr/bin/tRNAscan-SE.conf -q -{domain} -o {output_file} {fasta_input}"
         print(cmd)
         os.system(cmd)
     return parse_trnascan_output(output_file)
