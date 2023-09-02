@@ -114,7 +114,13 @@ def get_rfam_cms():
         runner.run(f"cmfetch --index {rfam_cm}")
     print("Get a list of all Rfam ids")
     if not os.path.exists(rfam_ids):
-        runner.run(f"awk '/ACC   RF/ {{print $2}}' {rfam_cm} > {rfam_ids}")
+        with open(rfam_cm, 'r') as infile, open(rfam_ids, 'w') as outfile:
+            for line in infile:
+                if line.startswith("ACC   RF"):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        outfile.write(parts[1] + '\n')
+
     print("Fetching whitelisted Rfam CMs")
     with open(rfam_ids, "r", encoding="utf-8") as f_in:
         for line in f_in:
@@ -514,7 +520,10 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
         runner.run(f"esl-sfetch --index {fasta_input}")
 
     headers = "headers.txt"
-    runner.run(f"grep '>' {fasta_input} > {headers}")
+    with open(fasta_input, 'r') as infile, open(headers, 'w') as outfile:
+        for line in infile:
+            if line.startswith('>'):
+                outfile.write(line)
 
     with open(headers) as f_headers:
         for line in f_headers:
@@ -555,10 +564,12 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     cm_file = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
     runner.run(f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}")
     hits = os.path.join(subfolder, "hits.txt")
-    runner.run((
-        f"cat {tblout} | grep -v '^#' | grep -v '?' | "
-        f"awk -v OFS='\t' '{{print $1, $4, \"PASS\"}}' > {hits}"
-    ))
+    with open(tblout, 'r') as infile, open(hits, 'w') as outfile:
+        for line in infile:
+            if not line.startswith('#') and '?' not in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
     ids = set()
     with open(hits) as f_hits:
         for line in f_hits:

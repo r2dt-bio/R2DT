@@ -31,15 +31,15 @@ class R2dtTestCase(unittest.TestCase):
     @staticmethod
     def delete_folder(folder):
         """Delete test folder"""
-        os.system(f"rm -Rf {folder}")
+        runner.run(f"rm -Rf {folder}")
 
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        runner.run(self.cmd)
+        runner.run(self.cmd, print_output=True)
 
     def tearDown(self):
-        if os.environ.get("R2DT_KEEP_TEST_RESULTS", False) == "1":
+        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") == "1":
             print(f"Test results can be found in {self.test_results}")
         else:
             self.delete_folder(self.test_results)
@@ -47,12 +47,12 @@ class R2dtTestCase(unittest.TestCase):
     @staticmethod
     def create_webpage(filename, before, after):
         """Create an HTML file comparing the reference SVG with a new one."""
-        with open(filename, "w", encoding="utf-8") as f_html:
+        with open(filename, "w") as f_html:
             f_html.write("<html><body>")
-            with open(before, "r", encoding="utf-8") as f_before:
+            with open(before) as f_before:
                 svg = f_before.read()
             f_html.write(svg)
-            with open(after, "r", encoding="utf-8") as f_after:
+            with open(after) as f_after:
                 svg = f_after.read()
             f_html.write(svg)
             f_html.write("</body></html>")

@@ -17,10 +17,7 @@ from pathlib import Path
 
 from .runner import runner
 from . import config, gtrnadb, rfam, shared
-from rich.console import Console
-
-
-console = Console()
+from rich import print
 
 
 # pylint: disable=too-many-arguments
@@ -44,9 +41,9 @@ def visualise(
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id:
-        console.log(f"Visualising {seq_id} with {model_id}")
+        print(f"Visualising {seq_id} with {model_id}")
     else:
-        console.log(f"Visualising {seq_id} with {domain} {isotype}")
+        print(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
@@ -74,7 +71,7 @@ def visualise(
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
-        console.log("Please specify RNA type")
+        print("Please specify RNA type")
         return
 
     temp_fasta = filename_template.replace("type", "fasta")
@@ -110,14 +107,14 @@ def visualise(
     elif rna_type == "gtrnadb":
         model_path = gtrnadb.get_trnascan_cm(domain, isotype)
         if not model_path:
-            console.log(f"Covariance model not found for {domain} {isotype}")
+            print(f"Covariance model not found for {domain} {isotype}")
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
-            console.log(f"Model not found {model_path}")
+            print(f"Model not found {model_path}")
             return
 
     # align sequence to the model
@@ -134,7 +131,7 @@ def visualise(
         if not result:
             break
     else:
-        console.log(f"Failed cmalign of {seq_id} to {model_id}")
+        print(f"Failed cmalign of {seq_id} to {model_id}")
         return
 
     if rna_type == "rfam":
@@ -149,7 +146,7 @@ def visualise(
     cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired}"
     result = runner.run(cmd)
     if result:
-        console.log(f"Failed esl-alidepair for {seq_id}")
+        print(f"Failed esl-alidepair for {seq_id}")
 
     has_conserved_structure = False
     with open(temp_sto) as f_stockholm:
@@ -158,7 +155,7 @@ def visualise(
                 if "<" in line:
                     has_conserved_structure = True
                 else:
-                    console.log("This RNA does not have a conserved structure")
+                    print("This RNA does not have a conserved structure")
                 break
     if not has_conserved_structure:
         return
@@ -170,7 +167,7 @@ def visualise(
     )
     result = runner.run(cmd)
     if result:
-        console.log(f"Failed esl-alimanip for {seq_id} {model_id}")
+        print(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # impose consensus secondary structure and convert to pfam format
@@ -180,7 +177,7 @@ def visualise(
     )
     result = runner.run(cmd)
     if result:
-        console.log(f"Failed esl-alimanip for {seq_id} {model_id}")
+        print(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # store posterior probabilities in tsv file
@@ -247,7 +244,7 @@ def visualise(
     cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
     result = runner.run(cmd)
     if result:
-        console.log(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+        print(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
         return
 
     if constraint:
@@ -260,7 +257,7 @@ def visualise(
             fold_type,
         )
     elif exclusion:
-        console.log("Exclusion ignored, enable --constraint to add exclusion file")
+        print("Exclusion ignored, enable --constraint to add exclusion file")
 
     if rna_type == "crw":
         traveler_params = (
@@ -295,9 +292,9 @@ def visualise(
         traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        console.log("Traveler with Infernal mapping failed:")
-        console.log(cmd)
-        console.log("Repeating using Traveler mapping:")
+        print("Traveler with Infernal mapping failed:")
+        print(cmd)
+        print("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
@@ -311,7 +308,7 @@ def visualise(
             match = re.search(r"Overlaps count: (\d+)", line)
             if match:
                 if overlaps:
-                    console.log("ERROR: Saw too many overlaps")
+                    print("ERROR: Saw too many overlaps")
                     break
                 overlaps = int(match.group(1))
     with open(f"{result_base}.overlaps", "w") as out:
@@ -354,8 +351,9 @@ def adjust_font_size(result_base):
     for filename in filenames:
         if not os.path.exists(filename):
             continue
-        cmd = f"""sed -i 's/font-size: 7px;/font-size: 4px;/' {filename}"""
-        runner.run(cmd)
+        content = open(filename).read()
+        content = content.replace('font-size: 7px;', 'font-size: 4px;')
+        open(filename, 'w').write(content)
 
 
 # pylint: disable-next=too-many-arguments
@@ -376,7 +374,7 @@ def visualise_trna(
     with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            console.log(seq_id)
+            print(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,

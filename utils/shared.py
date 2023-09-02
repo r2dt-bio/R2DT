@@ -48,18 +48,19 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
         runner.run(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
     if not skip_ribovore_filters:
-        cmd = (
-            f"cat {ribotyper_long_out} | grep -v '^#' | "
-            f"grep -v MultipleHits | grep PASS | "
-            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
-        )
+        with open(ribotyper_long_out, 'r') as infile, open(f_out, 'w') as outfile:
+            for line in infile:
+                if not line.startswith('#') and 'MultipleHits' not in line and 'PASS' in line:
+                    parts = line.split()
+                    if len(parts) >= 8:
+                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
     else:
-        cmd = (
-            f"cat {ribotyper_long_out} | grep -v '^#' "
-            f"| grep -v NoHits | "
-            f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
-        )
-    runner.run(cmd)
+        with open(ribotyper_long_out, 'r') as infile, open(f_out, 'w') as outfile:
+            for line in infile:
+                if not line.startswith('#') and 'NoHits' not in line:
+                    parts = line.split()
+                    if len(parts) >= 8:
+                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
     return f_out
 
 
