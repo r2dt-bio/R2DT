@@ -17,13 +17,14 @@ from pathlib import Path
 
 import requests
 
+from .runner import runner
+
 
 def convert_bpseq_to_fasta(bpseq):
     """Use a Traveler script to convert from BPSEQ to FASTA."""
     fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}"
-        os.system(cmd)
+        runner.run(f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}")
     return fasta
 
 
@@ -31,8 +32,7 @@ def break_pseudoknots(fasta):
     """Remove pseudoknots using RNAStructure."""
     fasta_no_knots = fasta.replace("-with-knots.fasta", ".fasta")
     if not os.path.exists(fasta_no_knots):
-        cmd = f"RemovePseudoknots -b {fasta} {fasta_no_knots}"
-        os.system(cmd)
+        runner.run(f"RemovePseudoknots -b {fasta} {fasta_no_knots}")
     return fasta_no_knots
 
 
@@ -83,8 +83,7 @@ def build_cm(stockholm, cm_library):
         cm_library, os.path.basename(stockholm).replace(".sto", ".cm")
     )
     if not os.path.exists(cm_filename):
-        cmd = f"cmbuild {cm_filename} {stockholm}"
-        os.system(cmd)
+        runner.run(f"cmbuild {cm_filename} {stockholm}")
         copy_cm_evalues(cm_filename)
     else:
         print(f"CM already exists {cm_filename}")

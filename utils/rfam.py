@@ -17,11 +17,11 @@ import io
 import os
 import re
 import shutil
-import subprocess as sp
 from pathlib import Path
 
 import requests
 
+from .runner import runner
 from . import config, core
 from . import generate_model_info as mi
 
@@ -81,9 +81,12 @@ def get_rfam_cms():
     """Fetch Rfam covariance models excluding blacklisted models."""
     rfam_cm_location = os.path.join(config.CM_LIBRARY, "rfam")
     rfam_whitelisted_cm = os.path.join(rfam_cm_location, "all.cm")
+
     print("Deleting old Rfam library")
-    cmd = f"rm -Rf {rfam_cm_location} && mkdir {rfam_cm_location}"
-    os.system(cmd)
+    rfam_cm_path = Path(rfam_cm_location)
+    shutil.rmtree(rfam_cm_path, ignore_errors=True)
+    rfam_cm_path.mkdir(parents=True, exist_ok=True)
+
     print("Downloading Rfam.cm from Rfam FTP")
     rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
@@ -108,11 +111,10 @@ def get_rfam_cms():
 
     print("Indexing Rfam.cm")
     if not os.path.exists(f"{rfam_cm}.ssi"):
-        os.system(f"cmfetch --index {rfam_cm}")
+        runner.run(f"cmfetch --index {rfam_cm}")
     print("Get a list of all Rfam ids")
     if not os.path.exists(rfam_ids):
-        cmd = f"awk '/ACC   RF/ {{print $2}}' {rfam_cm} > {rfam_ids}"
-        os.system(cmd)
+        runner.run(f"awk '/ACC   RF/ {{print $2}}' {rfam_cm} > {rfam_ids}")
     print("Fetching whitelisted Rfam CMs")
     with open(rfam_ids, "r", encoding="utf-8") as f_in:
         for line in f_in:
@@ -120,14 +122,15 @@ def get_rfam_cms():
             if rfam_acc in blacklisted():
                 continue
             print(rfam_acc)
-            cmd = f"cmfetch {rfam_cm} {rfam_acc} >> {rfam_whitelisted_cm}"
-            os.system(cmd)
+            runner.run(f"cmfetch {rfam_cm} {rfam_acc} >> {rfam_whitelisted_cm}")
             cm_file = os.path.join(rfam_cm_location, f"{rfam_acc}.cm")
-            cmd = f"cmfetch {rfam_cm} {rfam_acc} > {cm_file}"
-            os.system(cmd)
+            runner.run(f"cmfetch {rfam_cm} {rfam_acc} > {cm_file}")
+
     print("Cleaning up")
-    os.system(f"rm {rfam_cm}")
-    os.system(f"rm {rfam_cm}.ssi")
+    rfam_cm_path = Path(rfam_cm)
+    rfam_cm_ssi_path = rfam_cm_path.with_suffix(".ssi")
+    rfam_cm_path.unlink(missing_ok=True)
+    rfam_cm_ssi_path.unlink(missing_ok=True)
 
 
 def setup_trna_cm():
@@ -392,7 +395,7 @@ def run_rscape(rfam_acc, destination):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
             folder=destination, rfam_seed=rfam_seed_no_pk
         )
-        os.system(cmd)
+        runner.run(cmd)
 
     rscape_svg = None
     for svg in glob.glob(os.path.join(destination, "*.svg")):
@@ -416,7 +419,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
         r"perl -0777 -pe 's/\n<\/text>/<\/text>/g' "
         r"> {output}"
     ).format(rscape_svg=rscape_svg, output=output)
-    os.system(cmd)
+    runner.run(cmd)
     return output
 
 
@@ -508,14 +511,12 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
         os.makedirs(destination)
 
     if not os.path.exists(fasta_input + ".ssi"):
-        cmd = f"esl-sfetch --index {fasta_input}"
-        os.system(cmd)
+        runner.run(f"esl-sfetch --index {fasta_input}")
 
     headers = "headers.txt"
-    cmd = f"grep '>' {fasta_input} > {headers}"
-    os.system(cmd)
+    runner.run(f"grep '>' {fasta_input} > {headers}")
 
-    with open(headers, "r", encoding="utf-8") as f_headers:
+    with open(headers) as f_headers:
         for line in f_headers:
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
             print(seq_id)
@@ -529,14 +530,14 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
                 exclusion,
                 fold_type,
             )
-    os.system(f"rm {headers}")
+    Path(headers).unlink(missing_ok=True)
 
 
 def has_structure(rfam_acc):
     """Return a list of families that have consensus 2D structure."""
     no_structure = []
     no_structure_filename = os.path.join(config.RFAM_DATA, "no_structure.txt")
-    with open(no_structure_filename, "r", encoding="utf-8") as f_list:
+    with open(no_structure_filename) as f_list:
         for line in f_list.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
@@ -548,21 +549,18 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     to get potentially missing hits.
     """
     subfolder = os.path.join(output_folder, rfam_acc)
-    os.system(f"mkdir -p {subfolder}")
+    os.makedirs(subfolder, exist_ok=True)
     tblout = os.path.join(subfolder, "cmsearch.tblout")
     outfile = os.path.join(subfolder, "cmsearch.out.txt")
     cm_file = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
-    cmd = f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}"
-    print(cmd)
-    os.system(cmd)
+    runner.run(f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}")
     hits = os.path.join(subfolder, "hits.txt")
-    cmd = (
+    runner.run((
         f"cat {tblout} | grep -v '^#' | grep -v '?' | "
         f"awk -v OFS='\t' '{{print $1, $4, \"PASS\"}}' > {hits}"
-    )
-    os.system(cmd)
+    ))
     ids = set()
-    with open(hits, "r", encoding="utf-8") as f_hits:
+    with open(hits) as f_hits:
         for line in f_hits:
             if "\t" in line:
                 hit_id, _, _ = line.strip().split("\t")

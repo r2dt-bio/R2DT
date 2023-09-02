@@ -18,12 +18,14 @@ import json
 import os
 import re
 import shutil
-import subprocess as sp
 import tarfile
 import time
+from pathlib import Path
 
 import click  # pylint: disable=import-error
+from rich.console import Console
 
+from utils.runner import runner
 from tests import tests
 from utils import config, core
 from utils import generate_cm_library as gcl
@@ -33,6 +35,8 @@ from utils import list_models as lm
 from utils import r2r, rfam
 from utils import rna2djsonschema as r2djs
 from utils import shared
+
+console = Console()
 
 
 class Timer:
@@ -46,7 +50,7 @@ class Timer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = time.time()
         self.interval = self.end - self.start
-        print(f"=== Elapsed time for {self.msg}: {self.interval:.2f} seconds ===")
+        console.log(f"[yellow]Elapsed time for {self.msg}[/yellow]: {self.interval:.2f} seconds")
 
 
 @click.group()
@@ -59,7 +63,7 @@ def version():
     """
     Print R2DT version information.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
 
 
 @cli.command()
@@ -67,7 +71,7 @@ def setup():
     """
     Generate all templates from scratch.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     if not os.path.exists(config.CM_LIBRARY):
         os.makedirs(config.CM_LIBRARY)
     crw_setup()
@@ -78,11 +82,11 @@ def setup():
 def crw_setup():
     """Setup CRW CM library."""
     if os.path.exists(config.CRW_CM_LIBRARY):
-        print("Deleting old CRW library")
+        console.log("Deleting old CRW library")
         shutil.rmtree(config.CRW_CM_LIBRARY)
 
     # Extract the tar.gz file
-    print("Extracting precomputed CRW archive")
+    console.log("Extracting precomputed CRW archive")
     with tarfile.open(os.path.join(config.DATA, "crw-cms.tar.gz"), "r:gz") as tar:
         tar.extractall(path=config.DATA)
 
@@ -93,7 +97,7 @@ def crw_setup():
     if os.path.exists(source_dir):
         shutil.move(source_dir, destination_dir)
 
-    print("Generating CRW modelinfo file")
+    console.log("Generating CRW modelinfo file")
     gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
 
@@ -102,7 +106,7 @@ def setup_rfam():
     """
     Re-generate Rfam templates from scratch.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     # delete Rfam cms
     rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
     os.system(f"rm -f {rfam_cms}/*.cm")
@@ -155,11 +159,8 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     with open(index_filename, "w") as f_out:
         for seq_id in seq_ids:
             f_out.write(f"{seq_id}\n")
-    cmd = (
-        f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename} > /dev/null"
-    )
-    os.system(cmd)
-    os.system(f"esl-sfetch --index {output_filename} > /dev/null")
+    runner.run(f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}")
+    runner.run(f"esl-sfetch --index {output_filename}")
 
 
 @cli.command()
@@ -186,22 +187,22 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
 @click.pass_context
 # pylint: disable-next=too-many-arguments, too-many-locals, too-many-statements, too-many-branches
 def draw(
-    ctx,
-    fasta_input,
-    output_folder,
-    force_template,
-    constraint,
-    exclusion,
-    fold_type,
-    quiet,
-    skip_ribovore_filters,
+        ctx,
+        fasta_input,
+        output_folder,
+        force_template,
+        constraint,
+        exclusion,
+        fold_type,
+        quiet,
+        skip_ribovore_filters,
 ):
     """
     Single entry point for visualising 2D for an RNA sequence.
     Selects a template and runs Traveler using CRW, LSU, or Rfam libraries.
     """
     if not quiet:
-        print(shared.get_r2dt_version_header())
+        console.log(shared.get_r2dt_version_header())
     all_seq_ids = get_seq_ids(fasta_input)
 
     if force_template:
@@ -218,7 +219,7 @@ def draw(
             )
         return
 
-    os.system(f"mkdir -p {output_folder}")
+    os.makedirs(output_folder, exist_ok=True)
     crw_output = os.path.join(output_folder, "crw")
     ribovision_ssu_output = os.path.join(output_folder, "ribovision-ssu")
     ribovision_lsu_output = os.path.join(output_folder, "ribovision-lsu")
@@ -229,19 +230,19 @@ def draw(
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
-    os.system(f"cp {fasta_input} {subset_fasta}")
-    os.system(f"esl-sfetch --index {subset_fasta} > /dev/null")
+    shutil.copy(fasta_input, subset_fasta)
+    runner.run(f"esl-sfetch --index {subset_fasta}")
 
     # Rfam
-    print(f"Analysing {len(all_seq_ids)} sequences with Rfam")
+    console.log(f"Analysing {len(all_seq_ids)} sequences with Rfam")
     with Timer("Rfam"):
         with open(
-            shared.get_ribotyper_output(
-                fasta_input,
-                rfam_output,
-                os.path.join(config.CM_LIBRARY, "rfam"),
-                skip_ribovore_filters,
-            ),
+                shared.get_ribotyper_output(
+                    fasta_input,
+                    rfam_output,
+                    os.path.join(config.CM_LIBRARY, "rfam"),
+                    skip_ribovore_filters,
+                ),
         ) as f_ribotyper:
             for line in f_ribotyper.readlines():
                 rnacentral_id, model_id, _ = line.split("\t")
@@ -262,7 +263,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("RV SSU"):
-            print(f"Analysing {len(subset)} sequences with RiboVision SSU")
+            console.log(f"Analysing {len(subset)} sequences with RiboVision SSU")
             ctx.invoke(
                 ribovision_draw_ssu,
                 fasta_input=subset_fasta,
@@ -280,7 +281,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("CRW"):
-            print(f"Analysing {len(subset)} sequences with CRW")
+            console.log(f"Analysing {len(subset)} sequences with CRW")
             ctx.invoke(
                 rrna_draw,
                 fasta_input=subset_fasta,
@@ -298,7 +299,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("LSU"):
-            print(f"Analysing {len(subset)} sequences with RiboVision LSU")
+            console.log(f"Analysing {len(subset)} sequences with RiboVision LSU")
             ctx.invoke(
                 ribovision_draw_lsu,
                 fasta_input=subset_fasta,
@@ -316,7 +317,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("RNAse P"):
-            print(f"Analysing {len(subset)} sequences with RNAse P models")
+            console.log(f"Analysing {len(subset)} sequences with RNAse P models")
             ctx.invoke(
                 rnasep_draw,
                 fasta_input=subset_fasta,
@@ -334,7 +335,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("GtRNAdb"):
-            print(f"Analysing {len(subset)} sequences with GtRNAdb")
+            console.log(f"Analysing {len(subset)} sequences with GtRNAdb")
             for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
                 core.visualise(
                     "gtrnadb",
@@ -357,7 +358,7 @@ def draw(
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
         with Timer("Rfam tRNA"):
-            print(f"Analysing {len(subset)} sequences with Rfam tRNA")
+            console.log(f"Analysing {len(subset)} sequences with Rfam tRNA")
             trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, "RF00005")
             if trna_ids:
                 get_subset_fasta(fasta_input, subset_fasta, trna_ids)
@@ -396,23 +397,39 @@ def organise_results(results_folder, output_folder):
     destination = os.path.join(output_folder, "results")
     for label in labels:
         folders[label] = os.path.join(destination, label)
-        os.system(f"mkdir -p {folders[label]}")
+        os.makedirs(folders[label], exist_ok=True)
     svgs = glob.glob(os.path.join(results_folder, "*.svg"))
     if not svgs:
         return
     for svg in svgs:
         if "colored" not in svg:
             continue
-        with open(svg, "r", encoding="utf-8") as f_svg:
+        with open(svg) as f_svg:
             thumbnail = shared.generate_thumbnail(f_svg.read(), svg)
             thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
-            with open(thumbnail_filename, "w", encoding="utf-8") as f_thumbnail:
+            with open(thumbnail_filename, "w") as f_thumbnail:
                 f_thumbnail.write(thumbnail)
-    os.system(f"mv {results_folder}/*.thumbnail.svg {folders['thumbnail']}")
-    os.system(f"mv {results_folder}/*.colored.svg {folders['svg']}")
-    os.system(f"mv {results_folder}/*.enriched.svg {folders['svg']} > /dev/null 2>&1")
-    os.system(f"mv {results_folder}/*.fasta {folders['fasta']} > /dev/null 2>&1")
-    os.system(f"mv {results_folder}/*.json {folders['json']}")
+    results_path = Path(results_folder)
+
+    # Move .thumbnail.svg files
+    for file in results_path.glob("*.thumbnail.svg"):
+        shutil.move(str(file), folders['thumbnail'])
+
+    # Move .colored.svg files
+    for file in results_path.glob("*.colored.svg"):
+        shutil.move(str(file), folders['svg'])
+
+    # Move .enriched.svg files
+    for file in results_path.glob("*.enriched.svg"):
+        shutil.move(str(file), folders['svg'])
+
+    # Move .fasta files
+    for file in results_path.glob("*.fasta"):
+        shutil.move(str(file), folders['fasta'])
+
+    # Move .json files
+    for file in results_path.glob("*.json"):
+        shutil.move(str(file), folders['json'])
 
 
 @cli.group("gtrnadb")
@@ -428,7 +445,7 @@ def gtrnadb_setup():
     This will copy all the CM files into place so that drawing will not modify
     the data directory.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     gtrnadb.setup()
 
 
@@ -451,22 +468,22 @@ def gtrnadb_setup():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def gtrnadb_draw(
-    fasta_input,
-    output_folder,
-    domain="",
-    isotype="",
-    constraint=None,
-    exclusion=None,
-    fold_type=None,
-    quiet=False,
+        fasta_input,
+        output_folder,
+        domain="",
+        isotype="",
+        constraint=None,
+        exclusion=None,
+        fold_type=None,
+        quiet=False,
 ):
     """
     Visualise sequences using GtRNAdb templates.
     """
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    os.system(f"mkdir -p {output_folder}")
+        console.log(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
 
     if domain and isotype:
         core.visualise_trna(
@@ -519,23 +536,23 @@ def rnasep_group():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rnasep_draw(
-    fasta_input,
-    output_folder,
-    constraint,
-    exclusion,
-    fold_type,
-    quiet,
-    skip_ribovore_filters,
+        fasta_input,
+        output_folder,
+        constraint,
+        exclusion,
+        fold_type,
+        quiet,
+        skip_ribovore_filters,
 ):
     """Draw 2D diagrams using RNAse P templates."""
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    os.system(f"mkdir -p {output_folder}")
+        console.log(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
     with open(
-        shared.get_ribotyper_output(
-            fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
-        ),
+            shared.get_ribotyper_output(
+                fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
+            ),
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -574,23 +591,23 @@ def crw_group():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rrna_draw(
-    fasta_input,
-    output_folder,
-    constraint,
-    exclusion,
-    fold_type,
-    quiet,
-    skip_ribovore_filters,
+        fasta_input,
+        output_folder,
+        constraint,
+        exclusion,
+        fold_type,
+        quiet,
+        skip_ribovore_filters,
 ):
     """Draw 2D diagrams using CRW templates."""
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    os.system(f"mkdir -p {output_folder}")
+        console.log(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
     with open(
-        shared.get_ribotyper_output(
-            fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
-        ),
+            shared.get_ribotyper_output(
+                fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
+            ),
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -629,26 +646,26 @@ def ribovision_group():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def ribovision_draw_lsu(
-    fasta_input,
-    output_folder,
-    constraint,
-    exclusion,
-    fold_type,
-    quiet,
-    skip_ribovore_filters,
+        fasta_input,
+        output_folder,
+        constraint,
+        exclusion,
+        fold_type,
+        quiet,
+        skip_ribovore_filters,
 ):
     """Draw 2D diagrams using LSU templates from RiboVision."""
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    os.system(f"mkdir -p {output_folder}")
+        console.log(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
     with open(
-        shared.get_ribotyper_output(
-            fasta_input,
-            output_folder,
-            config.RIBOVISION_LSU_CM_LIBRARY,
-            skip_ribovore_filters,
-        ),
+            shared.get_ribotyper_output(
+                fasta_input,
+                output_folder,
+                config.RIBOVISION_LSU_CM_LIBRARY,
+                skip_ribovore_filters,
+            ),
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -680,26 +697,26 @@ def ribovision_draw_lsu(
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def ribovision_draw_ssu(
-    fasta_input,
-    output_folder,
-    constraint,
-    exclusion,
-    fold_type,
-    quiet,
-    skip_ribovore_filters,
+        fasta_input,
+        output_folder,
+        constraint,
+        exclusion,
+        fold_type,
+        quiet,
+        skip_ribovore_filters,
 ):
     """Draw 2D diagrams using SSU templates from RiboVision."""
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    os.system(f"mkdir -p {output_folder}")
+        console.log(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
     with open(
-        shared.get_ribotyper_output(
-            fasta_input,
-            output_folder,
-            config.RIBOVISION_SSU_CM_LIBRARY,
-            skip_ribovore_filters,
-        ),
+            shared.get_ribotyper_output(
+                fasta_input,
+                output_folder,
+                config.RIBOVISION_SSU_CM_LIBRARY,
+                skip_ribovore_filters,
+            ),
     ) as f_ribotyper:
         for line in f_ribotyper.readlines():
             rnacentral_id, model_id, _ = line.split("\t")
@@ -729,7 +746,7 @@ def rfam_blacklist():
     families that do not have any secondary structure.
     """
     for model in sorted(rfam.blacklisted()):
-        print(model)
+        console.log(model)
 
 
 @rfam_group.command("draw")
@@ -743,13 +760,13 @@ def rfam_blacklist():
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 def rfam_draw(
-    rfam_acc,
-    fasta_input,
-    output_folder,
-    constraint=None,
-    exclusion=None,
-    fold_type=None,
-    quiet=False,
+        rfam_acc,
+        fasta_input,
+        output_folder,
+        constraint=None,
+        exclusion=None,
+        fold_type=None,
+        quiet=False,
 ):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
@@ -758,8 +775,8 @@ def rfam_draw(
     """
     # pylint: disable=too-many-arguments
     if not quiet:
-        print(shared.get_r2dt_version_header())
-    print(rfam_acc)
+        console.log(shared.get_r2dt_version_header())
+    console.log(rfam_acc)
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
             rfam_acc,
@@ -770,7 +787,7 @@ def rfam_draw(
             fold_type,
         )
     else:
-        print(f"{rfam_acc} does not have a conserved secondary structure")
+        console.log(f"{rfam_acc} does not have a conserved secondary structure")
 
 
 @rfam_group.command("validate")
@@ -778,7 +795,7 @@ def rfam_draw(
 @click.argument("output", type=click.File("w"))
 def rfam_validate(rfam_accession, output):
     """
-    print("Validating")
+    console.log("Validating")
     Check if the given Rfam accession is one that should be drawn. If so it will
     be output to the given file, otherwise it will not.
     """
@@ -791,13 +808,13 @@ def organise_metadata(output_folder, result_folders):
     Aggregate hits.txt files from all subfolders.
     """
     tsv_folder = os.path.join(output_folder, "results", "tsv")
-    os.system(f"mkdir -p {tsv_folder}")
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w", encoding="utf-8") as f_out:
+    os.makedirs(tsv_folder, exist_ok=True)
+    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
         for folder in result_folders:
             hits = os.path.join(folder, "hits.txt")
             if not os.path.exists(hits):
                 continue
-            with open(hits, "r", encoding="utf-8") as f_hits:
+            with open(hits) as f_hits:
                 for line in f_hits.readlines():
                     if "gtrnadb" in folder:
                         line = line.replace("PASS", "GtRNAdb")
@@ -822,30 +839,30 @@ def generatemodelinfo(cm_library):
     """
     Helper for generating modelinfo.txt files.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     gmi.generate_model_info(cm_library)
 
 
 def force_draw(
-    model_id,
-    fasta_input,
-    output_folder,
-    seq_id,
-    constraint=None,
-    exclusion=None,
-    fold_type=None,
-    quiet=False,
+        model_id,
+        fasta_input,
+        output_folder,
+        seq_id,
+        constraint=None,
+        exclusion=None,
+        fold_type=None,
+        quiet=False,
 ):
     """Draw 2D diagrams using a specified template."""
     # pylint: disable=too-many-arguments, too-many-locals
     if not quiet:
-        print(shared.get_r2dt_version_header())
+        console.log(shared.get_r2dt_version_header())
     model_type = lm.get_model_type(model_id)
     if not model_type:
-        print("Error: Model not found. Please check model_id")
+        console.log("Error: Model not found. Please check model_id")
         return
-    print(f"Visualising sequence {seq_id} using the {model_id} model from {model_type}")
-    os.system(f"esl-sfetch --index {fasta_input} > /dev/null")
+    console.log(f"Visualising sequence {seq_id} using the {model_id} model from {model_type}")
+    runner.run(f"esl-sfetch --index {fasta_input}")
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
@@ -923,7 +940,7 @@ def force_draw(
         "rnasep": "RNAse P database",
     }
     with open(
-        os.path.join(metadata_folder, "metadata.tsv"), "a", encoding="utf-8"
+            os.path.join(metadata_folder, "metadata.tsv"), "a", encoding="utf-8"
     ) as f_out:
         line = f"{seq_id}\t{model_id}\t{label_mapping[model_type]}\n"
         f_out.write(line)
@@ -936,12 +953,12 @@ def templatefree(fasta_input, output_folder):
     """
     Run template-free visualisation using R2R to generate a layout.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     results_folder = os.path.join(output_folder, "results")
     r2r_folder = os.path.join(output_folder, "r2r")
-    os.system(f"mkdir -p {output_folder}")
-    os.system(f"mkdir -p {results_folder}")
-    os.system(f"mkdir -p {r2r_folder}")
+    os.makedirs(output_folder, exist_ok=True)
+    os.makedirs(results_folder, exist_ok=True)
+    os.makedirs(r2r_folder, exist_ok=True)
     seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
     r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
     r2r_svg = r2r.run_r2r(r2r_folder)
@@ -950,14 +967,14 @@ def templatefree(fasta_input, output_folder):
     r2r.run_traveler(fasta_input, r2r_folder, seq_id)
     organise_results(r2r_folder, output_folder)
     tsv_folder = os.path.join(results_folder, "tsv")
-    os.system(f"mkdir -p {tsv_folder}")
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w", encoding="utf-8") as f_out:
+    os.makedirs(tsv_folder, exist_ok=True)
+    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
         f_out.write(f"{seq_id}\tR2R\tR2R\n")
     shutil.copyfile(
         fasta_input,
         os.path.join(results_folder, "fasta", f"{seq_id}.fasta"),
     )
-    print("Done")
+    console.log("Done")
 
 
 @cli.command()
@@ -965,14 +982,12 @@ def list_models():
     """
     List all installed templates.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     data = lm.list_models()
     for item in data:
-        print(item["description"])
+        console.log(item["description"])
     lm.check_unique_descriptions(data)
-    with open(
-        os.path.join(config.DATA, "models.json"), "w", encoding="utf-8"
-    ) as models_file:
+    with open(os.path.join(config.DATA, "models.json"), "w") as models_file:
         json.dump(data, models_file)
 
 
@@ -983,11 +998,9 @@ def test(test_name):
     Run all tests or a special test if provided.
     """
     if test_name:
-        cmd = f"R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.{test_name}"
-        print(cmd)
-        os.system(cmd)
+        runner.run(f"R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest tests.tests.{test_name}")
     else:
-        os.system("R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest")
+        runner.run("R2DT_KEEP_TEST_RESULTS=1 python3 -m unittest")
 
 
 @cli.command()
@@ -997,11 +1010,11 @@ def update_test_examples(test_name):
     try:
         class_ = getattr(tests, test_name)
     except AttributeError:
-        print(f"Error: {test_name} is not found in tests.py")
+        console.log(f"Error: {test_name} is not found in tests.py")
         return
     test_instance = class_()
     for example_file in test_instance.files:
-        print(example_file)
+        console.log(example_file)
         old_filename = os.path.join(
             test_instance.test_results,
             test_instance.test_results_subfolder,
@@ -1016,28 +1029,28 @@ def generatecm():
     """
     Helper for generating covariance models.
     """
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     for bpseq in glob.glob(f"{config.BPSEQ_LOCATION}/*.bpseq"):
         gcl.convert_bpseq_to_fasta(bpseq)
     for fasta in glob.glob(f"{config.BPSEQ_LOCATION}/*.fasta"):
-        print(os.path.basename(fasta).replace(".fasta", ""))
+        console.log(os.path.basename(fasta).replace(".fasta", ""))
         # fasta_no_knots = break_pseudoknots(fasta)
         stockholm = gcl.convert_fasta_to_stockholm(fasta)
         gcl.build_cm(stockholm, config.BPSEQ_LOCATION)
-    print("Done")
+    console.log("Done")
 
 
 @cli.command()
 @click.argument("json_file", type=click.Path())
 def generate_template(json_file):
     """Generate an R2DT template from an RNA 2D JSON Schema file."""
-    print(shared.get_r2dt_version_header())
+    console.log(shared.get_r2dt_version_header())
     data, destination, rna_name = r2djs.parse_json_file(json_file)
     xml_template = r2djs.generate_traveler_xml(data, destination, rna_name)
     fasta_file = r2djs.generate_traveler_fasta(data, destination, rna_name)
     stockholm_file = gcl.convert_fasta_to_stockholm(fasta_file)
     cm_file = gcl.build_cm(stockholm_file, destination)
-    print(f"Generated {fasta_file}, {xml_template}, {cm_file}")
+    console.log(f"Generated {fasta_file}, {xml_template}, {cm_file}")
 
 
 if __name__ == "__main__":

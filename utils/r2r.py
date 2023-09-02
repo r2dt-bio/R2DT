@@ -13,6 +13,8 @@ limitations under the License.
 
 import os
 
+from .runner import runner
+
 R2R_META = "r2r.meta.txt"
 R2R_INPUT = "r2r-input.sto.txt"
 R2R_GSC = "r2r-input.gsc.sto.txt"
@@ -32,7 +34,7 @@ def run_traveler(fasta_input, output_folder, seq_id):
         f"--target-structure {fasta_input} {traveler_params} "
         f"--all {output_folder}/{seq_id} > {output_folder}/traveler.log"
     )
-    os.system(cmd)
+    runner.run(cmd)
 
 
 def parse_fasta(fasta_input):
@@ -71,12 +73,12 @@ def run_r2r(output_folder):
         f"r2r --GSC-weighted-consensus {output_folder}/{R2R_INPUT} "
         f"{output_folder}/{R2R_GSC} 3 0.97 0.9 0.75 4 0.97 0.9 0.75 0.5 0.1"
     )
-    os.system(cmd)
+    runner.run(cmd)
     cmd = (
         f"r2r --disable-usage-warning {output_folder}/{R2R_META} "
         f"{output_folder}/{R2R_SVG} > {output_folder}/r2r.log"
     )
-    os.system(cmd)
+    runner.run(cmd)
     return f"{output_folder}/{R2R_SVG}"
 
 

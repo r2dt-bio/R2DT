@@ -1,10 +1,9 @@
-version: '2'
+version: '3'
+
 services:
   cli:
     image: rnacentral/r2dt:${R2DT_TAG:-latest}
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    platform: linux/amd64
     volumes:
       - .:/rna/r2dt
-      - ${R2DT_LIBRARY}:/rna/r2dt/data/cms
+      - ./1.4:/rna/r2dt/data/cms

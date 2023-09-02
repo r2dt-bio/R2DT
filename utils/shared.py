@@ -18,6 +18,8 @@ import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from .runner import runner
+
 MAX_INSERTIONS = 100
 
 
@@ -43,7 +45,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
             f"ribotyper --skipval -i {cm_library}/modelinfo.txt "
             f"-f {fasta_input} {output_folder} > /dev/null"
         )
-        os.system(cmd)
+        runner.run(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
     if not skip_ribovore_filters:
         cmd = (
@@ -57,7 +59,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
             f"| grep -v NoHits | "
             f"awk -v OFS='\t' '{{print $2, $8, $3}}' > {f_out}"
         )
-    os.system(cmd)
+    runner.run(cmd)
     return f_out
 
 
@@ -66,7 +68,7 @@ def remove_large_insertions_pfam_stk(filename):
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
     """
-    with open(filename, "r", encoding="utf-8") as f_stockholm:
+    with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 9:
             sequence = lines[3]
@@ -137,7 +139,7 @@ def remove_large_insertions_pfam_stk(filename):
             lines[0] = re.sub(r"@+", "XXXX", sequence)
             lines[1] = re.sub(r"@+", "~~~~", gr_ss)
             lines[2] = re.sub(r"@+", "~~~~", gc_ss_cons)
-    with open(filename, "w", encoding="utf-8") as f_stockholm:
+    with open(filename, "w") as f_stockholm:
         for line in lines:
             f_stockholm.write(line)
 
@@ -145,7 +147,7 @@ def remove_large_insertions_pfam_stk(filename):
 def get_insertions(filename):
     """Extract insertions to be folded."""
     sequence = ""
-    with open(filename, "r", encoding="utf-8") as f_stockholm:
+    with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 9:
             sequence = lines[3].split()[1]
@@ -160,7 +162,7 @@ def get_insertions(filename):
 def get_full_constraint(filename):
     """Get folding constraint from an Infernal alignment."""
     constraint = ""
-    with open(filename, "r", encoding="utf-8") as f_stockholm:
+    with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 9:
             gc_ss = lines[5].split()[3]
@@ -205,7 +207,6 @@ def fold_insertions_only(sequence, constraint, filename):
     match = get_insertions(filename)
     list_seq = list(sequence)
     list_con = list(constraint)
-    final_list = ""
     for span in match:
         i = span.start()
         j = span.end()

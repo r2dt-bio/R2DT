@@ -15,6 +15,7 @@ import filecmp
 import os
 import unittest
 
+from utils.runner import runner
 from utils import config, rfam
 
 
@@ -35,7 +36,7 @@ class R2dtTestCase(unittest.TestCase):
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        os.system(self.cmd)
+        runner.run(self.cmd)
 
     def tearDown(self):
         if os.environ.get("R2DT_KEEP_TEST_RESULTS", False) == "1":
@@ -388,7 +389,7 @@ class TestForceTemplate(R2dtTestCase):
         for filename in self.files:
             seq_id, model_id = filename.replace(".colored.svg", "").split("-")
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
-            os.system(self.cmd.format(model_id, input_fasta, self.test_results))
+            runner.run(self.cmd.format(model_id, input_fasta, self.test_results))
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -420,19 +421,10 @@ class TestRNAfold(R2dtTestCase):
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        os.system(
-            self.cmd.format(
-                os.path.join(self.fasta_input, "constraint-examples.fasta"),
-                self.test_results,
-            )
-        )
+        runner.run(self.cmd.format(os.path.join(self.fasta_input, "constraint-examples.fasta"), self.test_results, ))
         for seq_id, fold_type in self.fold_type_inputs.items():
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
-            os.system(
-                self.cmd2.format(
-                    fold_type, "d.5.a.H.salinarum.1", input_fasta, self.test_results
-                )
-            )
+            runner.run(self.cmd2.format(fold_type, "d.5.a.H.salinarum.1", input_fasta, self.test_results))
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -474,7 +466,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
 
     def test_default(self):
         """Check that the default command without an extra option fails."""
-        os.system(self.cmd_default)
+        runner.run(self.cmd_default)
         new_file = os.path.join(
             self.test_results, self.test_results_subfolder, self.files[0]
         )
@@ -482,7 +474,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
 
     def test_skip_filters(self):
         """Check that the new option works."""
-        os.system(self.cmd_skip)
+        runner.run(self.cmd_skip)
         self.check_examples()
 
 
