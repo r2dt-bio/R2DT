@@ -93,6 +93,7 @@ RUN \
     python3  \
     python3-pip  \
     python3-venv  \
+    python3-cairo  \
     perl &&  \
     rm -rf /var/lib/{apt,lpkg,cache,log}
 RUN \

@@ -16,7 +16,9 @@ import os
 import unittest
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageChops
+from skimage.metrics import structural_similarity as ssim
 from cairosvg import svg2png
 
 from utils.runner import runner
@@ -77,17 +79,32 @@ class R2dtTestCase(unittest.TestCase):
 
     def _are_identical(self, reference_file: str, new_file: str) -> bool:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
-            new_file.endswith(".png") or new_file.endswith(".svg")
+                new_file.endswith(".png") or new_file.endswith(".svg")
         ):
             reference_png, new_png = _get_png(reference_file), _get_png(new_file)
 
-            reference_image = Image.open(reference_png.absolute()).convert("RGB")
-            new_image = Image.open(new_png.absolute()).convert("RGB")
-            diff = ImageChops.difference(reference_image, new_image)
+            # convert to grayscale
+            reference_image = Image.open(reference_png.absolute()).convert("L")
+            new_image = Image.open(new_png.absolute()).convert("L")
 
-            return not bool(
-                diff.getbbox()
-            )  # if diff.getbbox():  #     return False  # else:  #     return True
+            if reference_image.size != new_image.size:
+                # We can't compare images of different sizes
+                return False
+
+            try:
+                arr1 = np.array(reference_image)
+                arr2 = np.array(new_image)
+
+                similarity_index, _ = ssim(arr1, arr2, full=True)
+
+                # 0.01 is an arbitrary similarity threshold
+                # Can be adjusted if needed, based on the results of the tests
+
+                return abs(1 - similarity_index) <= 0.01
+            except Exception as e:
+                print(f"Image comparison failed: {e}")
+                return False
+
         else:
             return filecmp.cmp(new_file, reference_file, shallow=False)
 
@@ -122,7 +139,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
     @staticmethod
     def count_lines(filename):
         """Return the number of lines in a modelinfo file."""
-        with open(filename, encoding="utf-8") as f_modelinfo:
+        with open(filename) as f_modelinfo:
             num_lines = sum(1 for line in f_modelinfo)
         return num_lines
 

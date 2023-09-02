@@ -46,4 +46,4 @@ class Runner:
             print(f"[red]E: {line}[/red]", flush=True)
 
 
-runner = Runner(print_command=True, print_output=False)
+runner = Runner(print_command=False, print_output=False)
