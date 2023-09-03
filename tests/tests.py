@@ -14,7 +14,9 @@ limitations under the License.
 import filecmp
 import os
 import unittest
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 from PIL import Image, ImageChops
@@ -23,6 +25,13 @@ from cairosvg import svg2png
 
 from utils.runner import runner
 from utils import config, rfam
+
+from jinja2 import Environment, PackageLoader, select_autoescape
+
+env = Environment(
+    loader=PackageLoader("tests"),
+    autoescape=select_autoescape()
+)
 
 
 def _svg_to_png(filepath: Path) -> None:
@@ -37,6 +46,27 @@ def _get_png(filepath: str) -> Path:
     if not Path(png_path).exists():
         _svg_to_png(Path(filepath))
     return Path(png_path)
+
+
+@dataclass
+class ComparisonResult:
+    # 0.01 is an arbitrary similarity threshold (roughly equivalent to 99% similarity)
+    # Can be adjusted if needed, based on the results of the tests
+    THRESHOLD = 0.01
+
+    identical: bool
+    similarity: Optional[float] = None
+    bbox: Optional[tuple] = None
+    size1: Optional[tuple] = None
+    size2: Optional[tuple] = None
+
+    @staticmethod
+    def yes() -> "ComparisonResult":
+        return ComparisonResult(True)
+
+    @staticmethod
+    def no() -> "ComparisonResult":
+        return ComparisonResult(False)
 
 
 class R2dtTestCase(unittest.TestCase):
@@ -65,19 +95,18 @@ class R2dtTestCase(unittest.TestCase):
             self.delete_folder(self.test_results)
 
     @staticmethod
-    def create_webpage(filename, before, after):
+    def create_webpage(filename: str, before, after, comparison_result: ComparisonResult) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
+        template = env.get_template("compare.html")
+        print(f'creating webpage for {filename=} {comparison_result=}')
         with open(filename, "w") as f_html:
-            f_html.write("<html><body>")
-            with open(before) as f_before:
-                svg = f_before.read()
-            f_html.write(svg)
-            with open(after) as f_after:
-                svg = f_after.read()
-            f_html.write(svg)
-            f_html.write("</body></html>")
+            f_html.write(template.render(
+                before=open(before).read(),
+                after=open(after).read(),
+                comparison=comparison_result
+            ))
 
-    def _are_identical(self, reference_file: str, new_file: str) -> bool:
+    def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
                 new_file.endswith(".png") or new_file.endswith(".svg")
         ):
@@ -87,9 +116,14 @@ class R2dtTestCase(unittest.TestCase):
             reference_image = Image.open(reference_png.absolute()).convert("L")
             new_image = Image.open(new_png.absolute()).convert("L")
 
+            diff = ImageChops.difference(reference_image, new_image)
+
             if reference_image.size != new_image.size:
                 # We can't compare images of different sizes
-                return False
+                return ComparisonResult(identical=False,
+                                        bbox=diff.getbbox(),
+                                        size1=reference_image.size,
+                                        size2=new_image.size)
 
             try:
                 arr1 = np.array(reference_image)
@@ -97,16 +131,24 @@ class R2dtTestCase(unittest.TestCase):
 
                 similarity_index, _ = ssim(arr1, arr2, full=True)
 
-                # 0.01 is an arbitrary similarity threshold
-                # Can be adjusted if needed, based on the results of the tests
+                result = abs(1 - similarity_index) <= ComparisonResult.THRESHOLD
 
-                return abs(1 - similarity_index) <= 0.01
+                result = ComparisonResult(identical=result,
+                                          bbox=diff.getbbox(),
+                                          similarity=similarity_index,
+                                          size1=reference_image.size,
+                                          size2=new_image.size)
+                return result
             except Exception as e:
                 print(f"Image comparison failed: {e}")
-                return False
+                return ComparisonResult(identical=False,
+                                        bbox=diff.getbbox(),
+                                        size1=reference_image.size,
+                                        size2=new_image.size)
 
         else:
-            return filecmp.cmp(new_file, reference_file, shallow=False)
+            return ComparisonResult.yes() if filecmp.cmp(new_file, reference_file,
+                                                         shallow=False) else ComparisonResult.no()
 
     def check_examples(self):
         """Check that files exist and are identical to examples."""
@@ -118,15 +160,16 @@ class R2dtTestCase(unittest.TestCase):
             )
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            is_identical = self._are_identical(reference_file, new_file)
-            if not is_identical:
-                filename = os.path.join(
-                    "tests", f"{self.__class__.__name__}_{loop_id}.html"
-                )
-                self.create_webpage(filename, reference_file, new_file)
+
+            comparison_result = self._compare_files(reference_file, new_file)
+            filename = os.path.join(
+                "tests", f"{self.__class__.__name__}_{loop_id}.html"
+            )
+            self.create_webpage(filename, reference_file, new_file, comparison_result)
+            html_files.append(filename)
+            if not comparison_result.identical:
                 count += 1
-                html_files.append(filename)
-        if html_files:
+        if count:
             print(f"Please inspect {', '.join(html_files)}")
         self.assertEqual(
             count, 0, f"Found {count} out of {len(self.files)} non-identical SVG files"

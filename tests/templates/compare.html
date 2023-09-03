@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <style>
+        .nav-container {
+           position: fixed;
+           z-index:100;
+           background: white;
+           display: flex;
+           flex-direction: flex-row;
+           gap: 20px;
+        }
+
+        .img-container {
+            padding-top: 50px
+        }
+
+        .different {
+            color: red;
+        }
+
+    </style>
+</head>
+<body>
+<div class="nav-container">
+    <div>
+        <div {% if comparison.size1 != comparison.size2 %} class="different" {% endif %}>
+            Sizes: {{ comparison.size1 }}, {{ comparison.size2 }}
+        </div>
+        <div {% if comparison.bbox is not None and comparison.bbox != (0,0,0,0)  %} class="different" {% endif %} >
+            bbox: {{ comparison.bbox }}
+        </div>
+        <div {% if (not comparison.similarity) or (1 - comparison.similarity >= comparison.THRESHOLD) %} class="different" {% endif %} >
+            SSIM: {% if comparison.similarity %} {{ comparison.similarity }} {% else %} N/A {% endif %}
+        </div>
+    </div>
+    <div>
+        <div>
+            <label>
+                <input type="checkbox" id="overlayCheckbox">
+                Overlay
+            </label>
+        </div>
+        <div>
+            <label>
+                <input type="range" min="-20" value="0" max="100" id="deltaX" disabled>
+                ΔX
+                <span id="deltaXValue">0</span>
+            </label>
+        </div>
+        <div>
+            <label>
+                <input type="range" min="-20" value="0" max="100" id="deltaY" disabled>
+                ΔY
+                <span id="deltaYValue">0</span>
+            </label>
+        </div>
+    </div>
+</div>
+<div class="img-container">
+    {{ before|safe }}
+    {{ after|safe }}
+</div>
+<script>
+    let overlayEnabled = false;
+    const checkbox = document.getElementById('overlayCheckbox');
+    const secondImage = document.querySelector('svg:nth-of-type(2)');
+    const deltaX = document.getElementById('deltaX');
+    const deltaXValue = document.getElementById('deltaXValue');
+    const deltaY = document.getElementById('deltaY');
+    const deltaYValue = document.getElementById('deltaYValue');
+    const baseDeltaY = 50;
+
+    deltaX.addEventListener('input', function() {
+        secondImage.style.left = deltaX.value + "px";
+        deltaXValue.innerText = deltaX.value;
+    });
+    deltaY.addEventListener('input', function() {
+        secondImage.style.top = baseDeltaY + parseInt(deltaY.value, 10) + "px";
+        deltaYValue.innerText = deltaY.value;
+    });
+
+    checkbox.addEventListener('change', function() {
+        overlayEnabled = checkbox.checked;
+        deltaX.disabled = !overlayEnabled;
+        deltaY.disabled = !overlayEnabled;
+
+        if (overlayEnabled) {
+             secondImage.style.position = 'absolute';
+             secondImage.style.left = deltaX.value + "px";
+             secondImage.style.top = baseDeltaY + parseInt(deltaY.value, 10) + "px";
+        } else {
+             secondImage.style.position = 'static';
+        }
+    });
+</script>
+</body>
+</html>
