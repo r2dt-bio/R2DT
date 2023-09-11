@@ -28,8 +28,6 @@ Screenshot of the RNAcanvas user interface showing human mitochondrially encoded
 - Export the edited diagram in SVG and PowerPoint (PPTX) formats
 - Granular scaling of exported diagrams (i.e., at the level of individual elements)
 
-<a href="https://rnacanvas.app/?rna_2d_schema_url=https://docs.r2dt.bio/en/latest/_downloads/ff9572d32b6fdd8dd27d054639b79474/URS000044DFF6.json" target="_blank" class="btn btn-primary btn-lg">Edit an example structure in RNAcanvas</a>
-
 Watch RNAcanvas editing R2DT output in action:
 
 ```{eval-rst}
@@ -64,8 +62,6 @@ Please note that currently it is not possible to change the position of the nucl
     - entire scene
 - Formatting 2D layouts
 - Export the edited diagram in SVG and RNA 2D JSON Schema formats.
-
-<a href="https://ldwlab.github.io/XRNA-React/?source_url=https://docs.r2dt.bio/en/latest/_downloads/ff9572d32b6fdd8dd27d054639b79474/URS000044DFF6.json" target="_blank" class="btn btn-primary btn-lg">Edit an example structure in xRNA React</a>
 
 ### Constraint modes
 
