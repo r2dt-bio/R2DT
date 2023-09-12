@@ -19,19 +19,15 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+from cairosvg import svg2png
+from jinja2 import Environment, PackageLoader, select_autoescape
 from PIL import Image, ImageChops
 from skimage.metrics import structural_similarity as ssim
-from cairosvg import svg2png
 
-from utils.runner import runner
 from utils import config, rfam
+from utils.runner import runner
 
-from jinja2 import Environment, PackageLoader, select_autoescape
-
-env = Environment(
-    loader=PackageLoader("tests"),
-    autoescape=select_autoescape()
-)
+env = Environment(loader=PackageLoader("tests"), autoescape=select_autoescape())
 
 
 def _svg_to_png(filepath: Path) -> None:
@@ -50,6 +46,10 @@ def _get_png(filepath: str) -> Path:
 
 @dataclass
 class ComparisonResult:
+    """
+    Represents the result of a comparison between two images or binary files
+    """
+
     # 0.01 is an arbitrary similarity threshold (roughly equivalent to 99% similarity)
     # Can be adjusted if needed, based on the results of the tests
     THRESHOLD = 0.01
@@ -60,13 +60,16 @@ class ComparisonResult:
     size1: Optional[tuple] = None
     size2: Optional[tuple] = None
 
-    @staticmethod
-    def yes() -> "ComparisonResult":
-        return ComparisonResult(True)
-
+    # pylint: disable=missing-function-docstring
+    # pylint: disable=invalid-name
     @staticmethod
     def no() -> "ComparisonResult":
         return ComparisonResult(False)
+
+    # pylint: disable=missing-function-docstring
+    @staticmethod
+    def yes() -> "ComparisonResult":
+        return ComparisonResult(True)
 
 
 class R2dtTestCase(unittest.TestCase):
@@ -95,20 +98,24 @@ class R2dtTestCase(unittest.TestCase):
             self.delete_folder(self.test_results)
 
     @staticmethod
-    def create_webpage(filename: str, before, after, comparison_result: ComparisonResult) -> None:
+    def create_webpage(
+        filename: str, before, after, comparison_result: ComparisonResult
+    ) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
-        print(f'creating webpage for {filename=} {comparison_result=}')
+        print(f"creating webpage for {filename=} {comparison_result=}")
         with open(filename, "w") as f_html:
-            f_html.write(template.render(
-                before=open(before).read(),
-                after=open(after).read(),
-                comparison=comparison_result
-            ))
+            f_html.write(
+                template.render(
+                    before=Path(before).read_text(),
+                    after=Path(after).read_text(),
+                    comparison=comparison_result,
+                )
+            )
 
     def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
-                new_file.endswith(".png") or new_file.endswith(".svg")
+            new_file.endswith(".png") or new_file.endswith(".svg")
         ):
             reference_png, new_png = _get_png(reference_file), _get_png(new_file)
 
@@ -120,10 +127,12 @@ class R2dtTestCase(unittest.TestCase):
 
             if reference_image.size != new_image.size:
                 # We can't compare images of different sizes
-                return ComparisonResult(identical=False,
-                                        bbox=diff.getbbox(),
-                                        size1=reference_image.size,
-                                        size2=new_image.size)
+                return ComparisonResult(
+                    identical=False,
+                    bbox=diff.getbbox(),
+                    size1=reference_image.size,
+                    size2=new_image.size,
+                )
 
             try:
                 arr1 = np.array(reference_image)
@@ -133,22 +142,30 @@ class R2dtTestCase(unittest.TestCase):
 
                 result = abs(1 - similarity_index) <= ComparisonResult.THRESHOLD
 
-                result = ComparisonResult(identical=result,
-                                          bbox=diff.getbbox(),
-                                          similarity=similarity_index,
-                                          size1=reference_image.size,
-                                          size2=new_image.size)
+                result = ComparisonResult(
+                    identical=result,
+                    bbox=diff.getbbox(),
+                    similarity=similarity_index,
+                    size1=reference_image.size,
+                    size2=new_image.size,
+                )
                 return result
+            # pylint: disable=broad-except
             except Exception as e:
                 print(f"Image comparison failed: {e}")
-                return ComparisonResult(identical=False,
-                                        bbox=diff.getbbox(),
-                                        size1=reference_image.size,
-                                        size2=new_image.size)
+                return ComparisonResult(
+                    identical=False,
+                    bbox=diff.getbbox(),
+                    size1=reference_image.size,
+                    size2=new_image.size,
+                )
 
         else:
-            return ComparisonResult.yes() if filecmp.cmp(new_file, reference_file,
-                                                         shallow=False) else ComparisonResult.no()
+            return (
+                ComparisonResult.yes()
+                if filecmp.cmp(new_file, reference_file, shallow=False)
+                else ComparisonResult.no()
+            )
 
     def check_examples(self):
         """Check that files exist and are identical to examples."""
@@ -473,7 +490,8 @@ class TestForceTemplate(R2dtTestCase):
         "URS000020CCFC_274-EC_LSU_3D.colored.svg",  # RiboVision LSU: T. thermophilus with E.coli
         "URS00000A1A88_9606-B_Thr.colored.svg",  # GtRNAdb: human E_Thr with B_Thr
         "URS00000A1A88_9606-RF00005.colored.svg",  # GtRNAdb E_Thr using Rfam tRNA
-        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",  # RNAse P: P. abyssi with P.furiosus
+        # RNAse P: P. abyssi with P.furiosus
+        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",
     ]
 
     def setUp(self):
@@ -514,10 +532,19 @@ class TestRNAfold(R2dtTestCase):
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        runner.run(self.cmd.format(os.path.join(self.fasta_input, "constraint-examples.fasta"), self.test_results, ))
+        runner.run(
+            self.cmd.format(
+                os.path.join(self.fasta_input, "constraint-examples.fasta"),
+                self.test_results,
+            )
+        )
         for seq_id, fold_type in self.fold_type_inputs.items():
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
-            runner.run(self.cmd2.format(fold_type, "d.5.a.H.salinarum.1", input_fasta, self.test_results))
+            runner.run(
+                self.cmd2.format(
+                    fold_type, "d.5.a.H.salinarum.1", input_fasta, self.test_results
+                )
+            )
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""

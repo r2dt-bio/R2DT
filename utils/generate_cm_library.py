@@ -62,15 +62,19 @@ def copy_cm_evalues(cm_filename):
     # Download the file if it doesn't exist
     if not example_cm_path.exists():
         url = f"http://rfam.org/family/{rfam_acc}/cm"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()  # Raise an exception for HTTP errors
         example_cm_path.write_bytes(response.content)
 
     # Run the Perl script
-    perl_script_path = Path("/rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl")
+    perl_script_path = Path(
+        "/rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl"
+    )
     cm_filename_path = Path(cm_filename)
 
-    subprocess.run([str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True)
+    subprocess.run(
+        [str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True
+    )
 
     # Remove the .old file
     old_file_path = cm_filename_path.with_suffix(".cm.old")

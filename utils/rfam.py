@@ -21,9 +21,9 @@ from pathlib import Path
 
 import requests
 
-from .runner import runner
 from . import config, core
 from . import generate_model_info as mi
+from .runner import runner
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -92,19 +92,19 @@ def get_rfam_cms():
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
     if not os.path.exists(rfam_cm):
         url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
-        rfam_cm_path = Path(rfam_cm).with_suffix('.gz')
+        rfam_cm_path = Path(rfam_cm).with_suffix(".gz")
 
         # Download the file
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
-        with rfam_cm_path.open('wb') as out_file:
+        with rfam_cm_path.open("wb") as out_file:
             for chunk in response.iter_content(chunk_size=8192):
                 out_file.write(chunk)
 
         # Decompress the file
-        with gzip.open(rfam_cm_path, 'rb') as f_in:
-            with rfam_cm_path.with_suffix('').open('wb') as f_out:
+        with gzip.open(rfam_cm_path, "rb") as f_in:
+            with rfam_cm_path.with_suffix("").open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
         rfam_cm_path.unlink()  # Remove the .gz file after decompression
@@ -114,12 +114,12 @@ def get_rfam_cms():
         runner.run(f"cmfetch --index {rfam_cm}")
     print("Get a list of all Rfam ids")
     if not os.path.exists(rfam_ids):
-        with open(rfam_cm, 'r') as infile, open(rfam_ids, 'w') as outfile:
+        with open(rfam_cm, "r") as infile, open(rfam_ids, "w") as outfile:
             for line in infile:
                 if line.startswith("ACC   RF"):
                     parts = line.split()
                     if len(parts) > 1:
-                        outfile.write(parts[1] + '\n')
+                        outfile.write(parts[1] + "\n")
 
     print("Fetching whitelisted Rfam CMs")
     with open(rfam_ids, "r", encoding="utf-8") as f_in:
@@ -155,10 +155,12 @@ def setup_trna_cm():
         response.raise_for_status()  # Raise an exception for HTTP errors
         trna_cm_path.write_bytes(response.content)
 
-        rscape2traveler(rfam_acc)  # Assuming this is a function you've defined elsewhere
+        rscape2traveler(
+            rfam_acc
+        )  # Assuming this is a function you've defined elsewhere
 
         if not trna_cm_path.exists():
-            raise Exception(f"Rfam tRNA CM not found in {trna_cm_path}")
+            raise FileNotFoundError(f"Rfam tRNA CM not found in {trna_cm_path}")
 
 
 def setup(accessions=None):
@@ -311,13 +313,13 @@ def get_all_rfam_acc():
         response.raise_for_status()  # Raise an exception for HTTP errors
 
         gzipped_path = family_file_path.with_suffix(".txt.gz")
-        with gzipped_path.open('wb') as out_file:
+        with gzipped_path.open("wb") as out_file:
             for chunk in response.iter_content(chunk_size=8192):
                 out_file.write(chunk)
 
         # Decompress the file
-        with gzip.open(gzipped_path, 'rt', errors="ignore") as f_in:
-            with family_file_path.open('w') as f_out:
+        with gzip.open(gzipped_path, "rt", errors="ignore") as f_in:
+            with family_file_path.open("w") as f_out:
                 for line in f_in:
                     f_out.write(line)
 
@@ -327,7 +329,9 @@ def get_all_rfam_acc():
         for line in f_db_dump:
             if line.startswith("RF"):
                 rfam_acc = line[:7]
-                if rfam_acc in BLACKLIST:  # Assuming BLACKLIST is defined somewhere in your code
+                if (
+                    rfam_acc in BLACKLIST
+                ):  # Assuming BLACKLIST is defined somewhere in your code
                     continue
                 rfam_accs.append(rfam_acc)
 
@@ -346,13 +350,13 @@ def get_rfam_acc_by_id(rfam_id):
         response.raise_for_status()  # Raise an exception for HTTP errors
 
         gzipped_path = family_file_path.with_suffix(".txt.gz")
-        with gzipped_path.open('wb') as out_file:
+        with gzipped_path.open("wb") as out_file:
             for chunk in response.iter_content(chunk_size=8192):
                 out_file.write(chunk)
 
         # Decompress the file
-        with gzip.open(gzipped_path, 'rt', errors="ignore") as f_in:
-            with family_file_path.open('w') as f_out:
+        with gzip.open(gzipped_path, "rt", errors="ignore") as f_in:
+            with family_file_path.open("w") as f_out:
                 for line in f_in:
                     f_out.write(line)
 
@@ -520,9 +524,9 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
         runner.run(f"esl-sfetch --index {fasta_input}")
 
     headers = "headers.txt"
-    with open(fasta_input, 'r') as infile, open(headers, 'w') as outfile:
+    with open(fasta_input, "r") as infile, open(headers, "w") as outfile:
         for line in infile:
-            if line.startswith('>'):
+            if line.startswith(">"):
                 outfile.write(line)
 
     with open(headers) as f_headers:
@@ -562,11 +566,13 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     tblout = os.path.join(subfolder, "cmsearch.tblout")
     outfile = os.path.join(subfolder, "cmsearch.out.txt")
     cm_file = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
-    runner.run(f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}")
+    runner.run(
+        f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}"
+    )
     hits = os.path.join(subfolder, "hits.txt")
-    with open(tblout, 'r') as infile, open(hits, 'w') as outfile:
+    with open(tblout, "r") as infile, open(hits, "w") as outfile:
         for line in infile:
-            if not line.startswith('#') and '?' not in line:
+            if not line.startswith("#") and "?" not in line:
                 parts = line.split()
                 if len(parts) >= 4:
                     outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
