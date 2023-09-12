@@ -39,7 +39,9 @@ RUN \
 RUN \
     cd Bio-Easel && perl Makefile.PL
 RUN \
-    cd Bio-Easel && make &&  make install DESTDIR=/install/
+    cd Bio-Easel && make && make install DESTDIR=/install/ && \
+    cp -rv /Bio-Easel/lib /install/Bio-Easel/lib && \
+    cp -rv /Bio-Easel/blib/lib /install/Bio-Easel/blib/lib
 
 FROM build AS easel
 
@@ -112,7 +114,6 @@ ENV \
     RIBOEASELDIR="$RNA/ribovore/infernal/easel/miniapps" \
     RIBOTIMEDIR=/usr/bin \
     RIBODIR="$RNA/ribovore/ribovore" \
-    # ???
     BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
     LC_ALL="C.UTF-8" LANG="C.UTF-8" \
     DATAPATH="/rna/RNAstructure/data_tables/"
@@ -162,4 +163,3 @@ COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
 # Forgive me, for I have hacked
 # In the name of the Compiler, the Debugger, and the Holy Stack Trace
 COPY --from=traveler "/usr/local/lib64/libstdc++.so.6.0.32" "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.30"
-
