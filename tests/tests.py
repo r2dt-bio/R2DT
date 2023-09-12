@@ -30,18 +30,11 @@ from utils.runner import runner
 env = Environment(loader=PackageLoader("tests"), autoescape=select_autoescape())
 
 
-def _svg_to_png(filepath: Path) -> None:
-    svg2png(
-        bytestring=filepath.read_bytes(),
-        write_to=str(filepath.absolute()).replace(".svg", ".png"),
-    )
-
-
 def _get_png(filepath: str) -> Path:
-    png_path = filepath.replace(".svg", ".png")
-    if not Path(png_path).exists():
-        _svg_to_png(Path(filepath))
-    return Path(png_path)
+    svg_path = Path(filepath)
+    png_path = svg_path.with_suffix(".png")
+    svg2png(bytestring=svg_path.read_bytes(), write_to=str(png_path))
+    return png_path
 
 
 @dataclass
