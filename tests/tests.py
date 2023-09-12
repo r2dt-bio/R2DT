@@ -179,12 +179,13 @@ class R2dtTestCase(unittest.TestCase):
             self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
 
             comparison_result = self._compare_files(reference_file, new_file)
+            comparison_marker = "=" if comparison_result.identical else "!"
             filename = os.path.join(
-                "tests", f"{self.__class__.__name__}_{loop_id}.html"
+                "tests", f"{comparison_marker} {self.__class__.__name__}_{loop_id}.html"
             )
             self.create_webpage(filename, reference_file, new_file, comparison_result)
-            html_files.append(filename)
             if not comparison_result.identical:
+                html_files.append(filename)
                 count += 1
         if count:
             print(f"Please inspect {', '.join(html_files)}")
