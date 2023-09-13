@@ -27,6 +27,9 @@ from skimage.metrics import structural_similarity as ssim
 from utils import config, rfam
 from utils.runner import runner
 
+HTML_FOLDER = "tests/html"
+if not os.path.exists(HTML_FOLDER):
+    os.makedirs(HTML_FOLDER)
 env = Environment(loader=PackageLoader("tests"), autoescape=select_autoescape())
 
 
@@ -174,7 +177,8 @@ class R2dtTestCase(unittest.TestCase):
             comparison_result = self._compare_files(reference_file, new_file)
             comparison_marker = "=" if comparison_result.identical else "!"
             filename = os.path.join(
-                "tests", f"{comparison_marker} {self.__class__.__name__}_{loop_id}.html"
+                HTML_FOLDER,
+                f"{comparison_marker} {self.__class__.__name__}_{loop_id}.html",
             )
             self.create_webpage(filename, reference_file, new_file, comparison_result)
             if not comparison_result.identical:
