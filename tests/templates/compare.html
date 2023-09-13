@@ -28,7 +28,7 @@
         <div {% if comparison.size1 != comparison.size2 %} class="different" {% endif %}>
             Sizes: {{ comparison.size1 }}, {{ comparison.size2 }}
         </div>
-        <div {% if comparison.bbox is not None and comparison.bbox != (0,0,0,0)  %} class="different" {% endif %} >
+        <div {% if comparison.bbox is not none and comparison.bbox != (0,0,0,0)  %} class="different" {% endif %} >
             bbox: {{ comparison.bbox }}
         </div>
         <div {% if (not comparison.similarity) or (1 - comparison.similarity >= comparison.THRESHOLD) %} class="different" {% endif %} >
