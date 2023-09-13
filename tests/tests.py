@@ -187,7 +187,10 @@ class R2dtTestCase(unittest.TestCase):
                 HTML_FOLDER,
                 f"{comparison_marker} {self.__class__.__name__}_{loop_id}.html",
             )
-            self.create_webpage(filename, reference_file, new_file, comparison_result)
+            if reference_file.endswith(".svg") and new_file.endswith(".svg"):
+                self.create_webpage(
+                    filename, reference_file, new_file, comparison_result
+                )
             if not comparison_result.identical:
                 html_files.append(filename)
                 count += 1
