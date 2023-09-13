@@ -100,9 +100,8 @@ class R2dtTestCase(unittest.TestCase):
         else:
             self.delete_folder(self.test_results)
 
-    @staticmethod
     def create_webpage(
-        filename: str, before, after, comparison_result: ComparisonResult
+        self, filename: str, before, after, comparison_result: ComparisonResult
     ) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
@@ -110,8 +109,9 @@ class R2dtTestCase(unittest.TestCase):
         with open(filename, "w") as f_html:
             f_html.write(
                 template.render(
-                    before=Path(before).read_text(),
-                    after=Path(after).read_text(),
+                    test_name=self.__class__.__name__,
+                    before=open(before).read(),  # pylint: disable=consider-using-with
+                    after=open(after).read(),  # pylint: disable=consider-using-with
                     comparison=comparison_result,
                 )
             )
