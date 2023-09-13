@@ -12,7 +12,6 @@ limitations under the License.
 """
 
 import filecmp
-import glob
 import os
 import unittest
 from dataclasses import dataclass
@@ -31,11 +30,6 @@ from utils.runner import runner
 HTML_FOLDER = "tests/html"
 if not os.path.exists(HTML_FOLDER):
     os.makedirs(HTML_FOLDER)
-
-# delete all HTML files before running the tests
-reports = glob.glob(os.path.join(HTML_FOLDER, "*.html"))
-for report in reports:
-    os.remove(report)
 
 env = Environment(loader=PackageLoader("tests"), autoescape=select_autoescape())
 
