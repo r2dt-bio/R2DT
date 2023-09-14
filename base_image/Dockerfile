@@ -43,16 +43,6 @@ RUN \
     cp -rv /Bio-Easel/lib /install/Bio-Easel/lib && \
     cp -rv /Bio-Easel/blib/lib /install/Bio-Easel/blib/lib
 
-FROM build AS easel
-
-# Install develop branch of easel
-RUN \
-    git clone -b develop https://github.com/EddyRivasLab/easel
-RUN \
-    cd easel && \
-    autoconf && ./configure -q && make -j 2 && make install DESTDIR=/install/
-
-
 FROM build AS traveler
 
 # Install Traveler
@@ -76,14 +66,12 @@ RUN \
 
 FROM build as ribovore
 
-# Install Ribovore and Infernal
+# Install Ribovore, Infernal, and easel
 RUN \
-    mkdir -p /install/&& \
-    cd /install/&& \
-    wget --no-verbose -O - https://raw.githubusercontent.com/ncbi/ribovore/master/install.sh | bash -s -- "linux" && \
-    cd /install/&& \
-    rm -Rf ncbi-blast vecscreen_plus_taxonomy rRNA_sensor
-
+    mkdir -p /install/ && \
+    cd /install/ && \
+    wget --no-verbose -O - https://raw.githubusercontent.com/ncbi/ribovore/install-r2dt/install.sh | bash -s -- "rt-linux" && \
+    rm -Rf /install/ribovore/models/*.stk /install/ribovore/models/*.cm* /install/ribovore/testfiles
 
 FROM debian:bookworm-slim as final-build
 
@@ -111,7 +99,7 @@ RUN \
 
 ENV \
     RIBOINSTALLDIR="$RNA/ribovore" \
-    RIBOEASELDIR="$RNA/ribovore/infernal/easel/miniapps" \
+    RIBOEASELDIR="$RNA/ribovore/infernal/binaries" \
     RIBOTIMEDIR=/usr/bin \
     RIBODIR="$RNA/ribovore/ribovore" \
     BIOEASELDIR="$RNA/Bio-Easel/blib/lib:$RNA/Bio-Easel/blib/arch:$RNA/Bio-Easel:$RNA/Bio-Easel/lib" \
@@ -120,7 +108,7 @@ ENV \
 
 ENV \
     RIBOSCRIPTSDIR="$RIBOINSTALLDIR/ribovore" \
-    RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/src" \
+    RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/binaries" \
     RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
     RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
     VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
@@ -147,8 +135,6 @@ COPY --from=rscape /install/ /{RNA}/rscape
 
 COPY --from=tRNAscan-SE /install/ /usr
 RUN sed -i -e 's|/install/bin|/usr/bin|' -e 's|/install/lib|/usr/lib|' /usr/bin/tRNAscan-SE.conf
-
-COPY --from=easel /install/ /
 
 COPY --from=Bio-Easel /install/usr/* /usr
 COPY --from=Bio-Easel /install/Bio-Easel $RNA/Bio-Easel
