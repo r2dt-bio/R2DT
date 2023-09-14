@@ -64,7 +64,7 @@ RUN \
     chmod +x *.pl && mkdir -p /install/ && cp *.pl /install/
 
 
-FROM build as ribovore
+FROM build as ribovore-infernal-easel
 
 # Install Ribovore, Infernal, and easel
 RUN \
@@ -142,7 +142,7 @@ COPY --from=Bio-Easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
 
 COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
-COPY --from=ribovore /install/ ${RNA}/ribovore
+COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
