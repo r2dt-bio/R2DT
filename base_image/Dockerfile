@@ -143,7 +143,7 @@ ENV \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
 
-COPY --from=rscape /install/ /
+COPY --from=rscape /install/ /{RNA}/rscape
 
 COPY --from=tRNAscan-SE /install/ /usr
 RUN sed -i -e 's|/install/bin|/usr/bin|' -e 's|/install/lib|/usr/lib|' /usr/bin/tRNAscan-SE.conf
