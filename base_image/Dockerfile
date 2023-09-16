@@ -4,6 +4,7 @@ ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 \
     traveler_COMMIT=0ee67cbb9c5aaa2f98340065fd047c9a8feea53e \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
+    Rscape_VER=v2.0.2.d \
     BioEasel_VER=0.11
 
 
@@ -11,9 +12,9 @@ FROM build AS rscape
 
 # Install R-scape
 RUN \
-    wget --no-verbose -O - http://rivaslab.org/software/rscape/rscape.tar.gz | tar zxf - 2>/dev/null && \
-    mv rscape_* rscape
-RUN cd rscape && ./configure -q && make -j 2 && make install DESTDIR=/install/
+    wget --no-verbose -O - http://rivaslab.org/software/rscape/rscape_${Rscape_VER}.tar.gz | tar zxf - 2>/dev/null && \
+    mv rscape_${Rscape_VER} rscape
+RUN  mkdir -p /rna/rscape && cd rscape && ./configure --prefix=/rna/rscape -q && make -j 2 && make install
 
 
 FROM build AS tRNAscan-SE
@@ -131,7 +132,7 @@ ENV \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
 
-COPY --from=rscape /install/rscape/ ${RNA}/rscape
+COPY --from=rscape /rna/rscape/ ${RNA}/rscape
 
 COPY --from=tRNAscan-SE /install/ /usr
 RUN sed -i -e 's|/install/bin|/usr/bin|' -e 's|/install/lib|/usr/lib|' /usr/bin/tRNAscan-SE.conf
