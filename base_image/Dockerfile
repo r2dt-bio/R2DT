@@ -72,7 +72,7 @@ RUN \
     mkdir -p /install/ && \
     cd /install/ && \
     wget --no-verbose -O - https://raw.githubusercontent.com/ncbi/ribovore/install-r2dt/install.sh | bash -s -- "rt-linux" && \
-    rm -Rf /install/ribovore/ribovore/models /install/ribovore/ribovore/testfiles
+    rm -Rf /install/ribovore/models /install/ribovore/testfiles
 
 FROM debian:bookworm-slim as final-build
 
