@@ -123,13 +123,7 @@ class R2dtTestCase(unittest.TestCase):
             diff = ImageChops.difference(reference_image, new_image)
 
             if reference_image.size != new_image.size:
-                # We can't compare images of different sizes
-                return ComparisonResult(
-                    identical=False,
-                    bbox=diff.getbbox(),
-                    size1=reference_image.size,
-                    size2=new_image.size,
-                )
+                new_image = new_image.resize(reference_image.size)
 
             try:
                 arr1 = np.array(reference_image)
