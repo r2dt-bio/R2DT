@@ -169,6 +169,9 @@ def get_full_constraint(filename):
     constraint = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
+        if len(lines) == 3:
+            gc_ss = lines[2].split()[2]
+            sequence = lines[0].split()[1]
         if len(lines) == 9:
             gc_ss = lines[5].split()[3]
             sequence = lines[3].split()[1]
