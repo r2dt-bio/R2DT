@@ -154,6 +154,8 @@ def get_insertions(filename):
     sequence = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
+        if len(lines) == 3:
+            sequence = lines[0].split()[1]
         if len(lines) == 9:
             sequence = lines[3].split()[1]
         elif len(lines) == 11:
