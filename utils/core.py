@@ -15,9 +15,10 @@ import os
 import re
 from pathlib import Path
 
-from .runner import runner
+from rich import print as rprint
+
 from . import config, gtrnadb, rfam, shared
-from rich import print
+from .runner import runner
 
 
 # pylint: disable=too-many-arguments
@@ -26,24 +27,24 @@ from rich import print
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-return-statements
 def visualise(
-        rna_type,
-        fasta_input,
-        output_folder,
-        seq_id,
-        model_id,
-        constraint,
-        exclusion,
-        fold_type,
-        domain=None,
-        isotype=None,
-        start=None,
-        end=None,
+    rna_type,
+    fasta_input,
+    output_folder,
+    seq_id,
+    model_id,
+    constraint,
+    exclusion,
+    fold_type,
+    domain=None,
+    isotype=None,
+    start=None,
+    end=None,
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id:
-        print(f"Visualising {seq_id} with {model_id}")
+        rprint(f"Visualising {seq_id} with {model_id}")
     else:
-        print(f"Visualising {seq_id} with {domain} {isotype}")
+        rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
@@ -71,7 +72,7 @@ def visualise(
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
-        print("Please specify RNA type")
+        rprint("Please specify RNA type")
         return
 
     temp_fasta = filename_template.replace("type", "fasta")
@@ -107,14 +108,14 @@ def visualise(
     elif rna_type == "gtrnadb":
         model_path = gtrnadb.get_trnascan_cm(domain, isotype)
         if not model_path:
-            print(f"Covariance model not found for {domain} {isotype}")
+            rprint(f"Covariance model not found for {domain} {isotype}")
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
-            print(f"Model not found {model_path}")
+            rprint(f"Model not found {model_path}")
             return
 
     # align sequence to the model
@@ -131,7 +132,7 @@ def visualise(
         if not result:
             break
     else:
-        print(f"Failed cmalign of {seq_id} to {model_id}")
+        rprint(f"Failed cmalign of {seq_id} to {model_id}")
         return
 
     if rna_type == "rfam":
@@ -146,7 +147,7 @@ def visualise(
     cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired}"
     result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alidepair for {seq_id}")
+        rprint(f"Failed esl-alidepair for {seq_id}")
 
     has_conserved_structure = False
     with open(temp_sto) as f_stockholm:
@@ -155,19 +156,18 @@ def visualise(
                 if "<" in line:
                     has_conserved_structure = True
                 else:
-                    print("This RNA does not have a conserved structure")
+                    rprint("This RNA does not have a conserved structure")
                 break
     if not has_conserved_structure:
         return
 
     # impose consensus secondary structure and convert to pfam format
     cmd = (
-        f"esl-alimanip --rna --sindi "
-        f"--outformat pfam {temp_depaired} > {temp_stk}"
+        f"esl-alimanip --rna --sindi " f"--outformat pfam {temp_depaired} > {temp_stk}"
     )
     result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alimanip for {seq_id} {model_id}")
+        rprint(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # impose consensus secondary structure and convert to pfam format
@@ -177,7 +177,7 @@ def visualise(
     )
     result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alimanip for {seq_id} {model_id}")
+        rprint(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # store posterior probabilities in tsv file
@@ -244,7 +244,7 @@ def visualise(
     cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
     result = runner.run(cmd)
     if result:
-        print(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+        rprint(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
         return
 
     if constraint:
@@ -257,7 +257,7 @@ def visualise(
             fold_type,
         )
     elif exclusion:
-        print("Exclusion ignored, enable --constraint to add exclusion file")
+        rprint("Exclusion ignored, enable --constraint to add exclusion file")
 
     if rna_type == "crw":
         traveler_params = (
@@ -292,9 +292,9 @@ def visualise(
         traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        print("Traveler with Infernal mapping failed:")
-        print(cmd)
-        print("Repeating using Traveler mapping:")
+        rprint("Traveler with Infernal mapping failed:")
+        rprint(cmd)
+        rprint("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
@@ -308,7 +308,7 @@ def visualise(
             match = re.search(r"Overlaps count: (\d+)", line)
             if match:
                 if overlaps:
-                    print("ERROR: Saw too many overlaps")
+                    rprint("ERROR: Saw too many overlaps")
                     break
                 overlaps = int(match.group(1))
     with open(f"{result_base}.overlaps", "w") as out:
@@ -351,14 +351,15 @@ def adjust_font_size(result_base):
     for filename in filenames:
         if not os.path.exists(filename):
             continue
-        content = open(filename).read()
-        content = content.replace('font-size: 7px;', 'font-size: 4px;')
-        open(filename, 'w').write(content)
+        content = (
+            Path(filename).read_text().replace("font-size: 7px;", "font-size: 4px;")
+        )
+        Path(filename).write_text(content)
 
 
 # pylint: disable-next=too-many-arguments
 def visualise_trna(
-        domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
@@ -374,7 +375,7 @@ def visualise_trna(
     with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
+            rprint(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,

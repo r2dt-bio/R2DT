@@ -15,8 +15,8 @@ import os
 import re
 from pathlib import Path
 
-from .runner import runner
 from . import config
+from .runner import runner
 
 
 def setup():
@@ -75,7 +75,9 @@ def run_trnascan(fasta_input, output_folder, domain):
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
-        runner.run(f"tRNAscan-SE -c /usr/bin/tRNAscan-SE.conf -q -{domain} -o {output_file} {fasta_input}")
+        runner.run(
+            f"tRNAscan-SE -c /usr/bin/tRNAscan-SE.conf -q -{domain} -o {output_file} {fasta_input}"
+        )
     return parse_trnascan_output(output_file)
 
 

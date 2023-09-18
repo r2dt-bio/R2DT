@@ -48,16 +48,20 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
         runner.run(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
     if not skip_ribovore_filters:
-        with open(ribotyper_long_out, 'r') as infile, open(f_out, 'w') as outfile:
+        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
             for line in infile:
-                if not line.startswith('#') and 'MultipleHits' not in line and 'PASS' in line:
+                if (
+                    not line.startswith("#")
+                    and "MultipleHits" not in line
+                    and "PASS" in line
+                ):
                     parts = line.split()
                     if len(parts) >= 8:
                         outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
     else:
-        with open(ribotyper_long_out, 'r') as infile, open(f_out, 'w') as outfile:
+        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
             for line in infile:
-                if not line.startswith('#') and 'NoHits' not in line:
+                if not line.startswith("#") and "NoHits" not in line:
                     parts = line.split()
                     if len(parts) >= 8:
                         outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
@@ -150,6 +154,8 @@ def get_insertions(filename):
     sequence = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
+        if len(lines) == 3:
+            sequence = lines[0].split()[1]
         if len(lines) == 9:
             sequence = lines[3].split()[1]
         elif len(lines) == 11:
@@ -165,6 +171,9 @@ def get_full_constraint(filename):
     constraint = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
+        if len(lines) == 3:
+            gc_ss = lines[2].split()[2]
+            sequence = lines[0].split()[1]
         if len(lines) == 9:
             gc_ss = lines[5].split()[3]
             sequence = lines[3].split()[1]
