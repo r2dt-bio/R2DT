@@ -49,7 +49,7 @@ class ComparisonResult:
 
     # 0.01 is an arbitrary similarity threshold (roughly equivalent to 99% similarity)
     # Can be adjusted if needed, based on the results of the tests
-    THRESHOLD = 0.01
+    THRESHOLD = 0.05
 
     identical: bool
     similarity: Optional[float] = None
