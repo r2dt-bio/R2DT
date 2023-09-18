@@ -93,7 +93,7 @@ RUN \
 RUN mkdir $RNA
 WORKDIR $RNA
 
-## Make sure tRNAScan-SE can find Infernal
+# Make sure tRNAScan-SE can find Infernal
 RUN \
     ln -s /rna/ribovore/infernal/binaries/cmsearch /usr/bin/cmsearch && \
     ln -s /rna/ribovore/infernal/binaries/cmscan /usr/bin/cmscan
@@ -147,6 +147,4 @@ COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
-# Forgive me, for I have hacked
-# In the name of the Compiler, the Debugger, and the Holy Stack Trace
 COPY --from=traveler "/usr/local/lib64/libstdc++.so.6.0.32" "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.30"
