@@ -14,7 +14,8 @@ FROM build AS rscape
 RUN \
     wget --no-verbose -O - http://rivaslab.org/software/rscape/rscape_${Rscape_VER}.tar.gz | tar zxf - 2>/dev/null && \
     mv rscape_${Rscape_VER} rscape
-RUN  mkdir -p /rna/rscape && cd rscape && ./configure --prefix=/rna/rscape -q && make -j 2 && make install
+RUN  cp /usr/share/automake-1.16/config.guess /rscape/lib/R2R/R2R-current/config.guess && \
+      mkdir -p /rna/rscape && cd rscape && ./configure --prefix=/rna/rscape -q && make -j 2 && make install
 
 
 FROM build AS tRNAscan-SE
