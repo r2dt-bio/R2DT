@@ -17,18 +17,18 @@ import os
 
 def parse_json_file(json_file):
     """Parse RNA 2D JSON Schema file and return the data and other info."""
-    with open(json_file, "r", encoding="utf-8") as f_json:
+    with open(json_file) as f_json:
         data = json.load(f_json)
     rna_name = os.path.basename(json_file).replace(".json", "")
     destination = os.path.join("data", "new", rna_name)
-    os.system(f"mkdir -p {destination}")
+    os.makedirs(destination, exist_ok=True)
     return data, destination, rna_name
 
 
 def generate_traveler_xml(data, destination, rna_name):
     """Generate a Traveler XML file from an RNA 2D JSON Schema file."""
     xml_template = os.path.join(destination, f"{rna_name}.xml")
-    with open(xml_template, "w", encoding="utf-8") as f_xml:
+    with open(xml_template, "w") as f_xml:
         f_xml.write("<structure>\n")
         for nucleotide in data["rnaComplexes"][0]["rnaMolecules"][0]["sequence"]:
             if nucleotide["residueName"] in ["5'", "3'"]:

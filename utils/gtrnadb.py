@@ -16,11 +16,12 @@ import re
 from pathlib import Path
 
 from . import config
+from .runner import runner
 
 
 def setup():
     """Extract tRNAScan covariance models as separate files."""
-    base = os.path.join("usr", "local", "lib", "tRNAscan-SE", "models")
+    base = os.path.join("usr", "lib", "tRNAscan-SE", "models")
     cm_dbs = {
         "TRNAinf-arch-iso": "A",
         "TRNAinf-bact-iso": "B",
@@ -74,9 +75,9 @@ def run_trnascan(fasta_input, output_folder, domain):
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
-        cmd = f"tRNAscan-SE -q -{domain} -o {output_file} {fasta_input}"
-        print(cmd)
-        os.system(cmd)
+        runner.run(
+            f"tRNAscan-SE -c /usr/bin/tRNAscan-SE.conf -q -{domain} -o {output_file} {fasta_input}"
+        )
     return parse_trnascan_output(output_file)
 
 
@@ -84,9 +85,7 @@ def skip_trna(entry):
     """
     Some tRNAs should not be drawn and need to be skipped.
     """
-    if "pseudo" in entry["note"] or entry["isotype"] in ["Undet", "Sup"]:
-        return True
-    return False
+    return "pseudo" in entry["note"] or entry["isotype"] in ["Undet", "Sup"]
 
 
 def classify_trna_sequences(fasta_input, output_folder):
@@ -175,8 +174,7 @@ def get_trnascan_cm(domain, isotype):
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
-    cmd = f"cmfetch -o {cm_output} {cm_library} {cm_name}"
-    result = os.system(cmd)
+    result = runner.run(f"cmfetch -o {cm_output} {cm_library} {cm_name}")
     if result:
         os.remove(cm_output)
         cm_output = None

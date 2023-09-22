@@ -13,8 +13,12 @@ limitations under the License.
 
 import os
 import re
+from pathlib import Path
+
+from rich import print as rprint
 
 from . import config, gtrnadb, rfam, shared
+from .runner import runner
 
 
 # pylint: disable=too-many-arguments
@@ -38,9 +42,9 @@ def visualise(
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id:
-        print(f"Visualising {seq_id} with {model_id}")
+        rprint(f"Visualising {seq_id} with {model_id}")
     else:
-        print(f"Visualising {seq_id} with {domain} {isotype}")
+        rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
@@ -68,7 +72,7 @@ def visualise(
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
-        print("Please specify RNA type")
+        rprint("Please specify RNA type")
         return
 
     temp_fasta = filename_template.replace("type", "fasta")
@@ -86,10 +90,9 @@ def visualise(
     # get sequence from fasta file
     seq_range = f"-c {start}..{end}" if start and end else ""
     if not os.path.exists(f"{fasta_input}.ssi"):
-        cmd = f"esl-sfetch --index {fasta_input}"
-        os.system(cmd)
+        runner.run(f"esl-sfetch --index {fasta_input}")
     cmd = f"esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}"
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
         raise ValueError(f"Failed esl-sfetch for: {seq_id} in {cmd}")
 
@@ -101,18 +104,18 @@ def visualise(
         # download seed alignment and list its accessions
         rfam_seed = rfam.download_rfam_seed(model_id)
         cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
-        os.system(cmd)
+        runner.run(cmd)
     elif rna_type == "gtrnadb":
         model_path = gtrnadb.get_trnascan_cm(domain, isotype)
         if not model_path:
-            print(f"Covariance model not found for {domain} {isotype}")
+            rprint(f"Covariance model not found for {domain} {isotype}")
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
-            print(f"Model not found {model_path}")
+            rprint(f"Model not found {model_path}")
             return
 
     # align sequence to the model
@@ -125,57 +128,56 @@ def visualise(
             )
         else:
             cmd = f"cmalign {options} {model_path} {temp_fasta} > {temp_sto}"
-        result = os.system(cmd)
+        result = runner.run(cmd)
         if not result:
             break
     else:
-        print(f"Failed cmalign of {seq_id} to {model_id}")
+        rprint(f"Failed cmalign of {seq_id} to {model_id}")
         return
 
     if rna_type == "rfam":
         cmd = (
-            f"/rna/easel/miniapps/esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
+            f"esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
             f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
             f"{temp_sto}"
         )
-        os.system(cmd)
+        runner.run(cmd)
 
     # remove non-canonical Watson-Crick basepairs (e.g. C:A in URS000008DB9C_7227)
-    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired} > /dev/null"
-    result = os.system(cmd)
+    cmd = f"esl-alidepair.pl --nc 0.5 {temp_sto} {temp_depaired}"
+    result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alidepair for {seq_id}")
+        rprint(f"Failed esl-alidepair for {seq_id}")
 
     has_conserved_structure = False
-    with open(temp_sto, "r", encoding="utf-8") as f_stockholm:
+    with open(temp_sto) as f_stockholm:
         for line in f_stockholm.readlines():
             if line.startswith("#=GC SS_cons"):
                 if "<" in line:
                     has_conserved_structure = True
                 else:
-                    print("This RNA does not have a conserved structure")
+                    rprint("This RNA does not have a conserved structure")
                 break
     if not has_conserved_structure:
         return
 
     # impose consensus secondary structure and convert to pfam format
     cmd = (
-        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
-        f"--outformat pfam {temp_depaired} > {temp_stk}"
+        f"esl-alimanip --rna --sindi " f"--outformat pfam {temp_depaired} > {temp_stk}"
     )
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alimanip for {seq_id} {model_id}")
+        rprint(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # impose consensus secondary structure and convert to pfam format
     cmd = (
-        f"/rna/easel/miniapps/esl-alimanip --rna --sindi "
+        f"esl-alimanip --rna --sindi "
         f"--outformat pfam {temp_sto} > {temp_stk_original}"
     )
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
-        print(f"Failed esl-alimanip for {seq_id} {model_id}")
+        rprint(f"Failed esl-alimanip for {seq_id} {model_id}")
         return
 
     # store posterior probabilities in tsv file
@@ -184,14 +186,14 @@ def visualise(
     # convert nts that are in RF-gap columns to lowercase
     # the -s option is critical to enable infernal2mapping
     cmd = f"ali-pfam-lowercase-rf-gap-columns.pl -s {temp_stk} > {temp_pfam_stk}"
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
         raise ValueError(
             f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
         )
 
     cmd = f"ali-pfam-lowercase-rf-gap-columns.pl -s {temp_stk_original} > {temp_pfam_stk_original}"
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
         raise ValueError(
             f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
@@ -203,7 +205,7 @@ def visualise(
 
     # convert stockholm to aligned fasta with WUSS secondary structure
     cmd = f"ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {temp_pfam_stk} > {temp_afa}"
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
         raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
 
@@ -211,22 +213,22 @@ def visualise(
         f"ali-pfam-sindi2dot-bracket.pl -l -n -w -a -c {temp_pfam_stk_original} > "
         f"{temp_afa_original}"
     )
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
         raise ValueError(f"Failed ali-pfam-sindi2dot-bracket for {seq_id} {model_id}")
 
     # add original, non-depaired secondary structure
-    with open(temp_afa_original, "r", encoding="utf-8") as f_temp_afa_original:
+    with open(temp_afa_original) as f_temp_afa_original:
         lines = f_temp_afa_original.readlines()
         ss_cons_original = lines[5]
-    with open(temp_afa, "a", encoding="utf-8") as f_temp_afa:
+    with open(temp_afa, "a") as f_temp_afa:
         f_temp_afa.write(">SS_cons_original\n")
         f_temp_afa.write(ss_cons_original)
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
     cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    infernal_mapping_failed = os.system(cmd)
+    infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
         result_base = os.path.join(
@@ -240,9 +242,9 @@ def visualise(
 
     # convert stockholm to fasta with dot bracket secondary structure
     cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
-    result = os.system(cmd)
+    result = runner.run(cmd)
     if result:
-        print(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
+        rprint(f"Failed esl-pfam-sindi2dot-bracket for {seq_id} {model_id}")
         return
 
     if constraint:
@@ -255,7 +257,7 @@ def visualise(
             fold_type,
         )
     elif exclusion:
-        print("Exclusion ignored, enable --constraint to add exclusion file")
+        rprint("Exclusion ignored, enable --constraint to add exclusion file")
 
     if rna_type == "crw":
         traveler_params = (
@@ -287,30 +289,29 @@ def visualise(
         f"--draw {temp_map} {result_base} > {log}"
     )
     if not infernal_mapping_failed:
-        traveler_failed = os.system(cmd)
+        traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        print("Traveler with Infernal mapping failed:")
-        print(cmd)
-        print("Repeating using Traveler mapping:")
+        rprint("Traveler with Infernal mapping failed:")
+        rprint(cmd)
+        rprint("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
             f"--all {result_base} > {log}"
         )
-        print(cmd)
-        os.system(cmd)
+        runner.run(cmd)
 
     overlaps = 0
-    with open(log, "r", encoding="utf-8") as raw:
+    with open(log) as raw:
         for line in raw:
             match = re.search(r"Overlaps count: (\d+)", line)
             if match:
                 if overlaps:
-                    print("ERROR: Saw too many overlaps")
+                    rprint("ERROR: Saw too many overlaps")
                     break
                 overlaps = int(match.group(1))
-    with open(f"{result_base}.overlaps", "w", encoding="utf-8") as out:
+    with open(f"{result_base}.overlaps", "w") as out:
         out.write(f"{overlaps}\n")
     if rna_type != "rnasep":
         adjust_font_size(result_base)
@@ -320,7 +321,7 @@ def visualise(
         f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
         f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
     )
-    result = os.system(cmd)
+    result = runner.run(cmd)
 
     # add colors
     if result == 0:
@@ -328,7 +329,7 @@ def visualise(
             f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
             f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
         )
-        result = os.system(cmd)
+        runner.run(cmd)
 
     # clean up
     os.remove(temp_fasta)
@@ -350,8 +351,10 @@ def adjust_font_size(result_base):
     for filename in filenames:
         if not os.path.exists(filename):
             continue
-        cmd = f"""sed -i 's/font-size: 7px;/font-size: 4px;/' {filename}"""
-        os.system(cmd)
+        content = (
+            Path(filename).read_text().replace("font-size: 7px;", "font-size: 4px;")
+        )
+        Path(filename).write_text(content)
 
 
 # pylint: disable-next=too-many-arguments
@@ -360,20 +363,19 @@ def visualise_trna(
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     if not os.path.exists(f"{fasta_input}.ssi"):
         cmd = f"esl-sfetch --index {fasta_input}"
-        os.system(cmd)
+        runner.run(cmd)
 
     cmd = f"grep '>' {fasta_input} > {filename}"
-    os.system(cmd)
+    runner.run(cmd)
 
-    with open(filename, "r", encoding="utf-8") as f_headers:
+    with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
+            rprint(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,
@@ -388,4 +390,5 @@ def visualise_trna(
                 None,
                 None,
             )
-    os.system(f"rm {filename}")
+    file_path = Path(filename)
+    file_path.unlink(missing_ok=True)

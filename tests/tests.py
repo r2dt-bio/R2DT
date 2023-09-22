@@ -14,8 +14,59 @@ limitations under the License.
 import filecmp
 import os
 import unittest
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+from cairosvg import svg2png
+from jinja2 import Environment, PackageLoader, select_autoescape
+from PIL import Image, ImageChops
+from skimage.metrics import structural_similarity as ssim
 
 from utils import config, rfam
+from utils.runner import runner
+
+HTML_FOLDER = "tests/html"
+if not os.path.exists(HTML_FOLDER):
+    os.makedirs(HTML_FOLDER)
+
+env = Environment(loader=PackageLoader("tests"), autoescape=select_autoescape())
+
+
+def _get_png(filepath: str) -> Path:
+    svg_path = Path(filepath)
+    png_path = svg_path.with_suffix(".png")
+    svg2png(bytestring=svg_path.read_bytes(), write_to=str(png_path))
+    return png_path
+
+
+@dataclass
+class ComparisonResult:
+    """
+    Represents the result of a comparison between two images or binary files
+    """
+
+    # 0.01 is an arbitrary similarity threshold (roughly equivalent to 99% similarity)
+    # Can be adjusted if needed, based on the results of the tests
+    THRESHOLD = 0.05
+
+    identical: bool
+    similarity: Optional[float] = None
+    bbox: Optional[tuple] = None
+    size1: Optional[tuple] = None
+    size2: Optional[tuple] = None
+
+    # pylint: disable=missing-function-docstring
+    # pylint: disable=invalid-name
+    @staticmethod
+    def no() -> "ComparisonResult":
+        return ComparisonResult(False)
+
+    # pylint: disable=missing-function-docstring
+    @staticmethod
+    def yes() -> "ComparisonResult":
+        return ComparisonResult(True)
 
 
 class R2dtTestCase(unittest.TestCase):
@@ -30,31 +81,82 @@ class R2dtTestCase(unittest.TestCase):
     @staticmethod
     def delete_folder(folder):
         """Delete test folder"""
-        os.system(f"rm -Rf {folder}")
+        runner.run(f"rm -Rf {folder}")
 
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        os.system(self.cmd)
+        runner.run(self.cmd, print_output=True)
 
     def tearDown(self):
-        if os.environ.get("R2DT_KEEP_TEST_RESULTS", False) == "1":
+        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") == "1":
             print(f"Test results can be found in {self.test_results}")
         else:
             self.delete_folder(self.test_results)
 
-    @staticmethod
-    def create_webpage(filename, before, after):
+    def create_webpage(
+        self, filename: str, before, after, comparison_result: ComparisonResult
+    ) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
-        with open(filename, "w", encoding="utf-8") as f_html:
-            f_html.write("<html><body>")
-            with open(before, "r", encoding="utf-8") as f_before:
-                svg = f_before.read()
-            f_html.write(svg)
-            with open(after, "r", encoding="utf-8") as f_after:
-                svg = f_after.read()
-            f_html.write(svg)
-            f_html.write("</body></html>")
+        template = env.get_template("compare.html")
+        print(f"creating webpage for {filename=} {comparison_result=}")
+        with open(filename, "w") as f_html:
+            f_html.write(
+                template.render(
+                    test_name=self.__class__.__name__,
+                    before=open(before).read(),  # pylint: disable=consider-using-with
+                    after=open(after).read(),  # pylint: disable=consider-using-with
+                    comparison=comparison_result,
+                )
+            )
+
+    def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
+        if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
+            new_file.endswith(".png") or new_file.endswith(".svg")
+        ):
+            reference_png, new_png = _get_png(reference_file), _get_png(new_file)
+
+            # convert to grayscale
+            reference_image = Image.open(reference_png.absolute()).convert("L")
+            new_image = Image.open(new_png.absolute()).convert("L")
+
+            diff = ImageChops.difference(reference_image, new_image)
+
+            if reference_image.size != new_image.size:
+                new_image = new_image.resize(reference_image.size)
+
+            try:
+                arr1 = np.array(reference_image)
+                arr2 = np.array(new_image)
+
+                similarity_index, _ = ssim(arr1, arr2, full=True)
+
+                result = abs(1 - similarity_index) <= ComparisonResult.THRESHOLD
+
+                result = ComparisonResult(
+                    identical=result,
+                    bbox=diff.getbbox(),
+                    similarity=similarity_index,
+                    size1=reference_image.size,
+                    size2=new_image.size,
+                )
+                return result
+            # pylint: disable=broad-except
+            except Exception as e:
+                print(f"Image comparison failed: {e}")
+                return ComparisonResult(
+                    identical=False,
+                    bbox=diff.getbbox(),
+                    size1=reference_image.size,
+                    size2=new_image.size,
+                )
+
+        else:
+            return (
+                ComparisonResult.yes()
+                if filecmp.cmp(new_file, reference_file, shallow=False)
+                else ComparisonResult.no()
+            )
 
     def check_examples(self):
         """Check that files exist and are identical to examples."""
@@ -66,15 +168,21 @@ class R2dtTestCase(unittest.TestCase):
             )
             reference_file = os.path.join(self.precomputed_results, filename)
             self.assertTrue(os.path.exists(new_file), f"File {new_file} does not exist")
-            is_identical = filecmp.cmp(new_file, reference_file)
-            if not is_identical:
-                filename = os.path.join(
-                    "tests", f"{self.__class__.__name__}_{loop_id}.html"
+
+            comparison_result = self._compare_files(reference_file, new_file)
+            comparison_marker = "=" if comparison_result.identical else "!"
+            filename = os.path.join(
+                HTML_FOLDER,
+                f"{comparison_marker} {self.__class__.__name__}_{loop_id}.html",
+            )
+            if reference_file.endswith(".svg") and new_file.endswith(".svg"):
+                self.create_webpage(
+                    filename, reference_file, new_file, comparison_result
                 )
-                self.create_webpage(filename, reference_file, new_file)
-                count += 1
+            if not comparison_result.identical:
                 html_files.append(filename)
-        if html_files:
+                count += 1
+        if count:
             print(f"Please inspect {', '.join(html_files)}")
         self.assertEqual(
             count, 0, f"Found {count} out of {len(self.files)} non-identical SVG files"
@@ -87,7 +195,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
     @staticmethod
     def count_lines(filename):
         """Return the number of lines in a modelinfo file."""
-        with open(filename, encoding="utf-8") as f_modelinfo:
+        with open(filename) as f_modelinfo:
             num_lines = sum(1 for line in f_modelinfo)
         return num_lines
 
@@ -342,7 +450,7 @@ class TestRnasep(R2dtTestCase):
         "hits.txt",
         "URS00000A7310_29284-RNAseP_a_H_trapanicum_JB.colored.svg",
         "URS0000CBCB35_210-RNAseP_b_H_pylory_26695_JB.colored.svg",
-        "URS0000EEAD19_2190-RNAseP_a_M_jannaschii_JB.colored.svg",
+        "URS0000EEAD19_2190-RNAseP_a_M_jannaschii_3D_MD_DSSR.colored.svg",
         "URS0001BC2932_272844-RNAseP_a_P_abyssi_JB.colored.svg",
         "URS0001BC3468_782-RNAseP_b_R_prowazekii_JB.colored.svg",
         "URS00003C82BC_186497-RNAseP_a_P_furiosus_JB.colored.svg",
@@ -378,8 +486,8 @@ class TestForceTemplate(R2dtTestCase):
         "URS000020CCFC_274-EC_LSU_3D.colored.svg",  # RiboVision LSU: T. thermophilus with E.coli
         "URS00000A1A88_9606-B_Thr.colored.svg",  # GtRNAdb: human E_Thr with B_Thr
         "URS00000A1A88_9606-RF00005.colored.svg",  # GtRNAdb E_Thr using Rfam tRNA
-        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",
         # RNAse P: P. abyssi with P.furiosus
+        "URS0001BC2932_272844-RNAseP_a_P_furiosus_JB.colored.svg",
     ]
 
     def setUp(self):
@@ -388,7 +496,7 @@ class TestForceTemplate(R2dtTestCase):
         for filename in self.files:
             seq_id, model_id = filename.replace(".colored.svg", "").split("-")
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
-            os.system(self.cmd.format(model_id, input_fasta, self.test_results))
+            runner.run(self.cmd.format(model_id, input_fasta, self.test_results))
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
@@ -420,7 +528,7 @@ class TestRNAfold(R2dtTestCase):
     def setUp(self):
         print(self.__class__.__name__)
         self.delete_folder(self.test_results)
-        os.system(
+        runner.run(
             self.cmd.format(
                 os.path.join(self.fasta_input, "constraint-examples.fasta"),
                 self.test_results,
@@ -428,7 +536,7 @@ class TestRNAfold(R2dtTestCase):
         )
         for seq_id, fold_type in self.fold_type_inputs.items():
             input_fasta = os.path.join(self.fasta_input, seq_id + ".fasta")
-            os.system(
+            runner.run(
                 self.cmd2.format(
                     fold_type, "d.5.a.H.salinarum.1", input_fasta, self.test_results
                 )
@@ -474,7 +582,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
 
     def test_default(self):
         """Check that the default command without an extra option fails."""
-        os.system(self.cmd_default)
+        runner.run(self.cmd_default)
         new_file = os.path.join(
             self.test_results, self.test_results_subfolder, self.files[0]
         )
@@ -482,7 +590,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
 
     def test_skip_filters(self):
         """Check that the new option works."""
-        os.system(self.cmd_skip)
+        runner.run(self.cmd_skip)
         self.check_examples()
 
 
