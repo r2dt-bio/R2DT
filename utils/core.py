@@ -326,7 +326,7 @@ def visualise(
     # add colors
     if result == 0:
         cmd = (
-            f"python3 /rna/traveler/utils/json2svg.py -p utils/colorscheme.json "
+            f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
             f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
         )
         runner.run(cmd)
