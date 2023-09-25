@@ -5,6 +5,7 @@ ENV tRNAscan_VER=2.0.11 \
     traveler_COMMIT=0ee67cbb9c5aaa2f98340065fd047c9a8feea53e \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
     Rscape_VER=v2.0.2.d \
+    Ribovore_VER=1.0.5 \
     BioEasel_VER=0.11
 
 
@@ -72,7 +73,7 @@ FROM build as ribovore-infernal-easel
 RUN \
     mkdir -p /install/ && \
     cd /install/ && \
-    wget --no-verbose -O - https://raw.githubusercontent.com/ncbi/ribovore/install-r2dt/install.sh | bash -s -- "rt-linux" && \
+    wget --no-verbose -O - "https://raw.githubusercontent.com/ncbi/ribovore/ribovore-${Ribovore_VER}/install.sh" | bash -s -- "rt-linux" && \
     rm -Rf /install/ribovore/models /install/ribovore/testfiles
 
 FROM debian:bookworm-slim as final-build
