@@ -59,6 +59,8 @@ def copy_cm_evalues(cm_filename):
     """
     rfam_acc = "RF00177"
     example_cm_path = Path("temp") / f"{rfam_acc}.cm"
+    if not example_cm_path.parent.exists():
+        example_cm_path.parent.mkdir()
     # Download the file if it doesn't exist
     if not example_cm_path.exists():
         url = f"http://rfam.org/family/{rfam_acc}/cm"
