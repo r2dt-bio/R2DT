@@ -3,7 +3,6 @@ version: '3'
 services:
   cli:
     image: rnacentral/r2dt:${R2DT_TAG:-latest}
-    platform: linux/amd64
     volumes:
       - .:/rna/r2dt
-      - ./1.4:/rna/r2dt/data/cms
+      - ${R2DT_LIBRARY}:/rna/r2dt/data/cms
