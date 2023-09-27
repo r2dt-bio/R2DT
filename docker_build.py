@@ -1,21 +1,27 @@
 """
-Use this script to build R2DT Docker images for amd64 and arm64 architectures
-using the multi-Dockerfile approach.
+Use this script to build R2DT Docker images.
 
 Usage:
     # build both amd64 and arm64 images using the default Dockerfiles
-    python3 docker-build.py
+    python3 docker_build.py
+
+    # build only arm64 images using the default Dockerfiles
+    python3 docker_build.py arm64
+
+    # build only amd64 images using the default Dockerfiles
+    python3 docker_build.py amd64
 
     # specify architecture and Dockerfiles
-    python3 docker-build.py [arch] [base_dockerfile] [main_dockerfile]
+    python3 docker_build.py [arch] [base_dockerfile] [main_dockerfile]
 """
 
 import argparse
 import hashlib
 import logging
 import os
+import subprocess
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Set
 
 
 def get_dockerfile_hash(dockerfile: Path) -> str:
@@ -35,14 +41,20 @@ def get_tag(dockerfile: Path, arch: str) -> str:
 def build_base_image(dockerfile: Path, arch: str) -> str:
     """Build the base image."""
     tag = get_tag(dockerfile, arch)
-    cmd = (
-        f"docker build -t rnacentral/r2dt-base:{tag} --platform={arch} "
-        f"-f {str(dockerfile)} base_image"
-    )
-    logging.info("Building base image: %s", cmd)
-    result = os.system(cmd)
-    if result != 0:
-        raise RuntimeError("Failed to build base image")
+    with open(os.devnull, "w") as devnull:
+        cmd = [
+            "docker",
+            "build",
+            "-t",
+            f"rnacentral/r2dt-base:{tag}",
+            "--platform",
+            arch,
+            "-f",
+            str(dockerfile),
+            "base_image",
+        ]
+        logging.info("Building base image: %s", " ".join(cmd))
+        subprocess.run(cmd, check=True, stdout=devnull, stderr=devnull)
     return tag
 
 
@@ -59,34 +71,47 @@ def build_main_image(dockerfile: Path, base_tag: str, arch: str) -> str:
                 f_dockerfile.write(f"FROM rnacentral/r2dt-base:{base_tag}\n")
             else:
                 f_dockerfile.write(line)
-    cmd = f"docker build -t rnacentral/r2dt:{tag} --platform={arch} -f {temp_dockerfile} ."
-    logging.info("Building main image: %s", cmd)
-    result = os.system(cmd)
-    if result != 0:
-        print(cmd)
-        raise RuntimeError("Failed to build main image")
+    with open(os.devnull, "w") as devnull:
+        cmd = [
+            "docker",
+            "build",
+            "-t",
+            f"rnacentral/r2dt:{tag}",
+            "--platform",
+            arch,
+            "-f",
+            str(temp_dockerfile),
+            ".",
+        ]
+        logging.info("Building main image: %s", " ".join(cmd))
+        subprocess.run(cmd, check=True, stdout=devnull, stderr=devnull)
     temp_dockerfile.unlink()
     return tag
 
 
 def build_images(base_dockerfile: Path, main_dockerfile: Path, arch: str) -> List[str]:
     """Build R2DT Docker images."""
-    if arch not in ["linux/amd64", "linux/arm64", "amd64", "arm64", "all"]:
-        raise ValueError(f"Unsupported architecture: {arch}")
-    if arch == "all":
-        archs = ["linux/amd64", "linux/arm64"]
-    elif arch == "amd64":
-        archs = ["linux/amd64"]
-    elif arch == "arm64":
-        archs = ["linux/arm64"]
-    else:
-        archs = [arch]
+    supported_archs: Set[str] = {"linux/amd64", "linux/arm64"}
+    arch_map: Dict[str, List[str]] = {
+        "all": ["linux/amd64", "linux/arm64"],
+        "amd64": ["linux/amd64"],
+        "arm64": ["linux/arm64"],
+    }
 
-    for _arch in archs:
-        base_tag = build_base_image(base_dockerfile, _arch)
-        main_tag = build_main_image(main_dockerfile, base_tag, _arch)
+    if arch not in supported_archs.union(arch_map):
+        raise ValueError(f"Unsupported architecture: {arch}")
+    archs = arch_map.get(arch, [arch])
+
+    base_tags = []
+    main_tags = []
+    for arch_item in archs:
+        base_tag = build_base_image(base_dockerfile, arch_item)
+        base_tags.append(base_tag)
+        main_tag = build_main_image(main_dockerfile, base_tag, arch_item)
+        main_tags.append(main_tag)
         logging.info("Successfully built rnacentral/r2dt-base:%s", base_tag)
         logging.info("Successfully built rnacentral/r2dt:%s", main_tag)
+    return base_tags + main_tags
 
 
 def main():
