@@ -6,7 +6,8 @@ ENV tRNAscan_VER=2.0.11 \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
     Rscape_VER=v2.0.2.d \
     Ribovore_VER=1.0.5 \
-    BioEasel_VER=0.11
+    BioEasel_VER=0.11 \
+    INFERNAL_VER=1.1.5
 
 
 FROM build AS rscape
@@ -75,6 +76,20 @@ RUN \
     cd /install/ && \
     wget --no-verbose -O - "https://raw.githubusercontent.com/ncbi/ribovore/ribovore-${Ribovore_VER}/install.sh" | bash -s -- "rt-linux" && \
     rm -Rf /install/ribovore/models /install/ribovore/testfiles
+
+# Overwrite Infernal binaries installed by Ribovore by compiling Infernal from source
+RUN \
+    wget -q "http://eddylab.org/infernal/infernal-${INFERNAL_VER}.tar.gz" && \
+    tar xzf "infernal-${INFERNAL_VER}.tar.gz" && \
+    cd "infernal-${INFERNAL_VER}" && \
+    mkdir /infernal && \
+    ./configure --prefix=/infernal && \
+    make && \
+    make install && \
+    cd easel && \
+    make install && \
+    mv /infernal/bin/* /install/infernal/binaries/
+
 
 FROM debian:bookworm-slim as final-build
 
