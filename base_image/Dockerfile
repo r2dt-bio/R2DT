@@ -165,3 +165,4 @@ COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
 COPY --from=traveler "/usr/local/lib64/libstdc++.so.6.0.32" "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.30"
+COPY --from=traveler "/usr/local/lib64/libstdc++.so.6.0.32" "/usr/lib/aarch64-linux-gnu/libstdc++.so.6.0.30"
