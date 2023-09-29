@@ -15,6 +15,7 @@ Screenshot of the RNAcanvas user interface showing human mitochondrially encoded
 [RNAcanvas](https://rnacanvas.app) supports the following features:
 - Loading RNA structures in [RNA 2D JSON Schema format](https://github.com/LDWLab/RNA2D-data-schema/)
 - Adding/removing/editing base pairs (both secondary and tertiary)
+- Dragging nucleotides to change their position
 - Highlighting of complementary sequences
 - Adding/removing/editing nucleotide numbers
 - Customizing residues text (e.g., font, size, color)
