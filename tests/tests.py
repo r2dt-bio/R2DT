@@ -247,7 +247,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
     def test_rnasep_cm_database(self):
         """Check RNAse P covariance models."""
-        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 24)
+        self.verify_cm_database(config.RNASEP_CM_LIBRARY, 25)
 
     def test_rfam_database(self):
         """
