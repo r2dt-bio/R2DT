@@ -36,3 +36,6 @@ html_theme_options = {
     # Toc options
     "collapse_navigation": False,
 }
+
+# -- Options for MyST parser -------------------------------------------------
+myst_heading_anchors = 3
