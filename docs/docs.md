@@ -11,20 +11,14 @@ To generate documentation locally:
     source .venv/bin/activate
     ```
 
-2. Generate html files:
+2. Generate html files and automatically rebuild on changes:
     ```bash
-    # from the root of the repository
-    cd docs
-    make html
-
-    # or to automatically rebuild on changes:
-    sphinx-autobuild docs docs/_build/html
+    just docs
     ```
 
-3. Open `_build/index.html` in your browser.
+3. Open http://localhost:8000 in your browser to view the docs.
 
-To check that all URLs are live:
-```bash
-cd docs
-make linkcheck
-```
+4. To check that all URLs are live:
+    ```bash
+    just check-links
+    ```
