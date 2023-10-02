@@ -11,73 +11,86 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 import os
-import glob
+import subprocess
+from pathlib import Path
 
+import requests
 
-# CRW_FASTA_NO_PSEUDOKNOTS = '/rna/r2dt/data/crw-fasta-no-pseudoknots'
+from .runner import runner
 
 
 def convert_bpseq_to_fasta(bpseq):
-    fasta = bpseq.replace('.bpseq', '.fasta')
+    """Use a Traveler script to convert from BPSEQ to FASTA."""
+    fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        cmd = 'python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}'.format(
-            bpseq=bpseq,
-            fasta=fasta
-        )
-        os.system(cmd)
+        runner.run(f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}")
     return fasta
 
 
 def break_pseudoknots(fasta):
-    fasta_no_knots = fasta.replace('-with-knots.fasta', '.fasta')
+    """Remove pseudoknots using RNAStructure."""
+    fasta_no_knots = fasta.replace("-with-knots.fasta", ".fasta")
     if not os.path.exists(fasta_no_knots):
-        cmd = 'RemovePseudoknots -b {fasta} {fasta_no_knots}'.format(
-            fasta=fasta,
-            fasta_no_knots=fasta_no_knots
-        )
-        os.system(cmd)
+        runner.run(f"RemovePseudoknots -b {fasta} {fasta_no_knots}")
     return fasta_no_knots
 
 
 def convert_fasta_to_stockholm(fasta):
-    stockholm = fasta.replace('.fasta', '.sto')
-    model_id = os.path.basename(stockholm).replace('.sto', '')
+    """Convert fasta to stockholm."""
+    stockholm = fasta.replace(".fasta", ".sto")
+    model_id = os.path.basename(stockholm).replace(".sto", "")
     if not os.path.exists(stockholm):
-        with open(fasta, 'r') as f_input:
-            with open(stockholm, 'w') as f_output:
-                   lines = f_input.readlines()
-                   f_output.write('# STOCKHOLM 1.0\n')
-                   f_output.write('\n')
-                   f_output.write('{0}{1}\n'.format(model_id.ljust(60), lines[1].strip()))
-                   f_output.write('{0}{1}\n'.format('#=GC SS_cons'.ljust(60), lines[2].strip()))
-                   f_output.write('//\n')
+        with open(fasta, "r", encoding="utf-8") as f_input:
+            with open(stockholm, "w", encoding="utf-8") as f_output:
+                lines = f_input.readlines()
+                f_output.write("# STOCKHOLM 1.0\n")
+                f_output.write("\n")
+                f_output.write(f"{model_id.ljust(60)}{lines[1].strip()}\n")
+                f_output.write(f"{'#=GC SS_cons'.ljust(60)}{lines[2].strip()}\n")
+                f_output.write("//\n")
     return stockholm
 
 
-def copy_cm_evalues(cm):
+def copy_cm_evalues(cm_filename):
     """
-    Update covariance files genenrated from CRW covariance models
+    Update covariance files generated from CRW covariance models
     by copying E-values from Rfam CMs.
     """
-    if not os.path.exists('RF00177.cm'):
-        cmd = 'wget -O RF00177.cm http://rfam.org/family/RF00177/cm'
-        os.system(cmd)
-    cmd = 'perl /rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl RF00177.cm {cm}'.format(cm=cm)
-    os.system(cmd)
-    os.system('rm {}.old'.format(cm))
+    rfam_acc = "RF00177"
+    example_cm_path = Path("temp") / f"{rfam_acc}.cm"
+    if not example_cm_path.parent.exists():
+        example_cm_path.parent.mkdir()
+    # Download the file if it doesn't exist
+    if not example_cm_path.exists():
+        url = f"http://rfam.org/family/{rfam_acc}/cm"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        example_cm_path.write_bytes(response.content)
+
+    # Run the Perl script
+    perl_script_path = Path(
+        "/rna/jiffy-infernal-hmmer-scripts/cm-copy-evalue-parameters.pl"
+    )
+    cm_filename_path = Path(cm_filename)
+
+    subprocess.run(
+        [str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True
+    )
+
+    # Remove the .old file
+    old_file_path = cm_filename_path.with_suffix(".cm.old")
+    old_file_path.unlink(missing_ok=True)
 
 
 def build_cm(stockholm, cm_library):
-    cm = os.path.join(cm_library, os.path.basename(stockholm).replace('.sto', '.cm'))
-    if not os.path.exists(cm):
-        cmd = 'cmbuild {cm} {stockholm}'.format(
-            cm=cm,
-            stockholm=stockholm
-        )
-        os.system(cmd)
-        copy_cm_evalues(cm)
+    """Build an Infernal covariance model."""
+    cm_filename = os.path.join(
+        cm_library, os.path.basename(stockholm).replace(".sto", ".cm")
+    )
+    if not os.path.exists(cm_filename):
+        runner.run(f"cmbuild {cm_filename} {stockholm}")
+        copy_cm_evalues(cm_filename)
     else:
-        print('CM already exists {}'.format(cm))
-    return cm
+        print(f"CM already exists {cm_filename}")
+    return cm_filename
