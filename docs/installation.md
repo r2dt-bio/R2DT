@@ -5,17 +5,13 @@
     docker pull rnacentral/r2dt
     ```
 
-    Or build a Docker image locally:
+    Alternatively, build a Docker image locally:
 
     ```bash
     # Get the code
     git clone https://github.com/RNAcentral/R2DT.git
     cd R2DT
-    # Build and tag a Docker image
     docker build -t rnacentral/r2dt .
-
-    # To build on Apple silicon and push to Docker Hub:
-    docker buildx build --platform linux/amd64 -t rnacentral/r2dt .
     ```
 
     Or build a Singularity image:
@@ -23,9 +19,9 @@
     singularity build r2dt docker://rnacentral/r2dt
     ```
 
-2. Setup a precomputed data library _(198 MB, last updated Oct 14, 2022)_:
+2. Setup a precomputed data library _(198 MB, last updated Aug 21, 2023)_:
     ```bash
-    curl -O https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.3/cms.tar.gz
+    curl -O https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.4/cms.tar.gz
     tar -xzf cms.tar.gz
     export R2DT_LIBRARY=<path to precomputed library>
     ```
@@ -56,10 +52,17 @@
 
 ## Setup a development environment
 
-Set up a precomputed library as described above and use `docker-compose`:
+Set up a precomputed library as described above and run the container using [just](https://just.systems):
 
 ```bash
-R2DT_LIBRARY=<path to precomputed library> docker-compose run cli
+
+# see what commands are available
+just
+
+# run the container
+just run
 ```
 
-If it is not possible to use containers, follow instructions in the [Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/Dockerfile) to install all the requirements manually.
+## Manual installation
+
+If it is not possible to use containers, follow instructions in the [base Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/base_image/Dockerfile) and [main Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/Dockerfile) to install all the requirements manually.
