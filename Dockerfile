@@ -1,4 +1,4 @@
-FROM rnacentral/r2dt-base
+FROM rnacentral/r2dt-base:v1.4
 
 # Create venv
 ENV VENV=$RNA/venv
