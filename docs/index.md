@@ -53,7 +53,7 @@ R2DT can be used in a number of ways:
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products) and [SGD](https://www.yeastgenome.org/locus/S000006550/sequence) show R2DT diagrams for RNA genes
 * [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2)).
 
-Browse [papers citing R2DT](https://scholar.google.com/scholar?hl=en&as_sdt=2005&sciodt=0,5&cites=12435886377905515481&scipsc=&q=&scisbd=1) &rarr;
+Browse [papers citing R2DT &rarr;](https://scholar.google.com/scholar?cites=12435886377905515481)
 
 ## Citation
 
