@@ -6,24 +6,14 @@ By default, R2DT displays the **expected accuracy** of the alignment between the
 
 ## Alignment accuracy
 
-For example, the following diagram shows the secondary structure of a [SAM riboswitch RNA sequence](https://rnacentral.org/rna/URS00002D29F6/224308) from *Bacillus subtilis* visualised using the [RF00162](https://rfam.org/family/RF00162) Rfam template. The colored circles highlight the hairpin loop region where Infernal is not 100% confident in the alignment:
+For example, the following diagram shows the secondary structure of a [SAM riboswitch RNA sequence](https://rnacentral.org/rna/URS00002D29F6/224308) from *Bacillus subtilis* visualised using the [RF00162](https://rfam.org/family/RF00162) Rfam template:
 
-<div id="svg-container">
-  <embed id="svg" type="image/svg+xml" style="width: 500px; height: 500px;" src="https://docs.r2dt.bio/en/latest/_images/template-free-example.png" />
-</div>
-<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.5.0/dist/svg-pan-zoom.min.js"></script>
-<script>
-  window.onload = function() {
-    var svg = document.getElementById('svg');
-    var panZoom = svgPanZoom(svg, {
-      zoomEnabled: true,
-      controlIconsEnabled: true,
-      fit: true,
-      center: true,
-      minZoom: 0.1
-    });
-  };
-</script>
+```{figure} images/URS00002D29F6_224308-RF00162.enriched.svg
+:width: 600px
+:alt: SAM riboswitch
+
+The colored circles highlight the hairpin loop region where Infernal is not 100% confident in the alignment.
+```
 
 Hovering over the nucleotides shows the alignment accuracy (posterior probability) values. Similar to Infernal `#=GR PP` lines, the posterior probability `p` is encoded as 11 possible characters from `0` to `10`:
 
