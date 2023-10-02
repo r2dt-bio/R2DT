@@ -4,7 +4,12 @@ The R2DT documentation is generated using [Sphinx](https://www.sphinx-doc.org/en
 
 To generate documentation locally:
 
-1. Launch Docker or install requirements from `requirements.txt` (see [installation instructions](./installation.md)).
+1. Create a local virtual environment and activate it:
+    ```bash
+    python3 -m venv .venv
+    pip3 install -r requirements.txt
+    source .venv/bin/activate
+    ```
 
 2. Generate html files:
     ```bash
