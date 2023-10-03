@@ -6,9 +6,7 @@ To generate documentation locally:
 
 1. Create a local virtual environment and activate it:
     ```bash
-    python3 -m venv .venv
-    pip3 install -r requirements.txt
-    source .venv/bin/activate
+    just venv
     ```
 
 2. Generate html files and automatically rebuild on changes:
