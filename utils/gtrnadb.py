@@ -159,7 +159,7 @@ def get_trnascan_cm(domain, isotype):
     if cm_output.exists():
         return str(cm_output)
 
-    cm_library = Path("/usr/local/lib/tRNAscan-SE/models")
+    cm_library = Path("/usr/lib/tRNAscan-SE/models")
     if domain == "A":
         cm_library = cm_library / "TRNAinf-arch-iso"
         cm_name = "arch-" + isotype
