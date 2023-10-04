@@ -68,9 +68,10 @@ def parse_trnascan_output(filename):
 
 def run_trnascan(fasta_input, output_folder, domain):
     """Launch tRNAScan-SE and return parsed results."""
+    _, extension = os.path.splitext(fasta_input)
     output_file = os.path.join(
         output_folder,
-        domain + "-" + os.path.basename(fasta_input).replace(".fa", ".txt"),
+        domain + "-" + os.path.basename(fasta_input).replace(extension, ".txt"),
     )
     if domain == "M":
         domain = "M vert"
