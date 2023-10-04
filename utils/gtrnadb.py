@@ -177,7 +177,8 @@ def get_trnascan_cm(domain, isotype):
 
     result = runner.run(f"cmfetch -o {cm_output} {cm_library} {cm_name}")
     if result:
-        os.remove(cm_output)
+        if cm_output.exists():
+            cm_output.unlink()
         cm_output = None
     return cm_output
 
