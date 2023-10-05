@@ -9,6 +9,7 @@ alias bb := bbuild
 platform := ""
 image := "rnacentral/r2dt"
 base_image := "rnacentral/r2dt-base"
+tag := "latest"
 data_dir := "./1.4"
 
 
