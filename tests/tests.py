@@ -432,6 +432,7 @@ class TestGtrnadbMitoVert(R2dtTestCase):
         "URS0000333A94_392897-M_SerTGA.colored.svg",
         "URS0000043FFB_392897-M_SerGCT.colored.svg",
         "URS0000247C4D_392897-M_Cys.colored.svg",
+        "URS0002616B70_9606-M_SerGCT.colored.svg",
     ]
 
     def test_examples(self):
