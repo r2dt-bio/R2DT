@@ -93,6 +93,7 @@ class R2dtTestCase(unittest.TestCase):
             print(f"Test results can be found in {self.test_results}")
         else:
             self.delete_folder(self.test_results)
+        runner.run(f"rm -f {os.path.join('examples', '*.ssi')}")
 
     def create_webpage(
         self, filename: str, before, after, comparison_result: ComparisonResult
