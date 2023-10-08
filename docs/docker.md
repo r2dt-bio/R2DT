@@ -24,7 +24,7 @@ When there's a need to update the base image, one needs to:
 
 * Create a branch from `develop` and make changes to the `base_image/Dockerfile` as necessary.
 * Build the base image locally and test it. Specifically, this requires updating the `FROM` directive in the R2DT's image Dockerfile to reference the locally built base image.
-* Once the base image is ready, push it to Docker Hub as `rnacentral/r2dt-base:<version>`. Ideally, retain the prior version's number, appending a distinct build number (e.g., `1.4.0-2`), unless changes to the R2DT are also required (for instance, when one of the dependencies changes its API).
+* Once the base image is ready, merge the push it to Docker Hub as `rnacentral/r2dt-base:<version>`. Ideally, retain the prior version's number, appending a distinct build number (e.g., `1.4.0-2`), unless changes to the R2DT are also required (for instance, when one of the dependencies changes its API).
 
 _Note_: the base image is not tagged as `latest` to avoid accidental use of the latest version of the base image by R2DT.
 
