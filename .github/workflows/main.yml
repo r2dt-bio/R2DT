@@ -1,4 +1,4 @@
-name: Building Docker image
+name: Build and Push R2DT Docker image
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
   initial-notification:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Initial notification
         uses: rtCamp/action-slack-notify@v2
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: create-docker-tag
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Final notification
         uses: rtCamp/action-slack-notify@v2
