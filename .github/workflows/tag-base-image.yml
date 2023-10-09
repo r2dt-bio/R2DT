@@ -1,0 +1,34 @@
+name: Tag rnacentral/r2dt-base image with given tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha256:
+        description: 'Existing Image SHA256'
+        required: true
+      image_version:
+        description: 'Desired Image Version (Tag)'
+        required: true
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Log in to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USER }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Pull image by SHA256
+      run: docker pull rnacentral/r2dt-base@sha256:${{ github.event.inputs.image_sha256 }}
+
+    - name: Tag image with version
+      run: docker tag rnacentral/r2dt-base@sha256:${{ github.event.inputs.image_sha256 }} rnacentral/r2dt-base:${{ github.event.inputs.image_version }}
+
+    - name: Push tagged image to DockerHub
+      run: docker push rnacentral/r2dt-base:${{ github.event.inputs.image_version }}
