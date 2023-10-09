@@ -69,7 +69,7 @@ def verify_anticodon(isotype, anticodon, start, end):
     """
     if anticodon != "NNN":
         return anticodon
-    seq_length = max(start, end) - min(start, end) + 1
+    seq_length = abs(end - start) + 1
     if isotype == "Leu":
         anticodon = "TAA" if seq_length % 2 == 0 else "TAG"
     elif isotype == "Ser":
@@ -223,8 +223,7 @@ def get_trnascan_cm(domain, isotype):
 
     result = runner.run(f"cmfetch -o {cm_output} {cm_library} {cm_name}")
     if result:
-        if cm_output.exists():
-            cm_output.unlink()
+        cm_output.unlink(missing_ok=True)
         cm_output = None
     return cm_output
 
