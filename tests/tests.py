@@ -12,6 +12,7 @@ limitations under the License.
 """
 
 import filecmp
+import glob
 import os
 import unittest
 from dataclasses import dataclass
@@ -93,7 +94,8 @@ class R2dtTestCase(unittest.TestCase):
             print(f"Test results can be found in {self.test_results}")
         else:
             self.delete_folder(self.test_results)
-        runner.run(f"rm -f {os.path.join('examples', '*.ssi')}")
+        # pylint: disable=expression-not-assigned
+        [os.remove(file) for file in glob.glob("examples/*.ssi")]
 
     def create_webpage(
         self, filename: str, before, after, comparison_result: ComparisonResult
