@@ -24,7 +24,7 @@ When there's a need to update the base image, one needs to:
 
 * Create a branch off of `develop` and make changes to the `base_image/Dockerfile` as necessary.
 * Build the base image locally and test it. Specifically, this requires updating the `FROM` directive in the R2DT's image Dockerfile to reference the locally built base image. You may use `just bbuild` command to build the base image locally.
-* Once the base image is ready, submit a pull request. This will trigger image build via GitHub Actions. Resulting base image will have a tag after your branch name (e.g., `rnacentral/r2dt-base:my-feature-branch`).
+* Once the base image is ready, submit a pull request. This will trigger image build via GitHub Actions. Resulting base image will have a tag after your pull request id (e.g., `rnacentral/r2dt-base:pr-109`).
 * If you plan to use the newly built image in subsequent R2DT development, reach out to the repo maintainers and ask them to tag your image as new release version using corresponding [workflow](https://github.com/RNAcentral/R2DT/actions/workflows/tag-base-image.yml) (only repo maintainers have permissions run it) and update the `FROM` directive in the R2DT's image Dockerfile to reference the newly tagged base image.
 
 
