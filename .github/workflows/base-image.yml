@@ -1,7 +1,7 @@
 name: Build and Push Base Docker image
 
 on:
-  push:
+  pull_request:
     paths:
       - 'base_image/**'
       - '.github/workflows/base-image.yml'
@@ -33,11 +33,7 @@ jobs:
           images: rnacentral/r2dt-base
           flavor: latest=false
           tags: |
-            type=raw,value=latest
             type=ref,event=pr
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
         id: build
@@ -51,30 +47,3 @@ jobs:
           cache-to: type=gha,mode=max
           file: base_image/Dockerfile
           context: base_image/
-
-
-      - name: Find comment for image tags
-        uses: peter-evans/find-comment@v2
-        if: github.event_name == 'pull_request'
-        id: fc
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: Docker base image tag(s) pushed
-
-      - name: Create or update comment for image tags
-        uses: peter-evans/create-or-update-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          comment-id: ${{ steps.fc.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            Docker base image tag(s) pushed:
-            ```text
-            ${{ steps.docker_meta.outputs.tags }}
-            ```
-            Labels added to images:
-            ```text
-            ${{ steps.docker_meta.outputs.labels }}
-            ```
-          edit-mode: replace
