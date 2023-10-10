@@ -3,10 +3,10 @@ name: Tag rnacentral/r2dt-base image with given tag
 on:
   workflow_dispatch:
     inputs:
-      image_sha256:
-        description: 'Existing Image SHA256'
+      source_tag:
+        description: 'Existing Image Tag'
         required: true
-      image_version:
+      destination_tag:
         description: 'Desired Image Version (Tag)'
         required: true
 
@@ -24,11 +24,9 @@ jobs:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Pull image by SHA256
-      run: docker pull rnacentral/r2dt-base@sha256:${{ github.event.inputs.image_sha256 }}
-
-    - name: Tag image with version
-      run: docker tag rnacentral/r2dt-base@sha256:${{ github.event.inputs.image_sha256 }} rnacentral/r2dt-base:${{ github.event.inputs.image_version }}
-
-    - name: Push tagged image to DockerHub
-      run: docker push rnacentral/r2dt-base:${{ github.event.inputs.image_version }}
+    - name: Retag the image to the given tag
+      uses: LANsible/copy-image-manifest-action@main
+      with:
+        source:  rnacentral/r2dt-base@${{ github.event.inputs.source_tag }}
+        targets: rnacentral/r2dt-base:${{ github.event.inputs.destination_tag }}
+        wait_platforms: linux/amd64,linux/arm64
