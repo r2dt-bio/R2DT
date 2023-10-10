@@ -22,10 +22,10 @@ This approach allows to keep the R2DT compact, containing only the Python and R2
 
 When there's a need to update the base image, one needs to:
 
-* Create a branch from `develop` and make changes to the `base_image/Dockerfile` as necessary.
-* Build the base image locally and test it. Specifically, this requires updating the `FROM` directive in the R2DT's image Dockerfile to reference the locally built base image.
-* Once the base image is ready, merge the push it to Docker Hub as `rnacentral/r2dt-base:<version>`. Ideally, retain the prior version's number, appending a distinct build number (e.g., `1.4.0-2`), unless changes to the R2DT are also required (for instance, when one of the dependencies changes its API).
+* Create a branch off of `develop` and make changes to the `base_image/Dockerfile` as necessary.
+* Build the base image locally and test it. Specifically, this requires updating the `FROM` directive in the R2DT's image Dockerfile to reference the locally built base image. You may use `just bbuild` command to build the base image locally.
+* Once the base image is ready, submit a pull request. This will trigger image build via GitHub Actions. Resulting base image will have a tag after your branch name (e.g., `rnacentral/r2dt-base:my-feature-branch`).
+* If you plan to use the newly built image in subsequent R2DT development, reach out to the repo maintainers and ask them to tag your image as new release version using corresponding [workflow](https://github.com/RNAcentral/R2DT/actions/workflows/tag-base-image.yml) (only repo maintainers have permissions run it) and update the `FROM` directive in the R2DT's image Dockerfile to reference the newly tagged base image.
 
-_Note_: the base image is not tagged as `latest` to avoid accidental use of the latest version of the base image by R2DT.
 
-_Note 2_: when changes to both base and R2DT images are required, it's recommended to put them in separate PRs, to allow the base image to be built with the new version on Dockerhub, so that the R2DT image can be built with the new base image.
+_Note_: when changes to both base and R2DT images are required, it's recommended to put them in separate PRs, to allow the base image to be built with the new version on Dockerhub, so that the R2DT image can be built with the new base image.
