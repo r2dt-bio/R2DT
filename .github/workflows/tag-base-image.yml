@@ -27,6 +27,6 @@ jobs:
     - name: Retag the image to the given tag
       uses: LANsible/copy-image-manifest-action@main
       with:
-        source:  rnacentral/r2dt-base@${{ github.event.inputs.source_tag }}
+        source:  rnacentral/r2dt-base:${{ github.event.inputs.source_tag }}
         targets: rnacentral/r2dt-base:${{ github.event.inputs.destination_tag }}
         wait_platforms: linux/amd64,linux/arm64
