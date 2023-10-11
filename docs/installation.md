@@ -11,7 +11,7 @@
     # Get the code
     git clone https://github.com/RNAcentral/R2DT.git
     cd R2DT
-    docker build -t rnacentral/r2dt .
+    just build
     ```
 
     Or build a Singularity image:
