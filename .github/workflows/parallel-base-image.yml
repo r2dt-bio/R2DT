@@ -17,8 +17,10 @@ jobs:
         include:
           - platform: 'linux/amd64'
             runner: 'ubuntu-latest'
+            shorthand: 'amd64'
           - platform: 'linux/arm64'
             runner: 'buildjet-2vcpu-ubuntu-2204-arm'
+            shorthand: 'arm64'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,8 +39,8 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
           target: ${{ matrix.stage }}
-          cache-from: type=registry,ref=rnacentral/r2dt-base:cache-${{ matrix.stage }}
-          cache-to: type=registry,ref=rnacentral/r2dt-base:cache-${{ matrix.stage }},mode=max
+          cache-from: type=registry,ref=rnacentral/r2dt-base:cache-${{ matrix.stage }}-${{ matrix.shorthand }}
+          cache-to: type=registry,ref=rnacentral/r2dt-base:cache-${{ matrix.stage }}-${{ matrix.shorthand }},mode=max
           file: base_image/Dockerfile
           context: base_image/
 
@@ -78,12 +80,20 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: |
-            type=registry,ref=rnacentral/r2dt-base:cache-rscape
-            type=registry,ref=rnacentral/r2dt-base:cache-tRNAscan-SE
-            type=registry,ref=rnacentral/r2dt-base:cache-Bio-Easel
-            type=registry,ref=rnacentral/r2dt-base:cache-traveler
-            type=registry,ref=rnacentral/r2dt-base:cache-scripts
-            type=registry,ref=rnacentral/r2dt-base:cache-ribovore-infernal-easel
+            type=registry,ref=rnacentral/r2dt-base:cache-rscape-amd64
+            type=registry,ref=rnacentral/r2dt-base:cache-tRNAscan-SE-amd64
+            type=registry,ref=rnacentral/r2dt-base:cache-Bio-Easel-amd64
+            type=registry,ref=rnacentral/r2dt-base:cache-traveler-amd64
+            type=registry,ref=rnacentral/r2dt-base:cache-scripts-amd64
+            type=registry,ref=rnacentral/r2dt-base:cache-ribovore-infernal-easel-amd64
+
+            type=registry,ref=rnacentral/r2dt-base:cache-rscape-arm64
+            type=registry,ref=rnacentral/r2dt-base:cache-tRNAscan-SE-arm64
+            type=registry,ref=rnacentral/r2dt-base:cache-Bio-Easel-arm64
+            type=registry,ref=rnacentral/r2dt-base:cache-traveler-arm64
+            type=registry,ref=rnacentral/r2dt-base:cache-scripts-arm64
+            type=registry,ref=rnacentral/r2dt-base:cache-ribovore-infernal-easel-arm64
+
             type=registry,ref=rnacentral/r2dt-base:cache-final
           cache-to: type=registry,ref=rnacentral/r2dt-base:cache-final,mode=max
           file: base_image/Dockerfile
