@@ -21,8 +21,7 @@
 
 2. Setup a precomputed data library _(198 MB, last updated Aug 21, 2023)_:
     ```bash
-    curl -O https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/1.4/cms.tar.gz
-    tar -xzf cms.tar.gz
+    just download
     export R2DT_LIBRARY=<path to precomputed library>
     ```
 
