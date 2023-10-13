@@ -66,8 +66,8 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
-          labels: ${{ needs.setup.outputs.labels }}
-          tags: ${{ needs.setup.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           file: base_image/Dockerfile
