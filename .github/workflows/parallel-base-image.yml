@@ -23,9 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-#      - name: Set up QEMU
-#        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -80,7 +77,14 @@ jobs:
           push: true
           labels: ${{ steps.docker_meta.outputs.labels }}
           tags: ${{ steps.docker_meta.outputs.tags }}
-          cache-from: type=registry,ref=rnacentral/r2dt-base:cache-final
+          cache-from: |
+            type=registry,ref=rnacentral/r2dt-base:cache-rscape
+            type=registry,ref=rnacentral/r2dt-base:cache-tRNAscan-SE
+            type=registry,ref=rnacentral/r2dt-base:cache-Bio-Easel
+            type=registry,ref=rnacentral/r2dt-base:cache-traveler
+            type=registry,ref=rnacentral/r2dt-base:cache-scripts
+            type=registry,ref=rnacentral/r2dt-base:cache-ribovore-infernal-easel
+            type=registry,ref=rnacentral/r2dt-base:cache-final
           cache-to: type=registry,ref=rnacentral/r2dt-base:cache-final,mode=max
           file: base_image/Dockerfile
           context: base_image/
