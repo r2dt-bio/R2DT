@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'base_image/**'
-      - '.github/workflows/base-image.yml'
       - '.github/workflows/parallel-base-image.yml'
 
 jobs:
@@ -23,9 +22,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Create a new builder instance
-        run: docker buildx create --use
-
       - name: Docker Meta
         id: docker_meta
         uses: docker/metadata-action@v4
@@ -42,6 +38,12 @@ jobs:
       matrix:
         stage: [rscape, tRNAscan-SE, Bio-Easel, traveler, scripts, ribovore-infernal-easel]
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build ${{ matrix.stage }} stage
         uses: docker/build-push-action@v5
         with:
