@@ -31,11 +31,22 @@ When updating the base image, follow these steps:
 3. Submit a pull request, triggering image build via GitHub Actions. The resulting base image will be tagged with your pull request ID (e.g., `rnacentral/r2dt-base:pr-109`).
 4. If you plan to use the newly built image in subsequent R2DT development, [notify](https://github.com/rnacentral/r2dt/issues/new) the repository maintainers. Ask them to tag your image as a new release version using the corresponding [workflow](https://github.com/RNAcentral/R2DT/actions/workflows/tag-base-image.yml). Only repository maintainers have permission to run this workflow. Update the `FROM` directive in the R2DT's image Dockerfile to reference the newly tagged base image.
 
+_Note_: If you would like to build the R2DT image against a custom version of the base image, you can do so by using `just tag-build <TAG>` command:
+
+```bash
+# build r2dt image against the base image tagged as pr-109
+just tag-build pr-109
+
+# build r2dt image against the base image tagged as latest
+just tag-build latest
+```
+
 _Note_: When changes to both base and R2DT images are required, it is recommended to submit separate pull requests. This allows the base image to be built with the new version on Dockerhub before the R2DT image is built with the updated base image.
+
 
 ## Building for non-default platforms/architectures
 
-Should you need to build any of the images for a different platform (e.g., `arm64`), you can do so by specifying the `platform=PLATFORM_NAME` flag when building the image. For example, to build the base image for `linux/arm64`, run:
+Should you need to build any of the images for a different platform (e.g., `arm64`), you can do so by specifying the `platform=PLATFORM_NAME` flag when building the image. For example:
 
 ```bash
 # build base image for linux/arm64

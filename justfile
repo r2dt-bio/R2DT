@@ -12,7 +12,6 @@ platform := ""
 platform_arg := if platform == "" { "" } else { "--platform=" + platform }
 base_image := "rnacentral/r2dt-base"
 image := "rnacentral/r2dt"
-tag := "latest"
 data_version := "1.4"
 data_dir := "./" + data_version
 
@@ -47,12 +46,15 @@ test TEST:
 build *BUILD_ARGS:
     docker buildx build {{ platform_arg }} {{ BUILD_ARGS }} -t {{ image }}  .
 
+# Shortcut to build the R2DT Docker image against custom base image
+tag-build tag: (build ("--build-arg BASE_IMAGE_VERSION=" + tag))
+
 # Build base image locally
 bbuild:
     docker buildx build {{ platform_arg }} -t {{ base_image }} base_image
 
 # Build base and then the r2dt images locally
-full-build: bbuild (build "--build-arg BASE_IMAGE_VERSION=latest")
+full-build: bbuild (tag-build "latest")
 
 # Start a development docs server
 docs:
