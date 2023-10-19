@@ -27,8 +27,34 @@ View [rnacentral/r2dt](https://hub.docker.com/r/rnacentral/r2dt) on Docker Hub &
 When updating the base image, follow these steps:
 
 1. Create a branch from `develop` and make necessary changes to `base_image/Dockerfile`.
-2. Build the base image locally and test it. Update the `FROM` directive in the R2DT's image Dockerfile to reference the locally built base image. Use the `just bbuild` command to build the base image locally.
+2. Build the base image locally and test it. Use the `just bbuild` command to build the base image locally and `just full-build` to build both the base image and the main image locally.
 3. Submit a pull request, triggering image build via GitHub Actions. The resulting base image will be tagged with your pull request ID (e.g., `rnacentral/r2dt-base:pr-109`).
 4. If you plan to use the newly built image in subsequent R2DT development, [notify](https://github.com/rnacentral/r2dt/issues/new) the repository maintainers. Ask them to tag your image as a new release version using the corresponding [workflow](https://github.com/RNAcentral/R2DT/actions/workflows/tag-base-image.yml). Only repository maintainers have permission to run this workflow. Update the `FROM` directive in the R2DT's image Dockerfile to reference the newly tagged base image.
 
+_Note_: If you would like to build the R2DT image against a custom version of the base image, you can do so by using `just tag-build <TAG>` command:
+
+```bash
+# build r2dt image against the base image tagged as pr-109
+just tag-build pr-109
+
+# build r2dt image against the base image tagged as latest
+just tag-build latest
+```
+
 _Note_: When changes to both base and R2DT images are required, it is recommended to submit separate pull requests. This allows the base image to be built with the new version on Dockerhub before the R2DT image is built with the updated base image.
+
+
+## Building for non-default platforms/architectures
+
+Should you need to build any of the images for a different platform (e.g., `arm64`), you can do so by specifying the `platform=PLATFORM_NAME` flag when building the image. For example:
+
+```bash
+# build base image for linux/arm64
+just platform=linux/arm64 bbuild
+
+# build r2dt image for linux/amd64
+just platform=linux/amd64 build
+
+# build both images for darwin/arm64
+just platform=darwin/arm64 full-build
+```
