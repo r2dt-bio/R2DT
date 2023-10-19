@@ -66,7 +66,7 @@ docs:
 check-links:
     (cd docs && make linkcheck)
 
-# Delete test rusults
+# Delete test results
 clean:
     -rm -rf tests/results
     -rm tests/*.html
