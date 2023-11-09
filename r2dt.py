@@ -445,23 +445,28 @@ def organise_results(results_folder, output_folder):
 
     # Move .thumbnail.svg files
     for file in results_path.glob("*.thumbnail.svg"):
-        shutil.move(str(file), folders["thumbnail"])
+        shutil.copy(str(file), folders["thumbnail"])
+        file.unlink()
 
     # Move .colored.svg files
     for file in results_path.glob("*.colored.svg"):
-        shutil.move(str(file), folders["svg"])
+        shutil.copy(str(file), folders["svg"])
+        file.unlink()
 
     # Move .enriched.svg files
     for file in results_path.glob("*.enriched.svg"):
-        shutil.move(str(file), folders["svg"])
+        shutil.copy(str(file), folders["svg"])
+        file.unlink()
 
     # Move .fasta files
     for file in results_path.glob("*.fasta"):
-        shutil.move(str(file), folders["fasta"])
+        shutil.copy(str(file), folders["fasta"])
+        file.unlink()
 
     # Move .json files
     for file in results_path.glob("*.json"):
-        shutil.move(str(file), folders["json"])
+        shutil.copy(str(file), folders["json"])
+        file.unlink()
 
 
 @cli.group("gtrnadb")
