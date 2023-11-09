@@ -171,6 +171,24 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
     runner.run(f"esl-sfetch --index {output_filename}")
 
 
+def is_templatefree(fasta_input):
+    """Check if the input file is a valid fasta file
+    with an additional line specifying secondary structure
+    in dot bracket format (pseudoknots allowed)."""
+    with open(fasta_input) as f_in:
+        lines = [line for line in f_in.readlines() if line.strip()]
+    if len(lines) != 3:
+        return False
+    header, sequence, structure = lines
+    if not header.startswith(">"):
+        return False
+    if len(sequence) != len(structure):
+        return False
+    if not re.match(r"^[.()<>{}[\]A-z]+$", structure):
+        return False
+    return True
+
+
 @cli.command()
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
@@ -211,6 +229,12 @@ def draw(
     """
     if not quiet:
         rprint(shared.get_r2dt_version_header())
+
+    if is_templatefree(fasta_input):
+        rprint("Detected templatefree input.")
+        ctx.invoke(templatefree, fasta_input=fasta_input, output_folder=output_folder)
+        return
+
     all_seq_ids = get_seq_ids(fasta_input)
 
     if force_template:

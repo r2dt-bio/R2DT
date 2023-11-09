@@ -120,7 +120,13 @@ GGCCUUAUACAGGGUAGCAUAAUGGGCUACUGACCCCGCCUUCAAACCUAUUUGGAGACUAUAAGGUC
 .((((((((A..((((((.....BB))))))(.....a)(((((((bb..)))))))..)))))))).
 ```
 
-Example command:
+R2DT automatically detects if the secondary structure is present in the input FASTA file and will use it to generate a diagram:
+
+```bash
+r2dt.py draw examples/template-free.fasta temp/template-free-example
+```
+
+Alternatively, one can explicit specify the `templatefree` mode:
 
 ```bash
 r2dt.py templatefree examples/template-free.fasta temp/template-free-example
