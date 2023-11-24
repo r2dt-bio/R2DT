@@ -102,6 +102,7 @@ RUN \
     python3-pip  \
     python3-venv  \
     python3-cairo  \
+    chafa \
     perl &&  \
     rm -rf /var/lib/{apt,lpkg,cache,log}
 RUN \
