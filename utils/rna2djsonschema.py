@@ -12,52 +12,116 @@ limitations under the License.
 """
 
 import json
-import os
+from pathlib import Path
+
+from utils import config
+from utils import generate_cm_library as gcl
+
+TEMPLATE_FOLDER = "new"
 
 
-def parse_json_file(json_file):
-    """Parse RNA 2D JSON Schema file and return the data and other info."""
-    with open(json_file) as f_json:
-        data = json.load(f_json)
-    rna_name = os.path.basename(json_file).replace(".json", "")
-    destination = os.path.join("data", "new", rna_name)
-    os.makedirs(destination, exist_ok=True)
-    return data, destination, rna_name
+# pylint: disable=too-many-instance-attributes
+class SchemaToTemplate:
+    """Convert an RNA 2D JSON Schema file to a Traveler template."""
 
+    def __init__(self, json_file: str):
+        self.json_file = Path(json_file)
+        self.rna_name = self.json_file.stem
+        self.data = self.get_data()
+        self.path = self.get_file_location()
+        self.sequence = self.get_sequence()
+        self.dot_bracket = self.get_dot_bracket()
+        self.prime_label_present = False
+        self.result = {
+            "xml": self.path / f"{self.rna_name}.xml",
+            "fasta": self.path / f"{self.rna_name}.fasta",
+            "cm": self.path / f"{self.rna_name}.cm",
+        }
+        self.create_template()
 
-def generate_traveler_xml(data, destination, rna_name):
-    """Generate a Traveler XML file from an RNA 2D JSON Schema file."""
-    xml_template = os.path.join(destination, f"{rna_name}.xml")
-    with open(xml_template, "w") as f_xml:
-        f_xml.write("<structure>\n")
-        for nucleotide in data["rnaComplexes"][0]["rnaMolecules"][0]["sequence"]:
+    def __repr__(self) -> str:
+        """Return a string representation of the object."""
+        return (
+            f"SchemaToTemplate("
+            f"path={self.path}, "
+            f"cm={self.result['cm'].name}, "
+            f"fasta={self.result['fasta'].name}, "
+            f"xml={self.result['xml'].name}"
+            f")"
+        )
+
+    def get_data(self) -> dict:
+        """Parse RNA 2D JSON Schema file and return the data and other info."""
+        with open(self.json_file) as f_json:
+            data = json.load(f_json)
+        return data
+
+    def get_file_location(self) -> Path:
+        """Get the location of the output files."""
+        destination = Path(config.DATA) / TEMPLATE_FOLDER / self.rna_name
+        destination.mkdir(parents=True, exist_ok=True)
+        return destination
+
+    def generate_traveler_xml(self) -> None:
+        """Generate a Traveler XML file from an RNA 2D JSON Schema file."""
+        molecule = self.data["rnaComplexes"][0]["rnaMolecules"][0]
+        with open(self.result["xml"], "w") as f_xml:
+            f_xml.write("<structure>\n")
+            for nucleotide in molecule["sequence"]:
+                if nucleotide["residueName"] in ["5'", "3'"]:
+                    self.prime_label_present = True
+                    continue
+                base = nucleotide["residueName"]
+                x_coord = nucleotide["x"]
+                y_coord = nucleotide["y"]
+                f_xml.write(
+                    f'<point x="{x_coord:.2f}" y="{y_coord:.2f}" b="{base}"/>\n'
+                )
+            f_xml.write("</structure>\n")
+
+    def get_sequence(self) -> str:
+        """Get the sequence of the RNA molecule."""
+        molecule = self.data["rnaComplexes"][0]["rnaMolecules"][0]
+        sequence = []
+        for nucleotide in molecule["sequence"]:
             if nucleotide["residueName"] in ["5'", "3'"]:
+                self.prime_label_present = True
                 continue
-            base = nucleotide["residueName"]
-            x_coord = nucleotide["x"]
-            y_coord = nucleotide["y"]
-            f_xml.write(f'<point x="{x_coord:.2f}" y="{y_coord:.2f}" b="{base}"/>\n')
-        f_xml.write("</structure>\n")
-    return xml_template
+            sequence.append(nucleotide["residueName"])
+        return "".join(sequence)
 
+    def get_dot_bracket(self) -> str:
+        """Get the dot bracket notation of the RNA molecule."""
+        dot_bracket = ["."] * len(self.sequence)
+        molecule = self.data["rnaComplexes"][0]["rnaMolecules"][0]
+        for basepair in molecule["basePairs"]:
+            if basepair["basePairType"] != "canonical":
+                continue
+            if self.prime_label_present:
+                basepair["residueIndex1"] -= 1
+                basepair["residueIndex2"] -= 1
+            dot_bracket[basepair["residueIndex1"]] = "("
+            dot_bracket[basepair["residueIndex2"]] = ")"
+        return "".join(dot_bracket)
 
-def generate_traveler_fasta(data, destination, rna_name):
-    """Generate a Traveler FASTA file from an RNA 2D JSON Schema file."""
-    fasta_file = os.path.join(destination, f"{rna_name}.fasta")
-    sequence = []
-    for nucleotide in data["rnaComplexes"][0]["rnaMolecules"][0]["sequence"]:
-        if nucleotide["residueName"] in ["5'", "3'"]:
-            continue
-        sequence.append(nucleotide["residueName"])
-    dot_bracket = ["."] * len(sequence)
-    for basepair in data["rnaComplexes"][0]["rnaMolecules"][0]["basePairs"]:
-        if basepair["basePairType"] != "canonical":
-            continue
-        dot_bracket[basepair["residueIndex1"]] = "("
-        dot_bracket[basepair["residueIndex2"]] = ")"
+    def generate_traveler_fasta(self) -> None:
+        """Generate a Traveler FASTA file from an RNA 2D JSON Schema file."""
+        with open(self.result["fasta"], "w", encoding="utf-8") as f_fasta:
+            lines = [
+                f">{self.rna_name}",
+                self.sequence,
+                self.dot_bracket,
+            ]
+            f_fasta.write("\n".join(lines) + "\n")
 
-    with open(fasta_file, "w", encoding="utf-8") as f_fasta:
-        f_fasta.write(f">{rna_name}\n")
-        f_fasta.write(f"{''.join(sequence)}\n")
-        f_fasta.write(f"{''.join(dot_bracket)}\n")
-    return fasta_file
+    def generate_cm(self) -> None:
+        """Generate a covariance model from an RNA 2D JSON Schema file."""
+        gcl.build_cm(
+            gcl.convert_fasta_to_stockholm(str(self.result["fasta"])), self.path
+        )
+
+    def create_template(self) -> None:
+        """Create a template."""
+        self.generate_traveler_xml()
+        self.generate_traveler_fasta()
+        self.generate_cm()

@@ -639,7 +639,7 @@ class TestTemplateGeneration(R2dtTestCase):
     precomputed_results = os.path.join(
         "tests", "examples", "template-generation", "RF02976"
     )
-    cmd = f"r2dt.py generate-template {json_input}"
+    cmd = f"r2dt.py generate-template {json_input} --quiet"
     files = ["RF02976.fasta", "RF02976.xml"]
 
     def test_examples(self):
