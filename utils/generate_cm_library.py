@@ -75,7 +75,9 @@ def copy_cm_evalues(cm_filename):
     cm_filename_path = Path(cm_filename)
 
     subprocess.run(
-        [str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True
+        [perl_script_path, example_cm_path, cm_filename_path],
+        check=True,
+        stdout=subprocess.DEVNULL,
     )
 
     # Remove the .old file
