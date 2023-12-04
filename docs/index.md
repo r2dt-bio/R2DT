@@ -26,9 +26,9 @@ The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates 
 
 ## How does it work?
 
-Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the slides from a recent talk:
+Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the overview slides:
 
-<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRrBpjxq-QiArYPuzQiKZBJVFlHR3vEYGkZUV-W1XcrG6hX1eMAoahJmLU9Vf1VlGSVPfaLYqPqp1Ke/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+<iframe src="https://docs.google.com/presentation/d/1DI-_3ozYsGhe21ZUyMeUKn9NrAxjTaoXJ2DF8IPi3Wo/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 <br>
 
 ## Examples
