@@ -4,19 +4,19 @@ The R2DT documentation is generated using [Sphinx](https://www.sphinx-doc.org/en
 
 To generate documentation locally:
 
-1. Create a local virtual environment and activate it:
-    ```bash
-    just venv
-    ```
-
-2. Generate html files and automatically rebuild on changes:
+1. Start local server and watch for changes:
     ```bash
     just docs
     ```
 
-3. Open http://localhost:8000 in your browser to view the docs.
+2. Open [http://0.0.0.0:8000](http://0.0.0.0:8000) in your browser to view the docs.
 
-4. To check that all URLs are live:
-    ```bash
+:::{note}
+An alternative port can be specified using the `port` variable: `just port=3000 docs`
+:::
+
+## Verifying documentation
+
+To check that all hyperlinks are live:
+
     just check-links
-    ```

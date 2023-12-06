@@ -13,6 +13,7 @@ image := "rnacentral/r2dt"
 default_tag := "latest"
 data_version := "1.4"
 data_dir := "./" + data_version
+port := "8000"
 
 # Default recipe to display help information
 default:
@@ -60,7 +61,7 @@ full-build: bbuild (tag-build "latest")
 
 # Start a development docs server
 docs:
-    sphinx-autobuild docs docs/_build/html
+    docker run {{platform}} -p {{port}}:{{port}} -v $(pwd):/rna/r2dt -it --rm {{image}} sphinx-autobuild --host 0.0.0.0 --port {{port}} docs docs/_build/html
 
 # Check links in docs
 check-links:
