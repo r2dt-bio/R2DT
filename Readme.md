@@ -20,6 +20,8 @@ R2DT can be used in a number of ways:
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services
 * As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or in a bare metal installation
 
+You can also [![open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RNAcentral/R2DT)
+
 ## Citation
 
 If you use R2DT in your work, please consider citing the following paper:
