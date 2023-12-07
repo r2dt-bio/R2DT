@@ -210,8 +210,9 @@ def visualise(
             f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
         )
 
+    insertion_removed = False
     if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
+        insertion_removed = shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk_original)
 
     # convert stockholm to aligned fasta with WUSS secondary structure
@@ -238,8 +239,9 @@ def visualise(
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
-    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    infernal_mapping_failed = runner.run(cmd)
+    if not insertion_removed:
+        cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
+        infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
         result_base = os.path.join(

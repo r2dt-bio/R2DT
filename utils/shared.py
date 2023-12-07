@@ -68,11 +68,18 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     return f_out
 
 
+# pylint: disable=too-many-branches,too-many-statements
 def remove_large_insertions_pfam_stk(filename):
     """
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
     """
+    insertion_removed = False
+    gc_ss_cons = ""
+    gc_rf = ""
+    gr_pp = ""
+    gr_ss = ""
+    sequence = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 9:
@@ -82,11 +89,21 @@ def remove_large_insertions_pfam_stk(filename):
             gc_ss_cons = lines[6]
             gc_rf = lines[7]
         elif len(lines) == 11:
-            sequence = lines[5]
-            gr_pp = lines[6]
-            gr_ss = lines[7]
-            gc_ss_cons = lines[8]
-            gc_rf = lines[9]
+            for line in lines:
+                if (
+                    not line.startswith("#")
+                    and not line.startswith("//")
+                    and len(line) > 1
+                ):
+                    sequence = line
+                if line.startswith("#=GC SS_cons"):
+                    gc_ss_cons = line
+                if line.startswith("#=GC RF"):
+                    gc_rf = line
+                if re.search(r"^#=GR\s+.+?\s+PP", line):
+                    gr_pp = line
+                if re.search(r"^#=GR\s+.+?\s+SS", line):
+                    gr_ss = line
         elif len(lines) == 3:
             sequence = lines[0]
             gr_pp = ""
@@ -95,11 +112,11 @@ def remove_large_insertions_pfam_stk(filename):
             gc_rf = ""
         else:
             print("Unexpected number of lines in pfam stk")
-            return
+            return insertion_removed
         # the tilda and period characters represent insert states in WUSS notation
         match = re.finditer(r"([\.~_:]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
         if not match:
-            return
+            return insertion_removed
         for span in match:
             sequence = (
                 sequence[: span.start()]
@@ -128,15 +145,19 @@ def remove_large_insertions_pfam_stk(filename):
                     + "@" * (span.end() - span.start())
                     + gc_rf[span.end() :]
                 )
+        if "@" in sequence:
+            insertion_removed = True
+        else:
+            return insertion_removed
         if len(lines) == 9:
             lines[3] = re.sub(r"@+", "XXXX", sequence)
-            lines[4] = re.sub(r"@+", "XXXX", gr_pp)
+            lines[4] = re.sub(r"@+", "1111", gr_pp)
             lines[5] = re.sub(r"@+", "~~~~", gr_ss)
             lines[6] = re.sub(r"@+", "~~~~", gc_ss_cons)
             lines[7] = re.sub(r"@+", "xxxx", gc_rf)
         elif len(lines) == 11:
             lines[5] = re.sub(r"@+", "XXXX", sequence)
-            lines[6] = re.sub(r"@+", "XXXX", gr_pp)
+            lines[6] = re.sub(r"@+", "1111", gr_pp)
             lines[7] = re.sub(r"@+", "~~~~", gr_ss)
             lines[8] = re.sub(r"@+", "~~~~", gc_ss_cons)
             lines[9] = re.sub(r"@+", "xxxx", gc_rf)
@@ -147,6 +168,7 @@ def remove_large_insertions_pfam_stk(filename):
     with open(filename, "w") as f_stockholm:
         for line in lines:
             f_stockholm.write(line)
+    return insertion_removed
 
 
 def get_insertions(filename):
@@ -391,9 +413,17 @@ def get_infernal_posterior_probabilities(input_file, output_file):
     that can be used to propagate the values to JSON
     and colour the SVGs.
     """
+    # copy input file to a temporary file
+    temp_file = input_file + ".tmp"
+    with open(temp_file, "w", encoding="utf-8") as f_out:
+        with open(input_file, "r", encoding="utf-8") as f_in:
+            for line in f_in:
+                f_out.write(line)
+    # remove large insertions
+    remove_large_insertions_pfam_stk(temp_file)
     sequence = ""
     post_prob = ""
-    with open(input_file, "r", encoding="utf-8") as f_in:
+    with open(temp_file, "r", encoding="utf-8") as f_in:
         for line in f_in:
             match = re.match(r"^#=GR\s+.+?\s+PP\s+([123456789*.]+)$", line)
             if match:
@@ -416,6 +446,7 @@ def get_infernal_posterior_probabilities(input_file, output_file):
                 prob = 10
             f_out.write(f"{index}\t{nucleotide}\t{prob}\n")
             index += 1
+    os.remove(temp_file)
 
 
 def generate_thumbnail(image, description):
