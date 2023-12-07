@@ -26,9 +26,9 @@ class SchemaToTemplate:
         self.json_file = Path(json_file)
         self.rna_name = self.json_file.stem
         self.data = self.get_data()
+        self.prime_label_present = False
         self.path = self.get_file_location()
         self.sequence = self.get_sequence()
-        self.prime_label_present = False
         self.dot_bracket = self.get_dot_bracket()
         self.result = {
             "xml": self.path / f"{self.rna_name}.xml",
