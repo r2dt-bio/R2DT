@@ -905,9 +905,9 @@ def force_draw(
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
-    if model_type == "rfam":
+    if model_type in ["crw", "rfam", "rnasep", "local_data"]:
         core.visualise(
-            "rfam",
+            model_type,
             fasta_input,
             output,
             seq_id,
@@ -916,9 +916,9 @@ def force_draw(
             exclusion,
             fold_type,
         )
-    elif model_type == "ribovision_ssu":
+    elif model_type in ["ribovision_ssu", "ribovision_lsu"]:
         core.visualise(
-            "ssu",
+            model_type.split("_")[1],  # ssu or lsu
             fasta_input,
             output,
             seq_id,
@@ -927,35 +927,13 @@ def force_draw(
             exclusion,
             fold_type,
         )
-    elif model_type == "ribovision_lsu":
-        core.visualise(
-            "lsu",
+    elif model_type == "gtrnadb":
+        domain, isotype = model_id.split("_")
+        core.visualise_trna(
+            domain,
+            isotype,
             fasta_input,
             output,
-            seq_id,
-            model_id,
-            constraint,
-            exclusion,
-            fold_type,
-        )
-    elif model_type == "rnasep":
-        core.visualise(
-            "rnasep",
-            fasta_input,
-            output,
-            seq_id,
-            model_id,
-            constraint,
-            exclusion,
-            fold_type,
-        )
-    elif model_type == "crw":
-        core.visualise(
-            "crw",
-            fasta_input,
-            output,
-            seq_id,
-            model_id,
             constraint,
             exclusion,
             fold_type,
@@ -977,6 +955,7 @@ def force_draw(
         "ribovision_ssu": "RiboVision",
         "ribovision_lsu": "RiboVision",
         "rnasep": "RNAse P database",
+        "local_data": "Local data",
     }
     with open(
         os.path.join(metadata_folder, "metadata.tsv"), "a", encoding="utf-8"
@@ -1077,27 +1056,26 @@ def generatecm():
     Helper for generating covariance models.
     """
     rprint(shared.get_r2dt_version_header())
-    for bpseq in glob.glob(f"{config.BPSEQ_LOCATION}/*.bpseq"):
+    for bpseq in glob.glob(f"{config.LOCAL_DATA}/*.bpseq"):
         gcl.convert_bpseq_to_fasta(bpseq)
-    for fasta in glob.glob(f"{config.BPSEQ_LOCATION}/*.fasta"):
+    for fasta in glob.glob(f"{config.LOCAL_DATA}/*.fasta"):
         rprint(os.path.basename(fasta).replace(".fasta", ""))
         # fasta_no_knots = break_pseudoknots(fasta)
         stockholm = gcl.convert_fasta_to_stockholm(fasta)
-        gcl.build_cm(stockholm, config.BPSEQ_LOCATION)
+        gcl.build_cm(stockholm, config.LOCAL_DATA)
     rprint("Done")
 
 
 @cli.command()
 @click.argument("json_file", type=click.Path())
-def generate_template(json_file):
+@click.option("--quiet", "-q", default=False, is_flag=True)
+def generate_template(json_file, quiet):
     """Generate an R2DT template from an RNA 2D JSON Schema file."""
-    rprint(shared.get_r2dt_version_header())
-    data, destination, rna_name = r2djs.parse_json_file(json_file)
-    xml_template = r2djs.generate_traveler_xml(data, destination, rna_name)
-    fasta_file = r2djs.generate_traveler_fasta(data, destination, rna_name)
-    stockholm_file = gcl.convert_fasta_to_stockholm(fasta_file)
-    cm_file = gcl.build_cm(stockholm_file, destination)
-    rprint(f"Generated {fasta_file}, {xml_template}, {cm_file}")
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+    template = r2djs.SchemaToTemplate(json_file)
+    if not quiet:
+        rprint(f"Created a new {template}")
 
 
 if __name__ == "__main__":

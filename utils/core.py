@@ -69,6 +69,10 @@ def visualise(
             model_id = rfam.get_rfam_acc_by_id(model_id)
         temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
         temp_acc_list = filename_template.replace("type", "seed_list")
+    elif rna_type.lower() == "local_data":
+        cm_library = os.path.join(config.LOCAL_DATA, model_id)
+        template_layout = cm_library
+        template_structure = cm_library
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
@@ -112,6 +116,13 @@ def visualise(
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
+    elif rna_type == "local_data":
+        model_path = os.path.join(config.LOCAL_DATA, model_id, model_id + ".cm")
+        if not os.path.exists(model_path):
+            rprint(f"Model not found {model_path}")
+            return
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -264,7 +275,7 @@ def visualise(
             f"--template-structure {template_layout}/{model_id}.ps "
             f"{template_structure}/{model_id}.fasta"
         )
-    elif rna_type == "rfam":
+    elif rna_type in ["rfam", "local_data"]:
         traveler_params = (
             f"--template-structure --file-format traveler "
             f"{template_layout} {template_structure} "
