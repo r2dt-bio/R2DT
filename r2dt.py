@@ -43,8 +43,9 @@ class Timer:
     Context manager that logs execution time.
     """
 
-    def __init__(self, msg: str):
+    def __init__(self, msg: str, quiet: bool = False):
         self.msg = msg
+        self.quiet = quiet
         self.start = None
         self.end = None
         self.interval = None
@@ -56,9 +57,10 @@ class Timer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = time.time()
         self.interval = self.end - self.start
-        rprint(
-            f"[yellow]Elapsed time for {self.msg}[/yellow]: {self.interval:.2f} seconds"
-        )
+        if not self.quiet:
+            rprint(
+                f"[yellow]Elapsed time for {self.msg}[/yellow]: {self.interval:.2f} seconds"
+            )
 
 
 @click.group()
@@ -231,8 +233,14 @@ def draw(
         rprint(shared.get_r2dt_version_header())
 
     if is_templatefree(fasta_input):
-        rprint("Detected templatefree input.")
-        ctx.invoke(templatefree, fasta_input=fasta_input, output_folder=output_folder)
+        if not quiet:
+            rprint("Detected templatefree input.")
+        ctx.invoke(
+            templatefree,
+            fasta_input=fasta_input,
+            output_folder=output_folder,
+            quiet=quiet,
+        )
         return
 
     all_seq_ids = get_seq_ids(fasta_input)
@@ -266,8 +274,9 @@ def draw(
     runner.run(f"esl-sfetch --index {subset_fasta}")
 
     # Rfam
-    rprint(f"Analysing {len(all_seq_ids)} sequences with [yellow]Rfam[/yellow]")
-    with Timer("Rfam"):
+    if not quiet:
+        rprint(f"Analysing {len(all_seq_ids)} sequences with [yellow]Rfam[/yellow]")
+    with Timer("Rfam", quiet):
         with open(
             shared.get_ribotyper_output(
                 fasta_input,
@@ -287,6 +296,11 @@ def draw(
                     constraint,
                     exclusion,
                     fold_type,
+                    domain=None,
+                    isotype=None,
+                    start=None,
+                    end=None,
+                    quiet=quiet,
                 )
 
     # RiboVision SSU
@@ -294,8 +308,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("RV SSU"):
-            rprint(f"Analysing {len(subset)} sequences with RiboVision SSU")
+        with Timer("RV SSU", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with RiboVision SSU")
             ctx.invoke(
                 ribovision_draw_ssu,
                 fasta_input=subset_fasta,
@@ -312,8 +327,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("CRW"):
-            rprint(f"Analysing {len(subset)} sequences with CRW")
+        with Timer("CRW", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with CRW")
             ctx.invoke(
                 rrna_draw,
                 fasta_input=subset_fasta,
@@ -330,8 +346,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("LSU"):
-            rprint(f"Analysing {len(subset)} sequences with RiboVision LSU")
+        with Timer("LSU", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with RiboVision LSU")
             ctx.invoke(
                 ribovision_draw_lsu,
                 fasta_input=subset_fasta,
@@ -348,8 +365,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("RNAse P"):
-            rprint(f"Analysing {len(subset)} sequences with RNAse P models")
+        with Timer("RNAse P", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with RNAse P models")
             ctx.invoke(
                 rnasep_draw,
                 fasta_input=subset_fasta,
@@ -366,8 +384,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("GtRNAdb"):
-            rprint(f"Analysing {len(subset)} sequences with GtRNAdb")
+        with Timer("GtRNAdb", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with GtRNAdb")
             for trna in gtrnadb.classify_trna_sequences(subset_fasta, gtrnadb_output):
                 core.visualise(
                     "gtrnadb",
@@ -382,6 +401,7 @@ def draw(
                     trna["isotype"],
                     trna["start"],
                     trna["end"],
+                    quiet,
                 )
 
     # Rfam tRNA
@@ -389,8 +409,9 @@ def draw(
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("Rfam tRNA"):
-            rprint(f"Analysing {len(subset)} sequences with Rfam tRNA")
+        with Timer("Rfam tRNA", quiet):
+            if not quiet:
+                rprint(f"Analysing {len(subset)} sequences with Rfam tRNA")
             trna_ids = rfam.cmsearch_nohmm_mode(subset_fasta, output_folder, "RF00005")
             if trna_ids:
                 get_subset_fasta(fasta_input, subset_fasta, trna_ids)
@@ -401,6 +422,7 @@ def draw(
                     constraint,
                     exclusion,
                     fold_type,
+                    quiet,
                 )
 
     # move svg files to the final location
@@ -531,6 +553,7 @@ def gtrnadb_draw(
             constraint,
             exclusion,
             fold_type,
+            quiet,
         )
     else:
         for trna in gtrnadb.classify_trna_sequences(fasta_input, output_folder):
@@ -547,6 +570,7 @@ def gtrnadb_draw(
                 trna["isotype"],
                 trna["start"],
                 trna["end"],
+                quiet,
             )
 
 
@@ -602,6 +626,11 @@ def rnasep_draw(
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
             )
 
 
@@ -657,6 +686,11 @@ def rrna_draw(
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
             )
 
 
@@ -715,6 +749,11 @@ def ribovision_draw_lsu(
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
             )
 
 
@@ -766,6 +805,11 @@ def ribovision_draw_ssu(
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
             )
 
 
@@ -813,7 +857,7 @@ def rfam_draw(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    rprint(rfam_acc)
+        rprint(rfam_acc)
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
             rfam_acc,
@@ -822,6 +866,7 @@ def rfam_draw(
             constraint,
             exclusion,
             fold_type,
+            quiet,
         )
     else:
         rprint(f"{rfam_acc} does not have a conserved secondary structure")
@@ -832,7 +877,6 @@ def rfam_draw(
 @click.argument("output", type=click.File("w"))
 def rfam_validate(rfam_accession, output):
     """
-    rprint("Validating")
     Check if the given Rfam accession is one that should be drawn. If so it will
     be output to the given file, otherwise it will not.
     """
@@ -915,6 +959,11 @@ def force_draw(
             constraint,
             exclusion,
             fold_type,
+            domain=None,
+            isotype=None,
+            start=None,
+            end=None,
+            quiet=quiet,
         )
     elif model_type in ["ribovision_ssu", "ribovision_lsu"]:
         core.visualise(
@@ -926,6 +975,11 @@ def force_draw(
             constraint,
             exclusion,
             fold_type,
+            domain=None,
+            isotype=None,
+            start=None,
+            end=None,
+            quiet=quiet,
         )
     elif model_type == "gtrnadb":
         domain, isotype = model_id.split("_")
@@ -937,11 +991,7 @@ def force_draw(
             constraint,
             exclusion,
             fold_type,
-        )
-    elif model_type == "gtrnadb":
-        domain, isotype = model_id.split("_")
-        core.visualise_trna(
-            domain, isotype, fasta_input, output, constraint, exclusion, fold_type
+            quiet,
         )
     # organise results into folders
     organise_results(output, output_folder)
@@ -967,11 +1017,13 @@ def force_draw(
 @cli.command()
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
-def templatefree(fasta_input, output_folder):
+@click.option("--quiet", "-q", is_flag=True, default=False)
+def templatefree(fasta_input, output_folder, quiet):
     """
     Run template-free visualisation using R2R to generate a layout.
     """
-    rprint(shared.get_r2dt_version_header())
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
     results_folder = os.path.join(output_folder, "results")
     r2r_folder = os.path.join(output_folder, "r2r")
     os.makedirs(output_folder, exist_ok=True)
@@ -992,7 +1044,6 @@ def templatefree(fasta_input, output_folder):
         fasta_input,
         os.path.join(results_folder, "fasta", f"{seq_id}.fasta"),
     )
-    rprint("Done")
 
 
 @cli.command()

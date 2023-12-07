@@ -86,14 +86,11 @@ class R2dtTestCase(unittest.TestCase):
         runner.run(f"rm -Rf {folder}")
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         runner.run(self.cmd, print_output=True)
 
     def tearDown(self):
-        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") == "1":
-            print(f"Test results can be found in {self.test_results}")
-        else:
+        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") != "1":
             self.delete_folder(self.test_results)
         # pylint: disable=expression-not-assigned
         [os.remove(file) for file in glob.glob("examples/*.ssi")]
@@ -103,7 +100,6 @@ class R2dtTestCase(unittest.TestCase):
     ) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
-        print(f"creating webpage for {filename=} {comparison_result=}")
         with open(filename, "w") as f_html:
             f_html.write(
                 template.render(
@@ -214,14 +210,8 @@ class TestCovarianceModelDatabase(unittest.TestCase):
             ]
         )
 
-    def setUp(self):
-        """Print the name of the test class."""
-        print(self.__class__.__name__)
-        return super().setUp()
-
     def verify_cm_database(self, location, count):
         """Check that the required files exist."""
-        print(f"Verifying models in {location}")
         modelinfo = os.path.join(location, "modelinfo.txt")
         all_cm = os.path.join(location, "all.cm")
         num_lines = self.count_lines(modelinfo)
@@ -277,7 +267,7 @@ class TestRibovisionLSU(R2dtTestCase):
     fasta_input = os.path.join("examples", "lsu-small-example.fasta")
     test_results = os.path.join("tests", "results", "ribovision")
     precomputed_results = os.path.join("tests", "examples", "ribovision")
-    cmd = f"r2dt.py ribovision draw_lsu {fasta_input} {test_results}"
+    cmd = f"r2dt.py ribovision draw_lsu {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
@@ -294,7 +284,7 @@ class TestRibovisionSSU(R2dtTestCase):
     fasta_input = os.path.join("examples", "ribovision-ssu-examples.fasta")
     test_results = os.path.join("tests", "results", "ribovision-ssu")
     precomputed_results = os.path.join("tests", "examples", "ribovision-ssu")
-    cmd = f"r2dt.py ribovision draw_ssu {fasta_input} {test_results}"
+    cmd = f"r2dt.py ribovision draw_ssu {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00002A2E83_10090-HS_SSU_3D.colored.svg",
@@ -313,7 +303,7 @@ class TestRfamAccession(R2dtTestCase):
     test_results = os.path.join("tests", "results", "rfam")
     test_results_subfolder = rfam_acc
     precomputed_results = os.path.join("tests", "examples", "rfam", rfam_acc)
-    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results}"
+    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet"
     files = [
         "URS00001D0AD3_224308-RF00162.colored.svg",
         "URS00002D29F6_224308-RF00162.colored.svg",
@@ -336,7 +326,7 @@ class TestRfam(R2dtTestCase):
     test_results = os.path.join("tests", "results", "rfam", "combined")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "rfam", "combined")
-    cmd = f"r2dt.py draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00021ED9B3_2697049-RF00507.colored.svg",
         "URS000080E2F0_93929-RF01734.colored.svg",
@@ -355,7 +345,7 @@ class TestCrw(R2dtTestCase):
     fasta_input = os.path.join("examples", label + "-examples.fasta")
     test_results = os.path.join("tests", "results", label)
     precomputed_results = os.path.join("tests", "examples", label)
-    cmd = f"r2dt.py crw draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py crw draw {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
@@ -375,7 +365,7 @@ class TestSingleEntry(R2dtTestCase):
     test_results = os.path.join("tests", "results", "single-entry")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "single-entry")
-    cmd = f"r2dt.py draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
         "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
@@ -409,7 +399,7 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
     fasta_input = os.path.join("examples", f"gtrnadb.{trnascan_model}.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb")
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", trnascan_model)
-    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr"
+    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr --quiet"
     files = [
         "URS0000023412_9606-E_Thr.colored.svg",
         "URS000021550A_9606-E_Thr.colored.svg",
@@ -429,7 +419,7 @@ class TestGtrnadbMitoVert(R2dtTestCase):
     fasta_input = os.path.join("examples", "gtrnadb-mito-vert.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb", "mito-vert")
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", "mito-vert")
-    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --quiet"
     files = [
         "URS000061A10B_9606-M_LeuTAA.colored.svg",
         "URS000054F2AC_109923-M_LeuTAG.colored.svg",
@@ -450,7 +440,7 @@ class TestRnasep(R2dtTestCase):
     fasta_input = os.path.join("examples", "rnasep.fasta")
     test_results = os.path.join("tests", "results", "rnasep")
     precomputed_results = os.path.join("tests", "examples", "rnasep")
-    cmd = f"r2dt.py rnasep draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py rnasep draw {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00000A7310_29284-RNAseP_a_H_trapanicum_JB.colored.svg",
@@ -484,7 +474,7 @@ class TestForceTemplate(R2dtTestCase):
     test_results = os.path.join("tests", "results", "force")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "force")
-    cmd = "r2dt.py draw --force_template {} {} {}"
+    cmd = "r2dt.py draw --force_template {} {} {} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.b.E.coli.colored.svg",  # CRW: human 5S with E. coli 5S
         "URS0000704D22_9606-EC_SSU_3D.colored.svg",  # RiboVision SSU: Human SSU with E.coli
@@ -496,7 +486,6 @@ class TestForceTemplate(R2dtTestCase):
     ]
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         for filename in self.files:
             seq_id, model_id = filename.replace(".colored.svg", "").split("-")
@@ -515,8 +504,8 @@ class TestRNAfold(R2dtTestCase):
     test_results = os.path.join("tests", "results", "constraint")
     test_results_subfolder = "results/svg"
     precomputed_results = os.path.join("tests", "examples", "constraint")
-    cmd = "r2dt.py draw --constraint {} {}"
-    cmd2 = "r2dt.py draw --constraint --fold_type {} --force_template {} {} {}"
+    cmd = "r2dt.py draw --constraint {} {} --quiet"
+    cmd2 = "r2dt.py draw --constraint --fold_type {} --force_template {} {} {} --quiet"
     fold_type_inputs = {
         "Halobacteroides_halobius1": "insertions_only",
         "Halobacteroides_halobius2": "full_molecule",
@@ -531,7 +520,6 @@ class TestRNAfold(R2dtTestCase):
     }
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         runner.run(
             self.cmd.format(
@@ -562,7 +550,7 @@ class TestExclusions(R2dtTestCase):
     test_results = os.path.join("tests", "results", "exclusion")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "constraint")
-    cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results} --quiet"
     files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
 
     def test_examples(self):
@@ -577,12 +565,13 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     test_results = os.path.join("tests", "results", "skip-ribovore-filters")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "skip-ribovore-filters")
-    cmd_default = f"r2dt.py draw {fasta_input} {test_results}"
-    cmd_skip = f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results}"
+    cmd_default = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    cmd_skip = (
+        f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results} --quiet"
+    )
     files = ["URS0000001EB3-RF00661.colored.svg"]
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
 
     def test_default(self):
@@ -606,7 +595,7 @@ class TestTemplateFree(R2dtTestCase):
     test_results = os.path.join("tests", "results", "template-free")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "template-free")
-    cmd = f"r2dt.py templatefree {fasta_input} {test_results}"
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet"
     files = ["3SKZ_B.colored.svg"]
 
     def test_examples(self):
@@ -621,7 +610,7 @@ class TestTemplateFreeAutomaticDetection(TestTemplateFree):
     test_results = os.path.join("tests", "results", "template-free-auto")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "template-free")
-    cmd = f"r2dt.py draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = ["3SKZ_B.colored.svg"]
 
     def test_examples(self):

@@ -39,11 +39,12 @@ def visualise(
     isotype=None,
     start=None,
     end=None,
+    quiet=False,
 ):
     """Main visualisation routine that invokes Traveler."""
-    if model_id:
+    if model_id and not quiet:
         rprint(f"Visualising {seq_id} with {model_id}")
-    else:
+    elif domain and isotype and not quiet:
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -305,9 +306,6 @@ def visualise(
         traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        rprint("Traveler with Infernal mapping failed:")
-        rprint(cmd)
-        rprint("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
@@ -372,7 +370,7 @@ def adjust_font_size(result_base):
 
 # pylint: disable-next=too-many-arguments
 def visualise_trna(
-    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type, quiet
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
@@ -388,7 +386,6 @@ def visualise_trna(
     with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            rprint(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,
@@ -402,6 +399,7 @@ def visualise_trna(
                 isotype,
                 None,
                 None,
+                quiet,
             )
     file_path = Path(filename)
     file_path.unlink(missing_ok=True)

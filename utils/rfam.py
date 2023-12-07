@@ -334,8 +334,6 @@ def get_all_rfam_acc():
                 ):  # Assuming BLACKLIST is defined somewhere in your code
                     continue
                 rfam_accs.append(rfam_acc)
-
-    print(f"Found {len(rfam_accs)} Rfam accessions")
     return rfam_accs
 
 
@@ -513,7 +511,9 @@ def rscape2traveler(rfam_acc):
 
 
 # pylint: disable-next=too-many-arguments
-def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type):
+def generate_2d(
+    rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type, quiet=False
+):
     """Loop over the sequences in fasta file and visualise each
     using the family template."""
     destination = f"{output_folder}/{rfam_acc}"
@@ -542,6 +542,11 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
             )
     Path(headers).unlink(missing_ok=True)
 
