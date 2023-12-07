@@ -343,15 +343,22 @@ def visualise(
         runner.run(cmd)
 
     # clean up
-    os.remove(temp_fasta)
-    os.remove(temp_sto)
-    os.remove(temp_depaired)
-    os.remove(temp_stk)
-    os.remove(temp_afa)
-    os.remove(temp_map)
-    if rna_type == "rfam":
-        os.remove(temp_sto_unfiltered)
-        os.remove(temp_acc_list)
+    files = [
+        temp_afa_original,
+        temp_afa,
+        temp_depaired,
+        temp_fasta,
+        temp_map,
+        temp_pfam_stk_original,
+        temp_pfam_stk,
+        temp_post_prob,
+        temp_stk_original,
+        temp_stk,
+        temp_sto,
+    ]
+    for filename in files:
+        if os.path.exists(filename):
+            os.remove(filename)
 
 
 def adjust_font_size(result_base):
