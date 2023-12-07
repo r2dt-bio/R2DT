@@ -532,7 +532,6 @@ def generate_2d(
     with open(headers) as f_headers:
         for line in f_headers:
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
             core.visualise(
                 "rfam",
                 fasta_input,
