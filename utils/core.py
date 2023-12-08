@@ -39,11 +39,12 @@ def visualise(
     isotype=None,
     start=None,
     end=None,
+    quiet=False,
 ):
     """Main visualisation routine that invokes Traveler."""
-    if model_id:
+    if model_id and not quiet:
         rprint(f"Visualising {seq_id} with {model_id}")
-    else:
+    elif domain and isotype and not quiet:
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -69,6 +70,10 @@ def visualise(
             model_id = rfam.get_rfam_acc_by_id(model_id)
         temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
         temp_acc_list = filename_template.replace("type", "seed_list")
+    elif rna_type.lower() == "local_data":
+        cm_library = os.path.join(config.LOCAL_DATA, model_id)
+        template_layout = cm_library
+        template_structure = cm_library
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
@@ -112,6 +117,13 @@ def visualise(
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
+    elif rna_type == "local_data":
+        model_path = os.path.join(config.LOCAL_DATA, model_id, model_id + ".cm")
+        if not os.path.exists(model_path):
+            rprint(f"Model not found {model_path}")
+            return
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -199,8 +211,9 @@ def visualise(
             f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
         )
 
+    insertion_removed = False
     if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
+        insertion_removed = shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk_original)
 
     # convert stockholm to aligned fasta with WUSS secondary structure
@@ -227,8 +240,9 @@ def visualise(
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
-    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    infernal_mapping_failed = runner.run(cmd)
+    if not insertion_removed:
+        cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
+        infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
         result_base = os.path.join(
@@ -264,7 +278,7 @@ def visualise(
             f"--template-structure {template_layout}/{model_id}.ps "
             f"{template_structure}/{model_id}.fasta"
         )
-    elif rna_type == "rfam":
+    elif rna_type in ["rfam", "local_data"]:
         traveler_params = (
             f"--template-structure --file-format traveler "
             f"{template_layout} {template_structure} "
@@ -292,9 +306,6 @@ def visualise(
         traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        rprint("Traveler with Infernal mapping failed:")
-        rprint(cmd)
-        rprint("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
@@ -332,15 +343,22 @@ def visualise(
         runner.run(cmd)
 
     # clean up
-    os.remove(temp_fasta)
-    os.remove(temp_sto)
-    os.remove(temp_depaired)
-    os.remove(temp_stk)
-    os.remove(temp_afa)
-    os.remove(temp_map)
-    if rna_type == "rfam":
-        os.remove(temp_sto_unfiltered)
-        os.remove(temp_acc_list)
+    files = [
+        temp_afa_original,
+        temp_afa,
+        temp_depaired,
+        temp_fasta,
+        temp_map,
+        temp_pfam_stk_original,
+        temp_pfam_stk,
+        temp_post_prob,
+        temp_stk_original,
+        temp_stk,
+        temp_sto,
+    ]
+    for filename in files:
+        if os.path.exists(filename):
+            os.remove(filename)
 
 
 def adjust_font_size(result_base):
@@ -359,7 +377,7 @@ def adjust_font_size(result_base):
 
 # pylint: disable-next=too-many-arguments
 def visualise_trna(
-    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type, quiet
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
@@ -375,7 +393,6 @@ def visualise_trna(
     with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            rprint(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,
@@ -389,6 +406,7 @@ def visualise_trna(
                 isotype,
                 None,
                 None,
+                quiet,
             )
     file_path = Path(filename)
     file_path.unlink(missing_ok=True)

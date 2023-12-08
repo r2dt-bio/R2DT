@@ -46,4 +46,4 @@ GTRNADB_MITO = os.path.join(DATA, "gtrnadb", "vertebrate_mitochondrial")
 
 CM_LIBRARY = os.path.join(DATA, "cms")
 
-BPSEQ_LOCATION = os.path.join(DATA, "new")
+LOCAL_DATA = os.path.join(DATA, "local_data")

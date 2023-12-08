@@ -41,6 +41,12 @@ def get_model_type(model_id):
                 if model["source"] in folder_mapping:
                     model_type = folder_mapping[model["source"]]
                 break
+    if not model_type:
+        local_data_model = os.path.join(config.LOCAL_DATA, model_id, f"{model_id}.cm")
+        if os.path.exists(local_data_model):
+            model_type = os.path.basename(config.LOCAL_DATA)
+        else:
+            print(f"Model type not found for {model_id}")
     return model_type
 
 

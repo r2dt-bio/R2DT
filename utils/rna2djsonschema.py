@@ -17,8 +17,6 @@ from pathlib import Path
 from utils import config
 from utils import generate_cm_library as gcl
 
-TEMPLATE_FOLDER = "new"
-
 
 # pylint: disable=too-many-instance-attributes
 class SchemaToTemplate:
@@ -28,10 +26,10 @@ class SchemaToTemplate:
         self.json_file = Path(json_file)
         self.rna_name = self.json_file.stem
         self.data = self.get_data()
+        self.prime_label_present = False
         self.path = self.get_file_location()
         self.sequence = self.get_sequence()
         self.dot_bracket = self.get_dot_bracket()
-        self.prime_label_present = False
         self.result = {
             "xml": self.path / f"{self.rna_name}.xml",
             "fasta": self.path / f"{self.rna_name}.fasta",
@@ -58,7 +56,7 @@ class SchemaToTemplate:
 
     def get_file_location(self) -> Path:
         """Get the location of the output files."""
-        destination = Path(config.DATA) / TEMPLATE_FOLDER / self.rna_name
+        destination = Path(config.DATA) / config.LOCAL_DATA / self.rna_name
         destination.mkdir(parents=True, exist_ok=True)
         return destination
 
