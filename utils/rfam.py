@@ -91,7 +91,7 @@ def get_rfam_cms():
     rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
     if not os.path.exists(rfam_cm):
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
         rfam_cm_path = Path(rfam_cm).with_suffix(".gz")
 
         # Download the file
@@ -308,7 +308,7 @@ def get_all_rfam_acc():
 
     # Download the file if it doesn't exist
     if not family_file_path.exists():
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
@@ -345,7 +345,7 @@ def get_rfam_acc_by_id(rfam_id):
     family_file_path = Path(config.RFAM_DATA) / "family.txt"
     # Download and decompress the file if it doesn't exist
     if not family_file_path.exists():
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
