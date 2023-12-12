@@ -436,6 +436,8 @@ def organise_results(results_folder, output_folder):
     for svg in svgs:
         if "colored" not in svg:
             continue
+        if "enriched" in svg:
+            continue
         with open(svg) as f_svg:
             thumbnail = shared.generate_thumbnail(f_svg.read(), svg)
             thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
