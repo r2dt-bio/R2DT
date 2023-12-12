@@ -163,8 +163,22 @@ def setup_trna_cm():
             raise FileNotFoundError(f"Rfam tRNA CM not found in {trna_cm_path}")
 
 
-def setup(accessions=None):
+def delete_preexisting_rfam_data():
+    """Delete preexisting Rfam data."""
+    # delete Rfam cms
+    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
+    os.system(f"rm -f {rfam_cms}/*.cm")
+    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
+    # delete template files
+    os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
+    # delete summary files
+    os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
+    os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+
+
+def setup(accessions=None) -> None:
     """Setup Rfam template library."""
+    delete_preexisting_rfam_data()
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
     if not accessions:
@@ -172,8 +186,12 @@ def setup(accessions=None):
     for accession in accessions:
         if accession in BLACKLIST:
             continue
+        if not has_structure(accession):
+            continue
         rscape2traveler(accession)
     setup_trna_cm()
+    # delete temporary files
+    os.system(f"cd {config.RFAM_DATA} && ./clean_up_files.sh")
 
 
 # pylint: disable-next=too-many-branches

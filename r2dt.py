@@ -115,19 +115,7 @@ def setup_rfam():
     Re-generate Rfam templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    # delete Rfam cms
-    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
-    os.system(f"rm -f {rfam_cms}/*.cm")
-    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
-    # delete template files
-    os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
-    # delete summary files
-    os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
-    os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
-    # run setup
     rfam.setup()
-    # delete temporary files
-    os.system(f"cd {config.RFAM_DATA} && ./clean_up_files.sh")
 
 
 def get_seq_ids(input_fasta):
