@@ -7,7 +7,8 @@ ENV tRNAscan_VER=2.0.11 \
     Rscape_VER=v2.0.4.b \
     Ribovore_VER=1.0.5 \
     BioEasel_VER=0.11 \
-    INFERNAL_VER=1.1.5
+    INFERNAL_VER=1.1.5 \
+    RNArtist_VER=0.4.6
 
 
 FROM build AS rscape
@@ -90,6 +91,11 @@ RUN \
     make install && \
     mv /infernal/bin/* /install/infernal/binaries/
 
+FROM build as rnartist
+
+# Install RNArtist
+RUN \
+    wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
 
 FROM debian:bookworm-slim as final-build
 
@@ -98,6 +104,7 @@ ENV \
 
 RUN \
     apt-get -qq update && apt-get install -qq -y --no-install-recommends  \
+    openjdk-17-jre-headless \
     python3  \
     python3-pip  \
     python3-venv  \
@@ -161,6 +168,7 @@ COPY --from=Bio-Easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
 COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
 COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
+COPY --from=rnartist /rnartist.jar /usr/local/bin/
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
