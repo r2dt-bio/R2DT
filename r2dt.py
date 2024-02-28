@@ -32,9 +32,8 @@ from utils import generate_cm_library as gcl
 from utils import generate_model_info as gmi
 from utils import gtrnadb
 from utils import list_models as lm
-from utils import r2r, rfam
-from utils import rna2djsonschema as r2djs
-from utils import shared
+from utils import r2r, rfam, shared
+from utils.rna2djsonschema import SchemaToTemplate
 from utils.runner import runner
 
 
@@ -1079,15 +1078,14 @@ def generatecm():
 
 @cli.command()
 @click.argument("json_file", type=click.Path())
-def generate_template(json_file):
+@click.option("--quiet", "-q", default=False, is_flag=True)
+def generate_template(json_file, quiet):
     """Generate an R2DT template from an RNA 2D JSON Schema file."""
-    rprint(shared.get_r2dt_version_header())
-    data, destination, rna_name = r2djs.parse_json_file(json_file)
-    xml_template = r2djs.generate_traveler_xml(data, destination, rna_name)
-    fasta_file = r2djs.generate_traveler_fasta(data, destination, rna_name)
-    stockholm_file = gcl.convert_fasta_to_stockholm(fasta_file)
-    cm_file = gcl.build_cm(stockholm_file, destination)
-    rprint(f"Generated {fasta_file}, {xml_template}, {cm_file}")
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+    template = SchemaToTemplate(json_file)
+    if not quiet:
+        rprint(template)
 
 
 if __name__ == "__main__":
