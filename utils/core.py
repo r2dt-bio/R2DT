@@ -18,6 +18,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from . import config, gtrnadb, rfam, shared
+from .rfamseed import RfamSeed
 from .runner import runner
 
 
@@ -48,7 +49,9 @@ def visualise(
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
+    filename_template = os.path.join(
+        output_folder, f"{seq_id.replace('/', '_')}_type.txt"
+    )
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         template_layout = config.RIBOVISION_LSU_TRAVELER
@@ -107,7 +110,7 @@ def visualise(
         template_layout = rfam.get_traveler_template_xml(model_id)
         template_structure = rfam.get_traveler_fasta(model_id)
         # download seed alignment and list its accessions
-        rfam_seed = rfam.download_rfam_seed(model_id)
+        rfam_seed = RfamSeed().get_rfam_seed(model_id)
         cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
         runner.run(cmd)
     elif rna_type == "gtrnadb":
@@ -365,7 +368,11 @@ def adjust_font_size(result_base):
     """
     Decrease font-size for large diagrams.
     """
-    filenames = [result_base + ".colored.svg", result_base + ".svg"]
+    filenames = [
+        result_base + ".colored.svg",
+        result_base + ".enriched.svg",
+        result_base + ".svg",
+    ]
     for filename in filenames:
         if not os.path.exists(filename):
             continue

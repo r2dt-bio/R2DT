@@ -23,6 +23,7 @@ import requests
 
 from . import config, core
 from . import generate_model_info as mi
+from .rfamseed import RfamSeed
 from .runner import runner
 
 # these RNAs are better handled by other methods
@@ -52,7 +53,7 @@ BLACKLIST = [
 def blacklisted():
     """Get a list of blacklisted Rfam families."""
     bad = set(BLACKLIST)
-    filename = os.path.join(config.RFAM_DATA, "no_structure.txt")
+    filename = Path(config.RFAM_DATA) / "no_structure.txt"
     with open(filename, "r", encoding="utf-8") as raw:
         bad.update(l.strip() for l in raw)
     return bad
@@ -91,7 +92,7 @@ def get_rfam_cms():
     rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
     rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
     if not os.path.exists(rfam_cm):
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
         rfam_cm_path = Path(rfam_cm).with_suffix(".gz")
 
         # Download the file
@@ -104,7 +105,7 @@ def get_rfam_cms():
 
         # Decompress the file
         with gzip.open(rfam_cm_path, "rb") as f_in:
-            with rfam_cm_path.with_suffix("").open("wb") as f_out:
+            with rfam_cm_path.with_suffix(".cm").open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
         rfam_cm_path.unlink()  # Remove the .gz file after decompression
@@ -155,25 +156,43 @@ def setup_trna_cm():
         response.raise_for_status()  # Raise an exception for HTTP errors
         trna_cm_path.write_bytes(response.content)
 
-        rscape2traveler(
-            rfam_acc
-        )  # Assuming this is a function you've defined elsewhere
+        rscape2traveler(rfam_acc)
 
         if not trna_cm_path.exists():
             raise FileNotFoundError(f"Rfam tRNA CM not found in {trna_cm_path}")
 
 
-def setup(accessions=None):
+def delete_preexisting_rfam_data():
+    """Delete preexisting Rfam data."""
+    # delete Rfam cms
+    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
+    os.system(f"rm -f {rfam_cms}/*.cm")
+    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
+    # delete template files
+    os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
+    # delete summary files
+    os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
+    os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+
+
+def setup(accessions=None) -> None:
     """Setup Rfam template library."""
+    delete_preexisting_rfam_data()
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
+    RfamSeed().download_rfam_seed_archive().get_no_structure_file()
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:
         if accession in BLACKLIST:
             continue
+        if not has_structure(accession):
+            continue
+        print(accession)
         rscape2traveler(accession)
     setup_trna_cm()
+    # delete temporary files
+    os.system(f"cd {config.RFAM_DATA} && ./clean_up_files.sh")
 
 
 # pylint: disable-next=too-many-branches
@@ -275,7 +294,7 @@ def convert_text_to_xml(line):
     <text x="85.8067" y="195.025" id="text1002"><tspan x="85.8067" y="195.025" fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">C</tspan></text>
     """
     match = re.search(
-        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(\w)</tspan></text>', line
+        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(.+?)</tspan></text>', line
     )
     if match:
         point = '<point x="{:.2f}" y="{:.2f}" b="{}"/>\n'
@@ -287,20 +306,6 @@ def convert_text_to_xml(line):
     return ""
 
 
-def download_rfam_seed(rfam_acc):
-    """Fetch Rfam seed alignment using the API."""
-    output_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.seed"
-
-    # Download the file if it doesn't exist
-    if not output_path.exists():
-        url = f"https://rfam.org/family/{rfam_acc}/alignment"
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        output_path.write_text(response.text)
-
-    return str(output_path)
-
-
 def get_all_rfam_acc():
     """Get a list of Rfam accessions from an FTP database dump file."""
     rfam_accs = []
@@ -308,7 +313,7 @@ def get_all_rfam_acc():
 
     # Download the file if it doesn't exist
     if not family_file_path.exists():
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
@@ -343,7 +348,7 @@ def get_rfam_acc_by_id(rfam_id):
     family_file_path = Path(config.RFAM_DATA) / "family.txt"
     # Download and decompress the file if it doesn't exist
     if not family_file_path.exists():
-        url = "ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
@@ -375,16 +380,13 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     R-scape displaying them on diagrams, pseudoknots need to be removed before
     running R-scape.
     """
-    seed_no_pk = os.path.join(
-        os.path.dirname(rfam_seed), f"nopk-{os.path.basename(rfam_seed)}"
-    )
+    seed_no_pk = rfam_seed.with_suffix(".nopk.sto")
     with io.open(rfam_seed, "r", encoding="latin-1") as f_seed_in:
         with open(seed_no_pk, "w", encoding="utf-8") as f_seed_out:
             for line in f_seed_in.readlines():
                 if line.startswith("#=GC SS_cons "):
                     match = re.match(r"(#=GC SS_cons)(\s+)(.+)", line)
                     no_pk = re.sub(r"\w", ".", match.group(3))
-                    # import pdb; pdb.set_trace()
                     f_seed_out.write(
                         "".join([match.group(1), match.group(2), no_pk, "\n"])
                     )
@@ -397,13 +399,16 @@ def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = download_rfam_seed(rfam_acc)
+    rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(os.path.join(destination, "rscape.done")):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
             folder=destination, rfam_seed=rfam_seed_no_pk
         )
         runner.run(cmd)
+        # delete any temporary r2r_meta files
+        for filename in glob.glob("*.r2r_meta"):
+            os.remove(filename)
 
     rscape_svg = None
     for svg in glob.glob(os.path.join(destination, "*.svg")):
@@ -431,6 +436,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     return output
 
 
+# pylint: disable=too-many-branches
 def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     """
     Convert R-scape SVG into traveler xml and SVG.
@@ -450,10 +456,9 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     xml_header = "<structure>\n"
     xml_footer = "</structure>"
 
+    traveler_template_svg = os.path.join(destination, "traveler-template.svg")
     with open(rscape_one_line_svg, "r", encoding="utf-8") as f_in:
-        with open(
-            os.path.join(destination, "traveler-template.svg"), "w", encoding="utf-8"
-        ) as f_out:
+        with open(traveler_template_svg, "w", encoding="utf-8") as f_out:
             with open(
                 os.path.join(destination, "traveler-template.xml"),
                 "w",
@@ -469,12 +474,16 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                         continue
                     if "#d7efc5" in line:
                         continue
+                    if "#31a354" in line:  # lancaster helix covariation
+                        continue
                     if '<path fill="none" stroke="#000000"' in line:
                         continue
                     # circles indicating GU pairs
                     if '<path fill="#000000" stroke="none"' in line:
                         continue
                     if "&apos;" in line:
+                        continue
+                    if "5&#x2032" in line:  # 5' label
                         continue
                     if "pk" in line:
                         continue
