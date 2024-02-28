@@ -104,7 +104,7 @@ def get_rfam_cms():
 
         # Decompress the file
         with gzip.open(rfam_cm_path, "rb") as f_in:
-            with rfam_cm_path.with_suffix("").open("wb") as f_out:
+            with rfam_cm_path.with_suffix(".cm").open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
         rfam_cm_path.unlink()  # Remove the .gz file after decompression
