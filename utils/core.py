@@ -18,6 +18,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from . import config, gtrnadb, rfam, shared
+from .rfamseed import RfamSeed
 from .runner import runner
 
 
@@ -102,7 +103,7 @@ def visualise(
         template_layout = rfam.get_traveler_template_xml(model_id)
         template_structure = rfam.get_traveler_fasta(model_id)
         # download seed alignment and list its accessions
-        rfam_seed = rfam.download_rfam_seed(model_id)
+        rfam_seed = RfamSeed().get_rfam_seed(model_id)
         cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
         runner.run(cmd)
     elif rna_type == "gtrnadb":

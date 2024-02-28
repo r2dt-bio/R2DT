@@ -23,6 +23,7 @@ import requests
 
 from . import config, core
 from . import generate_model_info as mi
+from .rfamseed import RfamSeed
 from .runner import runner
 
 # these RNAs are better handled by other methods
@@ -179,6 +180,7 @@ def setup(accessions=None) -> None:
     delete_preexisting_rfam_data()
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
+    RfamSeed().download_rfam_seed_archive().get_no_structure_file()
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:
@@ -304,20 +306,6 @@ def convert_text_to_xml(line):
     return ""
 
 
-def download_rfam_seed(rfam_acc):
-    """Fetch Rfam seed alignment using the API."""
-    output_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.seed"
-
-    # Download the file if it doesn't exist
-    if not output_path.exists():
-        url = f"https://rfam.org/family/{rfam_acc}/alignment"
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        output_path.write_text(response.text)
-
-    return str(output_path)
-
-
 def get_all_rfam_acc():
     """Get a list of Rfam accessions from an FTP database dump file."""
     rfam_accs = []
@@ -413,7 +401,7 @@ def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = download_rfam_seed(rfam_acc)
+    rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(os.path.join(destination, "rscape.done")):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
