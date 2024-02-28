@@ -350,7 +350,11 @@ def adjust_font_size(result_base):
     """
     Decrease font-size for large diagrams.
     """
-    filenames = [result_base + ".colored.svg", result_base + ".svg"]
+    filenames = [
+        result_base + ".colored.svg",
+        result_base + ".enriched.svg",
+        result_base + ".svg",
+    ]
     for filename in filenames:
         if not os.path.exists(filename):
             continue
