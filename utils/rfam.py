@@ -292,7 +292,7 @@ def convert_text_to_xml(line):
     <text x="85.8067" y="195.025" id="text1002"><tspan x="85.8067" y="195.025" fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">C</tspan></text>
     """
     match = re.search(
-        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(\w)</tspan></text>', line
+        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(.+?)</tspan></text>', line
     )
     if match:
         point = '<point x="{:.2f}" y="{:.2f}" b="{}"/>\n'
