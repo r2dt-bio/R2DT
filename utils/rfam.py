@@ -451,6 +451,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     return output
 
 
+# pylint: disable=too-many-branches
 def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     """
     Convert R-scape SVG into traveler xml and SVG.
@@ -489,12 +490,16 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                         continue
                     if "#d7efc5" in line:
                         continue
+                    if "#31a354" in line:  # lancaster helix covariation
+                        continue
                     if '<path fill="none" stroke="#000000"' in line:
                         continue
                     # circles indicating GU pairs
                     if '<path fill="#000000" stroke="none"' in line:
                         continue
                     if "&apos;" in line:
+                        continue
+                    if "5&#x2032" in line:  # 5' label
                         continue
                     if "pk" in line:
                         continue
