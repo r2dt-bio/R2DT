@@ -408,6 +408,9 @@ def run_rscape(rfam_acc, destination):
             folder=destination, rfam_seed=rfam_seed_no_pk
         )
         runner.run(cmd)
+        # delete any temporary r2r_meta files
+        for filename in glob.glob("*.r2r_meta"):
+            os.remove(filename)
 
     rscape_svg = None
     for svg in glob.glob(os.path.join(destination, "*.svg")):
