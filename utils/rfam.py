@@ -52,7 +52,7 @@ BLACKLIST = [
 def blacklisted():
     """Get a list of blacklisted Rfam families."""
     bad = set(BLACKLIST)
-    filename = os.path.join(config.RFAM_DATA, "no_structure.txt")
+    filename = Path(config.RFAM_DATA) / "no_structure.txt"
     with open(filename, "r", encoding="utf-8") as raw:
         bad.update(l.strip() for l in raw)
     return bad
@@ -155,9 +155,7 @@ def setup_trna_cm():
         response.raise_for_status()  # Raise an exception for HTTP errors
         trna_cm_path.write_bytes(response.content)
 
-        rscape2traveler(
-            rfam_acc
-        )  # Assuming this is a function you've defined elsewhere
+        rscape2traveler(rfam_acc)
 
         if not trna_cm_path.exists():
             raise FileNotFoundError(f"Rfam tRNA CM not found in {trna_cm_path}")
@@ -188,6 +186,7 @@ def setup(accessions=None) -> None:
             continue
         if not has_structure(accession):
             continue
+        print(accession)
         rscape2traveler(accession)
     setup_trna_cm()
     # delete temporary files
@@ -395,16 +394,13 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     R-scape displaying them on diagrams, pseudoknots need to be removed before
     running R-scape.
     """
-    seed_no_pk = os.path.join(
-        os.path.dirname(rfam_seed), f"nopk-{os.path.basename(rfam_seed)}"
-    )
+    seed_no_pk = rfam_seed.with_suffix(".nopk.sto")
     with io.open(rfam_seed, "r", encoding="latin-1") as f_seed_in:
         with open(seed_no_pk, "w", encoding="utf-8") as f_seed_out:
             for line in f_seed_in.readlines():
                 if line.startswith("#=GC SS_cons "):
                     match = re.match(r"(#=GC SS_cons)(\s+)(.+)", line)
                     no_pk = re.sub(r"\w", ".", match.group(3))
-                    # import pdb; pdb.set_trace()
                     f_seed_out.write(
                         "".join([match.group(1), match.group(2), no_pk, "\n"])
                     )
@@ -471,10 +467,9 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     xml_header = "<structure>\n"
     xml_footer = "</structure>"
 
+    traveler_template_svg = os.path.join(destination, "traveler-template.svg")
     with open(rscape_one_line_svg, "r", encoding="utf-8") as f_in:
-        with open(
-            os.path.join(destination, "traveler-template.svg"), "w", encoding="utf-8"
-        ) as f_out:
+        with open(traveler_template_svg, "w", encoding="utf-8") as f_out:
             with open(
                 os.path.join(destination, "traveler-template.xml"),
                 "w",
@@ -555,7 +550,6 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
     with open(headers) as f_headers:
         for line in f_headers:
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
             core.visualise(
                 "rfam",
                 fasta_input,
