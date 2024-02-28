@@ -48,7 +48,9 @@ def visualise(
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
+    filename_template = os.path.join(
+        output_folder, f"{seq_id.replace('/', '_')}_type.txt"
+    )
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         template_layout = config.RIBOVISION_LSU_TRAVELER
