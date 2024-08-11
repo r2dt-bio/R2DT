@@ -171,7 +171,7 @@ def visualise(
     with open(temp_sto) as f_stockholm:
         for line in f_stockholm.readlines():
             if line.startswith("#=GC SS_cons"):
-                if "<" in line:
+                if any(char in line for char in ["<", "[", "{", "("]):
                     has_conserved_structure = True
                 else:
                     rprint("This RNA does not have a conserved structure")
