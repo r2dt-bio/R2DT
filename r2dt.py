@@ -829,7 +829,6 @@ def rfam_blacklist():
 @click.option("--fold_type", default=None)
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.option("--rnartist", default=False, is_flag=True)
-@click.option("--rscape", default=False, is_flag=True)
 @click.argument("rfam_acc", type=click.STRING)
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
@@ -842,7 +841,6 @@ def rfam_draw(
     fold_type=None,
     quiet=False,
     rnartist=False,
-    rscape=False,
 ):
     """
     Visualise sequences using the Rfam/R-scape consensus structure as template.
@@ -853,15 +851,9 @@ def rfam_draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
         rprint(rfam_acc)
-    # make sure only one of rnartist or rscape is set
-    if rnartist and rscape:
-        rprint("Error: Only one of --rnartist or --rscape can be set")
-        return
-    if not rnartist and not rscape:
-        template_type = "auto"
     if rnartist:
         template_type = "rnartist"
-    if rscape:
+    else:
         template_type = "rscape"
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
