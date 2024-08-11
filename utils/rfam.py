@@ -17,6 +17,7 @@ import io
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 
 import requests
@@ -531,8 +532,8 @@ def generate_2d(
 
     if not os.path.exists(fasta_input + ".ssi"):
         runner.run(f"esl-sfetch --index {fasta_input}")
-
-    headers = "headers.txt"
+    # pylint: disable=consider-using-with
+    headers = tempfile.NamedTemporaryFile(delete=False).name
     with open(fasta_input, "r") as infile, open(headers, "w") as outfile:
         for line in infile:
             if line.startswith(">"):
