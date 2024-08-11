@@ -118,6 +118,7 @@ def setup_rfam():
     """
     rprint(shared.get_r2dt_version_header())
     rfam.setup()
+    rfam.setup_rnartist(rerun=False)
 
 
 def get_seq_ids(input_fasta):
