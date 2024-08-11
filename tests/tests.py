@@ -654,5 +654,23 @@ class TestTemplateGeneration(R2dtTestCase):
         self.use_new_template()
 
 
+class TestRnartist(TestTemplateFree):
+    """Check that RNArtist templates work correctly."""
+
+    rfam_acc = "RF00025"
+    fasta_input = os.path.join("examples", "rnartist.fasta")
+    test_results = os.path.join("tests", "results", "rnartist")
+    test_results_subfolder = rfam_acc
+    precomputed_results = os.path.join("tests", "examples", "rnartist")
+    cmd = (
+        f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet --rnartist"
+    )
+    files = [f"URS0000696E0A-{rfam_acc}.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
