@@ -44,6 +44,20 @@ If the RNA type of the input sequences is known in advance, it is possible to by
     r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
     ```
 
+    Specify `--rnartist` to use the RNArtist template instead of the default R2R template.
+
+    ```bash
+    r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example --rnartist
+    ```
+
+    This is useful to avoid overlaps in the diagrams, for example:
+
+    ```{figure} images/rnartist-example.png
+    :alt: R2R vs RNArtist
+
+    A comparison of the cobalamin riboswitch ([RF00174](https://rfam.org/family/RF00174)) visualised using R2R (left) and RNArtist (right). The RNArtist template is more legible and avoids overlaps.
+    ```
+
 * RNAse P
     ```bash
     r2dt.py rnasep draw examples/rnasep.fasta temp/rnasep-example
