@@ -21,10 +21,13 @@ import tempfile
 from pathlib import Path
 
 import requests
+from tqdm import tqdm
 
 from . import config, core
 from . import generate_model_info as mi
 from .rfamseed import RfamSeed
+from .rnartist import RnaArtist
+from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
 
 # these RNAs are better handled by other methods
@@ -192,6 +195,29 @@ def delete_preexisting_rfam_data():
     # delete summary files
     os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
     os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+
+
+def setup_rnartist(rerun=False):
+    """Generate a list of Rfam accessions where RNArtist templates are preferred."""
+    prefer_rnartist = []
+    for rfam_acc in tqdm(get_all_rfam_acc(), "Comparing R-scape and RNArtist"):
+        if rfam_acc in BLACKLIST:
+            continue
+        if not has_structure(rfam_acc):
+            continue
+        rscape2traveler(rfam_acc)
+        RnaArtist(rfam_acc).run(rerun=rerun)
+        chosen_template, overlaps = compare_rnartist_and_rscape(rfam_acc)
+        if chosen_template == "rnartist":
+            prefer_rnartist.append(rfam_acc)
+            tqdm.write(
+                f"Prefer RNArtist for {rfam_acc}. "
+                f"R-scape overlaps: {overlaps['rscape']}, "
+                f"RNArtist overlaps: {overlaps['rnartist']}"
+            )
+    with open(PREFER_RNARTIST_LIST, "w") as f_out:
+        for accession in prefer_rnartist:
+            f_out.write(f"{accession}\n")
 
 
 def setup(accessions=None) -> None:
