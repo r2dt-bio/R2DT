@@ -50,6 +50,8 @@ BLACKLIST = [
     "RF02357",  # RNAse P Type T
 ]
 
+PREFER_RNARTIST_LIST = Path(config.RFAM_DATA) / "prefer_rnartist.txt"
+
 
 def blacklisted():
     """Get a list of blacklisted Rfam families."""
@@ -60,10 +62,26 @@ def blacklisted():
     return bad
 
 
-def get_traveler_template_xml(rfam_acc):
+def get_traveler_template_xml(rfam_acc, method="auto"):
     """Get a path to a template file given an Rfam accession."""
-    filename = os.path.join(config.RFAM_DATA, rfam_acc, "traveler-template.xml")
-    return filename
+
+    if method not in ["auto", "r2r", "rnartist", "rscape"]:
+        raise ValueError(f"Unknown method: {method}")
+
+    rfam_data_path = Path(config.RFAM_DATA) / rfam_acc
+    traveler_path = rfam_data_path / "traveler-template.xml"
+    rnartist_path = rfam_data_path / "rnartist-template.xml"
+
+    if method in ["r2r", "rscape"]:
+        return traveler_path
+    if method == "rnartist":
+        return rnartist_path
+
+    if PREFER_RNARTIST_LIST.exists():
+        with PREFER_RNARTIST_LIST.open("r") as f_in:
+            if rfam_acc in (line.strip() for line in f_in):
+                return rnartist_path
+    return traveler_path
 
 
 def get_traveler_fasta(rfam_acc):
@@ -511,7 +529,7 @@ def rscape2traveler(rfam_acc):
     if not os.path.exists(destination):
         os.makedirs(destination)
     if os.path.exists(get_traveler_fasta(rfam_acc)) and os.path.exists(
-        get_traveler_template_xml(rfam_acc)
+        get_traveler_template_xml(rfam_acc, "r2r")
     ):
         return
     rscape_svg = run_rscape(rfam_acc, destination)
@@ -522,7 +540,14 @@ def rscape2traveler(rfam_acc):
 
 # pylint: disable-next=too-many-arguments
 def generate_2d(
-    rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type, quiet=False
+    rfam_acc,
+    output_folder,
+    fasta_input,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet=False,
+    rfam_template_type="rscape",
 ):
     """Loop over the sequences in fasta file and visualise each
     using the family template."""
@@ -556,6 +581,7 @@ def generate_2d(
                 start=None,
                 end=None,
                 quiet=quiet,
+                rfam_template=rfam_template_type,
             )
     Path(headers).unlink(missing_ok=True)
 

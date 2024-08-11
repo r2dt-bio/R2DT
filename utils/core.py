@@ -41,6 +41,7 @@ def visualise(
     start=None,
     end=None,
     quiet=False,
+    rfam_template=None,
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id and not quiet:
@@ -107,7 +108,7 @@ def visualise(
     # check that the model exists
     if rna_type == "rfam":
         model_path = rfam.get_rfam_cm(model_id)
-        template_layout = rfam.get_traveler_template_xml(model_id)
+        template_layout = rfam.get_traveler_template_xml(model_id, rfam_template)
         template_structure = rfam.get_traveler_fasta(model_id)
         # download seed alignment and list its accessions
         rfam_seed = RfamSeed().get_rfam_seed(model_id)
