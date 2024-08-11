@@ -164,6 +164,8 @@ def visualise(
     result = runner.run(cmd)
     if result:
         rprint(f"Failed esl-alidepair for {seq_id}")
+        cmd = f"cp {temp_sto} {temp_depaired}"
+        result = runner.run(cmd)
 
     has_conserved_structure = False
     with open(temp_sto) as f_stockholm:
