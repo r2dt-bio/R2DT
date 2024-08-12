@@ -44,13 +44,21 @@ If the RNA type of the input sequences is known in advance, it is possible to by
     r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example
     ```
 
-    Specify `--rnartist` to use the RNArtist template instead of the default R2R template.
+    By default, R2DT uses the template with minimum number of overlaps (R-scape or RNArtist). However, it is possible to specify the template type manually.
+
+    Specify `--rnartist` to use the RNArtist template:
 
     ```bash
     r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example --rnartist
     ```
 
-    This is useful to avoid overlaps in the diagrams, for example:
+    Specify `--rscape` to use the R-scape template:
+
+    ```bash
+    r2dt.py rfam draw RF00162 examples/RF00162.example.fasta temp/rfam-example --rnartist
+    ```
+
+    These options could be useful to avoid overlaps in the diagrams, for example:
 
     ```{figure} images/rnartist-example.png
     :alt: R2R vs RNArtist
