@@ -47,9 +47,7 @@ def compare_rnartist_and_rscape(rfam_acc):
         f_out.write(f"{get_rfam_consensus(rfam_acc)}\n")
 
     rscape_output = tempfile.mkdtemp()
-    rscape_cmd = (
-        f"r2dt.py rfam draw {rfam_acc} {query_fasta_file} {rscape_output} --quiet"
-    )
+    rscape_cmd = f"r2dt.py rfam draw {rfam_acc} {query_fasta_file} {rscape_output} --quiet --rscape"
     runner.run(rscape_cmd)
     rscape_overlaps = get_overlaps(rscape_output, rfam_acc)
     shutil.rmtree(rscape_output)
