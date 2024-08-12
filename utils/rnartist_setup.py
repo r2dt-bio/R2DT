@@ -14,10 +14,11 @@ from .runner import runner
 
 def get_overlaps(output_folder, rfam_acc):
     """Count the number of overlaps in a Traveler XML file."""
+    svg_file = Path(output_folder) / rfam_acc / f"query-{rfam_acc}.colored.svg"
     overlaps_file = Path(output_folder) / rfam_acc / f"query-{rfam_acc}.overlaps"
-    if not overlaps_file.exists():
-        print(f"Error: overlaps file {overlaps_file} not found")
-        return 0
+    if not svg_file.exists() or not overlaps_file.exists():
+        print(f"Error: overlaps or svg file not found in {output_folder}")
+        return float("inf")
     with open(overlaps_file, "r") as f_in:
         overlaps = int(f_in.read().strip())
     return overlaps
