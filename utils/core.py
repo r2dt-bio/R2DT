@@ -41,7 +41,7 @@ def visualise(
     start=None,
     end=None,
     quiet=False,
-    rfam_template=None,
+    rfam_template="auto",
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id and not quiet:
