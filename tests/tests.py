@@ -28,6 +28,7 @@ from skimage.metrics import structural_similarity as ssim
 
 from utils import config, rfam
 from utils.rnartist import RnaArtist
+from utils.rnartist_setup import compare_rnartist_and_rscape
 from utils.runner import runner
 
 HTML_FOLDER = "tests/html"
@@ -668,8 +669,30 @@ class TestRnartist(R2dtTestCase):
     )
     files = [f"URS0000696E0A-{rfam_acc}.colored.svg"]
 
-    def test_examples(self):
-        """Check that files exist and are identical to examples."""
+    def test_rnartist_mode(self):
+        """Check the --rnartist option works."""
+        self.check_examples()
+
+    def test_auto_mode(self):
+        """Check that the auto mode works."""
+        cmd = self.cmd.replace("--rnartist", "")
+        runner.run(cmd)
+        self.check_examples()
+
+
+class TestRscapeTemplateSelectionOption(R2dtTestCase):
+    """Check that the --rscape option works."""
+
+    rfam_acc = "RF00174"
+    fasta_input = os.path.join("examples", f"{rfam_acc}.example.fasta")
+    test_results = os.path.join("tests", "results", "rnartist")
+    test_results_subfolder = rfam_acc
+    precomputed_results = os.path.join("tests", "examples", "rnartist")
+    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet --rscape"
+    files = [f"URS000016E07A-{rfam_acc}.colored.svg"]
+
+    def test_rscape_option(self):
+        """Check that the --rscape option works."""
         self.check_examples()
 
 
@@ -688,6 +711,19 @@ class TestRnartistTemplateGeneration(R2dtTestCase):
         rnartist = RnaArtist(self.rfam_acc, destination=self.test_results)
         rnartist.run(rerun=True)
         self.check_examples()
+
+
+class TestRnartistR2rComparison(R2dtTestCase):
+    """Check that the number of overlaps in RNArtist and R2R templates is compared correctly."""
+
+    rfam_acc = "RF00174"
+
+    def test_rnartist_vs_r2r(self):
+        """Check that the number of overlaps in RNArtist and R2R templates is compared correctly."""
+        chosen_template, _ = compare_rnartist_and_rscape(self.rfam_acc)
+        assert (
+            chosen_template == "rnartist"
+        ), f"RNArtist template should be chosen, not {chosen_template}"
 
 
 if __name__ == "__main__":
