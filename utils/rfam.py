@@ -17,13 +17,17 @@ import io
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 
 import requests
+from tqdm import tqdm
 
 from . import config, core
 from . import generate_model_info as mi
 from .rfamseed import RfamSeed
+from .rnartist import RnaArtist
+from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
 
 # these RNAs are better handled by other methods
@@ -49,6 +53,8 @@ BLACKLIST = [
     "RF02357",  # RNAse P Type T
 ]
 
+PREFER_RNARTIST_LIST = Path(config.RFAM_DATA) / "prefer_rnartist.txt"
+
 
 def blacklisted():
     """Get a list of blacklisted Rfam families."""
@@ -59,10 +65,26 @@ def blacklisted():
     return bad
 
 
-def get_traveler_template_xml(rfam_acc):
+def get_traveler_template_xml(rfam_acc, method="auto"):
     """Get a path to a template file given an Rfam accession."""
-    filename = os.path.join(config.RFAM_DATA, rfam_acc, "traveler-template.xml")
-    return filename
+
+    if method not in ["auto", "r2r", "rnartist", "rscape"]:
+        raise ValueError(f"Unknown method: {method}")
+
+    rfam_data_path = Path(config.RFAM_DATA) / rfam_acc
+    traveler_path = rfam_data_path / "traveler-template.xml"
+    rnartist_path = rfam_data_path / "rnartist-template.xml"
+
+    if method in ["r2r", "rscape"]:
+        return traveler_path
+    if method == "rnartist":
+        return rnartist_path
+
+    if PREFER_RNARTIST_LIST.exists():
+        with PREFER_RNARTIST_LIST.open("r") as f_in:
+            if rfam_acc in (line.strip() for line in f_in):
+                return rnartist_path
+    return traveler_path
 
 
 def get_traveler_fasta(rfam_acc):
@@ -173,6 +195,29 @@ def delete_preexisting_rfam_data():
     # delete summary files
     os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
     os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+
+
+def setup_rnartist(rerun=False):
+    """Generate a list of Rfam accessions where RNArtist templates are preferred."""
+    prefer_rnartist = []
+    for rfam_acc in tqdm(get_all_rfam_acc(), "Comparing R-scape and RNArtist"):
+        if rfam_acc in BLACKLIST:
+            continue
+        if not has_structure(rfam_acc):
+            continue
+        rscape2traveler(rfam_acc)
+        RnaArtist(rfam_acc).run(rerun=rerun)
+        chosen_template, overlaps = compare_rnartist_and_rscape(rfam_acc)
+        if chosen_template == "rnartist":
+            prefer_rnartist.append(rfam_acc)
+            tqdm.write(
+                f"Prefer RNArtist for {rfam_acc}. "
+                f"R-scape overlaps: {overlaps['rscape']}, "
+                f"RNArtist overlaps: {overlaps['rnartist']}"
+            )
+    with open(PREFER_RNARTIST_LIST, "w") as f_out:
+        for accession in prefer_rnartist:
+            f_out.write(f"{accession}\n")
 
 
 def setup(accessions=None) -> None:
@@ -510,7 +555,7 @@ def rscape2traveler(rfam_acc):
     if not os.path.exists(destination):
         os.makedirs(destination)
     if os.path.exists(get_traveler_fasta(rfam_acc)) and os.path.exists(
-        get_traveler_template_xml(rfam_acc)
+        get_traveler_template_xml(rfam_acc, "r2r")
     ):
         return
     rscape_svg = run_rscape(rfam_acc, destination)
@@ -521,7 +566,14 @@ def rscape2traveler(rfam_acc):
 
 # pylint: disable-next=too-many-arguments
 def generate_2d(
-    rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type, quiet=False
+    rfam_acc,
+    output_folder,
+    fasta_input,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet=False,
+    rfam_template_type="rscape",
 ):
     """Loop over the sequences in fasta file and visualise each
     using the family template."""
@@ -531,8 +583,8 @@ def generate_2d(
 
     if not os.path.exists(fasta_input + ".ssi"):
         runner.run(f"esl-sfetch --index {fasta_input}")
-
-    headers = "headers.txt"
+    # pylint: disable=consider-using-with
+    headers = tempfile.NamedTemporaryFile(delete=False).name
     with open(fasta_input, "r") as infile, open(headers, "w") as outfile:
         for line in infile:
             if line.startswith(">"):
@@ -555,6 +607,7 @@ def generate_2d(
                 start=None,
                 end=None,
                 quiet=quiet,
+                rfam_template=rfam_template_type,
             )
     Path(headers).unlink(missing_ok=True)
 

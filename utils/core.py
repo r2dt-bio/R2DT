@@ -41,6 +41,7 @@ def visualise(
     start=None,
     end=None,
     quiet=False,
+    rfam_template="auto",
 ):
     """Main visualisation routine that invokes Traveler."""
     if model_id and not quiet:
@@ -107,7 +108,7 @@ def visualise(
     # check that the model exists
     if rna_type == "rfam":
         model_path = rfam.get_rfam_cm(model_id)
-        template_layout = rfam.get_traveler_template_xml(model_id)
+        template_layout = rfam.get_traveler_template_xml(model_id, rfam_template)
         template_structure = rfam.get_traveler_fasta(model_id)
         # download seed alignment and list its accessions
         rfam_seed = RfamSeed().get_rfam_seed(model_id)
@@ -163,12 +164,14 @@ def visualise(
     result = runner.run(cmd)
     if result:
         rprint(f"Failed esl-alidepair for {seq_id}")
+        cmd = f"cp {temp_sto} {temp_depaired}"
+        result = runner.run(cmd)
 
     has_conserved_structure = False
     with open(temp_sto) as f_stockholm:
         for line in f_stockholm.readlines():
             if line.startswith("#=GC SS_cons"):
-                if "<" in line:
+                if any(char in line for char in ["<", "[", "{", "("]):
                     has_conserved_structure = True
                 else:
                     rprint("This RNA does not have a conserved structure")
