@@ -297,6 +297,24 @@ class TestRibovisionSSU(R2dtTestCase):
         self.check_examples()
 
 
+class TestAnimation(R2dtTestCase):
+    """Check that the SVG animation works."""
+
+    svg1 = Path("examples") / "animate" / "PZ39_solution.svg"
+    svg2 = Path("examples") / "animate" / "PZ39_Dfold_3.svg"
+    test_results = Path("tests") / "results" / "animate"
+    precomputed_results = Path("tests") / "examples" / "animate"
+    files = ["PZ39_Dfold_3.animated.svg"]
+    cmd = (
+        f"mkdir -p {test_results} && "
+        f"python3 utils/animate.py {svg1} {svg2} {test_results / files[0]}"
+    )
+
+    def test_animation(self):
+        """Check that the animation works."""
+        self.check_examples()
+
+
 class TestRfamAccession(R2dtTestCase):
     """Test Rfam visualisation when specifying an Rfam accession."""
 

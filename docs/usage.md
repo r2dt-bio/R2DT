@@ -210,3 +210,18 @@ Please note that this option should be used with caution as sequences with unexp
     ```bash
     svg2json.py <pdb-id> diagram.svg <pdb-id>.json
     ```
+
+## Animating RNA secondary structures
+
+R2DT can be used to generate animations of RNA secondary structures. The `animate.py` script takes two R2DT SVG files and generates an animated SVG file that transitions between the two structures.
+
+```bash
+python3 utils/animate.py \
+    examples/animate/PZ39_solution.svg \
+    examples/animate/PZ39_Dfold_3.svg \
+    animated.svg
+```
+
+:::{note}
+Note that the two input SVG files must have the same number of nucleotides.
+:::
