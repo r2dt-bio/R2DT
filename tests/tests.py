@@ -27,6 +27,7 @@ from PIL import Image, ImageChops
 from skimage.metrics import structural_similarity as ssim
 
 from utils import config, rfam
+from utils.rnartist import RnaArtist
 from utils.runner import runner
 
 HTML_FOLDER = "tests/html"
@@ -654,7 +655,7 @@ class TestTemplateGeneration(R2dtTestCase):
         self.use_new_template()
 
 
-class TestRnartist(TestTemplateFree):
+class TestRnartist(R2dtTestCase):
     """Check that RNArtist templates work correctly."""
 
     rfam_acc = "RF00025"
@@ -669,6 +670,23 @@ class TestRnartist(TestTemplateFree):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestRnartistTemplateGeneration(R2dtTestCase):
+    """Check that the RNArtist template generation works."""
+
+    rfam_acc = "RF00174"
+    test_results = (
+        Path(config.PROJECT_HOME) / "tests" / "results" / "rnartist" / rfam_acc
+    )
+    precomputed_results = Path("tests") / "examples" / "rnartist"
+    files = ["rnartist-template.xml"]
+
+    def test_rnartist(self):
+        """Check that RNArtist templates are generated."""
+        rnartist = RnaArtist(self.rfam_acc, destination=self.test_results)
+        rnartist.run(rerun=True)
         self.check_examples()
 
 

@@ -10,10 +10,13 @@ from .runner import runner
 class RnaArtist:
     """A class for managing RNArtist layouts."""
 
-    def __init__(self, rfam_acc) -> None:
+    def __init__(self, rfam_acc, destination) -> None:
         """Create RnaArtist object."""
         self.rfam_acc = rfam_acc
-        self.destination = Path(config.RFAM_DATA) / self.rfam_acc
+        if destination:
+            self.destination = Path(destination)
+        else:
+            self.destination = Path(config.RFAM_DATA) / self.rfam_acc
         # pylint: disable=import-outside-toplevel
         from .rfam import get_traveler_fasta
 
