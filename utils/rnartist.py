@@ -10,7 +10,7 @@ from .runner import runner
 class RnaArtist:
     """A class for managing RNArtist layouts."""
 
-    def __init__(self, rfam_acc, destination) -> None:
+    def __init__(self, rfam_acc, destination=None) -> None:
         """Create RnaArtist object."""
         self.rfam_acc = rfam_acc
         if destination:
