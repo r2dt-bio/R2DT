@@ -112,12 +112,16 @@ def crw_setup():
 
 
 @cli.command()
-def setup_rfam():
+@click.option("--rnartist", default=False, is_flag=True)
+def setup_rfam(rnartist):
     """
     Re-generate Rfam templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    rfam.setup()
+    if not rnartist:
+        rprint("Generating Rfam templates")
+        rfam.setup()
+    rprint("Setting up RNArtist")
     rfam.setup_rnartist(rerun=False)
 
 
