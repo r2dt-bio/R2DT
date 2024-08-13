@@ -107,6 +107,20 @@ def crw_setup():
     if os.path.exists(source_dir):
         shutil.move(source_dir, destination_dir)
 
+    # read CRW blacklist
+    crw_blacklist = []
+    with open(os.path.join(config.DATA, "crw-blacklist.txt")) as f_in:
+        for line in f_in:
+            if line.startswith("#"):
+                continue
+            crw_blacklist.append(line.strip())
+
+    # Delete models from the blacklist
+    for model in crw_blacklist:
+        model_file = os.path.join(config.CRW_CM_LIBRARY, model + ".cm")
+        if os.path.exists(model_file):
+            os.remove(model_file)
+
     rprint("Generating CRW modelinfo file")
     gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
