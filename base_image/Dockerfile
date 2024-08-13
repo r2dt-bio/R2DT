@@ -1,4 +1,4 @@
-FROM gcc:13 as build
+FROM gcc:13 AS build
 
 ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=a52f0f7f7cae879bb95489bb794c04c1a0110aa7 \
@@ -21,7 +21,7 @@ RUN  cp /usr/share/automake-1.16/config.guess /rscape/lib/R2R/R2R-current/config
       mkdir -p /rna/rscape && cd rscape && ./configure --prefix=/rna/rscape -q && make -j 2 && make install
 
 
-FROM build AS tRNAscan-SE
+FROM build AS trnascan-se
 
 # Install tRNAScan-SE
 RUN \
@@ -30,7 +30,7 @@ RUN \
     cd tRNAscan-SE-${tRNAscan_VER} && ./configure -q --prefix=/install/ && make && make install
 
 
-FROM build AS Bio-Easel
+FROM build AS bio-easel
 
 # Install Bio-Easel
 RUN \
@@ -69,7 +69,7 @@ RUN \
     chmod +x *.pl && mkdir -p /install/ && cp *.pl /install/
 
 
-FROM build as ribovore-infernal-easel
+FROM build AS ribovore-infernal-easel
 
 # Install Ribovore, Infernal, and easel
 RUN \
@@ -91,13 +91,13 @@ RUN \
     make install && \
     mv /infernal/bin/* /install/infernal/binaries/
 
-FROM build as rnartist
+FROM build AS rnartist
 
 # Install RNArtist
 RUN \
     wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
 
-FROM debian:bookworm-slim as final-build
+FROM debian:bookworm-slim AS final-build
 
 ENV \
     RNA=/rna
@@ -159,12 +159,12 @@ ENV \
 
 COPY --from=rscape /rna/rscape/ ${RNA}/rscape
 
-COPY --from=tRNAscan-SE /install/ /usr
+COPY --from=trnascan-se /install/ /usr
 RUN sed -i -e 's|/install/bin|/usr/bin|' -e 's|/install/lib|/usr/lib|' /usr/bin/tRNAscan-SE.conf
 
-COPY --from=Bio-Easel /install/usr/* /usr
-COPY --from=Bio-Easel /install/Bio-Easel $RNA/Bio-Easel
-COPY --from=Bio-Easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
+COPY --from=bio-easel /install/usr/* /usr
+COPY --from=bio-easel /install/Bio-Easel $RNA/Bio-Easel
+COPY --from=bio-easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
 
 COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
