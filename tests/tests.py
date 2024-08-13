@@ -103,14 +103,15 @@ class R2dtTestCase(unittest.TestCase):
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
         with open(filename, "w") as f_html:
-            f_html.write(
-                template.render(
-                    test_name=self.__class__.__name__,
-                    before=open(before).read(),  # pylint: disable=consider-using-with
-                    after=open(after).read(),  # pylint: disable=consider-using-with
-                    comparison=comparison_result,
+            with open(before) as f_before, open(after) as f_after:
+                f_html.write(
+                    template.render(
+                        test_name=self.__class__.__name__,
+                        before=f_before.read(),
+                        after=f_after.read(),
+                        comparison=comparison_result,
+                    )
                 )
-            )
 
     def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
