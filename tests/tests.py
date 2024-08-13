@@ -232,7 +232,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
     def test_crw_database(self):
         """Check CRW covariance models."""
-        self.verify_cm_database(config.CRW_CM_LIBRARY, 884)
+        self.verify_cm_database(config.CRW_CM_LIBRARY, 662)
 
     def test_ribovision_lsu_database(self):
         """Check RiboVision LSU covariance models."""
@@ -370,7 +370,7 @@ class TestCrw(R2dtTestCase):
     files = [
         "hits.txt",
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000001AE2D_4932-d.16.e.S.cerevisiae.colored.svg",
     ]
 
@@ -389,7 +389,7 @@ class TestSingleEntry(R2dtTestCase):
     cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000053CEAC_224308-RF00162.colored.svg",
         "URS0000162127_9606-RF00003.colored.svg",
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
@@ -572,7 +572,7 @@ class TestExclusions(R2dtTestCase):
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "constraint")
     cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results} --quiet"
-    files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
+    files = ["Oceanobacillus_iheyensis-d.16.b.B.cereus.1.colored.svg"]
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
