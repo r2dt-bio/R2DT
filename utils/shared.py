@@ -19,6 +19,7 @@ import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from .ribovore import Ribovore
 from .runner import runner
 
 MAX_INSERTIONS = 100
@@ -68,24 +69,10 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
         )
         runner.run(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
-    if not skip_ribovore_filters:
-        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
-            for line in infile:
-                if (
-                    not line.startswith("#")
-                    and "MultipleHits" not in line
-                    and "PASS" in line
-                ):
-                    parts = line.split()
-                    if len(parts) >= 8:
-                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
-    else:
-        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
-            for line in infile:
-                if not line.startswith("#") and "NoHits" not in line:
-                    parts = line.split()
-                    if len(parts) >= 8:
-                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
+    ribovore = Ribovore(ribotyper_long_out, skip_ribovore_filters)
+    with open(f_out, "w") as outfile:
+        for hit in ribovore.hits:
+            outfile.write(f"{hit.target}\t{hit.model}\t{hit.pass_or_fail}\n")
     return f_out
 
 
