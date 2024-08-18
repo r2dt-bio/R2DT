@@ -745,5 +745,20 @@ class TestRnartistR2rComparison(R2dtTestCase):
         ), f"RNArtist template should be chosen, not {chosen_template}"
 
 
+class TestTemplateFreeRnartist(R2dtTestCase):
+    """Check that RNArtist template-free mode works correctly."""
+
+    fasta_input = Path("examples") / "bridge-rna.fasta"
+    test_results = Path("tests") / "results" / "rnartist-template-free"
+    precomputed_results = Path("tests") / "examples" / "rnartist-template-free"
+    test_results_subfolder = "results/svg"
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet --rnartist"
+    files = ["bridge_rna.colored.svg"]
+
+    def test_template_free_mode(self):
+        """Check that RNArtist template-free mode works correctly."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
