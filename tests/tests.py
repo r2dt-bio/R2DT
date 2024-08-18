@@ -572,7 +572,7 @@ class TestExclusions(R2dtTestCase):
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "constraint")
     cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results} --quiet"
-    files = ["Oceanobacillus_iheyensis-d.16.b.B.cereus.1.colored.svg"]
+    files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
