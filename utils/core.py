@@ -317,7 +317,9 @@ def visualise(
             f"--target-structure {result_base}.fasta {traveler_params} "
             f"--all {result_base} > {log}"
         )
-        runner.run(cmd)
+        traveler_crashed = runner.run(cmd)
+        if traveler_crashed:
+            rprint(f"[red]Traveler crashed for {seq_id} {model_id}[/red]")
 
     overlaps = 0
     with open(log) as raw:
@@ -334,19 +336,21 @@ def visualise(
         adjust_font_size(result_base)
 
     # add metadata to json file
-    cmd = (
-        f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
-        f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
-    )
-    result = runner.run(cmd)
-
-    # add colors
-    if result == 0:
+    result_json = result_base + ".colored.json"
+    if os.path.exists(result_json) and os.path.getsize(result_json) > 0:
         cmd = (
-            f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
-            f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+            f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
+            f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
         )
-        runner.run(cmd)
+        result = runner.run(cmd)
+
+        # add colors
+        if result == 0:
+            cmd = (
+                f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
+                f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+            )
+            runner.run(cmd)
 
     # clean up
     files = [
