@@ -148,7 +148,7 @@ def visualise(
         if not result:
             break
     else:
-        rprint(f"Failed cmalign of {seq_id} to {model_id}")
+        rprint(f"[red]Failed cmalign of {seq_id} to {model_id}[/red]")
         return
 
     if rna_type == "rfam":
