@@ -35,6 +35,7 @@ from utils import list_models as lm
 from utils import r2r, rfam
 from utils import rna2djsonschema as r2djs
 from utils import shared
+from utils.rnartist import RnaArtist
 from utils.runner import runner
 
 
@@ -1013,32 +1014,78 @@ def force_draw(
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 @click.option("--quiet", "-q", is_flag=True, default=False)
-def templatefree(fasta_input, output_folder, quiet):
+@click.option("--rnartist", default=False, is_flag=True)
+@click.option("--rscape", default=False, is_flag=True)
+def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
     """
     Run template-free visualisation using R2R to generate a layout.
     """
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    results_folder = os.path.join(output_folder, "results")
-    r2r_folder = os.path.join(output_folder, "r2r")
-    os.makedirs(output_folder, exist_ok=True)
-    os.makedirs(results_folder, exist_ok=True)
-    os.makedirs(r2r_folder, exist_ok=True)
-    seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
-    r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
-    r2r_svg = r2r.run_r2r(r2r_folder)
-    rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
-    rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
-    r2r.run_traveler(fasta_input, r2r_folder, seq_id)
-    organise_results(r2r_folder, output_folder)
-    tsv_folder = os.path.join(results_folder, "tsv")
-    os.makedirs(tsv_folder, exist_ok=True)
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
-        f_out.write(f"{seq_id}\tR2R\tR2R\n")
-    shutil.copyfile(
-        fasta_input,
-        os.path.join(results_folder, "fasta", f"{seq_id}.fasta"),
-    )
+
+    if not rnartist and not rscape:
+        rscape = True
+    if rnartist and rscape:
+        raise ValueError("Please specify only one template type")
+
+    if rnartist:
+        output_folder = Path(output_folder)
+        results_folder = output_folder / "results"
+        rnartist_folder = output_folder / "rnartist"
+
+        seq_id, _, _ = r2r.parse_fasta(fasta_input)
+        rnartist = RnaArtist(destination=rnartist_folder)
+        rnartist.fasta_file = fasta_input
+        rnartist.seq_label = seq_id
+        rnartist.run(rerun=True)
+
+        cmd = f"""
+        traveler \
+            --verbose \
+            --target-structure {fasta_input} \
+            --template-structure --file-format traveler \
+                {rnartist_folder}/rnartist-template.xml {fasta_input} \
+            --all {rnartist_folder}/{seq_id}
+        """
+        runner.run(cmd)
+
+        organise_results(rnartist_folder, output_folder)
+        tsv_folder = results_folder / "tsv"
+        tsv_folder.mkdir(exist_ok=True)
+        with open(tsv_folder / "metadata.tsv", "w") as f_out:
+            f_out.write(f"{seq_id}\tRNArtist\tRNArtist\n")
+        try:
+            shutil.copyfile(fasta_input, results_folder / "fasta" / f"{seq_id}.fasta")
+            shutil.move(
+                rnartist_folder / f"rnartist_{seq_id}.svg",
+                results_folder / "svg" / f"{seq_id}.rnartist.svg",
+            )
+        except FileNotFoundError:
+            pass
+
+    if rscape:
+        output_folder = Path(output_folder)
+        results_folder = output_folder / "results"
+        r2r_folder = output_folder / "r2r"
+        for folder in [output_folder, results_folder, r2r_folder]:
+            folder.mkdir(exist_ok=True, parents=True)
+
+        seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
+        r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
+        r2r_svg = r2r.run_r2r(r2r_folder)
+        rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
+        rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
+        # scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
+        r2r.run_traveler(fasta_input, r2r_folder, seq_id)
+        organise_results(r2r_folder, output_folder)
+        tsv_folder = results_folder / "tsv"
+        tsv_folder.mkdir(exist_ok=True, parents=True)
+        with open(tsv_folder / "metadata.tsv", "w") as f_out:
+            f_out.write(f"{seq_id}\tR2R\tR2R\n")
+        shutil.copyfile(
+            fasta_input,
+            results_folder / "fasta" / f"{seq_id}.fasta",
+        )
 
 
 @cli.command()
