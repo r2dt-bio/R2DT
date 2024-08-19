@@ -30,6 +30,7 @@ from .ribovore import MIN_GA
 from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
+from .scale_template import scale_coordinates
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -562,6 +563,7 @@ def rscape2traveler(rfam_acc):
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
+    scale_coordinates(get_traveler_template_xml(rfam_acc, "r2r"))
     generate_traveler_fasta(rfam_acc)
 
 
