@@ -37,6 +37,7 @@ from utils import rna2djsonschema as r2djs
 from utils import shared
 from utils.rnartist import RnaArtist
 from utils.runner import runner
+from utils.scale_template import scale_coordinates
 
 
 class Timer:
@@ -1075,7 +1076,7 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
         r2r_svg = r2r.run_r2r(r2r_folder)
         rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
         rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
-        # scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
+        scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
         r2r.run_traveler(fasta_input, r2r_folder, seq_id)
         organise_results(r2r_folder, output_folder)
         tsv_folder = results_folder / "tsv"
