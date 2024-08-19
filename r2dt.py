@@ -35,6 +35,7 @@ from utils import list_models as lm
 from utils import r2r, rfam
 from utils import rna2djsonschema as r2djs
 from utils import shared
+from utils.rnartist import RnaArtist
 from utils.runner import runner
 
 
@@ -107,6 +108,20 @@ def crw_setup():
     if os.path.exists(source_dir):
         shutil.move(source_dir, destination_dir)
 
+    # read CRW blacklist
+    crw_blacklist = []
+    with open(os.path.join(config.DATA, "crw-blacklist.txt")) as f_in:
+        for line in f_in:
+            if line.startswith("#"):
+                continue
+            crw_blacklist.append(line.strip())
+
+    # Delete models from the blacklist
+    for model in crw_blacklist:
+        model_file = os.path.join(config.CRW_CM_LIBRARY, model + ".cm")
+        if os.path.exists(model_file):
+            os.remove(model_file)
+
     rprint("Generating CRW modelinfo file")
     gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
 
@@ -164,6 +179,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
             f_out.write(f"{seq_id}\n")
     runner.run(f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}")
     runner.run(f"esl-sfetch --index {output_filename}")
+    os.remove(index_filename)
 
 
 def is_templatefree(fasta_input):
@@ -263,117 +279,87 @@ def draw(
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
-    shutil.copy(fasta_input, subset_fasta)
-    runner.run(f"esl-sfetch --index {subset_fasta}")
+    runner.run(f"esl-sfetch --index {fasta_input}")
+
+    def get_output_subfolder(method_name):
+        """Get folder within the output folder for a given method."""
+        subfolders = {
+            "ribovision_draw_ssu": os.path.join(output_folder, "ribovision-ssu"),
+            "ribovision_draw_lsu": os.path.join(output_folder, "ribovision-lsu"),
+            "rrna_draw": os.path.join(output_folder, "crw"),
+            "rnasep_draw": os.path.join(output_folder, "rnasep"),
+        }
+        return subfolders.get(str(method_name), "")
+
+    method_list = [
+        "rnasep_draw",
+        "ribovision_draw_ssu",
+        "ribovision_draw_lsu",
+        "rrna_draw",  # CRW
+    ]
+    prev_output_subfolder = None
+    for method_name in method_list:
+        if prev_output_subfolder:
+            hits = hits.union(get_hits(prev_output_subfolder))
+            subset = all_seq_ids.difference(hits)
+            if subset:
+                get_subset_fasta(fasta_input, subset_fasta, subset)
+        else:
+            subset = all_seq_ids
+            shutil.copy(fasta_input, subset_fasta)
+            runner.run(f"esl-sfetch --index {subset_fasta}")
+        if subset:
+            with Timer(f"{method_name}", quiet):
+                if not quiet:
+                    rprint(f"Analysing {len(subset)} sequences with {method_name}")
+                output_subfolder = get_output_subfolder(method_name)
+                ctx.invoke(
+                    globals()[method_name],
+                    fasta_input=subset_fasta,
+                    output_folder=output_subfolder,
+                    constraint=constraint,
+                    exclusion=exclusion,
+                    fold_type=fold_type,
+                    quiet=True,
+                    skip_ribovore_filters=skip_ribovore_filters,
+                )
+                prev_output_subfolder = output_subfolder
 
     # Rfam
+    hits = hits.union(get_hits(prev_output_subfolder))
+    subset = all_seq_ids.difference(hits)
     if not quiet:
-        rprint(f"Analysing {len(all_seq_ids)} sequences with [yellow]Rfam[/yellow]")
-    with Timer("Rfam", quiet):
-        with open(
-            shared.get_ribotyper_output(
-                fasta_input,
-                rfam_output,
-                os.path.join(config.CM_LIBRARY, "rfam"),
-                skip_ribovore_filters,
-            ),
-        ) as f_ribotyper:
-            for line in f_ribotyper.readlines():
-                rnacentral_id, model_id, _ = line.split("\t")
-                core.visualise(
-                    "rfam",
-                    fasta_input,
+        rprint(f"Analysing {len(subset)} sequences with Rfam")
+    if subset:
+        with Timer("Rfam", quiet):
+            with open(
+                shared.get_ribotyper_output(
+                    subset_fasta,
                     rfam_output,
-                    rnacentral_id,
-                    model_id,
-                    constraint,
-                    exclusion,
-                    fold_type,
-                    domain=None,
-                    isotype=None,
-                    start=None,
-                    end=None,
-                    quiet=quiet,
-                )
-
-    # RiboVision SSU
-    hits = hits.union(get_hits(rfam_output))
-    subset = all_seq_ids.difference(hits)
-    if subset:
-        get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("RV SSU", quiet):
-            if not quiet:
-                rprint(f"Analysing {len(subset)} sequences with RiboVision SSU")
-            ctx.invoke(
-                ribovision_draw_ssu,
-                fasta_input=subset_fasta,
-                output_folder=ribovision_ssu_output,
-                constraint=constraint,
-                exclusion=exclusion,
-                fold_type=fold_type,
-                quiet=True,
-                skip_ribovore_filters=skip_ribovore_filters,
-            )
-
-    # CRW
-    hits = hits.union(get_hits(ribovision_ssu_output))
-    subset = all_seq_ids.difference(hits)
-    if subset:
-        get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("CRW", quiet):
-            if not quiet:
-                rprint(f"Analysing {len(subset)} sequences with CRW")
-            ctx.invoke(
-                rrna_draw,
-                fasta_input=subset_fasta,
-                output_folder=crw_output,
-                constraint=constraint,
-                exclusion=exclusion,
-                fold_type=fold_type,
-                quiet=True,
-                skip_ribovore_filters=skip_ribovore_filters,
-            )
-
-    # RiboVision LSU
-    hits = hits.union(get_hits(crw_output))
-    subset = all_seq_ids.difference(hits)
-    if subset:
-        get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("LSU", quiet):
-            if not quiet:
-                rprint(f"Analysing {len(subset)} sequences with RiboVision LSU")
-            ctx.invoke(
-                ribovision_draw_lsu,
-                fasta_input=subset_fasta,
-                output_folder=ribovision_lsu_output,
-                constraint=constraint,
-                exclusion=exclusion,
-                fold_type=fold_type,
-                quiet=True,
-                skip_ribovore_filters=skip_ribovore_filters,
-            )
-
-    # RNAse P
-    hits = hits.union(get_hits(ribovision_lsu_output))
-    subset = all_seq_ids.difference(hits)
-    if subset:
-        get_subset_fasta(fasta_input, subset_fasta, subset)
-        with Timer("RNAse P", quiet):
-            if not quiet:
-                rprint(f"Analysing {len(subset)} sequences with RNAse P models")
-            ctx.invoke(
-                rnasep_draw,
-                fasta_input=subset_fasta,
-                output_folder=rnasep_output,
-                constraint=constraint,
-                exclusion=exclusion,
-                fold_type=fold_type,
-                quiet=True,
-                skip_ribovore_filters=skip_ribovore_filters,
-            )
+                    os.path.join(config.CM_LIBRARY, "rfam"),
+                    skip_ribovore_filters,
+                ),
+            ) as f_ribotyper:
+                for line in f_ribotyper.readlines():
+                    seq_id, model_id, _ = line.split("\t")
+                    core.visualise(
+                        "rfam",
+                        subset_fasta,
+                        rfam_output,
+                        seq_id,
+                        model_id,
+                        constraint,
+                        exclusion,
+                        fold_type,
+                        domain=None,
+                        isotype=None,
+                        start=None,
+                        end=None,
+                        quiet=quiet,
+                    )
 
     # GtRNAdb
-    hits = hits.union(get_hits(rnasep_output))
+    hits = hits.union(get_hits(rfam_output))
     subset = all_seq_ids.difference(hits)
     if subset:
         get_subset_fasta(fasta_input, subset_fasta, subset)
@@ -1028,32 +1014,78 @@ def force_draw(
 @click.argument("fasta-input", type=click.Path())
 @click.argument("output-folder", type=click.Path())
 @click.option("--quiet", "-q", is_flag=True, default=False)
-def templatefree(fasta_input, output_folder, quiet):
+@click.option("--rnartist", default=False, is_flag=True)
+@click.option("--rscape", default=False, is_flag=True)
+def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
     """
     Run template-free visualisation using R2R to generate a layout.
     """
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    results_folder = os.path.join(output_folder, "results")
-    r2r_folder = os.path.join(output_folder, "r2r")
-    os.makedirs(output_folder, exist_ok=True)
-    os.makedirs(results_folder, exist_ok=True)
-    os.makedirs(r2r_folder, exist_ok=True)
-    seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
-    r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
-    r2r_svg = r2r.run_r2r(r2r_folder)
-    rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
-    rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
-    r2r.run_traveler(fasta_input, r2r_folder, seq_id)
-    organise_results(r2r_folder, output_folder)
-    tsv_folder = os.path.join(results_folder, "tsv")
-    os.makedirs(tsv_folder, exist_ok=True)
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
-        f_out.write(f"{seq_id}\tR2R\tR2R\n")
-    shutil.copyfile(
-        fasta_input,
-        os.path.join(results_folder, "fasta", f"{seq_id}.fasta"),
-    )
+
+    if not rnartist and not rscape:
+        rscape = True
+    if rnartist and rscape:
+        raise ValueError("Please specify only one template type")
+
+    if rnartist:
+        output_folder = Path(output_folder)
+        results_folder = output_folder / "results"
+        rnartist_folder = output_folder / "rnartist"
+
+        seq_id, _, _ = r2r.parse_fasta(fasta_input)
+        rnartist = RnaArtist(destination=rnartist_folder)
+        rnartist.fasta_file = fasta_input
+        rnartist.seq_label = seq_id
+        rnartist.run(rerun=True)
+
+        cmd = f"""
+        traveler \
+            --verbose \
+            --target-structure {fasta_input} \
+            --template-structure --file-format traveler \
+                {rnartist_folder}/rnartist-template.xml {fasta_input} \
+            --all {rnartist_folder}/{seq_id}
+        """
+        runner.run(cmd)
+
+        organise_results(rnartist_folder, output_folder)
+        tsv_folder = results_folder / "tsv"
+        tsv_folder.mkdir(exist_ok=True)
+        with open(tsv_folder / "metadata.tsv", "w") as f_out:
+            f_out.write(f"{seq_id}\tRNArtist\tRNArtist\n")
+        try:
+            shutil.copyfile(fasta_input, results_folder / "fasta" / f"{seq_id}.fasta")
+            shutil.move(
+                rnartist_folder / f"rnartist_{seq_id}.svg",
+                results_folder / "svg" / f"{seq_id}.rnartist.svg",
+            )
+        except FileNotFoundError:
+            pass
+
+    if rscape:
+        output_folder = Path(output_folder)
+        results_folder = output_folder / "results"
+        r2r_folder = output_folder / "r2r"
+        for folder in [output_folder, results_folder, r2r_folder]:
+            folder.mkdir(exist_ok=True, parents=True)
+
+        seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
+        r2r.generate_r2r_input_file(sequence, structure, r2r_folder)
+        r2r_svg = r2r.run_r2r(r2r_folder)
+        rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
+        rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
+        # scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
+        r2r.run_traveler(fasta_input, r2r_folder, seq_id)
+        organise_results(r2r_folder, output_folder)
+        tsv_folder = results_folder / "tsv"
+        tsv_folder.mkdir(exist_ok=True, parents=True)
+        with open(tsv_folder / "metadata.tsv", "w") as f_out:
+            f_out.write(f"{seq_id}\tR2R\tR2R\n")
+        shutil.copyfile(
+            fasta_input,
+            results_folder / "fasta" / f"{seq_id}.fasta",
+        )
 
 
 @cli.command()

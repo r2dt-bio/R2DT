@@ -26,6 +26,7 @@ from tqdm import tqdm
 from . import config, core
 from . import generate_model_info as mi
 from .rfamseed import RfamSeed
+from .ribovore import MIN_GA
 from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
@@ -640,8 +641,11 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
         for line in infile:
             if not line.startswith("#") and "?" not in line:
                 parts = line.split()
-                if len(parts) >= 4:
-                    outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
+                if len(parts) >= 14:
+                    bit_score = float(parts[14])
+                    print(bit_score)
+                    if bit_score >= MIN_GA:
+                        outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
     ids = set()
     with open(hits) as f_hits:
         for line in f_hits:

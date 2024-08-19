@@ -103,14 +103,15 @@ class R2dtTestCase(unittest.TestCase):
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
         with open(filename, "w") as f_html:
-            f_html.write(
-                template.render(
-                    test_name=self.__class__.__name__,
-                    before=open(before).read(),  # pylint: disable=consider-using-with
-                    after=open(after).read(),  # pylint: disable=consider-using-with
-                    comparison=comparison_result,
+            with open(before) as f_before, open(after) as f_after:
+                f_html.write(
+                    template.render(
+                        test_name=self.__class__.__name__,
+                        before=f_before.read(),
+                        after=f_after.read(),
+                        comparison=comparison_result,
+                    )
                 )
-            )
 
     def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
@@ -231,7 +232,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
     def test_crw_database(self):
         """Check CRW covariance models."""
-        self.verify_cm_database(config.CRW_CM_LIBRARY, 884)
+        self.verify_cm_database(config.CRW_CM_LIBRARY, 662)
 
     def test_ribovision_lsu_database(self):
         """Check RiboVision LSU covariance models."""
@@ -369,7 +370,7 @@ class TestCrw(R2dtTestCase):
     files = [
         "hits.txt",
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000001AE2D_4932-d.16.e.S.cerevisiae.colored.svg",
     ]
 
@@ -388,7 +389,7 @@ class TestSingleEntry(R2dtTestCase):
     cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000053CEAC_224308-RF00162.colored.svg",
         "URS0000162127_9606-RF00003.colored.svg",
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
@@ -742,6 +743,21 @@ class TestRnartistR2rComparison(R2dtTestCase):
         assert (
             chosen_template == "rnartist"
         ), f"RNArtist template should be chosen, not {chosen_template}"
+
+
+class TestTemplateFreeRnartist(R2dtTestCase):
+    """Check that RNArtist template-free mode works correctly."""
+
+    fasta_input = Path("examples") / "bridge-rna.fasta"
+    test_results = Path("tests") / "results" / "rnartist-template-free"
+    precomputed_results = Path("tests") / "examples" / "rnartist-template-free"
+    test_results_subfolder = "results/svg"
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet --rnartist"
+    files = ["bridge_rna.colored.svg"]
+
+    def test_template_free_mode(self):
+        """Check that RNArtist template-free mode works correctly."""
+        self.check_examples()
 
 
 if __name__ == "__main__":

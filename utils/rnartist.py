@@ -10,23 +10,31 @@ from .runner import runner
 class RnaArtist:
     """A class for managing RNArtist layouts."""
 
-    def __init__(self, rfam_acc, destination=None) -> None:
+    def __init__(self, rfam_acc="rnartist", destination=None) -> None:
         """Create RnaArtist object."""
         self.rfam_acc = rfam_acc
         if destination:
             self.destination = Path(destination)
         else:
             self.destination = Path(config.RFAM_DATA) / self.rfam_acc
-        # pylint: disable=import-outside-toplevel
-        from .rfam import get_traveler_fasta
-
-        self.fasta_file = get_traveler_fasta(self.rfam_acc)
+        if self.rfam_acc == "rnartist":
+            self.fasta_file = ""
+        else:
+            self.fasta_file = self.load_rfam_fasta()
         self.stockholm = self.destination / f"{self.rfam_acc}.sto"
         self.rnartist_xml = self.destination / "rnartist-template.xml"
         if not self.destination.exists():
             self.destination.mkdir(parents=True, exist_ok=True)
         self.seq_label = "rnartist"
         self.rnartist_executable = "/usr/local/bin/rnartist.jar"
+
+    # pylint: disable=import-outside-toplevel
+    def load_rfam_fasta(self):
+        """Import get_traveler_fasta method from Rfam
+        avoiding circular imports."""
+        from .rfam import get_traveler_fasta
+
+        return get_traveler_fasta(self.rfam_acc)
 
     def run(self, rerun=False, detail_level=4) -> None:
         """Create a Traveler XML template based on an
@@ -76,8 +84,8 @@ class RnaArtist:
             }}
         }}
         """.format(
-            stockholm=self.stockholm,
-            destination=self.destination,
+            stockholm=self.stockholm.resolve(),
+            destination=self.destination.resolve(),
             seq_label=self.seq_label,
             detail_level=detail_level,
         )
@@ -113,5 +121,3 @@ class RnaArtist:
         self.stockholm.unlink()
         seq_kts = self.destination / f"{self.rfam_acc}_{self.seq_label}.kts"
         seq_kts.unlink(missing_ok=True)
-        svg_file = self.destination / f"{self.rfam_acc}_{self.seq_label}.svg"
-        svg_file.unlink(missing_ok=True)

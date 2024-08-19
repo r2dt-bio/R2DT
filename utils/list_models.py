@@ -225,23 +225,41 @@ def check_unique_descriptions(data):
 def list_models():
     """Get a list of all R2DT templates."""
     data = []
-    data = data + get_gtrnadb_models()
-    data = data + get_crw_models()
-    data = data + get_models(
+    models = get_gtrnadb_models()
+    data = data + models
+    print(f"GtRNAdb: {len(models)}")
+
+    models = get_crw_models()
+    data = data + models
+    print(f"CRW: {len(models)}")
+
+    models = get_models(
         "RiboVision LSU",
         os.path.join(config.RIBOVISION_LSU_CM_LIBRARY, "modelinfo.txt"),
         os.path.join(config.RIBOVISION_LSU, "metadata.tsv"),
     )
-    data = data + get_models(
+    data = data + models
+    print(f"RiboVision LSU: {len(models)}")
+
+    models = get_models(
         "RiboVision SSU",
         os.path.join(config.RIBOVISION_SSU_CM_LIBRARY, "modelinfo.txt"),
         os.path.join(config.RIBOVISION_SSU, "metadata.tsv"),
     )
-    data = data + get_models(
+    data = data + models
+    print(f"RiboVision SSU: {len(models)}")
+
+    models = get_models(
         "RNAse P Database",
         os.path.join(config.RNASEP_CM_LIBRARY, "modelinfo.txt"),
         os.path.join(config.RNASEP, "metadata.tsv"),
     )
-    data = data + get_rfam_models()
+    data = data + models
+    print(f"RNAse P Database: {len(models)}")
+
+    models = get_rfam_models()
+    data = data + models
+    print(f"Rfam: {len(models)}")
+
     data.sort(key=lambda x: x["description"])
     return data

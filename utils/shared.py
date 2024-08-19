@@ -13,11 +13,13 @@ limitations under the License.
 
 import os
 import re
+from pathlib import Path
 
 import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from .ribovore import Ribovore
 from .runner import runner
 
 MAX_INSERTIONS = 100
@@ -32,6 +34,21 @@ def get_r2dt_version_header():
     return header
 
 
+def make_blast_db(cm_library):
+    """Create a BLAST database from the covariance model library."""
+    blast_db = Path(cm_library) / "all.fa.nhr"
+    if blast_db.exists():
+        return
+    cmd = (
+        f"cmemit -c {cm_library}/all.cm | "
+        f"sed 's/\\-cmconsensus//' | "
+        f"sed 's/\\-hmmconsensus//' > {cm_library}/all.fa"
+    )
+    runner.run(cmd)
+    cmd = f"makeblastdb -in {cm_library}/all.fa -dbtype nucl"
+    runner.run(cmd)
+
+
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
     """
     Run ribotyper on the fasta sequences to select the best matching covariance
@@ -40,31 +57,22 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     ribotyper_long_out = os.path.join(
         output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
     )
+    if "rfam" not in cm_library:
+        one_blast = "--1blast"
+        make_blast_db(cm_library)
+    else:
+        one_blast = ""
     if not os.path.exists(ribotyper_long_out):
         cmd = (
-            f"ribotyper --skipval -i {cm_library}/modelinfo.txt "
+            f"ribotyper {one_blast} --skipval -i {cm_library}/modelinfo.txt "
             f"-f {fasta_input} {output_folder} > /dev/null"
         )
         runner.run(cmd)
     f_out = os.path.join(output_folder, "hits.txt")
-    if not skip_ribovore_filters:
-        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
-            for line in infile:
-                if (
-                    not line.startswith("#")
-                    and "MultipleHits" not in line
-                    and "PASS" in line
-                ):
-                    parts = line.split()
-                    if len(parts) >= 8:
-                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
-    else:
-        with open(ribotyper_long_out, "r") as infile, open(f_out, "w") as outfile:
-            for line in infile:
-                if not line.startswith("#") and "NoHits" not in line:
-                    parts = line.split()
-                    if len(parts) >= 8:
-                        outfile.write(f"{parts[1]}\t{parts[7]}\t{parts[2]}\n")
+    ribovore = Ribovore(ribotyper_long_out, skip_ribovore_filters)
+    with open(f_out, "w") as outfile:
+        for hit in ribovore.hits:
+            outfile.write(f"{hit.target}\t{hit.model}\t{hit.pass_or_fail}\n")
     return f_out
 
 
