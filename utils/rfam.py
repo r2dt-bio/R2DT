@@ -645,7 +645,6 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
                 parts = line.split()
                 if len(parts) >= 14:
                     bit_score = float(parts[14])
-                    print(bit_score)
                     if bit_score >= MIN_GA:
                         outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
     ids = set()
