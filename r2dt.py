@@ -1172,5 +1172,27 @@ def generate_template(json_file, quiet):
         rprint(f"Created a new {template}")
 
 
+@cli.command()
+@click.argument("release_version", type=click.STRING)
+def create_precomputed_library(release_version):
+    """Create a precomputed library for a given release version."""
+    rprint(shared.get_r2dt_version_header())
+
+    data_dir = Path(config.CM_LIBRARY)
+    release_dir = data_dir / release_version
+
+    # Create a temporary directory structure
+    release_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(data_dir / "crw", release_dir / "crw")
+    shutil.copytree(data_dir / "rfam", release_dir / "rfam")
+
+    # Compress the directory structure into a tar.gz file
+    with tarfile.open(data_dir / "cms.tar.gz", "w:gz") as tar:
+        tar.add(release_dir, arcname=release_version)
+
+    shutil.rmtree(release_dir)
+    rprint(f"Precomputed library created at {data_dir / 'cms.tar.gz'}")
+
+
 if __name__ == "__main__":
     cli()
