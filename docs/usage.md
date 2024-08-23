@@ -102,9 +102,9 @@ In addition, all models are listed in the file [models.json](https://github.com/
 
 ## Constraint-based folding for insertions
 
-If a structure contains insertions that are not present in the R2DT template files, the --constraint flag will allow their folding to be de-novo predicted using the RNAfold algorithm.
+If a structure contains insertions relative to the R2DT template files, they are shown as large unstructured loops. Insertions larger than 100 nucleotides are replaced with a placeholder element (`XXXX` characters) to keep the rest of the diagram legible.
 
-There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
+The `--constraint` flag allows de-novo prediction of the insertion structure using the RNAfold algorithm. There are currently three constraint folding modes available. R2DT will automatically predict which folding mode is best for a given molecule, but the mode can also be manually overridden using the --fold_type parameter. There are three options for fold_type.
 
 * Let R2DT pick a fold_type
     ```bash
