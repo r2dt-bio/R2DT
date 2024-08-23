@@ -332,8 +332,6 @@ def visualise(
                 overlaps = int(match.group(1))
     with open(f"{result_base}.overlaps", "w") as out:
         out.write(f"{overlaps}\n")
-    if rna_type != "rnasep":
-        adjust_font_size(result_base)
 
     # add metadata to json file
     result_json = result_base + ".colored.json"
@@ -351,6 +349,9 @@ def visualise(
                 f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
             )
             runner.run(cmd)
+
+    if rna_type in ["rfam", "gtrnadb"]:
+        adjust_font_size(result_base)
 
     # clean up
     files = [
@@ -373,7 +374,7 @@ def visualise(
 
 def adjust_font_size(result_base):
     """
-    Decrease font-size for large diagrams.
+    Adjust font size.
     """
     filenames = [
         result_base + ".colored.svg",
@@ -381,11 +382,28 @@ def adjust_font_size(result_base):
         result_base + ".svg",
     ]
     for filename in filenames:
-        if not os.path.exists(filename):
+        if not os.path.exists(filename) or not os.path.getsize(filename):
             continue
-        content = (
-            Path(filename).read_text().replace("font-size: 7px;", "font-size: 4px;")
-        )
+        with open(filename) as f_svg:
+            content = f_svg.read()
+            try:
+                font_size = float(
+                    re.search(r"font-size: (\d+(\.\d+)?)px;", content).group(1)
+                )
+            except AttributeError:
+                rprint(f"[red]Font-size not found in {filename}[/red]")
+                continue
+            # get approximate number of nucleotides
+            num_nucleotides = len(re.findall(r"<text", content))
+            # adjust font-size if diagram is small and font-size is too small or too large
+            if num_nucleotides < 100:
+                font_size = max(7, font_size)
+            elif num_nucleotides < 200:
+                font_size = max(12, font_size)
+            # update font-size
+            content = re.sub(
+                r"font-size: (\d+(\.\d+)?)px;", f"font-size: {font_size}px;", content
+            )
         Path(filename).write_text(content)
 
 
