@@ -11,7 +11,7 @@ platform_arg := if platform == "" { "" } else { "--platform=" + platform }
 base_image := "rnacentral/r2dt-base"
 image := "rnacentral/r2dt"
 default_tag := "latest"
-data_version := "1.4"
+data_version := "2.0"
 data_dir := "./" + data_version
 port := "8000"
 

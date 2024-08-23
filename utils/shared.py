@@ -28,7 +28,7 @@ MAX_INSERTIONS = 100
 def get_r2dt_version_header():
     """Return a welcome message including release information."""
     header = """# R2DT :: visualise RNA secondary structure using templates
-# Version 1.4 (2023)
+# Version 2.0 (2024)
 # https://github.com/RNAcentral/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
