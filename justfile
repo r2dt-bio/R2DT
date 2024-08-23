@@ -27,7 +27,7 @@ venv:
 
 # Download data from RNAcentral
 download:
-    curl -O https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/{{ data_version }}/cms.tar.gz
+    curl -O -L https://github.com/RNAcentral/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
     tar -xzf cms.tar.gz
 
 # Run shell in docker
