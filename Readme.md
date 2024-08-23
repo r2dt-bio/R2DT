@@ -1,6 +1,6 @@
 # R2DT
 
-**Version 1.4 (2023)**
+**Version 2.0 (2024)**
 
 **[See the R2DT documentation](https://r2dt.readthedocs.io/)**
 

@@ -590,7 +590,7 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     cmd_skip = (
         f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results} --quiet"
     )
-    files = ["URS0000001EB3-RF00661.colored.svg"]
+    files = ["URS0002652150-RF00020.colored.svg"]
 
     def setUp(self):
         self.delete_folder(self.test_results)

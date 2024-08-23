@@ -5,7 +5,7 @@
     docker pull rnacentral/r2dt
     ```
 
-    Alternatively, build a Docker image locally:
+    Alternatively, build a Docker image locally (requires [just](https://just.systems)):
 
     ```bash
     # Get the code
@@ -19,9 +19,10 @@
     singularity build r2dt docker://rnacentral/r2dt
     ```
 
-2. Setup a precomputed data library _(198 MB, last updated Aug 21, 2023)_:
+2. Setup a precomputed data library _(171 MB, last updated Aug 23, 2024)_:
     ```bash
-    just download
+    curl -O -L https://github.com/RNAcentral/R2DT/releases/download/v2.0/cms.tar.gz
+    tar -xzf cms.tar.gz
     export R2DT_LIBRARY=<path to precomputed library>
     ```
 

@@ -67,7 +67,7 @@ The following procedure should be done after each Rfam release:
 1. Run tests
 1. Generate new precomputed library archive
     ```bash
-    tar -czvf cms.tar.gz <path/to/new/cms>
+    r2dt.py create-precomputed-library <release_number>
     ```
     The folder should contain 2 subfolders: `crw` and `rfam`.
 1. Update the precomputed library link in Readme

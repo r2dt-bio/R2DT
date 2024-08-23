@@ -7,10 +7,7 @@ from pathlib import Path
 
 from utils.rfam_threshold import RfamThresholds
 
-RFAM_BELOW_GA = (
-    5  # accept hits this many bits below the Rfam model-specific gathering threshold
-)
-MIN_GA = 25  # minimum acceptable score for Rfam models
+MIN_GA = 20  # minimum acceptable score for Rfam models
 
 
 # pylint: disable=too-many-instance-attributes, line-too-long
@@ -54,7 +51,6 @@ class Ribovore:
     def __init__(self, ribovore_output: Path, skip_ribovore_filters: bool = False):
         self.ribovore_output = ribovore_output
         self.skip_ribovore_filters = skip_ribovore_filters
-        self.rfam_below_ga = RFAM_BELOW_GA  # accept hits this many bits below the Rfam model-specific gathering threshold
         self.all_hits = self.parse_ribovore_output()
         self.hits = self.filter_hits()
 
@@ -135,20 +131,19 @@ class Ribovore:
         rfam_thresholds = RfamThresholds()
         filtered_hits = []
         for hit in self.all_hits:
+            if "NoHits" in hit.unexpected_features:
+                continue
             if self.skip_ribovore_filters:
-                if "NoHits" not in hit.unexpected_features:
-                    filtered_hits.append(hit)
-                    continue
+                filtered_hits.append(hit)
             else:
                 if "NoHits" in hit.unexpected_features:
                     continue
-                # keep failed hits with MultipleHits warning but high target coverage
-                if "MultipleHits" in hit.unexpected_features and hit.tcov >= 0.85:
-                    filtered_hits.append(hit)
+                if "MinusStrand" in hit.unexpected_features:
                     continue
-                if hit.pass_or_fail == "FAIL":
+                if hit.tcov < 0.2:
                     continue
-                # for Rfam models, check if the hit passes the gathering threshold
+                # For Rfam models, check if the hit passes the gathering threshold
+                # Note that Ribovore scores are HMM bit scores, not CM scores like Rfam GA
                 rfam_ga = rfam_thresholds.get_threshold(hit.model)
                 if rfam_ga is None:  # not an Rfam model, keep the hit
                     filtered_hits.append(hit)

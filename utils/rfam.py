@@ -30,6 +30,7 @@ from .ribovore import MIN_GA
 from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
+from .scale_template import scale_coordinates
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -562,6 +563,7 @@ def rscape2traveler(rfam_acc):
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
+    scale_coordinates(get_traveler_template_xml(rfam_acc, "r2r"))
     generate_traveler_fasta(rfam_acc)
 
 
@@ -643,8 +645,8 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
                 parts = line.split()
                 if len(parts) >= 14:
                     bit_score = float(parts[14])
-                    print(bit_score)
-                    if bit_score >= MIN_GA:
+                    strand = parts[9]
+                    if bit_score >= MIN_GA and strand == "+":
                         outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
     ids = set()
     with open(hits) as f_hits:

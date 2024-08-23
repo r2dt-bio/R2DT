@@ -37,6 +37,7 @@ from utils import rna2djsonschema as r2djs
 from utils import shared
 from utils.rnartist import RnaArtist
 from utils.runner import runner
+from utils.scale_template import scale_coordinates
 
 
 class Timer:
@@ -1075,7 +1076,7 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
         r2r_svg = r2r.run_r2r(r2r_folder)
         rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
         rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
-        # scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
+        scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
         r2r.run_traveler(fasta_input, r2r_folder, seq_id)
         organise_results(r2r_folder, output_folder)
         tsv_folder = results_folder / "tsv"
@@ -1169,6 +1170,28 @@ def generate_template(json_file, quiet):
     template = r2djs.SchemaToTemplate(json_file)
     if not quiet:
         rprint(f"Created a new {template}")
+
+
+@cli.command()
+@click.argument("release_version", type=click.STRING)
+def create_precomputed_library(release_version):
+    """Create a precomputed library for a given release version."""
+    rprint(shared.get_r2dt_version_header())
+
+    data_dir = Path(config.CM_LIBRARY)
+    release_dir = data_dir / release_version
+
+    # Create a temporary directory structure
+    release_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(data_dir / "crw", release_dir / "crw")
+    shutil.copytree(data_dir / "rfam", release_dir / "rfam")
+
+    # Compress the directory structure into a tar.gz file
+    with tarfile.open(data_dir / "cms.tar.gz", "w:gz") as tar:
+        tar.add(release_dir, arcname=release_version)
+
+    shutil.rmtree(release_dir)
+    rprint(f"Precomputed library created at {data_dir / 'cms.tar.gz'}")
 
 
 if __name__ == "__main__":

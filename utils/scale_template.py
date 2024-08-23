@@ -7,8 +7,10 @@ import glob
 import os
 import xml.etree.ElementTree as ET
 
+SCALING_FACTOR = 4
 
-def scale_coordinates(file_path, scaling_factor):
+
+def scale_coordinates(file_path, scaling_factor=SCALING_FACTOR):
     """Scale the coordinates in a Traveler template."""
     tree = ET.parse(file_path)
     root = tree.getroot()
@@ -33,7 +35,7 @@ def main():
     parser.add_argument(
         "--scaling-factor",
         type=float,
-        default=4,
+        default=SCALING_FACTOR,
         help="The scaling factor to apply to the coordinates.",
     )
     args = parser.parse_args()

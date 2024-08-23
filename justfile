@@ -11,7 +11,7 @@ platform_arg := if platform == "" { "" } else { "--platform=" + platform }
 base_image := "rnacentral/r2dt-base"
 image := "rnacentral/r2dt"
 default_tag := "latest"
-data_version := "1.4"
+data_version := "2.0"
 data_dir := "./" + data_version
 port := "8000"
 
@@ -27,7 +27,7 @@ venv:
 
 # Download data from RNAcentral
 download:
-    curl -O https://ftp.ebi.ac.uk/pub/databases/RNAcentral/r2dt/{{ data_version }}/cms.tar.gz
+    curl -O -L https://github.com/RNAcentral/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
     tar -xzf cms.tar.gz
 
 # Run shell in docker
