@@ -6,4 +6,4 @@ The RNAcentral [secondary structure diagrams](https://rnacentral.org/search?q=ha
 
 ![Biorxiv preprint](../images/biorxiv-preprint.png)
 
-You can [browse](https://rnacentral.org/search?q=has_secondary_structure:%22True%22) the secondary structures, try the [R2DT web server](http://rnacentral.org/r2dt), or check out the R2DT [source code](https://github.com/rnacentral/r2dt) on GitHub.
+You can [browse](https://rnacentral.org/search?q=has_secondary_structure:%22True%22) the secondary structures, try the [R2DT web server](http://rnacentral.org/r2dt), or check out the R2DT [source code](https://github.com/r2dt-bio/r2dt) on GitHub.

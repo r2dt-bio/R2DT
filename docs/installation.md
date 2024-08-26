@@ -9,7 +9,7 @@
 
     ```bash
     # Get the code
-    git clone https://github.com/RNAcentral/R2DT.git
+    git clone https://github.com/r2dt-bio/R2DT.git
     cd R2DT
     just build
     ```
@@ -21,7 +21,7 @@
 
 2. Setup a precomputed data library _(171 MB, last updated Aug 23, 2024)_:
     ```bash
-    curl -O -L https://github.com/RNAcentral/R2DT/releases/download/v2.0/cms.tar.gz
+    curl -O -L https://github.com/r2dt-bio/R2DT/releases/download/v2.0/cms.tar.gz
     tar -xzf cms.tar.gz
     export R2DT_LIBRARY=<path to precomputed library>
     ```
@@ -65,4 +65,4 @@ just run
 
 ## Manual installation
 
-If it is not possible to use containers, follow instructions in the [base Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/base_image/Dockerfile) and [main Dockerfile](https://github.com/RNAcentral/R2DT/blob/main/Dockerfile) to install all the requirements manually.
+If it is not possible to use containers, follow instructions in the [base Dockerfile](https://github.com/r2dt-bio/R2DT/blob/main/base_image/Dockerfile) and [main Dockerfile](https://github.com/r2dt-bio/R2DT/blob/main/Dockerfile) to install all the requirements manually.

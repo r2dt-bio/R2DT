@@ -87,7 +87,7 @@ It is possible to select a specific template and skip the classification step al
     r2dt.py list-models
     ```
 
-In addition, all models are listed in the file [models.json](https://github.com/RNAcentral/R2DT/blob/main/data/models.json).
+In addition, all models are listed in the file [models.json](https://github.com/r2dt-bio/R2DT/blob/main/data/models.json).
 
 1. Specify the template (for example, `RNAseP_a_P_furiosus_JB`):
     ```bash
@@ -188,7 +188,7 @@ For example, the following command will produce no results because the sequence 
 r2dt.py draw examples/ribovore-qc-example.fasta temp/examples
 ```
 
-However, the following command generates a [valid diagram](https://github.com/RNAcentral/R2DT/blob/main/tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
+However, the following command generates a [valid diagram](https://github.com/r2dt-bio/R2DT/blob/main/tests/examples/skip-ribovore-filters/URS0000001EB3-RF00661.colored.svg):
 
 ```bash
 r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/examples

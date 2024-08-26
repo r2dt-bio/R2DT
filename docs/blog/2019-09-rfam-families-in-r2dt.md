@@ -4,7 +4,7 @@
 
 Starting with release 12, RNAcentral has included secondary structure (2D) diagrams for small subunit and 5S rRNAs. The structures are visualised using family-specific templates so that related RNAs look in a similar way.
 
-Now we expanded the [auto-traveler](https://github.com/RNAcentral/R2DT) pipeline to use Rfam consensus secondary structure diagrams as templates so that RNA sequences from >2,000 Rfam families can be displayed in consistent orientations. One can visually compare 2D structures of sequences from the same family. For example, the following diagram shows the [human](https://rnacentral.org/rna/URS000026BDF0/9606) and [mouse](https://rnacentral.org/rna/URS00006550DA/10090) SCARNA13 drawn in the same orientation using the [RF00231](http://rfam.org/family/RF00231) consensus as a template:
+Now we expanded the [auto-traveler](https://github.com/r2dt-bio/R2DT) pipeline to use Rfam consensus secondary structure diagrams as templates so that RNA sequences from >2,000 Rfam families can be displayed in consistent orientations. One can visually compare 2D structures of sequences from the same family. For example, the following diagram shows the [human](https://rnacentral.org/rna/URS000026BDF0/9606) and [mouse](https://rnacentral.org/rna/URS00006550DA/10090) SCARNA13 drawn in the same orientation using the [RF00231](http://rfam.org/family/RF00231) consensus as a template:
 
 ![Human and mouse SCARNA13](../images/scarna13.gif)
 

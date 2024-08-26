@@ -25,9 +25,9 @@ venv:
     pip3 install -r requirements.txt
     source .venv/bin/activate
 
-# Download data from RNAcentral
+# Download precomputed data from GitHub
 download:
-    curl -O -L https://github.com/RNAcentral/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
+    curl -O -L https://github.com/r2dt-bio/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
     tar -xzf cms.tar.gz
 
 # Run shell in docker
