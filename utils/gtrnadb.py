@@ -101,6 +101,8 @@ def parse_trnascan_output(filename):
             end = int(end)
             if score < SCORE_CUTOFF:
                 continue
+            if start > end:
+                continue  # skip hits on the reverse strand
             data[seq_id] = {
                 "score": score,
                 "isotype": isotype,
