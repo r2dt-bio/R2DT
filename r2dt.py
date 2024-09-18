@@ -188,7 +188,7 @@ def is_templatefree(fasta_input):
     with an additional line specifying secondary structure
     in dot bracket format (pseudoknots allowed)."""
     with open(fasta_input) as f_in:
-        lines = [line for line in f_in.readlines() if line.strip()]
+        lines = [line.strip() for line in f_in.readlines() if line.strip()]
     if len(lines) != 3:
         return False
     header, sequence, structure = lines
