@@ -22,7 +22,7 @@ Hovering over the nucleotides shows the alignment accuracy (posterior probabilit
 - 0.85 ≤ p < 0.95 is coded as `9`
 - 0.95 ≤ p ≤ 1.0 (shown as `*` in Infernal output) is coded as `10`.
 
-The nucleotides are colored based on a color-blind friendly palette from a [paper by Bang Wong](https://www.nature.com/articles/nmeth.1618). The default colors can be found in the  [colorscheme.json](https://github.com/RNAcentral/R2DT/blob/develop/utils/colorscheme.json) file and are shown below:
+The nucleotides are colored based on a color-blind friendly palette from a [paper by Bang Wong](https://www.nature.com/articles/nmeth.1618). The default colors can be found in the  [colorscheme.json](https://github.com/r2dt-bio/R2DT/blob/develop/utils/colorscheme.json) file and are shown below:
 
 - <span style="background-color: rgb(213, 94, 0); padding: 4px;">0-5 or <55% accuracy</span>
 - <span style="background-color: rgb(230, 159, 0); padding: 4px;">6 or ≥55-65% accuracy</span>

@@ -1,13 +1,13 @@
 # R2DT documentation
 
 [![RTD badge](https://readthedocs.org/projects/r2dt/badge/?version=latest)](https://r2dt.readthedocs.io/en/latest/?badge=latest)
-[![GitHub release](https://img.shields.io/github/release/rnacentral/r2dt.svg)](https://github.com/rnacentral/r2dt/releases/)
+[![GitHub release](https://img.shields.io/github/release/rnacentral/r2dt.svg)](https://github.com/r2dt-bio/r2dt/releases/)
 [![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1038/s41467-021-23555-5)](https://www.nature.com/articles/s41467-021-23555-5)
-[![GitHub stars](https://img.shields.io/github/stars/rnacentral/r2dt.svg?style=social&label=Stars&maxAge=2592000)](https://github.com/rnacentral/r2dt/stargazers/)
+[![GitHub stars](https://img.shields.io/github/stars/rnacentral/r2dt.svg?style=social&label=Stars&maxAge=2592000)](https://github.com/r2dt-bio/r2dt/stargazers/)
 
 ## What is R2DT?
 
-The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recognisable layouts using a library of templates representing a wide range of RNAs.
+The [R2DT software](https://github.com/r2dt-bio/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recognisable layouts using a library of templates representing a wide range of RNAs.
 
 ## Try it now
 
@@ -26,9 +26,9 @@ The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates 
 
 ## How does it work?
 
-Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the slides from a recent talk:
+Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the overview slides:
 
-<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRrBpjxq-QiArYPuzQiKZBJVFlHR3vEYGkZUV-W1XcrG6hX1eMAoahJmLU9Vf1VlGSVPfaLYqPqp1Ke/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+<iframe src="https://docs.google.com/presentation/d/1DI-_3ozYsGhe21ZUyMeUKn9NrAxjTaoXJ2DF8IPi3Wo/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 <br>
 
 ## Examples
@@ -51,7 +51,8 @@ R2DT can be used in a number of ways:
 * PDBe uses R2DT to enable interactive navigation between sequence, 2D and 3D structure (for example, [1S72](https://www.ebi.ac.uk/pdbe/entry/pdb/1s72/RNA/1))
 * [Rfam](https://rfam.org/search#tabview=tab1) and [GtRNAdb](http://gtrnadb.ucsc.edu/rnacentral_search.html) display R2DT diagrams in sequence similarity search
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products), [SGD](https://www.yeastgenome.org/locus/S000006550/sequence), and [PomBase](https://www.pombase.org/gene/SPSNRNA.01) show R2DT diagrams for RNA genes
-* [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2)).
+* [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2))
+* [RiboVision 2.0](https://ribovision2.chemistry.gatech.edu/) uses R2DT to visualise RNA secondary structure and connect them to multiple sequence alignments and 3D structures
 
 Browse [papers citing R2DT &rarr;](https://scholar.google.com/scholar?cites=12435886377905515481)
 
@@ -64,11 +65,11 @@ If you use R2DT in your work, please consider citing the following paper:
 
 ## License
 
-R2DT is available under the [Apache 2.0 license](https://github.com/RNAcentral/R2DT/blob/main/LICENSE).
+R2DT is available under the [Apache 2.0 license](https://github.com/r2dt-bio/R2DT/blob/main/LICENSE).
 
 ## Get in touch
 
-If you have any questions or feedback, feel free to [submit a GitHub issue](https://github.com/RNAcentral/r2dt/issues) or contact the [RNAcentral help desk](https://rnacentral.org/contact).
+If you have any questions or feedback, feel free to [submit a GitHub issue](https://github.com/r2dt-bio/r2dt/issues) or contact the [RNAcentral help desk](https://rnacentral.org/contact).
 
 ```{eval-rst}
 .. toctree::
@@ -123,4 +124,4 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 
 ## GitHub
 
-Contribute to the [R2DT project on GitHub](https://github.com/rnacentral/r2dt) &rarr;
+Contribute to the [R2DT project on GitHub](https://github.com/r2dt-bio/r2dt) &rarr;

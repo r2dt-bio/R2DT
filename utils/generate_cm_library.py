@@ -13,6 +13,7 @@ limitations under the License.
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 import requests
@@ -58,9 +59,7 @@ def copy_cm_evalues(cm_filename):
     by copying E-values from Rfam CMs.
     """
     rfam_acc = "RF00177"
-    example_cm_path = Path("temp") / f"{rfam_acc}.cm"
-    if not example_cm_path.parent.exists():
-        example_cm_path.parent.mkdir()
+    example_cm_path = Path(tempfile.gettempdir()) / f"{rfam_acc}.cm"
     # Download the file if it doesn't exist
     if not example_cm_path.exists():
         url = f"http://rfam.org/family/{rfam_acc}/cm"
@@ -75,7 +74,9 @@ def copy_cm_evalues(cm_filename):
     cm_filename_path = Path(cm_filename)
 
     subprocess.run(
-        [str(perl_script_path), str(example_cm_path), str(cm_filename_path)], check=True
+        [perl_script_path, example_cm_path, cm_filename_path],
+        check=True,
+        stdout=subprocess.DEVNULL,
     )
 
     # Remove the .old file

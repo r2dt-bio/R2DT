@@ -18,6 +18,10 @@ from pathlib import Path
 from . import config
 from .runner import runner
 
+SCORE_CUTOFF = 25
+TRNASCAN_MODELS = "/usr/lib/tRNAscan-SE/models"
+TRNASCAN_CONF = "/usr/bin/tRNAscan-SE.conf"
+
 
 def setup():
     """Extract tRNAScan covariance models as separate files."""
@@ -42,6 +46,42 @@ def setup():
                     get_trnascan_cm(domain, isotype)
 
 
+def verify_anticodon(isotype, anticodon, start, end):
+    """
+    When multiple models are possible, select the most likely one.
+
+    Currently only Cys, Leu, and Ser TRNAinf-mito-vert have more than one CM/template.
+
+    Leu
+    LeuTAA and LeuTAG do not have any structural or length differences.
+    Either template can be used.
+
+    Cys
+    There is only one anticodon for Cys
+    <= 61 bp without D-arm.
+    >= 65 with D-arm (typical Cys model).
+    in between can be either.
+
+    Ser
+    >= 70 bp are usually SerTGA (with a D-arm).
+    < 65 are usually SerGCT (without a D-arm).
+    in between can be either.
+    """
+    if anticodon != "NNN":
+        return anticodon
+    seq_length = abs(end - start) + 1
+    if isotype == "Leu":
+        anticodon = "TAA" if seq_length % 2 == 0 else "TAG"
+    elif isotype == "Ser":
+        if seq_length >= 70:
+            anticodon = "TGA"
+        elif seq_length < 65:
+            anticodon = "GCT"
+        else:
+            anticodon = "GCT" if seq_length % 2 == 0 else "TGA"
+    return anticodon
+
+
 def parse_trnascan_output(filename):
     """
     Sequence           		     tRNA	Bounds	tRNA	Anti	Intron  Bounds	Inf
@@ -54,29 +94,38 @@ def parse_trnascan_output(filename):
         for i, line in enumerate(f_trnascan):
             if i in [0, 1, 2]:
                 continue  # skip 3 header lines
-            parts = line.split("\t")
-            data[parts[0].strip()] = {
-                "score": float(parts[8].strip()),
-                "isotype": parts[4].strip(),
-                "anticodon": parts[5].strip(),
-                "note": parts[9].lower().strip(),
-                "start": int(parts[2].strip()),
-                "end": int(parts[3].strip()),
+            parts = [x.strip() for x in line.split("\t")]
+            seq_id, _, start, end, isotype, anticodon, _, _, score, note = parts
+            score = float(score)
+            start = int(start)
+            end = int(end)
+            if score < SCORE_CUTOFF:
+                continue
+            if start > end:
+                continue  # skip hits on the reverse strand
+            data[seq_id] = {
+                "score": score,
+                "isotype": isotype,
+                "anticodon": verify_anticodon(isotype, anticodon, start, end),
+                "note": note.lower(),
+                "start": start,
+                "end": end,
             }
     return data
 
 
 def run_trnascan(fasta_input, output_folder, domain):
     """Launch tRNAScan-SE and return parsed results."""
+    _, extension = os.path.splitext(fasta_input)
     output_file = os.path.join(
         output_folder,
-        domain + "-" + os.path.basename(fasta_input).replace(".fa", ".txt"),
+        domain + "-" + os.path.basename(fasta_input).replace(extension, ".txt"),
     )
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
         runner.run(
-            f"tRNAscan-SE -c /usr/bin/tRNAscan-SE.conf -q -{domain} -o {output_file} {fasta_input}"
+            f"tRNAscan-SE -c {TRNASCAN_CONF} -q -{domain} -o {output_file} {fasta_input}"
         )
     return parse_trnascan_output(output_file)
 
@@ -158,7 +207,7 @@ def get_trnascan_cm(domain, isotype):
     if cm_output.exists():
         return str(cm_output)
 
-    cm_library = Path("/usr/local/lib/tRNAscan-SE/models")
+    cm_library = Path(TRNASCAN_MODELS)
     if domain == "A":
         cm_library = cm_library / "TRNAinf-arch-iso"
         cm_name = "arch-" + isotype
@@ -176,7 +225,7 @@ def get_trnascan_cm(domain, isotype):
 
     result = runner.run(f"cmfetch -o {cm_output} {cm_library} {cm_name}")
     if result:
-        os.remove(cm_output)
+        cm_output.unlink(missing_ok=True)
         cm_output = None
     return cm_output
 

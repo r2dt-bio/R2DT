@@ -13,7 +13,7 @@
 - [Blake Sweeney](https://www.ebi.ac.uk/people/person/blake-sweeney/), [Carlos Ribas](https://www.ebi.ac.uk/people/person/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/people/person/fabio-madeira/), [Rob Finn](https://www.ebi.ac.uk/people/person/rob-finn/)
 - [Anton I. Petrov](https://antonpetrov.com)
 
-👋 We welcome additional contributions so please feel free to [raise an issue](https://github.com/RNAcentral/R2DT/issues) or submit a pull request.
+👋 We welcome additional contributions so please feel free to [raise an issue](https://github.com/r2dt-bio/R2DT/issues) or submit a pull request.
 
 ## Acknowledgements
 

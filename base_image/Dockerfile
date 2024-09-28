@@ -1,13 +1,14 @@
-FROM gcc:13 as build
+FROM gcc:13 AS build
 
 ENV tRNAscan_VER=2.0.11 \
-    BioEasel_COMMIT=e7fae0ab43fc47058183b71ff498ee0d0d2de6a7 \
+    BioEasel_COMMIT=a52f0f7f7cae879bb95489bb794c04c1a0110aa7 \
     traveler_COMMIT=0ee67cbb9c5aaa2f98340065fd047c9a8feea53e \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
-    Rscape_VER=v2.0.2.d \
-    Ribovore_VER=1.0.5 \
+    Rscape_VER=v2.0.4.c \
+    Ribovore_COMMIT=5df943c6f2866d7979bb13c948ca9d8531076898 \
     BioEasel_VER=0.11 \
-    INFERNAL_VER=1.1.5
+    INFERNAL_VER=1.1.5 \
+    RNArtist_VER=0.4.6
 
 
 FROM build AS rscape
@@ -20,7 +21,7 @@ RUN  cp /usr/share/automake-1.16/config.guess /rscape/lib/R2R/R2R-current/config
       mkdir -p /rna/rscape && cd rscape && ./configure --prefix=/rna/rscape -q && make -j 2 && make install
 
 
-FROM build AS tRNAscan-SE
+FROM build AS trnascan-se
 
 # Install tRNAScan-SE
 RUN \
@@ -29,7 +30,7 @@ RUN \
     cd tRNAscan-SE-${tRNAscan_VER} && ./configure -q --prefix=/install/ && make && make install
 
 
-FROM build AS Bio-Easel
+FROM build AS bio-easel
 
 # Install Bio-Easel
 RUN \
@@ -68,16 +69,27 @@ RUN \
     chmod +x *.pl && mkdir -p /install/ && cp *.pl /install/
 
 
-FROM build as ribovore-infernal-easel
+FROM build AS ribovore-infernal-easel
 
-# Install Ribovore, Infernal, and easel
+# Install Ribovore
 RUN \
     mkdir -p /install/ && \
     cd /install/ && \
-    wget --no-verbose -O - "https://raw.githubusercontent.com/ncbi/ribovore/ribovore-${Ribovore_VER}/install.sh" | bash -s -- "rt-linux" && \
-    rm -Rf /install/ribovore/models /install/ribovore/testfiles
+    git clone https://github.com/ncbi/ribovore && \
+    cd ribovore && \
+    git checkout ${Ribovore_COMMIT} && \
+    rm -Rf .git models testfiles taxonomy
 
-# Overwrite Infernal binaries installed by Ribovore by compiling Infernal from source
+# Install Sequip (Ribovore dependency)
+RUN \
+    cd /install/ && \
+    sequip_version=ribovore-1.0.5 && \
+    wget -O sequip-${sequip_version}.zip https://github.com/nawrockie/sequip/archive/${sequip_version}.zip && \
+    unzip sequip-${sequip_version}.zip && \
+    mv sequip-${sequip_version} sequip && \
+    rm sequip-${sequip_version}.zip
+
+# Install Infernal
 RUN \
     wget -q "http://eddylab.org/infernal/infernal-${INFERNAL_VER}.tar.gz" && \
     tar xzf "infernal-${INFERNAL_VER}.tar.gz" && \
@@ -88,20 +100,29 @@ RUN \
     make install && \
     cd easel && \
     make install && \
+    mkdir -p /install/infernal/binaries && \
     mv /infernal/bin/* /install/infernal/binaries/
 
+FROM build AS rnartist
 
-FROM debian:bookworm-slim as final-build
+# Install RNArtist
+RUN \
+    wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
+
+FROM debian:bookworm-slim AS final-build
 
 ENV \
     RNA=/rna
 
 RUN \
     apt-get -qq update && apt-get install -qq -y --no-install-recommends  \
+    ncbi-blast+ \
+    openjdk-17-jre-headless \
     python3  \
     python3-pip  \
     python3-venv  \
     python3-cairo  \
+    chafa \
     procps \
     perl &&  \
     rm -rf /var/lib/{apt,lpkg,cache,log}
@@ -129,7 +150,7 @@ ENV \
     RIBOSCRIPTSDIR="$RIBOINSTALLDIR/ribovore" \
     RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/binaries" \
     RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
-    RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
+    RIBOBLASTDIR="/usr/bin" \
     VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
     RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor"
 
@@ -138,30 +159,30 @@ ENV \
     RIBOINFERNALDIR="$RIBOINSTALLDIR/infernal/binaries" \
     RIBOEASELDIR="$RIBOINSTALLDIR/infernal/binaries" \
     RIBOSEQUIPDIR="$RIBOINSTALLDIR/sequip" \
-    RIBOBLASTDIR="$RIBOINSTALLDIR/ncbi-blast/bin" \
     RIBOTIMEDIR=/usr/bin \
     RRNASENSORDIR="$RIBOINSTALLDIR/rRNA_sensor" \
     VECPLUSDIR="$RIBOINSTALLDIR/vecscreen_plus_taxonomy" \
     PERL5LIB="$RIBOSCRIPTSDIR":"$RIBOSEQUIPDIR":"$VECPLUSDIR":"$PERL5LIB" \
-    PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH"
+    PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH"
 
 ENV \
-    PATH="$RIBOSCRIPTSDIR":"$RIBOBLASTDIR":"$RRNASENSORDIR":"$PATH" \
+    PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH" \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
 
 COPY --from=rscape /rna/rscape/ ${RNA}/rscape
 
-COPY --from=tRNAscan-SE /install/ /usr
+COPY --from=trnascan-se /install/ /usr
 RUN sed -i -e 's|/install/bin|/usr/bin|' -e 's|/install/lib|/usr/lib|' /usr/bin/tRNAscan-SE.conf
 
-COPY --from=Bio-Easel /install/usr/* /usr
-COPY --from=Bio-Easel /install/Bio-Easel $RNA/Bio-Easel
-COPY --from=Bio-Easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
+COPY --from=bio-easel /install/usr/* /usr
+COPY --from=bio-easel /install/Bio-Easel $RNA/Bio-Easel
+COPY --from=bio-easel /usr/local/share/perl/5.36.0/ /usr/share/perl/5.36/
 
 COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
 COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
+COPY --from=rnartist /rnartist.jar /usr/local/bin/
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/

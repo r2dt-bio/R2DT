@@ -18,6 +18,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from . import config, gtrnadb, rfam, shared
+from .rfamseed import RfamSeed
 from .runner import runner
 
 
@@ -39,15 +40,19 @@ def visualise(
     isotype=None,
     start=None,
     end=None,
+    quiet=False,
+    rfam_template="auto",
 ):
     """Main visualisation routine that invokes Traveler."""
-    if model_id:
+    if model_id and not quiet:
         rprint(f"Visualising {seq_id} with {model_id}")
-    else:
+    elif domain and isotype and not quiet:
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    filename_template = os.path.join(output_folder, f"{seq_id}_type.txt")
+    filename_template = os.path.join(
+        output_folder, f"{seq_id.replace('/', '_')}_type.txt"
+    )
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         template_layout = config.RIBOVISION_LSU_TRAVELER
@@ -69,6 +74,10 @@ def visualise(
             model_id = rfam.get_rfam_acc_by_id(model_id)
         temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
         temp_acc_list = filename_template.replace("type", "seed_list")
+    elif rna_type.lower() == "local_data":
+        cm_library = os.path.join(config.LOCAL_DATA, model_id)
+        template_layout = cm_library
+        template_structure = cm_library
     elif rna_type.lower() == "gtrnadb":
         model_id = domain + "_" + isotype
     else:
@@ -99,10 +108,10 @@ def visualise(
     # check that the model exists
     if rna_type == "rfam":
         model_path = rfam.get_rfam_cm(model_id)
-        template_layout = rfam.get_traveler_template_xml(model_id)
+        template_layout = rfam.get_traveler_template_xml(model_id, rfam_template)
         template_structure = rfam.get_traveler_fasta(model_id)
         # download seed alignment and list its accessions
-        rfam_seed = rfam.download_rfam_seed(model_id)
+        rfam_seed = RfamSeed().get_rfam_seed(model_id)
         cmd = f"esl-alistat --list {temp_acc_list} {rfam_seed} > /dev/null"
         runner.run(cmd)
     elif rna_type == "gtrnadb":
@@ -112,6 +121,13 @@ def visualise(
             return
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
+    elif rna_type == "local_data":
+        model_path = os.path.join(config.LOCAL_DATA, model_id, model_id + ".cm")
+        if not os.path.exists(model_path):
+            rprint(f"Model not found {model_path}")
+            return
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -132,7 +148,7 @@ def visualise(
         if not result:
             break
     else:
-        rprint(f"Failed cmalign of {seq_id} to {model_id}")
+        rprint(f"[red]Failed cmalign of {seq_id} to {model_id}[/red]")
         return
 
     if rna_type == "rfam":
@@ -148,12 +164,14 @@ def visualise(
     result = runner.run(cmd)
     if result:
         rprint(f"Failed esl-alidepair for {seq_id}")
+        cmd = f"cp {temp_sto} {temp_depaired}"
+        result = runner.run(cmd)
 
     has_conserved_structure = False
     with open(temp_sto) as f_stockholm:
         for line in f_stockholm.readlines():
             if line.startswith("#=GC SS_cons"):
-                if "<" in line:
+                if any(char in line for char in ["<", "[", "{", "("]):
                     has_conserved_structure = True
                 else:
                     rprint("This RNA does not have a conserved structure")
@@ -199,8 +217,9 @@ def visualise(
             f"Failed ali-pfam-lowercase-rf-gap-columns for {seq_id} {model_id}"
         )
 
+    insertion_removed = False
     if not constraint:
-        shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
+        insertion_removed = shared.remove_large_insertions_pfam_stk(temp_pfam_stk)
         shared.remove_large_insertions_pfam_stk(temp_pfam_stk_original)
 
     # convert stockholm to aligned fasta with WUSS secondary structure
@@ -227,8 +246,9 @@ def visualise(
 
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
-    cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-    infernal_mapping_failed = runner.run(cmd)
+    if not insertion_removed:
+        cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
+        infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
         result_base = os.path.join(
@@ -264,7 +284,7 @@ def visualise(
             f"--template-structure {template_layout}/{model_id}.ps "
             f"{template_structure}/{model_id}.fasta"
         )
-    elif rna_type == "rfam":
+    elif rna_type in ["rfam", "local_data"]:
         traveler_params = (
             f"--template-structure --file-format traveler "
             f"{template_layout} {template_structure} "
@@ -292,15 +312,14 @@ def visualise(
         traveler_failed = runner.run(cmd)
 
     if infernal_mapping_failed or traveler_failed:
-        rprint("Traveler with Infernal mapping failed:")
-        rprint(cmd)
-        rprint("Repeating using Traveler mapping:")
         cmd = (
             "traveler --verbose "
             f"--target-structure {result_base}.fasta {traveler_params} "
             f"--all {result_base} > {log}"
         )
-        runner.run(cmd)
+        traveler_crashed = runner.run(cmd)
+        if traveler_crashed:
+            rprint(f"[red]Traveler crashed for {seq_id} {model_id}[/red]")
 
     overlaps = 0
     with open(log) as raw:
@@ -313,53 +332,84 @@ def visualise(
                 overlaps = int(match.group(1))
     with open(f"{result_base}.overlaps", "w") as out:
         out.write(f"{overlaps}\n")
-    if rna_type != "rnasep":
-        adjust_font_size(result_base)
 
     # add metadata to json file
-    cmd = (
-        f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
-        f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
-    )
-    result = runner.run(cmd)
-
-    # add colors
-    if result == 0:
+    result_json = result_base + ".colored.json"
+    if os.path.exists(result_json) and os.path.getsize(result_json) > 0:
         cmd = (
-            f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
-            f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+            f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
+            f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
         )
-        runner.run(cmd)
+        result = runner.run(cmd)
+
+        # add colors
+        if result == 0:
+            cmd = (
+                f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
+                f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+            )
+            runner.run(cmd)
+
+    if rna_type in ["rfam", "gtrnadb"]:
+        adjust_font_size(result_base)
 
     # clean up
-    os.remove(temp_fasta)
-    os.remove(temp_sto)
-    os.remove(temp_depaired)
-    os.remove(temp_stk)
-    os.remove(temp_afa)
-    os.remove(temp_map)
-    if rna_type == "rfam":
-        os.remove(temp_sto_unfiltered)
-        os.remove(temp_acc_list)
+    files = [
+        temp_afa_original,
+        temp_afa,
+        temp_depaired,
+        temp_fasta,
+        temp_map,
+        temp_pfam_stk_original,
+        temp_pfam_stk,
+        temp_post_prob,
+        temp_stk_original,
+        temp_stk,
+        temp_sto,
+    ]
+    for filename in files:
+        if os.path.exists(filename):
+            os.remove(filename)
 
 
 def adjust_font_size(result_base):
     """
-    Decrease font-size for large diagrams.
+    Adjust font size.
     """
-    filenames = [result_base + ".colored.svg", result_base + ".svg"]
+    filenames = [
+        result_base + ".colored.svg",
+        result_base + ".enriched.svg",
+        result_base + ".svg",
+    ]
     for filename in filenames:
-        if not os.path.exists(filename):
+        if not os.path.exists(filename) or not os.path.getsize(filename):
             continue
-        content = (
-            Path(filename).read_text().replace("font-size: 7px;", "font-size: 4px;")
-        )
+        with open(filename) as f_svg:
+            content = f_svg.read()
+            try:
+                font_size = float(
+                    re.search(r"font-size: (\d+(\.\d+)?)px;", content).group(1)
+                )
+            except AttributeError:
+                rprint(f"[red]Font-size not found in {filename}[/red]")
+                continue
+            # get approximate number of nucleotides
+            num_nucleotides = len(re.findall(r"<text", content))
+            # adjust font-size if diagram is small and font-size is too small or too large
+            if num_nucleotides < 100:
+                font_size = max(7, font_size)
+            elif num_nucleotides < 200:
+                font_size = max(12, font_size)
+            # update font-size
+            content = re.sub(
+                r"font-size: (\d+(\.\d+)?)px;", f"font-size: {font_size}px;", content
+            )
         Path(filename).write_text(content)
 
 
 # pylint: disable-next=too-many-arguments
 def visualise_trna(
-    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type
+    domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type, quiet
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
@@ -375,7 +425,6 @@ def visualise_trna(
     with open(filename) as f_headers:
         for _, line in enumerate(f_headers):
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            rprint(seq_id)
             visualise(
                 "gtrnadb",
                 fasta_input,
@@ -389,6 +438,7 @@ def visualise_trna(
                 isotype,
                 None,
                 None,
+                quiet,
             )
     file_path = Path(filename)
     file_path.unlink(missing_ok=True)

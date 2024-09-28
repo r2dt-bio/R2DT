@@ -1,10 +1,10 @@
 # R2DT
 
-**Version 1.4 (2023)**
+**Version 2.0 (2024)**
 
 **[See the R2DT documentation](https://r2dt.readthedocs.io/)**
 
-The [R2DT software](https://github.com/RNAcentral/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs.
+The [R2DT software](https://github.com/r2dt-bio/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs.
 
 ## Examples
 
@@ -19,6 +19,8 @@ R2DT can be used in a number of ways:
 * [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services
 * As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or in a bare metal installation
+
+You can also [![open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RNAcentral/R2DT)
 
 ## Citation
 

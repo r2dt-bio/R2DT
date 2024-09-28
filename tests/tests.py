@@ -12,7 +12,9 @@ limitations under the License.
 """
 
 import filecmp
+import glob
 import os
+import shutil
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +27,8 @@ from PIL import Image, ImageChops
 from skimage.metrics import structural_similarity as ssim
 
 from utils import config, rfam
+from utils.rnartist import RnaArtist
+from utils.rnartist_setup import compare_rnartist_and_rscape
 from utils.runner import runner
 
 HTML_FOLDER = "tests/html"
@@ -84,31 +88,30 @@ class R2dtTestCase(unittest.TestCase):
         runner.run(f"rm -Rf {folder}")
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         runner.run(self.cmd, print_output=True)
 
     def tearDown(self):
-        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") == "1":
-            print(f"Test results can be found in {self.test_results}")
-        else:
+        if os.environ.get("R2DT_KEEP_TEST_RESULTS", "0") != "1":
             self.delete_folder(self.test_results)
+        # pylint: disable=expression-not-assigned
+        [os.remove(file) for file in glob.glob("examples/*.ssi")]
 
     def create_webpage(
         self, filename: str, before, after, comparison_result: ComparisonResult
     ) -> None:
         """Create an HTML file comparing the reference SVG with a new one."""
         template = env.get_template("compare.html")
-        print(f"creating webpage for {filename=} {comparison_result=}")
         with open(filename, "w") as f_html:
-            f_html.write(
-                template.render(
-                    test_name=self.__class__.__name__,
-                    before=open(before).read(),  # pylint: disable=consider-using-with
-                    after=open(after).read(),  # pylint: disable=consider-using-with
-                    comparison=comparison_result,
+            with open(before) as f_before, open(after) as f_after:
+                f_html.write(
+                    template.render(
+                        test_name=self.__class__.__name__,
+                        before=f_before.read(),
+                        after=f_after.read(),
+                        comparison=comparison_result,
+                    )
                 )
-            )
 
     def _compare_files(self, reference_file: str, new_file: str) -> ComparisonResult:
         if (reference_file.endswith(".svg") or reference_file.endswith(".png")) and (
@@ -210,14 +213,8 @@ class TestCovarianceModelDatabase(unittest.TestCase):
             ]
         )
 
-    def setUp(self):
-        """Print the name of the test class."""
-        print(self.__class__.__name__)
-        return super().setUp()
-
     def verify_cm_database(self, location, count):
         """Check that the required files exist."""
-        print(f"Verifying models in {location}")
         modelinfo = os.path.join(location, "modelinfo.txt")
         all_cm = os.path.join(location, "all.cm")
         num_lines = self.count_lines(modelinfo)
@@ -235,7 +232,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
     def test_crw_database(self):
         """Check CRW covariance models."""
-        self.verify_cm_database(config.CRW_CM_LIBRARY, 884)
+        self.verify_cm_database(config.CRW_CM_LIBRARY, 662)
 
     def test_ribovision_lsu_database(self):
         """Check RiboVision LSU covariance models."""
@@ -273,7 +270,7 @@ class TestRibovisionLSU(R2dtTestCase):
     fasta_input = os.path.join("examples", "lsu-small-example.fasta")
     test_results = os.path.join("tests", "results", "ribovision")
     precomputed_results = os.path.join("tests", "examples", "ribovision")
-    cmd = f"r2dt.py ribovision draw_lsu {fasta_input} {test_results}"
+    cmd = f"r2dt.py ribovision draw_lsu {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
@@ -290,7 +287,7 @@ class TestRibovisionSSU(R2dtTestCase):
     fasta_input = os.path.join("examples", "ribovision-ssu-examples.fasta")
     test_results = os.path.join("tests", "results", "ribovision-ssu")
     precomputed_results = os.path.join("tests", "examples", "ribovision-ssu")
-    cmd = f"r2dt.py ribovision draw_ssu {fasta_input} {test_results}"
+    cmd = f"r2dt.py ribovision draw_ssu {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00002A2E83_10090-HS_SSU_3D.colored.svg",
@@ -298,6 +295,24 @@ class TestRibovisionSSU(R2dtTestCase):
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestAnimation(R2dtTestCase):
+    """Check that the SVG animation works."""
+
+    svg1 = Path("examples") / "animate" / "PZ39_solution.svg"
+    svg2 = Path("examples") / "animate" / "PZ39_Dfold_3.svg"
+    test_results = Path("tests") / "results" / "animate"
+    precomputed_results = Path("tests") / "examples" / "animate"
+    files = ["PZ39_Dfold_3.animated.svg"]
+    cmd = (
+        f"mkdir -p {test_results} && "
+        f"python3 utils/animate.py {svg1} {svg2} {test_results / files[0]}"
+    )
+
+    def test_animation(self):
+        """Check that the animation works."""
         self.check_examples()
 
 
@@ -309,7 +324,7 @@ class TestRfamAccession(R2dtTestCase):
     test_results = os.path.join("tests", "results", "rfam")
     test_results_subfolder = rfam_acc
     precomputed_results = os.path.join("tests", "examples", "rfam", rfam_acc)
-    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results}"
+    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet"
     files = [
         "URS00001D0AD3_224308-RF00162.colored.svg",
         "URS00002D29F6_224308-RF00162.colored.svg",
@@ -332,7 +347,7 @@ class TestRfam(R2dtTestCase):
     test_results = os.path.join("tests", "results", "rfam", "combined")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "rfam", "combined")
-    cmd = f"r2dt.py draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00021ED9B3_2697049-RF00507.colored.svg",
         "URS000080E2F0_93929-RF01734.colored.svg",
@@ -351,11 +366,11 @@ class TestCrw(R2dtTestCase):
     fasta_input = os.path.join("examples", label + "-examples.fasta")
     test_results = os.path.join("tests", "results", label)
     precomputed_results = os.path.join("tests", "examples", label)
-    cmd = f"r2dt.py crw draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py crw draw {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000001AE2D_4932-d.16.e.S.cerevisiae.colored.svg",
     ]
 
@@ -371,10 +386,10 @@ class TestSingleEntry(R2dtTestCase):
     test_results = os.path.join("tests", "results", "single-entry")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "single-entry")
-    cmd = f"r2dt.py draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.e.H.sapiens.2.colored.svg",
-        "URS000044DFF6_9606-d.16.m.H.sapiens.5.colored.svg",
+        "URS000044DFF6_9606-d.16.m.H.sapiens.geno.colored.svg",
         "URS000053CEAC_224308-RF00162.colored.svg",
         "URS0000162127_9606-RF00003.colored.svg",
         "URS000080E357_9606-mHS_LSU_3D.colored.svg",
@@ -405,7 +420,7 @@ class TestGtrnadbDomainIsotype(R2dtTestCase):
     fasta_input = os.path.join("examples", f"gtrnadb.{trnascan_model}.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb")
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", trnascan_model)
-    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr"
+    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --domain E --isotype Thr --quiet"
     files = [
         "URS0000023412_9606-E_Thr.colored.svg",
         "URS000021550A_9606-E_Thr.colored.svg",
@@ -425,13 +440,14 @@ class TestGtrnadbMitoVert(R2dtTestCase):
     fasta_input = os.path.join("examples", "gtrnadb-mito-vert.fasta")
     test_results = os.path.join("tests", "results", "gtrnadb", "mito-vert")
     precomputed_results = os.path.join("tests", "examples", "gtrnadb", "mito-vert")
-    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py gtrnadb draw {fasta_input} {test_results} --quiet"
     files = [
         "URS000061A10B_9606-M_LeuTAA.colored.svg",
         "URS000054F2AC_109923-M_LeuTAG.colored.svg",
         "URS0000333A94_392897-M_SerTGA.colored.svg",
         "URS0000043FFB_392897-M_SerGCT.colored.svg",
         "URS0000247C4D_392897-M_Cys.colored.svg",
+        "URS0002616B70_9606-M_SerGCT.colored.svg",
     ]
 
     def test_examples(self):
@@ -445,7 +461,7 @@ class TestRnasep(R2dtTestCase):
     fasta_input = os.path.join("examples", "rnasep.fasta")
     test_results = os.path.join("tests", "results", "rnasep")
     precomputed_results = os.path.join("tests", "examples", "rnasep")
-    cmd = f"r2dt.py rnasep draw {fasta_input} {test_results}"
+    cmd = f"r2dt.py rnasep draw {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
         "URS00000A7310_29284-RNAseP_a_H_trapanicum_JB.colored.svg",
@@ -479,7 +495,7 @@ class TestForceTemplate(R2dtTestCase):
     test_results = os.path.join("tests", "results", "force")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "force")
-    cmd = "r2dt.py draw --force_template {} {} {}"
+    cmd = "r2dt.py draw --force_template {} {} {} --quiet"
     files = [
         "URS00000F9D45_9606-d.5.b.E.coli.colored.svg",  # CRW: human 5S with E. coli 5S
         "URS0000704D22_9606-EC_SSU_3D.colored.svg",  # RiboVision SSU: Human SSU with E.coli
@@ -491,7 +507,6 @@ class TestForceTemplate(R2dtTestCase):
     ]
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         for filename in self.files:
             seq_id, model_id = filename.replace(".colored.svg", "").split("-")
@@ -510,8 +525,8 @@ class TestRNAfold(R2dtTestCase):
     test_results = os.path.join("tests", "results", "constraint")
     test_results_subfolder = "results/svg"
     precomputed_results = os.path.join("tests", "examples", "constraint")
-    cmd = "r2dt.py draw --constraint {} {}"
-    cmd2 = "r2dt.py draw --constraint --fold_type {} --force_template {} {} {}"
+    cmd = "r2dt.py draw --constraint {} {} --quiet"
+    cmd2 = "r2dt.py draw --constraint --fold_type {} --force_template {} {} {} --quiet"
     fold_type_inputs = {
         "Halobacteroides_halobius1": "insertions_only",
         "Halobacteroides_halobius2": "full_molecule",
@@ -526,7 +541,6 @@ class TestRNAfold(R2dtTestCase):
     }
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
         runner.run(
             self.cmd.format(
@@ -557,7 +571,7 @@ class TestExclusions(R2dtTestCase):
     test_results = os.path.join("tests", "results", "exclusion")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "constraint")
-    cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results}"
+    cmd = f"r2dt.py draw --constraint --exclusion {exclusion} {fasta_input} {test_results} --quiet"
     files = ["Oceanobacillus_iheyensis-EC_SSU_3D.colored.svg"]
 
     def test_examples(self):
@@ -572,12 +586,13 @@ class TestSkipRibovoreFilters(R2dtTestCase):
     test_results = os.path.join("tests", "results", "skip-ribovore-filters")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "skip-ribovore-filters")
-    cmd_default = f"r2dt.py draw {fasta_input} {test_results}"
-    cmd_skip = f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results}"
-    files = ["URS0000001EB3-RF00661.colored.svg"]
+    cmd_default = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    cmd_skip = (
+        f"r2dt.py draw --skip_ribovore_filters {fasta_input} {test_results} --quiet"
+    )
+    files = ["URS0002652150-RF00020.colored.svg"]
 
     def setUp(self):
-        print(self.__class__.__name__)
         self.delete_folder(self.test_results)
 
     def test_default(self):
@@ -601,7 +616,22 @@ class TestTemplateFree(R2dtTestCase):
     test_results = os.path.join("tests", "results", "template-free")
     test_results_subfolder = os.path.join("results", "svg")
     precomputed_results = os.path.join("tests", "examples", "template-free")
-    cmd = f"r2dt.py templatefree {fasta_input} {test_results}"
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet"
+    files = ["3SKZ_B.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestTemplateFreeAutomaticDetection(TestTemplateFree):
+    """Check that templatefree input is automatically detected."""
+
+    fasta_input = os.path.join("examples", "template-free.fasta")
+    test_results = os.path.join("tests", "results", "template-free-auto")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "template-free")
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
     files = ["3SKZ_B.colored.svg"]
 
     def test_examples(self):
@@ -611,20 +641,122 @@ class TestTemplateFree(R2dtTestCase):
 
 class TestTemplateGeneration(R2dtTestCase):
     """Check that the template generation works.
-    File RF02976.json was generated by R2DT using template-free mode:
-    r2dt.py templatefree data/rfam/RF02976/RF02976-traveler.fasta temp/RF02976
+    File RF02976.json was downloaded from RNAcanvas
+    after manually editing R2DT output generated
+    using the default Rfam RF02976 template.
     """
 
-    json_input = os.path.join("examples", "RF02976.json")
-    test_results = os.path.join("data", "new", "RF02976")
-    precomputed_results = os.path.join(
-        "tests", "examples", "template-generation", "RF02976"
-    )
-    cmd = f"r2dt.py generate-template {json_input}"
-    files = ["RF02976.fasta", "RF02976.xml"]
+    template_id = "RF02976"
+    test_id = "template-generation"
+    json_input = Path("examples") / f"{template_id}.json"
+    test_results = Path(config.LOCAL_DATA) / template_id
+    precomputed_results = Path("tests") / "examples" / test_id
+    cmd = f"r2dt.py generate-template {json_input} --quiet"
+    files = [f"{template_id}.fasta", f"{template_id}.xml"]
+
+    def use_new_template(self):
+        """Use newly generated template."""
+        fasta_input = Path("examples") / f"{self.template_id}.fasta"
+        template_folder = self.test_results
+        self.test_results = Path("tests") / "results" / self.test_id
+        cmd = (
+            f"r2dt.py draw --force_template {self.template_id} "
+            f"{fasta_input} {self.test_results} --quiet"
+        )
+        runner.run(cmd)
+        self.test_results_subfolder = os.path.join("results", "svg")
+        self.files = [f"URS0000D6941A-{self.template_id}.colored.svg"]
+        self.check_examples()
+        shutil.rmtree(template_folder)
 
     def test_examples(self):
         """Check that files exist and are identical to examples."""
+        self.check_examples()
+        self.use_new_template()
+
+
+class TestRnartist(R2dtTestCase):
+    """Check that RNArtist templates work correctly."""
+
+    rfam_acc = "RF00025"
+    fasta_input = os.path.join("examples", "rnartist.fasta")
+    test_results = os.path.join("tests", "results", "rnartist")
+    test_results_subfolder = rfam_acc
+    precomputed_results = os.path.join("tests", "examples", "rnartist")
+    cmd = (
+        f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet --rnartist"
+    )
+    files = [f"URS0000696E0A-{rfam_acc}.colored.svg"]
+
+    def test_rnartist_mode(self):
+        """Check the --rnartist option works."""
+        self.check_examples()
+
+    def test_auto_mode(self):
+        """Check that the auto mode works."""
+        cmd = self.cmd.replace("--rnartist", "")
+        runner.run(cmd)
+        self.check_examples()
+
+
+class TestRscapeTemplateSelectionOption(R2dtTestCase):
+    """Check that the --rscape option works."""
+
+    rfam_acc = "RF00174"
+    fasta_input = os.path.join("examples", f"{rfam_acc}.example.fasta")
+    test_results = os.path.join("tests", "results", "rnartist")
+    test_results_subfolder = rfam_acc
+    precomputed_results = os.path.join("tests", "examples", "rnartist")
+    cmd = f"r2dt.py rfam draw {rfam_acc} {fasta_input} {test_results} --quiet --rscape"
+    files = [f"URS000016E07A-{rfam_acc}.colored.svg"]
+
+    def test_rscape_option(self):
+        """Check that the --rscape option works."""
+        self.check_examples()
+
+
+class TestRnartistTemplateGeneration(R2dtTestCase):
+    """Check that the RNArtist template generation works."""
+
+    rfam_acc = "RF00174"
+    test_results = (
+        Path(config.PROJECT_HOME) / "tests" / "results" / "rnartist" / rfam_acc
+    )
+    precomputed_results = Path("tests") / "examples" / "rnartist"
+    files = ["rnartist-template.xml"]
+
+    def test_rnartist(self):
+        """Check that RNArtist templates are generated."""
+        rnartist = RnaArtist(self.rfam_acc, destination=self.test_results)
+        rnartist.run(rerun=True)
+        self.check_examples()
+
+
+class TestRnartistR2rComparison(R2dtTestCase):
+    """Check that the number of overlaps in RNArtist and R2R templates is compared correctly."""
+
+    rfam_acc = "RF00174"
+
+    def test_rnartist_vs_r2r(self):
+        """Check that the number of overlaps in RNArtist and R2R templates is compared correctly."""
+        chosen_template, _ = compare_rnartist_and_rscape(self.rfam_acc)
+        assert (
+            chosen_template == "rnartist"
+        ), f"RNArtist template should be chosen, not {chosen_template}"
+
+
+class TestTemplateFreeRnartist(R2dtTestCase):
+    """Check that RNArtist template-free mode works correctly."""
+
+    fasta_input = Path("examples") / "bridge-rna.fasta"
+    test_results = Path("tests") / "results" / "rnartist-template-free"
+    precomputed_results = Path("tests") / "examples" / "rnartist-template-free"
+    test_results_subfolder = "results/svg"
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet --rnartist"
+    files = ["bridge_rna.colored.svg"]
+
+    def test_template_free_mode(self):
+        """Check that RNArtist template-free mode works correctly."""
         self.check_examples()
 
 

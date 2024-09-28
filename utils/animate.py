@@ -8,8 +8,9 @@ DURATION = 2
 SVG_HEADER = """
 <svg
 	xmlns="http://www.w3.org/2000/svg"
-	width="WIDTH"
-	height="HEIGHT">
+    viewBox="0 0 WIDTH HEIGHT"
+    width="WIDTH"
+    height="HEIGHT">
 <g><style type="text/css" >
 <!-- create color definitions -->
 <![CDATA[
@@ -26,13 +27,13 @@ line.black {stroke: rgb(0, 0, 0); stroke-width: 0.382365; }
 line.gray {stroke: rgb(204, 204, 204); stroke-width: 0.382365; }
 line.brown {stroke: rgb(211.65, 104.55, 30.6); stroke-width: 0.382365; }
 line {stroke: rgb(0, 0, 0); }
-text.red {fill: rgb(255, 0, 255); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text.green {fill: rgb(0, 255, 0); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text.blue {fill: rgb(0, 0, 255); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text.black {fill: rgb(0, 0, 0); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text.gray {fill: rgb(204, 204, 204); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text.brown {fill: rgb(211.65, 104.55, 30.6); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; }
-text {fill: rgb(0, 0, 0); font-size: 3.058918px; font-weight: bold; font-family: Helvetica; text-anchor: middle; alignment-baseline: middle; }
+text.red {fill: rgb(255, 0, 255); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text.green {fill: rgb(0, 255, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text.blue {fill: rgb(0, 0, 255); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text.black {fill: rgb(0, 0, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text.gray {fill: rgb(204, 204, 204); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text.brown {fill: rgb(211.65, 104.55, 30.6); font-size: 7px; font-weight: bold; font-family: Helvetica; }
+text {fill: rgb(0, 0, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; text-anchor: middle; alignment-baseline: middle; }
 
 .pseudoknot_connection{stroke-linecap: round; stroke-opacity: 0.2; stroke-width: 1.5; }
 .pseudoknot_segment1{stroke-linecap: round; stroke-opacity: 0.4; stroke-width: 3.05892; }
@@ -118,7 +119,6 @@ def add_transform(svg):
             structure1.append(line)
         if "<text" in line and "<g" in line and "second" in line:
             structure2.append(line)
-    print(len(structure1), len(structure2))
     animated_lines = []
     for index, line in enumerate(structure1):
         x1_coord, _, y1_coord, _ = re.search(
@@ -190,7 +190,7 @@ def get_width_height(svg1, svg2):
 def main():
     """Main function."""
     if len(sys.argv) != 4:
-        print("Usage: python3 ribosnitch.py <seq1.svg> <seq2.svg> <animated.svg>")
+        print("Usage: python3 animate.py <seq1.svg> <seq2.svg> <animated.svg>")
         sys.exit(1)
 
     svg_filename1 = sys.argv[1]

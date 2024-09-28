@@ -14,4 +14,4 @@ R2DT is the result of a community effort across several disciplines, including 6
 
 ![R2DT team](../images/collaboration-map.jpg)
 
-The success of the method depends on having a large number of high quality templates for different RNA types provided by the RNA community. We are always looking for more templates, so if you have any diagrams you would like to have included, please reach out to us on [GitHub](https://github.com/RNAcentral/R2DT), [Twitter](https://twitter.com/rnacentral), or by [email](https://rnacentral.org/contact).
+The success of the method depends on having a large number of high quality templates for different RNA types provided by the RNA community. We are always looking for more templates, so if you have any diagrams you would like to have included, please reach out to us on [GitHub](https://github.com/r2dt-bio/R2DT), [Twitter](https://twitter.com/rnacentral), or by [email](https://rnacentral.org/contact).

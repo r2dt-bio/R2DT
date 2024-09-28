@@ -1,4 +1,6 @@
-FROM rnacentral/r2dt-base:pr-123
+ARG BASE_IMAGE_VERSION=v2.0
+
+FROM rnacentral/r2dt-base:${BASE_IMAGE_VERSION}
 
 # Create venv
 ENV VENV=$RNA/venv

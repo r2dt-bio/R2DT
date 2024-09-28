@@ -17,13 +17,20 @@ import io
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 
 import requests
+from tqdm import tqdm
 
 from . import config, core
 from . import generate_model_info as mi
+from .rfamseed import RfamSeed
+from .ribovore import MIN_GA
+from .rnartist import RnaArtist
+from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
+from .scale_template import scale_coordinates
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -48,20 +55,38 @@ BLACKLIST = [
     "RF02357",  # RNAse P Type T
 ]
 
+PREFER_RNARTIST_LIST = Path(config.RFAM_DATA) / "prefer_rnartist.txt"
+
 
 def blacklisted():
     """Get a list of blacklisted Rfam families."""
     bad = set(BLACKLIST)
-    filename = os.path.join(config.RFAM_DATA, "no_structure.txt")
+    filename = Path(config.RFAM_DATA) / "no_structure.txt"
     with open(filename, "r", encoding="utf-8") as raw:
         bad.update(l.strip() for l in raw)
     return bad
 
 
-def get_traveler_template_xml(rfam_acc):
+def get_traveler_template_xml(rfam_acc, method="auto"):
     """Get a path to a template file given an Rfam accession."""
-    filename = os.path.join(config.RFAM_DATA, rfam_acc, "traveler-template.xml")
-    return filename
+
+    if method not in ["auto", "r2r", "rnartist", "rscape"]:
+        raise ValueError(f"Unknown method: {method}")
+
+    rfam_data_path = Path(config.RFAM_DATA) / rfam_acc
+    traveler_path = rfam_data_path / "traveler-template.xml"
+    rnartist_path = rfam_data_path / "rnartist-template.xml"
+
+    if method in ["r2r", "rscape"]:
+        return traveler_path
+    if method == "rnartist":
+        return rnartist_path
+
+    if PREFER_RNARTIST_LIST.exists():
+        with PREFER_RNARTIST_LIST.open("r") as f_in:
+            if rfam_acc in (line.strip() for line in f_in):
+                return rnartist_path
+    return traveler_path
 
 
 def get_traveler_fasta(rfam_acc):
@@ -104,7 +129,7 @@ def get_rfam_cms():
 
         # Decompress the file
         with gzip.open(rfam_cm_path, "rb") as f_in:
-            with rfam_cm_path.with_suffix("").open("wb") as f_out:
+            with rfam_cm_path.with_suffix(".cm").open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
         rfam_cm_path.unlink()  # Remove the .gz file after decompression
@@ -155,25 +180,66 @@ def setup_trna_cm():
         response.raise_for_status()  # Raise an exception for HTTP errors
         trna_cm_path.write_bytes(response.content)
 
-        rscape2traveler(
-            rfam_acc
-        )  # Assuming this is a function you've defined elsewhere
+        rscape2traveler(rfam_acc)
 
         if not trna_cm_path.exists():
             raise FileNotFoundError(f"Rfam tRNA CM not found in {trna_cm_path}")
 
 
-def setup(accessions=None):
+def delete_preexisting_rfam_data():
+    """Delete preexisting Rfam data."""
+    # delete Rfam cms
+    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
+    os.system(f"rm -f {rfam_cms}/*.cm")
+    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
+    # delete template files
+    os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
+    # delete summary files
+    os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
+    os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+
+
+def setup_rnartist(rerun=False):
+    """Generate a list of Rfam accessions where RNArtist templates are preferred."""
+    prefer_rnartist = []
+    for rfam_acc in tqdm(get_all_rfam_acc(), "Comparing R-scape and RNArtist"):
+        if rfam_acc in BLACKLIST:
+            continue
+        if not has_structure(rfam_acc):
+            continue
+        rscape2traveler(rfam_acc)
+        RnaArtist(rfam_acc).run(rerun=rerun)
+        chosen_template, overlaps = compare_rnartist_and_rscape(rfam_acc)
+        if chosen_template == "rnartist":
+            prefer_rnartist.append(rfam_acc)
+            tqdm.write(
+                f"Prefer RNArtist for {rfam_acc}. "
+                f"R-scape overlaps: {overlaps['rscape']}, "
+                f"RNArtist overlaps: {overlaps['rnartist']}"
+            )
+    with open(PREFER_RNARTIST_LIST, "w") as f_out:
+        for accession in prefer_rnartist:
+            f_out.write(f"{accession}\n")
+
+
+def setup(accessions=None) -> None:
     """Setup Rfam template library."""
+    delete_preexisting_rfam_data()
     get_rfam_cms()
     mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
+    RfamSeed().download_rfam_seed_archive().get_no_structure_file()
     if not accessions:
         accessions = get_all_rfam_acc()
     for accession in accessions:
         if accession in BLACKLIST:
             continue
+        if not has_structure(accession):
+            continue
+        print(accession)
         rscape2traveler(accession)
     setup_trna_cm()
+    # delete temporary files
+    os.system(f"cd {config.RFAM_DATA} && ./clean_up_files.sh")
 
 
 # pylint: disable-next=too-many-branches
@@ -275,7 +341,7 @@ def convert_text_to_xml(line):
     <text x="85.8067" y="195.025" id="text1002"><tspan x="85.8067" y="195.025" fill="#807b88"  font-variant="normal" font-weight="normal" font-style="normal" font-family="Bitstream Vera Sans" font-size="7.5" id="tspan1003">C</tspan></text>
     """
     match = re.search(
-        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(\w)</tspan></text>', line
+        r'<text x="(\d+(\.\d+)?)" y="(\d+(\.\d+)?)".+>(.+?)</tspan></text>', line
     )
     if match:
         point = '<point x="{:.2f}" y="{:.2f}" b="{}"/>\n'
@@ -285,20 +351,6 @@ def convert_text_to_xml(line):
     print(line)
     print("convert_text_to_xml did not find a match")
     return ""
-
-
-def download_rfam_seed(rfam_acc):
-    """Fetch Rfam seed alignment using the API."""
-    output_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.seed"
-
-    # Download the file if it doesn't exist
-    if not output_path.exists():
-        url = f"https://rfam.org/family/{rfam_acc}/alignment"
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        output_path.write_text(response.text)
-
-    return str(output_path)
 
 
 def get_all_rfam_acc():
@@ -334,8 +386,6 @@ def get_all_rfam_acc():
                 ):  # Assuming BLACKLIST is defined somewhere in your code
                     continue
                 rfam_accs.append(rfam_acc)
-
-    print(f"Found {len(rfam_accs)} Rfam accessions")
     return rfam_accs
 
 
@@ -377,16 +427,13 @@ def remove_pseudoknot_from_ss_cons(rfam_seed):
     R-scape displaying them on diagrams, pseudoknots need to be removed before
     running R-scape.
     """
-    seed_no_pk = os.path.join(
-        os.path.dirname(rfam_seed), f"nopk-{os.path.basename(rfam_seed)}"
-    )
+    seed_no_pk = rfam_seed.with_suffix(".nopk.sto")
     with io.open(rfam_seed, "r", encoding="latin-1") as f_seed_in:
         with open(seed_no_pk, "w", encoding="utf-8") as f_seed_out:
             for line in f_seed_in.readlines():
                 if line.startswith("#=GC SS_cons "):
                     match = re.match(r"(#=GC SS_cons)(\s+)(.+)", line)
                     no_pk = re.sub(r"\w", ".", match.group(3))
-                    # import pdb; pdb.set_trace()
                     f_seed_out.write(
                         "".join([match.group(1), match.group(2), no_pk, "\n"])
                     )
@@ -399,13 +446,16 @@ def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = download_rfam_seed(rfam_acc)
+    rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(os.path.join(destination, "rscape.done")):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
             folder=destination, rfam_seed=rfam_seed_no_pk
         )
         runner.run(cmd)
+        # delete any temporary r2r_meta files
+        for filename in glob.glob("*.r2r_meta"):
+            os.remove(filename)
 
     rscape_svg = None
     for svg in glob.glob(os.path.join(destination, "*.svg")):
@@ -433,6 +483,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     return output
 
 
+# pylint: disable=too-many-branches
 def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     """
     Convert R-scape SVG into traveler xml and SVG.
@@ -452,10 +503,9 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     xml_header = "<structure>\n"
     xml_footer = "</structure>"
 
+    traveler_template_svg = os.path.join(destination, "traveler-template.svg")
     with open(rscape_one_line_svg, "r", encoding="utf-8") as f_in:
-        with open(
-            os.path.join(destination, "traveler-template.svg"), "w", encoding="utf-8"
-        ) as f_out:
+        with open(traveler_template_svg, "w", encoding="utf-8") as f_out:
             with open(
                 os.path.join(destination, "traveler-template.xml"),
                 "w",
@@ -471,12 +521,16 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
                         continue
                     if "#d7efc5" in line:
                         continue
+                    if "#31a354" in line:  # lancaster helix covariation
+                        continue
                     if '<path fill="none" stroke="#000000"' in line:
                         continue
                     # circles indicating GU pairs
                     if '<path fill="#000000" stroke="none"' in line:
                         continue
                     if "&apos;" in line:
+                        continue
+                    if "5&#x2032" in line:  # 5' label
                         continue
                     if "pk" in line:
                         continue
@@ -503,17 +557,27 @@ def rscape2traveler(rfam_acc):
     if not os.path.exists(destination):
         os.makedirs(destination)
     if os.path.exists(get_traveler_fasta(rfam_acc)) and os.path.exists(
-        get_traveler_template_xml(rfam_acc)
+        get_traveler_template_xml(rfam_acc, "r2r")
     ):
         return
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
+    scale_coordinates(get_traveler_template_xml(rfam_acc, "r2r"))
     generate_traveler_fasta(rfam_acc)
 
 
 # pylint: disable-next=too-many-arguments
-def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fold_type):
+def generate_2d(
+    rfam_acc,
+    output_folder,
+    fasta_input,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet=False,
+    rfam_template_type="rscape",
+):
     """Loop over the sequences in fasta file and visualise each
     using the family template."""
     destination = f"{output_folder}/{rfam_acc}"
@@ -522,8 +586,8 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
 
     if not os.path.exists(fasta_input + ".ssi"):
         runner.run(f"esl-sfetch --index {fasta_input}")
-
-    headers = "headers.txt"
+    # pylint: disable=consider-using-with
+    headers = tempfile.NamedTemporaryFile(delete=False).name
     with open(fasta_input, "r") as infile, open(headers, "w") as outfile:
         for line in infile:
             if line.startswith(">"):
@@ -532,7 +596,6 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
     with open(headers) as f_headers:
         for line in f_headers:
             seq_id = line.split(" ", 1)[0].replace(">", "").strip()
-            print(seq_id)
             core.visualise(
                 "rfam",
                 fasta_input,
@@ -542,6 +605,12 @@ def generate_2d(rfam_acc, output_folder, fasta_input, constraint, exclusion, fol
                 constraint,
                 exclusion,
                 fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
+                rfam_template=rfam_template_type,
             )
     Path(headers).unlink(missing_ok=True)
 
@@ -574,8 +643,11 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
         for line in infile:
             if not line.startswith("#") and "?" not in line:
                 parts = line.split()
-                if len(parts) >= 4:
-                    outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
+                if len(parts) >= 14:
+                    bit_score = float(parts[14])
+                    strand = parts[9]
+                    if bit_score >= MIN_GA and strand == "+":
+                        outfile.write(f"{parts[0]}\t{parts[3]}\tPASS\n")
     ids = set()
     with open(hits) as f_hits:
         for line in f_hits:
