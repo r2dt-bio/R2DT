@@ -2,7 +2,7 @@
 
 **Version 2.0 (2024)**
 
-**[See the R2DT documentation](https://r2dt.readthedocs.io/)**
+**[See the R2DT documentation](https://r2dt.readthedocs.io/)** or read the [latest preprint](https://www.biorxiv.org/content/10.1101/2024.09.29.611006v1).
 
 The [R2DT software](https://github.com/r2dt-bio/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs.
 

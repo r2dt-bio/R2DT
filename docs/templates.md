@@ -34,7 +34,7 @@ It is possible to generate new templates using [RNA 2D JSON Schema](https://gith
     ```
 
 1. The new Traveler template, covariance model, and a fasta file will be generated in the `data/local_data` folder.
-1. Use the new template: `r2dt.py draw --force-template <template_name> <input.fasta> <output_folder>`
+1. Use the new template: `r2dt.py draw --force_template <template_name> <input.fasta> <output_folder>`
 
 ### RNAcanvas
 
@@ -43,7 +43,7 @@ It is possible to generate new templates using [RNA 2D JSON Schema](https://gith
 1. Put the JSON file in any folder accessible to R2DT, for example, `data/new`
 1. Run `r2dt.py generate-template data/new/<template_name.json>`
 1. The new Traveler template, covariance model, and a fasta file can found in a new folder `data/local_data/template_name`, where `template_name` matches the name of the json file
-1. Use the new template: `r2dt.py draw --force-template <template_name> <input.fasta> <output_folder>`
+1. Use the new template: `r2dt.py draw --force_template <template_name> <input.fasta> <output_folder>`
 
 ### Creating templates using FASTA/BPSEQ and Traveler XML files
 
