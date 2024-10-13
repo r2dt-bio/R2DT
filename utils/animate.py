@@ -120,7 +120,6 @@ def add_transform(svg):
             structure1.append(line)
         if "<text" in line and "<g" in line and "second" in line:
             structure2.append(line)
-    print(len(structure1), len(structure2))
     animated_lines = []
     for index, line in enumerate(structure1):
         x1_coord, _, y1_coord, _ = re.search(

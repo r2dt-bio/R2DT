@@ -2,7 +2,7 @@ FROM gcc:13 AS build
 
 ENV tRNAscan_VER=2.0.11 \
     BioEasel_COMMIT=a52f0f7f7cae879bb95489bb794c04c1a0110aa7 \
-    traveler_COMMIT=0ee67cbb9c5aaa2f98340065fd047c9a8feea53e \
+    traveler_COMMIT=8054f5bee8327bb158385893e0633d4242676f95 \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
     Rscape_VER=v2.0.4.c \
     Ribovore_COMMIT=5df943c6f2866d7979bb13c948ca9d8531076898 \
