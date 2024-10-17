@@ -8,8 +8,8 @@ ENV tRNAscan_VER=2.0.11 \
     Ribovore_COMMIT=5df943c6f2866d7979bb13c948ca9d8531076898 \
     BioEasel_VER=0.11 \
     INFERNAL_VER=1.1.5 \
-    RNArtist_VER=0.4.6
-
+    RNArtist_VER=0.4.6 \
+    RNAView_COMMIT=2f74eccc47c86acdf0627004e6243454978cd4c1
 
 FROM build AS rscape
 
@@ -109,6 +109,16 @@ FROM build AS rnartist
 RUN \
     wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
 
+FROM build AS rnaview
+
+# Install RNAview
+RUN \
+    git clone https://github.com/rcsb/RNAView && \
+    cd RNAView && git checkout ${RNAView_COMMIT} && \
+    make && \
+    mkdir -p /install/rnaview/bin && \
+    cp bin/rnaview /install/rnaview/bin/
+
 FROM debian:bookworm-slim AS final-build
 
 ENV \
@@ -169,6 +179,13 @@ ENV \
     PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH" \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
+
+
+ENV \
+    RNAVIEW="${RNA}/rnaview" \
+    PATH="${RNA}/rnaview/bin:${PATH}"
+
+COPY --from=rnaview /install/ ${RNA}/
 
 COPY --from=rscape /rna/rscape/ ${RNA}/rscape
 
