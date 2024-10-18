@@ -112,12 +112,24 @@ RUN \
 FROM build AS rnaview
 
 # Install RNAview
+#RUN \
+ #   git clone https://github.com/rcsb/RNAView && \
+ #   cd RNAView && git checkout ${RNAView_COMMIT} && \
+  #  make && \
+  #  mkdir -p /install/ 
+    #mkdir -p /install/rnaview/bin && \
+#RUN \
+ #   cp -r RNAView /install/rnaview
+    #cp bin/rnaview /install/rnaview/bin/ && \
+    #cp -r ./* /install/rnaview/
+
 RUN \
     git clone https://github.com/rcsb/RNAView && \
-    cd RNAView && git checkout ${RNAView_COMMIT} && \
+    cd RNAView && \
+    git checkout ${RNAView_COMMIT} && \
     make && \
-    mkdir -p /install/rnaview/bin && \
-    cp bin/rnaview /install/rnaview/bin/
+    mkdir -p /install/rnaview && \
+    cp -r ./* /install/rnaview/
 
 FROM debian:bookworm-slim AS final-build
 
@@ -175,15 +187,19 @@ ENV \
     PERL5LIB="$RIBOSCRIPTSDIR":"$RIBOSEQUIPDIR":"$VECPLUSDIR":"$PERL5LIB" \
     PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH"
 
+
+
 ENV \
     PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH" \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
 
 
-ENV \
+
+    ENV \
     RNAVIEW="${RNA}/rnaview" \
     PATH="${RNA}/rnaview/bin:${PATH}"
+
 
 COPY --from=rnaview /install/ ${RNA}/
 
