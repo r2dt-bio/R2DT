@@ -22,6 +22,58 @@ from .rfamseed import RfamSeed
 from .runner import runner
 
 
+def update_fasta_with_original_sequence(
+    result_base_fasta, temp_fasta, insertion_removed
+):
+    """
+    Update the fasta file used by Traveler with the original sequence
+    without large insertions that are replaced with XXXX characters.
+    This ensures that lowercase characters are retained in the output.
+    """
+    lines = []
+    original_sequence_insertions_removed = ""
+    with open(result_base_fasta) as f_fasta, open(temp_fasta) as f_temp_fasta:
+        lines = f_temp_fasta.readlines()
+        original_sequence = ""
+        for line in lines[1:]:
+            original_sequence += line.strip()
+        lines = f_fasta.readlines()
+
+    if insertion_removed:
+        original_sequence_insertions_removed = original_sequence
+        for region in insertion_removed:
+            start, end = region
+            original_sequence_insertions_removed = (
+                original_sequence_insertions_removed[:start]
+                + "@" * (end - start)
+                + original_sequence_insertions_removed[end:]
+            )
+        original_sequence_insertions_removed = re.sub(
+            r"@+", "XXXX", original_sequence_insertions_removed
+        )
+    else:
+        original_sequence_insertions_removed = original_sequence
+
+    with open(result_base_fasta, "w") as f_out:
+        lines[1] = original_sequence_insertions_removed + "\n"
+        f_out.writelines(lines)
+
+    return original_sequence_insertions_removed
+
+
+def update_post_prob_file(temp_post_prob, original_sequence_insertions_removed):
+    """Update post_prob file with original sequence without large insertions."""
+    lines = []
+    with open(temp_post_prob) as f_post_prob:
+        post_prob_lines = f_post_prob.readlines()
+        lines.append(post_prob_lines[0])
+        for line, nt in zip(post_prob_lines[1:], original_sequence_insertions_removed):
+            fields = line.split("\t")
+            lines.append("\t".join([fields[0], nt, fields[2]]))
+    with open(temp_post_prob, "w") as f_out:
+        f_out.writelines("".join(lines))
+
+
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
@@ -282,6 +334,17 @@ def visualise(
         )
     elif exclusion:
         rprint("Exclusion ignored, enable --constraint to add exclusion file")
+
+    try:
+        # update fasta file with original sequence
+        original_sequence_insertions_removed = update_fasta_with_original_sequence(
+            f"{result_base}.fasta", temp_fasta, insertion_removed
+        )
+        # update post_prob file with original sequence
+        if original_sequence_insertions_removed:
+            update_post_prob_file(temp_post_prob, original_sequence_insertions_removed)
+    except Exception as e:  # pylint: disable=broad-except
+        rprint(f"[red]Failed to update fasta and post_prob files: {e}[/red]")
 
     if rna_type == "crw":
         traveler_params = (
