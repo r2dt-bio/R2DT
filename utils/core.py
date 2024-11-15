@@ -247,7 +247,7 @@ def visualise(
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
     if not insertion_removed:
-        cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
+        cmd = f"python3 /rna/r2dt/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
         infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
