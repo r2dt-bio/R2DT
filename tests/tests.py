@@ -760,5 +760,23 @@ class TestTemplateFreeRnartist(R2dtTestCase):
         self.check_examples()
 
 
+class TestLowerCase(R2dtTestCase):
+    """Check that lowercase nucleotides are transferred properly."""
+
+    fasta_input = Path("examples") / "lowercase.fasta"
+    test_results = Path("tests") / "results" / "lowercase"
+    precomputed_results = Path("tests") / "examples" / "lowercase"
+    test_results_subfolder = "results/svg"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    files = [
+        "URS00004A7003_9606-RF00024.colored.svg",
+        "URS00004A7003_9606_large_insertion-RF00024.colored.svg",
+    ]
+
+    def test_lowercase(self):
+        """Check that the lowercase nucleotides are transferred properly."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
