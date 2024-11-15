@@ -82,7 +82,7 @@ def remove_large_insertions_pfam_stk(filename):
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
     """
-    insertion_removed = False
+    insertion_removed = []
     gc_ss_cons = ""
     gc_rf = ""
     gr_pp = ""
@@ -121,8 +121,15 @@ def remove_large_insertions_pfam_stk(filename):
         else:
             print("Unexpected number of lines in pfam stk")
             return insertion_removed
+
+        offset_match = re.search(r"^#=GC SS_cons\s+", gc_ss_cons)
+        if offset_match:
+            offset = offset_match.end()  # get length of matched string
+        else:
+            offset = 0
+
         # the tilda and period characters represent insert states in WUSS notation
-        match = re.finditer(r"([\.~_:]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
+        match = re.finditer(r"([\.~]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
         if not match:
             return insertion_removed
         for span in match:
@@ -153,10 +160,16 @@ def remove_large_insertions_pfam_stk(filename):
                     + "@" * (span.end() - span.start())
                     + gc_rf[span.end() :]
                 )
-        if "@" in sequence:
-            insertion_removed = True
-        else:
+        if "@" not in sequence:
             return insertion_removed
+
+        # find positions of all insertions relative to the original sequence
+        match = re.finditer(r"@+", sequence.replace("-", ""))
+        insertion_removed = [m.span() for m in match]
+        insertion_removed = [
+            (start - offset, end - offset) for start, end in insertion_removed
+        ]
+
         if len(lines) == 9:
             lines[3] = re.sub(r"@+", "XXXX", sequence)
             lines[4] = re.sub(r"@+", "1111", gr_pp)
