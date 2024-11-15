@@ -72,8 +72,6 @@ def visualise(
     elif rna_type.lower() == "rfam":
         if not model_id.startswith("RF"):
             model_id = rfam.get_rfam_acc_by_id(model_id)
-        temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
-        temp_acc_list = filename_template.replace("type", "seed_list")
     elif rna_type.lower() == "local_data":
         cm_library = os.path.join(config.LOCAL_DATA, model_id)
         template_layout = cm_library
@@ -89,6 +87,8 @@ def visualise(
     temp_depaired = filename_template.replace("type", "depaired")
     temp_stk = filename_template.replace("type", "stk")
     temp_stk_original = filename_template.replace("type", "stk_original")
+    temp_sto_unfiltered = filename_template.replace("type", "sto_unfiltered")
+    temp_acc_list = filename_template.replace("type", "seed_list")
     temp_post_prob = filename_template.replace("type", "post_prob")
     temp_pfam_stk = filename_template.replace("type", "pfam_stk")
     temp_pfam_stk_original = filename_template.replace("type", "pfam_stk_original")
@@ -370,6 +370,8 @@ def visualise(
         temp_stk_original,
         temp_stk,
         temp_sto,
+        temp_sto_unfiltered,
+        temp_acc_list,
     ]
     for filename in files:
         if os.path.exists(filename):
