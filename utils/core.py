@@ -128,7 +128,7 @@ def visualise(
             return
         template_layout = os.path.join(template_layout, model_id + ".xml")
         template_structure = os.path.join(template_structure, model_id + ".fasta")
-        template_sto = os.path.join(template_structure, model_id + ".sto")
+        template_sto = os.path.join(cm_library, model_id + ".sto")
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
     else:
