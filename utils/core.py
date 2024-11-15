@@ -128,6 +128,9 @@ def visualise(
             return
         template_layout = os.path.join(template_layout, model_id + ".xml")
         template_structure = os.path.join(template_structure, model_id + ".fasta")
+        template_sto = os.path.join(template_structure, model_id + ".sto")
+        cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
+        runner.run(cmd)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -137,9 +140,10 @@ def visualise(
     # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        if rna_type == "rfam":
+        if rna_type in ["rfam", "local_data"]:
+            mapping_filename = rfam_seed if rna_type == "rfam" else template_sto
             cmd = (
-                f"cmalign --mapali {rfam_seed} --mapstr {options} "
+                f"cmalign --mapali {mapping_filename} --mapstr {options} "
                 f"{model_path} {temp_fasta} > {temp_sto_unfiltered}"
             )
         else:
@@ -151,7 +155,7 @@ def visualise(
         rprint(f"[red]Failed cmalign of {seq_id} to {model_id}[/red]")
         return
 
-    if rna_type == "rfam":
+    if rna_type in ["rfam", "local_data"]:
         cmd = (
             f"esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
             f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
