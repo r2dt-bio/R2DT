@@ -243,3 +243,40 @@ python3 utils/animate.py \
 :::{note}
 Note that the two input SVG files must have the same number of nucleotides.
 :::
+
+### Animating RNA secondary structures from PDB files
+
+R2DT can be used to generate secondary structure diagrams directly from PDB files. Additionally R2DT can generate animated SVG file of the transition between two structures between two 3D structures from PDB files.
+
+Genaretion of a diagram from PDB file: 
+
+```bash
+python3 utils/rnaview.py \
+    examples/PZ1_Bujnicki_1.pdb
+```
+`PZ1_Bujnicki_1.colored.svg` will be genreated.
+
+:::{note}
+Note - in cases that there are multiple interactions detected for one nucleotide, all of them will be omitted in the diagram.
+:::
+
+Animated transition between two structures from PDB:
+
+```bash
+python3 utils/animate3d.py \
+    examples/PZ1_solution_0.pdb \
+    examples/PZ1_Bujnicki_1.pdb \
+    examples/PZ1_solution_0_to_PZ1_Bujnicki_1.animated.svg
+```
+
+Performing animation on a reference PDB file, and a set of PDBs. User needs to specify the reference PDB file, and a directory with query PDB files:
+
+```bash
+python3 utils/animate3d.py -b \
+    examples/PZ1_solution_0.pdb \
+    examples/animate_bulk
+```
+
+:::{note}
+Note - structures in the PDB files should be of the same length [nt].
+:::
