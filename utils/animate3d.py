@@ -12,7 +12,6 @@ def process_bulk(ref_pdb, query_dir):
             ref_svg = ref_pdb.with_suffix('.colored.svg')
             query_svg = query_pdb.with_suffix('.colored.svg')
             output_svg = ref_pdb.parent / f"{ref_name}_to_{query_name}.animated.svg"
-
             print(f"Processing {ref_pdb}")
             run_rnaview(ref_pdb)
             print(f"Processing {query_pdb}")
@@ -26,7 +25,6 @@ def run_rnaview(pdb_file):
     subprocess.run(command, shell=True, check=True)
 
 def run_animate(ref_svg, query_svg, output_svg):
-    output_svg = Path(output_svg).parent / output_svg
     command = f"python ./utils/animate.py {ref_svg} {query_svg} {output_svg}"
     print(f"Running command: {command}")
     subprocess.run(command, shell=True, check=True)

@@ -2,7 +2,6 @@ import sys
 import subprocess
 from Bio import SeqIO
 from Bio.PDB import PDBParser
-import re
 import os
 from pathlib import Path
 import shutil
@@ -29,7 +28,7 @@ def run_rnaview(pdb_file):
         print(f"Error running RNAview: {e}")
         sys.exit(1)
 
-def parse_rnaview_output(output, sequence):
+def _parse_rnaview_output(output, sequence):
     canonical_pairs = {'AU', 'UA', 'GC', 'CG', 'GU', 'UG'}
     dot_bracket = ['.'] * len(sequence)
     pairings = {}
@@ -53,6 +52,59 @@ def parse_rnaview_output(output, sequence):
             dot_bracket[pos2] = ')'
     print("".join(dot_bracket))
     return ''.join(dot_bracket) if dot_bracket else None
+
+def parse_rnaview_output(output, sequence):
+    canonical_pairs = {'AU', 'UA', 'GC', 'CG', 'GU', 'UG'}
+    dot_bracket = ['.'] * len(sequence)
+    pairings = {}  # Dictionary to hold sets of pairings
+    lines = output.splitlines()
+    
+    # Step 1: Collect all pairings
+    for line in lines:
+        if line.startswith('pair'):
+            parts = line.split()
+            if len(parts) >= 5:
+                pos1 = int(parts[2]) - 1  # Convert to 0-based index
+                pos2 = int(parts[3]) - 1  # Convert to 0-based index
+                
+                if pos1 < len(sequence) and pos2 < len(sequence):
+                    pair = sequence[pos1] + sequence[pos2]
+                    if pair in canonical_pairs:
+                        # Initialize sets if not already
+                        if pos1 not in pairings:
+                            pairings[pos1] = set()
+                        if pos2 not in pairings:
+                            pairings[pos2] = set()
+                        
+                        # Add the pairings
+                        pairings[pos1].add(pos2)
+                        pairings[pos2].add(pos1)
+    
+    # Step 2: Identify bases that pair with more than one base
+    multi_paired_bases = {pos for pos, partners in pairings.items() if len(partners) > 1}
+    
+    # Step 3: Construct the dot-bracket notation
+    for pos1, partners in pairings.items():
+        # Skip if base is multi-paired
+        if pos1 in multi_paired_bases:
+            continue
+        # Get the single partner
+        pos2 = next(iter(partners))
+        # Skip if partner is multi-paired or already assigned
+        if pos2 in multi_paired_bases or dot_bracket[pos1] != '.' or dot_bracket[pos2] != '.':
+            continue
+        if pos1 < pos2:
+            dot_bracket[pos1] = '('
+            dot_bracket[pos2] = ')'
+        else:
+            dot_bracket[pos2] = '('
+            dot_bracket[pos1] = ')'
+    
+    # Output the dot-bracket notation
+    dot_bracket_str = ''.join(dot_bracket)
+    print(dot_bracket_str)
+    return dot_bracket_str if dot_bracket else None
+
 
 def _extract_sequence(pdb_file):
     with open(pdb_file, 'r') as file:
