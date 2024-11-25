@@ -30,6 +30,7 @@ def get_model_type(model_id):
         "RiboVision SSU": "ribovision_ssu",
         "RiboVision LSU": "ribovision_lsu",
         "RNAse P Database": "rnasep",
+        "tmRNA Database": "tmrna",
     }
     model_type = None
     with open(
@@ -253,6 +254,12 @@ def list_models():
         "RNAse P Database",
         os.path.join(config.RNASEP_CM_LIBRARY, "modelinfo.txt"),
         os.path.join(config.RNASEP, "metadata.tsv"),
+    )
+
+    models = get_models(
+        "tmRNA Database",
+        os.path.join(config.TMRNA_CM_LIBRARY, "modelinfo.txt"),
+        os.path.join(config.TMRNA, "metadata.tsv"),
     )
     data = data + models
     print(f"RNAse P Database: {len(models)}")
