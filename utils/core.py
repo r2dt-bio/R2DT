@@ -188,7 +188,7 @@ def visualise(
         template_sto = os.path.join(cm_library, model_id + ".sto")
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
-    elif rna_type = "tmrna":
+    elif rna_type == "tmrna":
         model_path = os.path.join(cm_library, model_id + ".cm")
         template_layout = os.path.join(template_layout, model_id + ".xml")
         template_structure = os.path.join(template_structure, model_id + ".fasta")
