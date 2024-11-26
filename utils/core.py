@@ -119,8 +119,9 @@ def visualise(
         template_structure = config.RNASEP_BPSEQ
     elif rna_type.lower() == "tmrna":
         cm_library = config.TMRNA_CM_LIBRARY
-        template_layout = config.TMRNA_TRAVELER
-        template_structure = config.TMRNA_BPSEQ
+        template_layout = config.TMRNA_XML_LIBRARY
+        template_structure = config.TMRNA_FASTA_LIBRARY
+        template_sto = config.TMRNA_STO_LIBRARY
     elif rna_type.lower() == "crw":
         cm_library = config.CRW_CM_LIBRARY
         template_layout = config.CRW_PS_LIBRARY
@@ -185,6 +186,13 @@ def visualise(
         template_layout = os.path.join(template_layout, model_id + ".xml")
         template_structure = os.path.join(template_structure, model_id + ".fasta")
         template_sto = os.path.join(cm_library, model_id + ".sto")
+        cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
+        runner.run(cmd)
+    elif rna_type = "tmrna":
+        model_path = os.path.join(cm_library, model_id + ".cm")
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
+        template_sto = os.path.join(template_sto, model_id + ".sto")
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
     else:

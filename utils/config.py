@@ -39,9 +39,10 @@ RNASEP_BPSEQ = os.path.join(RNASEP, "bpseq")
 RNASEP_TRAVELER = os.path.join(RNASEP, "traveler")
 
 TMRNA = os.path.join(DATA, "tmrna")
-TMRNA_CM_LIBRARY = os.path.join(TMRNA, "cms")
-TMRNA_BPSEQ = os.path.join(TMRNA, "bpseq")
-TMRNA_TRAVELER = os.path.join(TMRNA, "traveler")
+TMRNA_CM_LIBRARY = os.path.join(TMRNA, "cm")
+TMRNA_FASTA_LIBRARY = os.path.join(TMRNA, "fasta")
+TMRNA_STO_LIBRARY = os.path.join(TMRNA, "sto")
+TMRNA_XML_LIBRARY = os.path.join(TMRNA, "xml")
 
 GTRNADB_CM_LIBRARY = os.path.join(DATA, "gtrnadb", "cms")
 GTRNADB_EUK = os.path.join(DATA, "gtrnadb", "eukaryota_isotype_specific")
