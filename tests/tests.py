@@ -246,6 +246,10 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         """Check RNAse P covariance models."""
         self.verify_cm_database(config.RNASEP_CM_LIBRARY, 25)
 
+    def test_tmrna_cm_database(self):
+        """Check tmRNA covariance models."""
+        self.verify_cm_database(config.TMRNA_CM_LIBRARY, 5)
+
     def test_rfam_database(self):
         """
         Check Rfam covariance models and templates.
@@ -481,6 +485,31 @@ class TestRnasep(R2dtTestCase):
         "URS0000637B30_1247414-RNAseP_N_gonnorhoeae_JB.colored.svg",
         "URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg",
         "URS000013F331_9606-RNAseP_e_H_sapiens_3D.colored.svg",
+    ]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+class TestTmrna(R2dtTestCase):
+    """Check that tmRNA templates work."""
+
+    fasta_input = os.path.join("examples", "tmrna.fasta")
+    test_results = os.path.join("tests", "results", "tmrna")
+    precomputed_results = os.path.join("tests", "examples", "tmrna")
+    cmd = f"r2dt.py tmrna draw {fasta_input} {test_results} --quiet"
+    files = [
+        "hits.txt",
+        "alpha_tmRNA-cmconsensus-alpha_tmRNA.colored.svg",
+        "beta_tmRNA-cmconsensus-beta_tmRNA.colored.svg",
+        "cyano_tmRNA-cmconsensus-cyano_tmRNA.colored.svg",
+        "dup-ABCL01000004.1_58204-58555-alpha_tmRNA.colored.svg",
+        "dup-BRH-c25__sp001515955.1-intron712_tmRNA.colored.svg",
+        "dup-BX548175.1_1677929-1677634-cyano_tmRNA.colored.svg",
+        "dup-CR555306.1_77117-77443-beta_tmRNA.colored.svg",
+        "dup-PCTA01000033.1:82380-82811_1-432-std_tmRNA.colored.svg",
+        "intron_tmRNA-cmconsensus-intron712_tmRNA.colored.svg",
+        "std_tmRNA-cmconsensus-std_tmRNA.colored.svg",
     ]
 
     def test_examples(self):

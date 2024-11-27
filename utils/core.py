@@ -117,6 +117,11 @@ def visualise(
         cm_library = config.RNASEP_CM_LIBRARY
         template_layout = config.RNASEP_TRAVELER
         template_structure = config.RNASEP_BPSEQ
+    elif rna_type.lower() == "tmrna":
+        cm_library = config.TMRNA_CM_LIBRARY
+        template_layout = config.TMRNA_XML_LIBRARY
+        template_structure = config.TMRNA_FASTA_LIBRARY
+        template_sto = config.TMRNA_STO_LIBRARY
     elif rna_type.lower() == "crw":
         cm_library = config.CRW_CM_LIBRARY
         template_layout = config.CRW_PS_LIBRARY
@@ -183,6 +188,13 @@ def visualise(
         template_sto = os.path.join(cm_library, model_id + ".sto")
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
+    elif rna_type == "tmrna":
+        model_path = os.path.join(cm_library, model_id + ".cm")
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
+        template_sto = os.path.join(template_sto, model_id + ".sto")
+        cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
+        runner.run(cmd)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -192,7 +204,7 @@ def visualise(
     # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        if rna_type in ["rfam", "local_data"]:
+        if rna_type in ["rfam", "tmrna", "local_data"]:
             mapping_filename = rfam_seed if rna_type == "rfam" else template_sto
             cmd = (
                 f"cmalign --mapali {mapping_filename} --mapstr {options} "
@@ -207,7 +219,7 @@ def visualise(
         rprint(f"[red]Failed cmalign of {seq_id} to {model_id}[/red]")
         return
 
-    if rna_type in ["rfam", "local_data"]:
+    if rna_type in ["rfam", "tmrna", "local_data"]:
         cmd = (
             f"esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
             f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
@@ -351,7 +363,7 @@ def visualise(
             f"--template-structure {template_layout}/{model_id}.ps "
             f"{template_structure}/{model_id}.fasta"
         )
-    elif rna_type in ["rfam", "local_data"]:
+    elif rna_type in ["rfam", "tmrna", "local_data"]:
         traveler_params = (
             f"--template-structure --file-format traveler "
             f"{template_layout} {template_structure} "
