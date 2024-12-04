@@ -64,6 +64,16 @@ Watch RNAcanvas editing R2DT output in action:
 
 <a href="https://ldwlab.github.io/XRNA-React/?source_url=https://raw.githubusercontent.com/RNAcentral/R2DT/develop/docs/files/URS000044DFF6.json" target="_blank" class="btn btn-primary btn-lg">Edit an example structure in xRNA React</a>
 
+Get started with XRNA-React by watching the introductory video below, and explore additional tutorials in the following [YouTube playlist](https://www.youtube.com/playlist?list=PLoWAPeA39A2hPTBUEXWLB7_6-R6vGhLT_).
+
+```{eval-rst}
+.. raw:: html
+
+    <div style="position: relative; padding-bottom: 56.25%; margin-bottom: 10px; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+        <iframe src="https://www.youtube.com/embed/IQhuC63lTRc" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+    </div>
+```
+
 ### Constraint modes
 
 Within a given mode, all nucleotides in a group are automatically selected, upon left-clicking a mouse over a particular nucleotide within the desired region of the RNA scene. Nucleotide positions can further be transformed (edited) according to certain rules specific to a given mode. For example, the position of a single nucleotide can be adjusted in x and y directions; positions of nucleotides in a selected single-stranded region can be adjusted to an equally spaced  straight line, or an arch of a given radius; positions of a single base pair can be adjusted in x or y directions, as well as their rotational orientation can also be specified. All selected objects are transformed as rigid bodies, respecing the existing base pairing topology.
