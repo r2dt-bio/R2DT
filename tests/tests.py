@@ -760,5 +760,20 @@ class TestTemplateFreeRnartist(R2dtTestCase):
         self.check_examples()
 
 
+class TestBadFastaName(R2dtTestCase):
+    """Check that the program can handle fasta files with bad names."""
+
+    fasta_input = os.path.join("examples", "bad-fasta-name.fasta")
+    test_results = os.path.join("tests", "results", "bad-fasta-name")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "bad-fasta-name")
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    files = ["DB_TEXT_MORE-d.5.e.H.sapiens.2.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
