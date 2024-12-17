@@ -64,7 +64,7 @@ Watch RNAcanvas editing R2DT output in action:
 
 <a href="https://ldwlab.github.io/XRNA-React/?source_url=https://raw.githubusercontent.com/RNAcentral/R2DT/develop/docs/files/URS000044DFF6.json" target="_blank" class="btn btn-primary btn-lg">Edit an example structure in xRNA React</a>
 
-:::{note}
+:::{tip}
 Explore [User Manual](xrna-react-user-guide.md) to watch video tutorials and see it in action.
 :::
 
