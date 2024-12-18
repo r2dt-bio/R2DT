@@ -112,17 +112,6 @@ RUN \
 FROM build AS rnaview
 
 # Install RNAview
-#RUN \
- #   git clone https://github.com/rcsb/RNAView && \
- #   cd RNAView && git checkout ${RNAView_COMMIT} && \
-  #  make && \
-  #  mkdir -p /install/ 
-    #mkdir -p /install/rnaview/bin && \
-#RUN \
- #   cp -r RNAView /install/rnaview
-    #cp bin/rnaview /install/rnaview/bin/ && \
-    #cp -r ./* /install/rnaview/
-
 RUN \
     git clone https://github.com/rcsb/RNAView && \
     cd RNAView && \
