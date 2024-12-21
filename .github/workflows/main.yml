@@ -66,7 +66,7 @@ jobs:
         run: |
           echo "Checking for base image rnacentral/r2dt-base:pr-${{ github.event.pull_request.number }}"
           attempt=1
-          max_attempts=30
+          max_attempts=45
           while [ $attempt -le $max_attempts ]; do
             # Check base image workflow status
             workflow_info=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -89,7 +89,7 @@ jobs:
             fi
 
             echo "Waiting for base image to appear (attempt $attempt/$max_attempts)..."
-            sleep 30
+            sleep 60
             attempt=$((attempt + 1))
           done
           if [ $attempt -gt $max_attempts ]; then
