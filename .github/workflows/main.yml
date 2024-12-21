@@ -12,6 +12,8 @@ on:
 
 permissions:
   pull-requests: write
+  actions: read    # Required to query workflow status
+  contents: read  # Required for checkout and git diff
 
 jobs:
   initial-notification:
@@ -28,6 +30,9 @@ jobs:
 
   create-docker-tag:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.title, '[skip ci]')
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +61,40 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      - name: Wait for base image if needed
+        if: github.event_name == 'pull_request'
+        run: |
+          # Wait for base image workflow to complete if base_image directory was modified
+          if git diff --name-only origin/${{ github.base_ref }} | grep -q "^base_image/"; then
+            echo "Base image changes detected, waiting for parallel-base-image workflow to complete..."
+            attempt=1
+            max_attempts=30
+            while [ $attempt -le $max_attempts ]; do
+              status=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs?event=pull_request&branch=${{ github.head_ref }}&status=completed" | \
+                jq -r '.workflow_runs[] | select(.name == "Build and Push Base Docker image (parallel)") | .conclusion')
+
+              if [ "$status" = "success" ]; then
+                echo "Base image workflow completed successfully"
+                break
+              elif [ "$status" = "failure" ]; then
+                echo "Base image workflow failed"
+                exit 1
+              fi
+
+              echo "Waiting for base image workflow to complete (attempt $attempt/$max_attempts)..."
+              sleep 20
+              attempt=$((attempt + 1))
+            done
+
+            if [ $attempt -gt $max_attempts ]; then
+              echo "Timeout waiting for base image workflow"
+              exit 1
+            fi
+          else
+            echo "No base image changes detected, proceeding with build"
+          fi
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -65,6 +104,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: ${{ steps.docker_meta.outputs.tags }}
+          build-args: |
+            ${{ github.event_name == 'pull_request' && format('BASE_IMAGE_VERSION=pr-{0}', github.event.pull_request.number) || '' }}
 
       - name: Find comment for image tags
         uses: peter-evans/find-comment@v3
