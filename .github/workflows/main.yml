@@ -64,35 +64,37 @@ jobs:
       - name: Wait for base image if needed
         if: github.event_name == 'pull_request'
         run: |
-          # Wait for base image workflow to complete if base_image directory was modified
-          if git diff --name-only origin/${{ github.base_ref }} | grep -q "^base_image/"; then
-            echo "Base image changes detected, waiting for parallel-base-image workflow to complete..."
-            attempt=1
-            max_attempts=30
-            while [ $attempt -le $max_attempts ]; do
-              status=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs?event=pull_request&branch=${{ github.head_ref }}&status=completed" | \
-                jq -r '.workflow_runs[] | select(.name == "Build and Push Base Docker image (parallel)") | .conclusion')
+          echo "Checking for base image rnacentral/r2dt-base:pr-${{ github.event.pull_request.number }}"
+          attempt=1
+          max_attempts=30
+          while [ $attempt -le $max_attempts ]; do
+            # Check base image workflow status
+            workflow_info=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs?event=pull_request&branch=${{ github.head_ref }}" | \
+              jq -r '.workflow_runs[] | select(.name == "Build and Push Base Docker image (parallel)") | {status: .status, conclusion: .conclusion}')
 
-              if [ "$status" = "success" ]; then
-                echo "Base image workflow completed successfully"
-                break
-              elif [ "$status" = "failure" ]; then
-                echo "Base image workflow failed"
-                exit 1
-              fi
+            status=$(echo "$workflow_info" | jq -r '.status')
+            conclusion=$(echo "$workflow_info" | jq -r '.conclusion')
 
-              echo "Waiting for base image workflow to complete (attempt $attempt/$max_attempts)..."
-              sleep 20
-              attempt=$((attempt + 1))
-            done
-
-            if [ $attempt -gt $max_attempts ]; then
-              echo "Timeout waiting for base image workflow"
+            # Circuit breaker: abort if base image workflow failed or was cancelled
+            if [ "$status" = "completed" ] && ([ "$conclusion" = "failure" ] || [ "$conclusion" = "cancelled" ]); then
+              echo "Base image workflow $conclusion - aborting"
               exit 1
             fi
-          else
-            echo "No base image changes detected, proceeding with build"
+
+            # Check if image exists on DockerHub
+            if docker manifest inspect rnacentral/r2dt-base:pr-${{ github.event.pull_request.number }} >/dev/null 2>&1; then
+              echo "Base image found"
+              break
+            fi
+
+            echo "Waiting for base image to appear (attempt $attempt/$max_attempts)..."
+            sleep 30
+            attempt=$((attempt + 1))
+          done
+          if [ $attempt -gt $max_attempts ]; then
+            echo "Timeout waiting for base image"
+            exit 1
           fi
 
       - name: Build and push Docker image
