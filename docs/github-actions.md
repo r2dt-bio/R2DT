@@ -12,6 +12,10 @@ The base image is built using a separate workflow defined in `.github/workflows/
 2. **Set Up Docker**: It sets up Docker Buildx, which is a Docker CLI plugin for extended build capabilities with BuildKit.
 3. **Build and Push**: The base image is built using the instructions in `base_image/Dockerfile` and pushed to a Docker registry.
 
+### Usage of Base Image
+
+The base image serves as a starting point for the main Docker image. It includes essential dependencies and configurations that are common across different builds, ensuring consistency and reducing build times for the resulting images.
+
 ## Building the Resulting Image
 
 The main workflow for building the resulting Docker image is defined in `.github/workflows/main.yml`. This workflow is triggered on pushes and pull requests to the `main` and `develop` branches.
@@ -24,7 +28,21 @@ The main workflow for building the resulting Docker image is defined in `.github
 4. **Comment on Pull Request**: If the workflow is triggered by a pull request, it comments on the PR with the Docker image tags and labels.
 5. **Final Notification**: Sends a Slack notification indicating the completion of the Docker image creation process.
 
-### Parallel Builds
+### Parallel Builds in Dockerfile
+
+The `Dockerfile` supports parallel builds by specifying multiple stages for different components. Each stage is responsible for building a specific part of the application, such as:
+
+- **R-scape**: Installs R-scape, a tool for RNA sequence analysis.
+- **tRNAScan-SE**: Installs tRNAScan-SE, a tool for identifying tRNA genes.
+- **Bio-Easel**: Installs Bio-Easel, a library for biological sequence analysis.
+- **Traveler**: Installs Traveler, a tool for RNA structure visualization.
+- **Scripts**: Installs various scripts for RNA analysis.
+- **Ribovore-Infernal-Easel**: Installs Ribovore and Infernal, tools for RNA sequence analysis.
+- **RNArtist**: Installs RNArtist, a tool for RNA structure visualization.
+
+These stages are combined in the final build stage to create a comprehensive Docker image that includes all necessary tools and dependencies.
+
+### Parallel Builds in Main Workflow
 
 The main workflow supports parallel builds for multiple platforms using Docker Buildx. This allows the resulting Docker image to be compatible with different architectures, enhancing its usability across various environments.
 
