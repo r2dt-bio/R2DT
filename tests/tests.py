@@ -775,5 +775,17 @@ class TestBadFastaName(R2dtTestCase):
         self.check_examples()
 
 
+class TestProcPsIsPresent(unittest.TestCase):
+    """Check that the procps package is present.
+    Ps is required by nextflow to check if a process is running
+    and the R2DT image needs to have it installed."""
+
+    def test_procps_is_present(self):
+        """Check that the procps package is present."""
+        self.assertTrue(
+            shutil.which("ps"), "The procps package is not installed on this system"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
