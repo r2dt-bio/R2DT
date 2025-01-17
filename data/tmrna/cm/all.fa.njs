@@ -6,9 +6,9 @@
   "description": "all.fa",
   "number-of-letters": 1948,
   "number-of-sequences": 5,
-  "last-updated": "2024-11-25T14:56:00",
+  "last-updated": "2025-01-17T12:30:00",
   "number-of-volumes": 1,
-  "bytes-total": 37970,
+  "bytes-total": 37963,
   "bytes-to-cache": 643,
   "files": [
     "all.fa.ndb",
