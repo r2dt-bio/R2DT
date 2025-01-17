@@ -500,16 +500,16 @@ class TestTmrna(R2dtTestCase):
     cmd = f"r2dt.py tmrna draw {fasta_input} {test_results} --quiet"
     files = [
         "hits.txt",
-        "alpha_tmRNA-cmconsensus-alpha_tmRNA.colored.svg",
-        "beta_tmRNA-cmconsensus-beta_tmRNA.colored.svg",
-        "cyano_tmRNA-cmconsensus-cyano_tmRNA.colored.svg",
-        "dup-ABCL01000004.1_58204-58555-alpha_tmRNA.colored.svg",
-        "dup-BRH-c25__sp001515955.1-intron712_tmRNA.colored.svg",
-        "dup-BX548175.1_1677929-1677634-cyano_tmRNA.colored.svg",
-        "dup-CR555306.1_77117-77443-beta_tmRNA.colored.svg",
-        "dup-PCTA01000033.1:82380-82811_1-432-std_tmRNA.colored.svg",
-        "intron_tmRNA-cmconsensus-intron712_tmRNA.colored.svg",
-        "std_tmRNA-cmconsensus-std_tmRNA.colored.svg",
+        "alpha_tmRNA-cmconsensus-tmRNA_alpha.colored.svg",
+        "beta_tmRNA-cmconsensus-tmRNA_beta.colored.svg",
+        "cyano_tmRNA-cmconsensus-tmRNA_cyano.colored.svg",
+        "dup-ABCL01000004.1_58204-58555-tmRNA_alpha.colored.svg",
+        "dup-BRH-c25__sp001515955.1-tmRNA_intron.colored.svg",
+        "dup-BX548175.1_1677929-1677634-tmRNA_cyano.colored.svg",
+        "dup-CR555306.1_77117-77443-tmRNA_beta.colored.svg",
+        "dup-PCTA01000033.1:82380-82811_1-432-tmRNA.colored.svg",
+        "intron_tmRNA-cmconsensus-tmRNA_intron.colored.svg",
+        "std_tmRNA-cmconsensus-tmRNA.colored.svg",
     ]
 
     def test_examples(self):
