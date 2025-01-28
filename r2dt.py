@@ -242,6 +242,8 @@ def draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
 
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if is_templatefree(fasta_input):
         if not quiet:
             rprint("Detected templatefree input.")
@@ -530,6 +532,8 @@ def gtrnadb_draw(
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
 
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if domain and isotype:
         core.visualise_trna(
             domain.upper(),
@@ -596,6 +600,9 @@ def rnasep_draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
@@ -715,6 +722,9 @@ def rrna_draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
@@ -775,6 +785,9 @@ def ribovision_draw_lsu(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input,
@@ -831,6 +844,9 @@ def ribovision_draw_ssu(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input,
@@ -916,6 +932,9 @@ def rfam_draw(
         template_type = "rscape"
     else:
         template_type = "auto"
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
             rfam_acc,
@@ -1001,6 +1020,9 @@ def force_draw(
     # pylint: disable=too-many-arguments, too-many-locals
     if not quiet:
         rprint(shared.get_r2dt_version_header())
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     model_type = lm.get_model_type(model_id)
     if not model_type:
         rprint("Error: Model not found. Please check model_id")
@@ -1096,6 +1118,8 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
         rscape = True
     if rnartist and rscape:
         raise ValueError("Please specify only one template type")
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
 
     if rnartist:
         output_folder = Path(output_folder)

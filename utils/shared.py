@@ -13,6 +13,7 @@ limitations under the License.
 
 import os
 import re
+import tempfile
 from pathlib import Path
 
 import requests  # pylint: disable=import-error
@@ -508,3 +509,30 @@ def generate_thumbnail(image, description):
     thumbnail += " ".join(points)
     thumbnail += '"/></svg>'
     return thumbnail
+
+
+def sanitise_fasta(filename):
+    """
+    Replace unsafe characters in a fasta file with underscores.
+    Return the filename of the sanitised file or the original filename.
+    """
+    unsafe_chars = r'[<:"/\\|?*\0]'
+    sanitized = []
+    content_changed = False
+
+    with open(filename, "r", encoding="utf-8") as f_fasta:
+        for line in f_fasta:
+            if line.startswith(">"):
+                new_line = re.sub(unsafe_chars, "_", line)
+                if new_line != line:
+                    content_changed = True
+            else:
+                new_line = line
+            sanitized.append(new_line)
+
+    if content_changed:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f_fasta:
+            f_fasta.writelines(sanitized)
+            sanitised_filename = f_fasta.name
+            return sanitised_filename
+    return filename

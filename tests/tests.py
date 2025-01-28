@@ -807,5 +807,32 @@ class TestLowerCase(R2dtTestCase):
         self.check_examples()
 
 
+class TestBadFastaName(R2dtTestCase):
+    """Check that the program can handle fasta files with bad names."""
+
+    fasta_input = os.path.join("examples", "bad-fasta-name.fasta")
+    test_results = os.path.join("tests", "results", "bad-fasta-name")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "bad-fasta-name")
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    files = ["DB_TEXT_MORE-d.5.e.H.sapiens.2.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestProcPsIsPresent(unittest.TestCase):
+    """Check that the procps package is present.
+    Ps is required by nextflow to check if a process is running
+    and the R2DT image needs to have it installed."""
+
+    def test_procps_is_present(self):
+        """Check that the procps package is present."""
+        self.assertTrue(
+            shutil.which("ps"), "The procps package is not installed on this system"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

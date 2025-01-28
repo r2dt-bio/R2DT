@@ -35,6 +35,10 @@ jobs:
           tags: |
             type=ref,event=pr
 
+      - name: Calculate Dockerfile hash
+        id: dockerfile_hash
+        run: echo "hash=$(sha256sum base_image/Dockerfile | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v6
@@ -43,7 +47,7 @@ jobs:
           push: true
           labels: ${{ steps.docker_meta.outputs.labels }}
           tags: ${{ steps.docker_meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=rnacentral/r2dt-base:cache-${{ steps.dockerfile_hash.outputs.hash }}
+          cache-to: type=registry,ref=rnacentral/r2dt-base:cache-${{ steps.dockerfile_hash.outputs.hash }},mode=max
           file: base_image/Dockerfile
           context: base_image/
