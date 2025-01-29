@@ -160,6 +160,8 @@ def get_models(source, modelinfo_file, metadata_file):
         rna_type = "large subunit rRNA"
     elif source == "RNAse P Database":
         rna_type = "RNAse P"
+    elif source == "tmRNA Database":
+        rna_type = "tmRNA"
     else:
         rna_type = ""
     for model_id in model_ids:
@@ -255,6 +257,8 @@ def list_models():
         os.path.join(config.RNASEP_CM_LIBRARY, "modelinfo.txt"),
         os.path.join(config.RNASEP, "metadata.tsv"),
     )
+    data = data + models
+    print(f"RNAse P Database: {len(models)}")
 
     models = get_models(
         "tmRNA Database",
@@ -262,7 +266,7 @@ def list_models():
         os.path.join(config.TMRNA, "metadata.tsv"),
     )
     data = data + models
-    print(f"RNAse P Database: {len(models)}")
+    print(f"tmRNA Database: {len(models)}")
 
     models = get_rfam_models()
     data = data + models
