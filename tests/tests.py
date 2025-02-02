@@ -248,7 +248,7 @@ class TestCovarianceModelDatabase(unittest.TestCase):
 
     def test_tmrna_cm_database(self):
         """Check tmRNA covariance models."""
-        self.verify_cm_database(config.TMRNA_CM_LIBRARY, 5)
+        self.verify_cm_database(config.TMRNA_CM_LIBRARY, 7)
 
     def test_rfam_database(self):
         """
@@ -490,6 +490,7 @@ class TestRnasep(R2dtTestCase):
     def test_examples(self):
         """Check that files exist and are identical to examples."""
         self.check_examples()
+
 
 class TestTmrna(R2dtTestCase):
     """Check that tmRNA templates work."""
