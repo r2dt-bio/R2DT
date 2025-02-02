@@ -279,6 +279,7 @@ def draw(
     gtrnadb_output = os.path.join(output_folder, "gtrnadb")
     rfam_trna_output = os.path.join(output_folder, "RF00005")
     rnasep_output = os.path.join(output_folder, "rnasep")
+    tmrna_output = os.path.join(output_folder, "tmrna")
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
@@ -291,11 +292,13 @@ def draw(
             "ribovision_draw_lsu": os.path.join(output_folder, "ribovision-lsu"),
             "rrna_draw": os.path.join(output_folder, "crw"),
             "rnasep_draw": os.path.join(output_folder, "rnasep"),
+            "tmrna_draw": os.path.join(output_folder, "tmrna"),
         }
         return subfolders.get(str(method_name), "")
 
     method_list = [
         "rnasep_draw",
+        "tmrna_draw",
         "ribovision_draw_ssu",
         "ribovision_draw_lsu",
         "rrna_draw",  # CRW
@@ -416,6 +419,7 @@ def draw(
         gtrnadb_output,
         rfam_trna_output,
         rnasep_output,
+        tmrna_output,
     ]
     for folder in result_folders:
         organise_results(folder, output_folder)
@@ -623,6 +627,65 @@ def rnasep_draw(
             )
 
 
+@cli.group("tmrna")
+def tmrna_group():
+    """
+    Use tmRNA templates for structure visualisation.
+    """
+
+
+@tmrna_group.command("draw")
+@click.option(
+    "--constraint", default=False, is_flag=True, help="Fold insertions using RNAfold"
+)
+@click.option("--exclusion", default=None)
+@click.option("--fold_type", default=None)
+@click.option(
+    "--skip_ribovore_filters",
+    default=False,
+    is_flag=True,
+    help="Ignore ribovore QC checks",
+)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+@click.argument("fasta-input", type=click.Path())
+@click.argument("output-folder", type=click.Path())
+def tmrna_draw(
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
+):
+    """Draw 2D diagrams using tmRNA templates."""
+    # pylint: disable=too-many-arguments
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
+    with open(
+        shared.get_ribotyper_output(
+            fasta_input, output_folder, config.TMRNA_CM_LIBRARY, skip_ribovore_filters
+        ),
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
+            rnacentral_id, model_id, _ = line.split("\t")
+            core.visualise(
+                "tmrna",
+                fasta_input,
+                output_folder,
+                rnacentral_id,
+                model_id,
+                constraint,
+                exclusion,
+                fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
+            )
+            
 @cli.group("crw")
 def crw_group():
     """
@@ -926,6 +989,10 @@ def organise_metadata(output_folder, result_folders):
                         line = line.replace("PASS", "RNAse P Database").replace(
                             "FAIL", "RNAse P Database"
                         )
+                    elif "tmrna" in folder:
+                        line = line.replace("PASS", "tmRNA Database").replace(
+                            "FAIL", "tmRNA Database"
+                        )
                     f_out.write(line)
 
 
@@ -968,7 +1035,7 @@ def force_draw(
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
-    if model_type in ["crw", "rfam", "rnasep", "local_data"]:
+    if model_type in ["crw", "rfam", "rnasep", "tmrna", "local_data"]:
         core.visualise(
             model_type,
             fasta_input,
@@ -1024,6 +1091,7 @@ def force_draw(
         "ribovision_ssu": "RiboVision",
         "ribovision_lsu": "RiboVision",
         "rnasep": "RNAse P database",
+        "tmrna": "tmRNA database",
         "local_data": "Local data",
     }
     with open(

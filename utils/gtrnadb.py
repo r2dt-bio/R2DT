@@ -46,7 +46,8 @@ def setup():
                     get_trnascan_cm(domain, isotype)
 
 
-def verify_anticodon(isotype, anticodon, start, end):
+# pylint: disable=too-many-arguments
+def verify_anticodon(isotype, anticodon, start, end, note, domain):
     """
     When multiple models are possible, select the most likely one.
 
@@ -66,8 +67,23 @@ def verify_anticodon(isotype, anticodon, start, end):
     >= 70 bp are usually SerTGA (with a D-arm).
     < 65 are usually SerGCT (without a D-arm).
     in between can be either.
+
+    Special Case: nmt-tRNAs (nuclear-embedded mitochondrial DNA sequences).
+
+    nmt-tRNAs can accumulate mutations and may have different anticodons.
+    In these cases, the note field may contain "inconsistent_ac (anticodon)".
+    For example, "inconsistent_ac (TAG)".
+
+    When this note is present, the anticodon specified in the note field
+    should be used instead of the one in the anticodon field.
     """
-    if anticodon != "NNN":
+    if domain != "M vert":  # only mitochondria have multiple models
+        return anticodon
+    if anticodon != "NNN" and "inconsistent_ac" not in note:
+        return anticodon  # use the anticodon from the tRNAScan output
+    match = re.match(r"inconsistent_ac \(([A-Z]{3})\)", note)  # inconsistent_ac (TAG)
+    if match:
+        anticodon = match.group(1)
         return anticodon
     seq_length = abs(end - start) + 1
     if isotype == "Leu":
@@ -82,7 +98,7 @@ def verify_anticodon(isotype, anticodon, start, end):
     return anticodon
 
 
-def parse_trnascan_output(filename):
+def parse_trnascan_output(filename, domain):
     """
     Sequence           		     tRNA	Bounds	tRNA	Anti	Intron  Bounds	Inf
     Name               	tRNA #	Begin	End	    Type	Codon	Begin	   End	Score	Note
@@ -95,7 +111,7 @@ def parse_trnascan_output(filename):
             if i in [0, 1, 2]:
                 continue  # skip 3 header lines
             parts = [x.strip() for x in line.split("\t")]
-            seq_id, _, start, end, isotype, anticodon, _, _, score, note = parts
+            seq_id, _, start, end, isotype, anticodon, _, _, score, *_, note = parts
             score = float(score)
             start = int(start)
             end = int(end)
@@ -106,7 +122,9 @@ def parse_trnascan_output(filename):
             data[seq_id] = {
                 "score": score,
                 "isotype": isotype,
-                "anticodon": verify_anticodon(isotype, anticodon, start, end),
+                "anticodon": verify_anticodon(
+                    isotype, anticodon, start, end, note, domain
+                ),
                 "note": note.lower(),
                 "start": start,
                 "end": end,
@@ -116,18 +134,14 @@ def parse_trnascan_output(filename):
 
 def run_trnascan(fasta_input, output_folder, domain):
     """Launch tRNAScan-SE and return parsed results."""
-    _, extension = os.path.splitext(fasta_input)
-    output_file = os.path.join(
-        output_folder,
-        domain + "-" + os.path.basename(fasta_input).replace(extension, ".txt"),
-    )
+    output_file = os.path.join(output_folder, f"{domain}-trnascan.txt")
     if domain == "M":
         domain = "M vert"
     if not os.path.exists(output_file):
         runner.run(
-            f"tRNAscan-SE -c {TRNASCAN_CONF} -q -{domain} -o {output_file} {fasta_input}"
+            f"tRNAscan-SE --detail -c {TRNASCAN_CONF} -q -{domain} -o {output_file} {fasta_input}"
         )
-    return parse_trnascan_output(output_file)
+    return parse_trnascan_output(output_file, domain)
 
 
 def skip_trna(entry):
