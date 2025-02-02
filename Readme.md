@@ -1,6 +1,6 @@
 # R2DT
 
-**Version 2.0 (2024)**
+**Version 2.1 (2025)**
 
 **[See the R2DT documentation](https://r2dt.readthedocs.io/)** or read the [latest preprint](https://www.biorxiv.org/content/10.1101/2024.09.29.611006v1).
 
