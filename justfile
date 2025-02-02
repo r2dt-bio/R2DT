@@ -31,8 +31,8 @@ download:
     tar -xzf cms.tar.gz
 
 # Run shell in docker
-run:
-    docker run {{ platform_arg }} -v $(pwd):/rna/r2dt -v {{ data_dir }}:/rna/r2dt/data/cms -it --rm {{ image }}
+run tag=default_tag:
+    docker run {{ platform_arg }} -v $(pwd):/rna/r2dt -v {{ data_dir }}:/rna/r2dt/data/cms -it --rm {{ image }}:{{tag}}
 
 # Run all tests in docker
 test-all:
