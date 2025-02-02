@@ -1,16 +1,14 @@
 # GitHub Actions for Docker Image Builds
 
-This document explains how GitHub Actions are used in this project to automate the building and pushing of Docker images. The project uses two main workflows: one for building the base image and another for building the resulting image.
+R2DT automates the building and deployment of Docker images using **GitHub Actions**. The project employs two primary workflows:
+	1.	Base Image Workflow – Creates a foundational Docker image.
+	2.	Main Workflow – Builds the final image using the base image.
+
+This automation streamlines development, ensuring consistency, reducing build times, and minimising manual intervention.
 
 ## Building the Base Image
 
-The base image is built using a separate workflow defined in `.github/workflows/base-image.yml`. This workflow is responsible for creating a foundational Docker image that other images can build upon. The base image is defined in `base_image/Dockerfile`.
-
-### Key Steps in Base Image Workflow
-
-1. **Checkout Code**: The workflow checks out the code from the repository to access the Dockerfile and any necessary scripts.
-2. **Set Up Docker**: It sets up Docker Buildx, which is a Docker CLI plugin for extended build capabilities with BuildKit.
-3. **Build and Push**: The base image is built using the instructions in `base_image/Dockerfile` and pushed to a Docker registry.
+The base image is created via the workflow defined in [parallel-base-image.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/parallel-base-image.yml). This workflow provides a standardised environment for subsequent images. The image layers are built in parallel using [BuildJet](https://buildjet.com) and pushed to Docker Hub for caching.
 
 ### Usage of Base Image
 
@@ -18,7 +16,7 @@ The base image serves as a starting point for the main Docker image. It includes
 
 ## Building the Resulting Image
 
-The main workflow for building the resulting Docker image is defined in `.github/workflows/main.yml`. This workflow is triggered on pushes and pull requests to the `main` and `develop` branches.
+The main workflow for building the resulting Docker image is defined in [main.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/main.yml). This workflow is triggered on pushes and pull requests to the `main` and `develop` branches.
 
 ### Key Steps in Main Workflow
 
@@ -30,17 +28,13 @@ The main workflow for building the resulting Docker image is defined in `.github
 
 ### Parallel Builds in Dockerfile
 
-The `Dockerfile` supports parallel builds by specifying multiple stages for different components. Each stage is responsible for building a specific part of the application, such as:
+The `Dockerfile` supports parallel builds by specifying multiple stages for different components. Each stage is responsible for building a specific part of the application, for example:
 
-- **R-scape**: Installs R-scape, a tool for RNA sequence analysis.
 - **tRNAScan-SE**: Installs tRNAScan-SE, a tool for identifying tRNA genes.
-- **Bio-Easel**: Installs Bio-Easel, a library for biological sequence analysis.
 - **Traveler**: Installs Traveler, a tool for RNA structure visualization.
-- **Scripts**: Installs various scripts for RNA analysis.
 - **Ribovore-Infernal-Easel**: Installs Ribovore and Infernal, tools for RNA sequence analysis.
-- **RNArtist**: Installs RNArtist, a tool for RNA structure visualization.
 
-These stages are combined in the final build stage to create a comprehensive Docker image that includes all necessary tools and dependencies.
+These stages are combined in the final build stage to create a comprehensive Docker image that includes all the necessary tools and dependencies.
 
 ### Parallel Builds in Main Workflow
 
