@@ -30,6 +30,7 @@ def get_model_type(model_id):
         "RiboVision SSU": "ribovision_ssu",
         "RiboVision LSU": "ribovision_lsu",
         "RNAse P Database": "rnasep",
+        "tmRNA Database": "tmrna",
     }
     model_type = None
     with open(
@@ -159,6 +160,8 @@ def get_models(source, modelinfo_file, metadata_file):
         rna_type = "large subunit rRNA"
     elif source == "RNAse P Database":
         rna_type = "RNAse P"
+    elif source == "tmRNA Database":
+        rna_type = "tmRNA"
     else:
         rna_type = ""
     for model_id in model_ids:
@@ -256,6 +259,14 @@ def list_models():
     )
     data = data + models
     print(f"RNAse P Database: {len(models)}")
+
+    models = get_models(
+        "tmRNA Database",
+        os.path.join(config.TMRNA_CM_LIBRARY, "modelinfo.txt"),
+        os.path.join(config.TMRNA, "metadata.tsv"),
+    )
+    data = data + models
+    print(f"tmRNA Database: {len(models)}")
 
     models = get_rfam_models()
     data = data + models

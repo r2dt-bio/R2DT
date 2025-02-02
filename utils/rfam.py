@@ -53,6 +53,11 @@ BLACKLIST = [
     "RF00373",  # Archaeal RNase P
     "RF00061",  # HCV IRES
     "RF02357",  # RNAse P Type T
+    "RF00023",  # tmRNA
+    "RF01849",  # Alphaproteobacteria transfer-messenger RNA
+    "RF01850",  # Betaproteobacteria transfer-messenger RNA
+    "RF01851",  # Cyanobacteria transfer-messenger RNA
+    "RF02544",  # Mitochondrion-encoded tmRNA
 ]
 
 PREFER_RNARTIST_LIST = Path(config.RFAM_DATA) / "prefer_rnartist.txt"
