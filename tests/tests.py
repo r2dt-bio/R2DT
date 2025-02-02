@@ -400,6 +400,7 @@ class TestSingleEntry(R2dtTestCase):
         "URS0000023412_9606-E_Thr.colored.svg",
         "URS00000012EC-M_Ile.colored.svg",
         "URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg",
+        "tmRNA_PCTA01000033-tmRNA.colored.svg",
     ]
 
     def test_examples(self):
