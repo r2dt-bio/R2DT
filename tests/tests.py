@@ -453,6 +453,14 @@ class TestGtrnadbMitoVert(R2dtTestCase):
         "URS0000043FFB_392897-M_SerGCT.colored.svg",
         "URS0000247C4D_392897-M_Cys.colored.svg",
         "URS0002616B70_9606-M_SerGCT.colored.svg",
+        "chr1_46824277_46824348-M_LeuTAA.colored.svg",
+        "URS0000C88790-M_LeuTAG.colored.svg",
+        "URS00006B0D4F-M_LeuTAG.colored.svg",
+        "URS00006B5A23-M_LeuTAG.colored.svg",
+        "URS00019DBB15-M_LeuTAG.colored.svg",
+        "URS000066B91E-M_LeuTAG.colored.svg",
+        "URS000066635D-M_LeuTAG.colored.svg",
+        "URS000068492E-M_LeuTAG.colored.svg",
     ]
 
     def test_examples(self):
