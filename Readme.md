@@ -2,9 +2,9 @@
 
 **Version 2.1 (2025)**
 
-**[See the R2DT documentation](https://r2dt.readthedocs.io/)** or read the [latest preprint](https://www.biorxiv.org/content/10.1101/2024.09.29.611006v1).
+🚀 **[Read the R2DT documentation](https://r2dt.readthedocs.io/)** | 📄 [Latest paper](https://academic.oup.com/nar/article/53/4/gkaf032/8005627).
 
-The [R2DT software](https://github.com/r2dt-bio/R2DT) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in consistent, reproducible and recongnisable layouts using a library of templates representing a wide range of RNAs.
+[R2DT](https://r2dt.bio/) automatically generates [RNA secondary structure](https://en.wikipedia.org/wiki/Nucleic_acid_secondary_structure) diagrams in **consistent, reproducible and recongnisable layouts** using a library of templates representing a wide range of RNAs.
 
 ## Examples
 
@@ -14,17 +14,20 @@ The following example visualisations show LSU, SSU, and 5S rRNA, four tRNAs, two
 
 ## Getting started
 
-R2DT can be used in a number of ways:
+R2DT can be used in multiple ways:
 
-* [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
+* Web application at [r2dt.bio](https://r2dt.bio) or in [RNAcentral](https://rnacentral.org/r2dt)
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services
 * As a command line tool with [Docker](https://www.docker.com), [Singularity](https://sylabs.io/docs/#singularity), or in a bare metal installation
 
-You can also [![open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RNAcentral/R2DT)
+[![open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RNAcentral/R2DT)
 
-## Citation
+## 📄 Citation
 
-If you use R2DT in your work, please consider citing the following paper:
+If you use R2DT in your work, please cite one of the following papers:
+
+> **R2DT: a comprehensive platform for visualizing RNA secondary structure**
+> [Nucleic Acids Research](https://academic.oup.com/nar/article/53/4/gkaf032/8005627)
 
 > **R2DT is a framework for predicting and visualising RNA secondary structure using templates**
 > [Nature Communications](https://www.nature.com/articles/s41467-021-23555-5)
