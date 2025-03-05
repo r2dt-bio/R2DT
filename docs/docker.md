@@ -20,6 +20,8 @@ The main R2DT image is constructed using the [Dockerfile](https://github.com/r2d
 
 This approach ensures that the R2DT image remains compact, containing only the Python and R2DT dependencies, excluding the extensive build tools used in the base image. Most changes in the Python code can be made using the prebuilt dependencies and do not require recompilation of C/C++ code.
 
+When a new release is published on GitHub, the main image is automatically tagged with both the full version number (e.g., `1.2.3`) and the major.minor version (e.g., `1.2`) using the [tag-release-image.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/tag-release-image.yml) workflow. The workflow uses the Docker image that corresponds to the Git tag of the release, ensuring that the stable version tags accurately reflect the specific version of the code. These stable version tags make it easier to pin specific versions of R2DT as dependencies.
+
 View [rnacentral/r2dt](https://hub.docker.com/r/rnacentral/r2dt) on Docker Hub &rarr;
 
 ## Upgrade process
