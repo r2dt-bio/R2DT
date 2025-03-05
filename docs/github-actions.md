@@ -3,9 +3,8 @@
 R2DT automates the building and deployment of [Docker images](./docker.md) using **GitHub Actions**. The project employs several workflows:
 
 1.	Base Image Workflow – Creates a foundational Docker image.
-2.	Main Workflow – Builds the final image using the base image.
+2.	Main Workflow – Builds the final image using the base image and tags it with version numbers when Git tags are pushed.
 3.	Tag Base Image Workflow – Manually tags the base image with a specific version.
-4.	Tag Release Image Workflow – Automatically tags the main image with release versions.
 
 This automation streamlines development, ensuring consistency, reducing build times, and minimising manual intervention.
 
@@ -43,7 +42,7 @@ The main workflow supports parallel builds for multiple platforms using Docker B
 
 By automating these processes with GitHub Actions, the project ensures consistent and efficient Docker image builds, reducing manual effort and potential errors.
 
-## Tagging workflows
+## Tagging workflow
 
 ### Tag base image
 
@@ -52,17 +51,3 @@ The workflow defined in [tag-base-image.yml](https://github.com/r2dt-bio/R2DT/bl
 - **Destination Tag**: The new tag to apply to the image
 
 This workflow is typically used after a pull request that modifies the base image has been merged, to create a stable version tag for the base image.
-
-### Tag release image
-
-The workflow defined in [tag-release-image.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/tag-release-image.yml) automatically tags the main R2DT Docker image when a new release is published on GitHub. This workflow:
-
-1. Is triggered when a new release is published
-2. Extracts the Git tag that the release was created from
-3. Checks if a Docker image with that tag exists
-4. Tags the corresponding Docker image with both the full version number (e.g., `1.2.3`) and the major.minor version (e.g., `1.2`)
-5. Sends a Slack notification about the new tagged release
-
-If no Docker image exists with the tag corresponding to the Git release tag, the workflow will fail with an error message. This ensures that stable version tags are only created for Docker images that were specifically built for the release.
-
-This workflow ensures that stable version tags are available for the main R2DT image, making it easier to pin specific versions as dependencies.
