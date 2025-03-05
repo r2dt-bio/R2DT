@@ -17,7 +17,7 @@ The base image is created via the workflow defined in [parallel-base-image.yml](
 
 ## Main image
 
-The main workflow for building the resulting Docker image is defined in [main.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/main.yml). This workflow is triggered on pushes and pull requests to the `main` and `develop` branches.
+The main workflow for building the resulting Docker image is defined in [main.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/main.yml). This workflow is triggered on pushes and pull requests to the `main` and `develop` branches, as well as on tag pushes matching the pattern `v*` (e.g., `v1.0`, `v2.1.3`).
 
 ### Key steps
 
