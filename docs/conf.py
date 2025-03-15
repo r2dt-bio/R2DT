@@ -9,7 +9,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "R2DT"
-copyright = "2023"
+copyright = "2025"
 author = "R2DT Team"
 
 # -- General configuration ---------------------------------------------------
