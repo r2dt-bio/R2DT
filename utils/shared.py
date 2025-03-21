@@ -516,7 +516,7 @@ def sanitise_fasta(filename):
     Replace unsafe characters in a fasta file with underscores.
     Return the filename of the sanitised file or the original filename.
     """
-    unsafe_chars = r'[<:"/\\|?*\0]'
+    unsafe_chars = r'[<:"/\\|?*\0\(\)]'
     sanitized = []
     content_changed = False
 
