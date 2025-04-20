@@ -26,7 +26,7 @@ The [R2DT software](https://github.com/r2dt-bio/R2DT) automatically generates [R
 
 ## How does it work?
 
-Find out more [about R2DT](./about.md), read the [R2DT paper](https://www.nature.com/articles/s41467-021-23555-5), or check out the overview slides:
+Find out more [about R2DT](./about.md), read the [R2DT latest paper](https://academic.oup.com/nar/article/53/4/gkaf032/8005627), or check out the overview slides:
 
 <iframe src="https://docs.google.com/presentation/d/1DI-_3ozYsGhe21ZUyMeUKn9NrAxjTaoXJ2DF8IPi3Wo/embed?start=false&loop=false&delayms=3000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 <br>
@@ -58,10 +58,15 @@ Browse [papers citing R2DT &rarr;](https://scholar.google.com/scholar?cites=1243
 
 ## Citation
 
-If you use R2DT in your work, please consider citing the following paper:
+If you use R2DT in your work, please consider citing the most relevant of the following papers:
 
-> **R2DT is a framework for predicting and visualising RNA secondary structure using templates**
-> [Nature Communications](https://www.nature.com/articles/s41467-021-23555-5)
+1.
+   > **R2DT: a comprehensive platform for visualizing RNA secondary structure**
+   > [Nucleic Acids Research](https://academic.oup.com/nar/article/53/4/gkaf032/8005627), 2025
+
+2.
+   > **R2DT is a framework for predicting and visualising RNA secondary structure using templates**
+   > [Nature Communications](https://www.nature.com/articles/s41467-021-23555-5), 2021
 
 ## License
 
