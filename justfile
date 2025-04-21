@@ -68,4 +68,4 @@ check-links:
 # Delete test results
 clean:
     -rm -rf tests/results
-    -rm tests/*.html
+    -rm -rf tests/html/*.html
