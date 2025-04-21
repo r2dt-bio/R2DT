@@ -22,7 +22,7 @@ class RfamSeed:
 
     def _get_seed_archive(self) -> Path:
         """Get a path to an Rfam seed alignment archive."""
-        return Path(config.CM_LIBRARY) / "rfam" / "Rfam.seed"
+        return Path(config.RFAM_CM_LIBRARY) / "Rfam.seed"
 
     def _index_seed_archive(self) -> None:
         """Index Rfam seed alignment archive."""

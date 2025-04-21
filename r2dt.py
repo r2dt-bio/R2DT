@@ -342,7 +342,7 @@ def draw(
                 shared.get_ribotyper_output(
                     subset_fasta,
                     rfam_output,
-                    os.path.join(config.CM_LIBRARY, "rfam"),
+                    config.RFAM_CM_LIBRARY,
                     skip_ribovore_filters,
                 ),
             ) as f_ribotyper:
@@ -685,7 +685,8 @@ def tmrna_draw(
                 end=None,
                 quiet=quiet,
             )
-            
+
+
 @cli.group("crw")
 def crw_group():
     """

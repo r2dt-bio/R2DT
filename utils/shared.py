@@ -20,6 +20,7 @@ import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from . import config
 from .ribovore import Ribovore
 from .runner import runner
 
@@ -33,6 +34,22 @@ def get_r2dt_version_header():
 # https://github.com/r2dt-bio/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
+
+
+def cmfetch(model_id: str, cm_library="") -> str:
+    """Use cmfetch to get the covariance model."""
+    cm_temp_dir = Path(tempfile.gettempdir()) / "cms"
+    cm_file = cm_temp_dir / f"{model_id}.cm"
+    if cm_file.exists():
+        return cm_file
+    cm_temp_dir.mkdir(parents=True, exist_ok=True)
+    if not cm_library:
+        combined_cm = config.RFAM_CM_LIBRARY
+    combined_cm = Path(cm_library) / "all.cm"
+    if not combined_cm.exists():
+        raise FileNotFoundError(f"Covariance model library {cm_library} not found")
+    runner.run(f"cmfetch {combined_cm} {model_id} > {cm_file}")
+    return str(cm_file)
 
 
 def make_blast_db(cm_library):

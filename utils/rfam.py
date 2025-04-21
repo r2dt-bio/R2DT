@@ -31,6 +31,7 @@ from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
 from .scale_template import scale_coordinates
+from .shared import cmfetch
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -104,8 +105,8 @@ def get_traveler_fasta(rfam_acc):
 def get_rfam_cm(rfam_acc):
     """Get a path to an Rfam covariance model given an accession."""
     if rfam_acc == "RF00005":
-        return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + ".cm")
-    return os.path.join(config.CM_LIBRARY, "rfam", rfam_acc + ".cm")
+        return str(Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.cm")
+    return cmfetch(rfam_acc)
 
 
 def get_rfam_cms():
