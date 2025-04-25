@@ -44,10 +44,14 @@ def cmfetch(model_id: str, cm_library="") -> str:
         return cm_file
     cm_temp_dir.mkdir(parents=True, exist_ok=True)
     if not cm_library:
-        combined_cm = config.RFAM_CM_LIBRARY
-    combined_cm = Path(cm_library) / "all.cm"
+        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    else:
+        combined_cm = Path(cm_library) / "all.cm"
     if not combined_cm.exists():
-        raise FileNotFoundError(f"Covariance model library {cm_library} not found")
+        raise FileNotFoundError(f"Covariance model library {combined_cm} not found")
+    ssi = combined_cm.with_suffix(".cm.ssi")
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {combined_cm}")
     runner.run(f"cmfetch {combined_cm} {model_id} > {cm_file}")
     return str(cm_file)
 
@@ -67,6 +71,18 @@ def make_blast_db(cm_library):
     runner.run(cmd)
 
 
+def verify_ssi_exists(cm_library):
+    """Take a folder with covariance models and check if the ssi file exists.
+    The ssi file is only needed for all.cm and not for individual cm files.
+    """
+    all_cm = Path(cm_library) / "all.cm"
+    if not all_cm.exists():
+        return
+    ssi = Path(cm_library) / "all.cm.ssi"
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {all_cm}")
+
+
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
     """
     Run ribotyper on the fasta sequences to select the best matching covariance
@@ -82,6 +98,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     else:
         one_blast = "--1blast"
         make_blast_db(cm_library)
+    verify_ssi_exists(cm_library)
     if not os.path.exists(ribotyper_long_out):
         cmd = (
             f"ribotyper {one_blast} --skipval -i {cm_library}/modelinfo.txt "
