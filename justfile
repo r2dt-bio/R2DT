@@ -32,6 +32,10 @@ download data_version="2.1":
 run tag=default_tag:
     docker run {{ platform_arg }} -v $(pwd):/rna/r2dt -it --rm {{ image }}:{{tag}}
 
+# Run without mounting the current directory
+run_no_mount tag=default_tag:
+    docker run {{ platform_arg }} -it --rm {{ image }}:{{tag}}
+
 # Run all tests in docker
 test-all:
     docker run {{ platform_arg }} --rm -it -v ./:/rna/r2dt/ {{ image }} bash -c "./r2dt.py test"
