@@ -185,7 +185,7 @@ def get_rfam_models():
             "description": "tRNA RF00005 (Rfam)",
         }
     ]
-    modelinfo_file = os.path.join(config.DATA, "cms", "rfam", "modelinfo.txt")
+    modelinfo_file = os.path.join(config.RFAM_CM_LIBRARY, "modelinfo.txt")
     model_ids = parse_modelinfo(modelinfo_file)
     accessions = {}
     descriptions = {}
