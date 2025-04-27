@@ -66,11 +66,6 @@ The following procedure should be done after each Rfam release:
     r2dt.py compress-rfam-crw
     ```
 1. Run tests
-1. Generate new precomputed library archive
-    ```bash
-    r2dt.py create-precomputed-library <release_number>
-    ```
-    The folder should contain 2 subfolders: `crw` and `rfam`.
 1. Update the precomputed library link in Readme
 1. Update a list of available models
     ```bash
