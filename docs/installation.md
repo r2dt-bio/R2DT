@@ -46,16 +46,17 @@ docker run -it -v $R2DT_LIBRARY:/rna/r2dt/data/cms -v `pwd`:/rna/r2dt/temp rnace
 
 ## Setup a development environment
 
-To run a development container using [just](https://just.systems), first set up the precomputed library as described above, then:
+To set up a development container, you can use [just](https://just.systems) by running the following commands:
 
 ```bash
-
-# see what commands are available
+# Display available commands
 just
 
-# run the container
+# Start the development container
 just run
 ```
+
+Alternatively, if you prefer not to use `just`, you can manually execute the commands listed in the `justfile` to achieve the same result.
 
 ## Manual installation
 
