@@ -430,6 +430,28 @@ def draw(
     os.system(f"rm -f {fasta_input}.ssi")
 
 
+@cli.command()
+def compress_rfam_crw():
+    """Generate compressed tar.gz files for the CRW and Rfam all.cm files.
+    the files are located in the config.CRW_CM_LIBRARY and config.RFAM_CM_LIBRARY.
+    Upon uncompressing the tar.gz files, the files should be also called all.cm.
+    I want to only compress the all.cm files, not the entire folder.
+    """
+    rprint(shared.get_r2dt_version_header())
+    rprint("Compressing CRW and Rfam all.cm files")
+    crw_cm = Path(config.CRW_CM_LIBRARY) / "all.cm"
+    rfam_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    crw_tar = Path(config.CRW_CM_LIBRARY) / "all.cm.tar.gz"
+    rfam_tar = Path(config.RFAM_CM_LIBRARY) / "all.cm.tar.gz"
+    runner.run(
+        f"tar -czf {crw_tar} -C {os.path.dirname(crw_cm)} {os.path.basename(crw_cm)}"
+    )
+    runner.run(
+        f"tar -czf {rfam_tar} -C {os.path.dirname(rfam_cm)} {os.path.basename(rfam_cm)}"
+    )
+    rprint("Done")
+
+
 def organise_results(results_folder, output_folder):
     """Move files to the final folder structure."""
     folders = {}

@@ -63,6 +63,7 @@ The following procedure should be done after each Rfam release:
 1. Recompute all Rfam templates (takes ~6h)
     ```bash
     r2dt.py setup-rfam
+    r2dt.py compress-rfam-crw
     ```
 1. Run tests
 1. Generate new precomputed library archive
