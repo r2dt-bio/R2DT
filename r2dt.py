@@ -84,8 +84,6 @@ def setup():
     Generate all templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    if not os.path.exists(config.CM_LIBRARY):
-        os.makedirs(config.CM_LIBRARY)
     crw_setup()
     rfam.setup()
     gtrnadb.setup()
@@ -104,10 +102,9 @@ def crw_setup():
 
     # Move the directory
     source_dir = os.path.join(config.DATA, "crw-cms")
-    destination_dir = os.path.join(config.CM_LIBRARY, "crw")
 
     if os.path.exists(source_dir):
-        shutil.move(source_dir, destination_dir)
+        shutil.move(source_dir, config.CRW_CM_LIBRARY)
 
     # read CRW blacklist
     crw_blacklist = []
@@ -342,7 +339,7 @@ def draw(
                 shared.get_ribotyper_output(
                     subset_fasta,
                     rfam_output,
-                    os.path.join(config.CM_LIBRARY, "rfam"),
+                    config.RFAM_CM_LIBRARY,
                     skip_ribovore_filters,
                 ),
             ) as f_ribotyper:
@@ -428,6 +425,28 @@ def draw(
     # clean up
     os.system(f"rm {output_folder}/subset*")
     os.system(f"rm -f {fasta_input}.ssi")
+
+
+@cli.command()
+def compress_rfam_crw():
+    """Generate compressed tar.gz files for the CRW and Rfam all.cm files.
+    the files are located in the config.CRW_CM_LIBRARY and config.RFAM_CM_LIBRARY.
+    Upon uncompressing the tar.gz files, the files should be also called all.cm.
+    I want to only compress the all.cm files, not the entire folder.
+    """
+    rprint(shared.get_r2dt_version_header())
+    rprint("Compressing CRW and Rfam all.cm files")
+    crw_cm = Path(config.CRW_CM_LIBRARY) / "all.cm"
+    rfam_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    crw_tar = Path(config.CRW_CM_LIBRARY) / "all.cm.tar.gz"
+    rfam_tar = Path(config.RFAM_CM_LIBRARY) / "all.cm.tar.gz"
+    runner.run(
+        f"tar -czf {crw_tar} -C {os.path.dirname(crw_cm)} {os.path.basename(crw_cm)}"
+    )
+    runner.run(
+        f"tar -czf {rfam_tar} -C {os.path.dirname(rfam_cm)} {os.path.basename(rfam_cm)}"
+    )
+    rprint("Done")
 
 
 def organise_results(results_folder, output_folder):
@@ -685,7 +704,8 @@ def tmrna_draw(
                 end=None,
                 quiet=quiet,
             )
-            
+
+
 @cli.group("crw")
 def crw_group():
     """
@@ -1262,28 +1282,6 @@ def generate_template(json_file, quiet):
     template = r2djs.SchemaToTemplate(json_file)
     if not quiet:
         rprint(f"Created a new {template}")
-
-
-@cli.command()
-@click.argument("release_version", type=click.STRING)
-def create_precomputed_library(release_version):
-    """Create a precomputed library for a given release version."""
-    rprint(shared.get_r2dt_version_header())
-
-    data_dir = Path(config.CM_LIBRARY)
-    release_dir = data_dir / release_version
-
-    # Create a temporary directory structure
-    release_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(data_dir / "crw", release_dir / "crw")
-    shutil.copytree(data_dir / "rfam", release_dir / "rfam")
-
-    # Compress the directory structure into a tar.gz file
-    with tarfile.open(data_dir / "cms.tar.gz", "w:gz") as tar:
-        tar.add(release_dir, arcname=release_version)
-
-    shutil.rmtree(release_dir)
-    rprint(f"Precomputed library created at {data_dir / 'cms.tar.gz'}")
 
 
 if __name__ == "__main__":

@@ -195,6 +195,8 @@ def visualise(
         template_sto = os.path.join(template_sto, model_id + ".sto")
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
+    elif rna_type == "crw":
+        model_path = rfam.cmfetch(model_id, cm_library)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):

@@ -20,6 +20,7 @@ import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from . import config
 from .ribovore import Ribovore
 from .runner import runner
 
@@ -33,6 +34,26 @@ def get_r2dt_version_header():
 # https://github.com/r2dt-bio/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
+
+
+def cmfetch(model_id: str, cm_library="") -> str:
+    """Use cmfetch to get the covariance model."""
+    cm_temp_dir = Path(tempfile.gettempdir()) / "cms"
+    cm_file = cm_temp_dir / f"{model_id}.cm"
+    if cm_file.exists():
+        return cm_file
+    cm_temp_dir.mkdir(parents=True, exist_ok=True)
+    if cm_library:
+        combined_cm = Path(cm_library) / "all.cm"
+    else:
+        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    if not combined_cm.exists():
+        raise FileNotFoundError(f"Covariance model library {combined_cm} not found")
+    ssi = combined_cm.with_suffix(".cm.ssi")
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {combined_cm}")
+    runner.run(f"cmfetch {combined_cm} {model_id} > {cm_file}")
+    return str(cm_file)
 
 
 def make_blast_db(cm_library):
@@ -50,6 +71,20 @@ def make_blast_db(cm_library):
     runner.run(cmd)
 
 
+def verify_ssi_exists(cm_library):
+    """
+    Verify that the ssi file exists for the covariance model library.
+    If it does not exist, create it using cmfetch.
+    The ssi file is only needed for the all.cm combined model files.
+    """
+    all_cm = Path(cm_library) / "all.cm"
+    if not all_cm.exists():
+        return
+    ssi = Path(cm_library) / "all.cm.ssi"
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {all_cm}")
+
+
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
     """
     Run ribotyper on the fasta sequences to select the best matching covariance
@@ -65,6 +100,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     else:
         one_blast = "--1blast"
         make_blast_db(cm_library)
+    verify_ssi_exists(cm_library)
     if not os.path.exists(ribotyper_long_out):
         cmd = (
             f"ribotyper {one_blast} --skipval -i {cm_library}/modelinfo.txt "
