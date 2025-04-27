@@ -72,8 +72,10 @@ def make_blast_db(cm_library):
 
 
 def verify_ssi_exists(cm_library):
-    """Take a folder with covariance models and check if the ssi file exists.
-    The ssi file is only needed for all.cm and not for individual cm files.
+    """
+    Verify that the ssi file exists for the covariance model library.
+    If it does not exist, create it using cmfetch.
+    The ssi file is only needed for the all.cm combined model files.
     """
     all_cm = Path(cm_library) / "all.cm"
     if not all_cm.exists():
