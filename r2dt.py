@@ -84,8 +84,6 @@ def setup():
     Generate all templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    if not os.path.exists(config.CM_LIBRARY):
-        os.makedirs(config.CM_LIBRARY)
     crw_setup()
     rfam.setup()
     gtrnadb.setup()
@@ -104,10 +102,9 @@ def crw_setup():
 
     # Move the directory
     source_dir = os.path.join(config.DATA, "crw-cms")
-    destination_dir = os.path.join(config.CM_LIBRARY, "crw")
 
     if os.path.exists(source_dir):
-        shutil.move(source_dir, destination_dir)
+        shutil.move(source_dir, config.CRW_CM_LIBRARY)
 
     # read CRW blacklist
     crw_blacklist = []
