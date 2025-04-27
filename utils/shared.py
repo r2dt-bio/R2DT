@@ -43,10 +43,10 @@ def cmfetch(model_id: str, cm_library="") -> str:
     if cm_file.exists():
         return cm_file
     cm_temp_dir.mkdir(parents=True, exist_ok=True)
-    if not cm_library:
-        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
-    else:
+    if cm_library:
         combined_cm = Path(cm_library) / "all.cm"
+    else:
+        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
     if not combined_cm.exists():
         raise FileNotFoundError(f"Covariance model library {combined_cm} not found")
     ssi = combined_cm.with_suffix(".cm.ssi")
