@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+      - develop
+    tags:
+      - 'v*'  # Push events to tags matching v*, i.e. v1.0, v20.15.10
   pull_request:
     branches:
       - main
       - develop
-
 
 permissions:
   pull-requests: write

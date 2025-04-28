@@ -22,6 +22,58 @@ from .rfamseed import RfamSeed
 from .runner import runner
 
 
+def update_fasta_with_original_sequence(
+    result_base_fasta, temp_fasta, insertion_removed
+):
+    """
+    Update the fasta file used by Traveler with the original sequence
+    without large insertions that are replaced with XXXX characters.
+    This ensures that lowercase characters are retained in the output.
+    """
+    lines = []
+    original_sequence_insertions_removed = ""
+    with open(result_base_fasta) as f_fasta, open(temp_fasta) as f_temp_fasta:
+        lines = f_temp_fasta.readlines()
+        original_sequence = ""
+        for line in lines[1:]:
+            original_sequence += line.strip()
+        lines = f_fasta.readlines()
+
+    if insertion_removed:
+        original_sequence_insertions_removed = original_sequence
+        for region in insertion_removed:
+            start, end = region
+            original_sequence_insertions_removed = (
+                original_sequence_insertions_removed[:start]
+                + "@" * (end - start)
+                + original_sequence_insertions_removed[end:]
+            )
+        original_sequence_insertions_removed = re.sub(
+            r"@+", "XXXX", original_sequence_insertions_removed
+        )
+    else:
+        original_sequence_insertions_removed = original_sequence
+
+    with open(result_base_fasta, "w") as f_out:
+        lines[1] = original_sequence_insertions_removed + "\n"
+        f_out.writelines(lines)
+
+    return original_sequence_insertions_removed
+
+
+def update_post_prob_file(temp_post_prob, original_sequence_insertions_removed):
+    """Update post_prob file with original sequence without large insertions."""
+    lines = []
+    with open(temp_post_prob) as f_post_prob:
+        post_prob_lines = f_post_prob.readlines()
+        lines.append(post_prob_lines[0])
+        for line, nt in zip(post_prob_lines[1:], original_sequence_insertions_removed):
+            fields = line.split("\t")
+            lines.append("\t".join([fields[0], nt, fields[2]]))
+    with open(temp_post_prob, "w") as f_out:
+        f_out.writelines("".join(lines))
+
+
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
@@ -65,6 +117,11 @@ def visualise(
         cm_library = config.RNASEP_CM_LIBRARY
         template_layout = config.RNASEP_TRAVELER
         template_structure = config.RNASEP_BPSEQ
+    elif rna_type.lower() == "tmrna":
+        cm_library = config.TMRNA_CM_LIBRARY
+        template_layout = config.TMRNA_XML_LIBRARY
+        template_structure = config.TMRNA_FASTA_LIBRARY
+        template_sto = config.TMRNA_STO_LIBRARY
     elif rna_type.lower() == "crw":
         cm_library = config.CRW_CM_LIBRARY
         template_layout = config.CRW_PS_LIBRARY
@@ -72,8 +129,6 @@ def visualise(
     elif rna_type.lower() == "rfam":
         if not model_id.startswith("RF"):
             model_id = rfam.get_rfam_acc_by_id(model_id)
-        temp_sto_unfiltered = filename_template.replace("type", "unfiltered")
-        temp_acc_list = filename_template.replace("type", "seed_list")
     elif rna_type.lower() == "local_data":
         cm_library = os.path.join(config.LOCAL_DATA, model_id)
         template_layout = cm_library
@@ -89,6 +144,8 @@ def visualise(
     temp_depaired = filename_template.replace("type", "depaired")
     temp_stk = filename_template.replace("type", "stk")
     temp_stk_original = filename_template.replace("type", "stk_original")
+    temp_sto_unfiltered = filename_template.replace("type", "sto_unfiltered")
+    temp_acc_list = filename_template.replace("type", "seed_list")
     temp_post_prob = filename_template.replace("type", "post_prob")
     temp_pfam_stk = filename_template.replace("type", "pfam_stk")
     temp_pfam_stk_original = filename_template.replace("type", "pfam_stk_original")
@@ -128,6 +185,18 @@ def visualise(
             return
         template_layout = os.path.join(template_layout, model_id + ".xml")
         template_structure = os.path.join(template_structure, model_id + ".fasta")
+        template_sto = os.path.join(cm_library, model_id + ".sto")
+        cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
+        runner.run(cmd)
+    elif rna_type == "tmrna":
+        model_path = os.path.join(cm_library, model_id + ".cm")
+        template_layout = os.path.join(template_layout, model_id + ".xml")
+        template_structure = os.path.join(template_structure, model_id + ".fasta")
+        template_sto = os.path.join(template_sto, model_id + ".sto")
+        cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
+        runner.run(cmd)
+    elif rna_type == "crw":
+        model_path = rfam.cmfetch(model_id, cm_library)
     else:
         model_path = os.path.join(cm_library, model_id + ".cm")
         if not os.path.exists(model_path):
@@ -137,9 +206,10 @@ def visualise(
     # align sequence to the model
     cm_options = ["", "--mxsize 2048 --maxtau 0.49"]
     for options in cm_options:
-        if rna_type == "rfam":
+        if rna_type in ["rfam", "tmrna", "local_data"]:
+            mapping_filename = rfam_seed if rna_type == "rfam" else template_sto
             cmd = (
-                f"cmalign --mapali {rfam_seed} --mapstr {options} "
+                f"cmalign --mapali {mapping_filename} --mapstr {options} "
                 f"{model_path} {temp_fasta} > {temp_sto_unfiltered}"
             )
         else:
@@ -151,7 +221,7 @@ def visualise(
         rprint(f"[red]Failed cmalign of {seq_id} to {model_id}[/red]")
         return
 
-    if rna_type == "rfam":
+    if rna_type in ["rfam", "tmrna", "local_data"]:
         cmd = (
             f"esl-alimanip --seq-r {temp_acc_list} {temp_sto_unfiltered} | "
             f"esl-reformat --keeprf --mingap --informat stockholm stockholm - > "
@@ -279,12 +349,23 @@ def visualise(
     elif exclusion:
         rprint("Exclusion ignored, enable --constraint to add exclusion file")
 
+    try:
+        # update fasta file with original sequence
+        original_sequence_insertions_removed = update_fasta_with_original_sequence(
+            f"{result_base}.fasta", temp_fasta, insertion_removed
+        )
+        # update post_prob file with original sequence
+        if original_sequence_insertions_removed:
+            update_post_prob_file(temp_post_prob, original_sequence_insertions_removed)
+    except Exception as e:  # pylint: disable=broad-except
+        rprint(f"[red]Failed to update fasta and post_prob files: {e}[/red]")
+
     if rna_type == "crw":
         traveler_params = (
             f"--template-structure {template_layout}/{model_id}.ps "
             f"{template_structure}/{model_id}.fasta"
         )
-    elif rna_type in ["rfam", "local_data"]:
+    elif rna_type in ["rfam", "tmrna", "local_data"]:
         traveler_params = (
             f"--template-structure --file-format traveler "
             f"{template_layout} {template_structure} "
@@ -366,6 +447,8 @@ def visualise(
         temp_stk_original,
         temp_stk,
         temp_sto,
+        temp_sto_unfiltered,
+        temp_acc_list,
     ]
     for filename in files:
         if os.path.exists(filename):

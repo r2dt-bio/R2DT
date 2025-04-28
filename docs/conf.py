@@ -37,6 +37,7 @@ html_static_path = ["_static"]
 html_theme_options = {
     # Toc options
     "collapse_navigation": False,
+    "logo_only": True,
 }
 
 # -- Options for MyST parser -------------------------------------------------
@@ -56,3 +57,6 @@ if os.environ.get("READTHEDOCS", "") == "True":
     if "html_context" not in globals():
         html_context = {}
     html_context["READTHEDOCS"] = True
+
+# -- Logo and favicon -------------------------------------------------
+html_logo = "images/r2dt-banner-logo.png"

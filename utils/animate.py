@@ -1,18 +1,18 @@
 """Generate an SVG animation."""
 
+import argparse
 import re
-import sys
+from math import ceil, floor
 
 DURATION = 2
 
 SVG_HEADER = """
 <svg
 	xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 WIDTH HEIGHT"
+    viewBox="MIN_WIDTH MIN_HEIGHT WIDTH HEIGHT"
     width="WIDTH"
     height="HEIGHT">
-<g><style type="text/css" >
-<!-- create color definitions -->
+<g><style type="text/css">
 <![CDATA[
 circle.red {stroke: rgb(255, 0, 255); fill: none; }
 circle.green {stroke: rgb(0, 255, 0); fill: none; }
@@ -27,14 +27,13 @@ line.black {stroke: rgb(0, 0, 0); stroke-width: 0.382365; }
 line.gray {stroke: rgb(204, 204, 204); stroke-width: 0.382365; }
 line.brown {stroke: rgb(211.65, 104.55, 30.6); stroke-width: 0.382365; }
 line {stroke: rgb(0, 0, 0); }
-text.red {fill: rgb(255, 0, 255); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text.green {fill: rgb(0, 255, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text.blue {fill: rgb(0, 0, 255); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text.black {fill: rgb(0, 0, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text.gray {fill: rgb(204, 204, 204); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text.brown {fill: rgb(211.65, 104.55, 30.6); font-size: 7px; font-weight: bold; font-family: Helvetica; }
-text {fill: rgb(0, 0, 0); font-size: 7px; font-weight: bold; font-family: Helvetica; text-anchor: middle; alignment-baseline: middle; }
-
+text.red {fill: rgb(255, 0, 255); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text.green {fill: rgb(0, 255, 0); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text.blue {fill: rgb(0, 0, 255); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text.black {fill: rgb(0, 0, 0); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text.gray {fill: rgb(204, 204, 204); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text.brown {fill: rgb(211.65, 104.55, 30.6); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; }
+text {fill: rgb(0, 0, 0); font-size: FONT_SIZEpx; font-weight: bold; font-family: Helvetica; text-anchor: middle; alignment-baseline: middle; }
 .pseudoknot_connection{stroke-linecap: round; stroke-opacity: 0.2; stroke-width: 1.5; }
 .pseudoknot_segment1{stroke-linecap: round; stroke-opacity: 0.4; stroke-width: 3.05892; }
 .pseudoknot_segment2{stroke-linecap: round; stroke-opacity: 0.4; stroke-width: 3.05892; }
@@ -110,8 +109,10 @@ def move_to_same_start(lines1, lines2):
 
 def add_transform(svg):
     """Add a transform to the SVG to move the text."""
-    structure1 = []
-    structure2 = []
+
+    max_height, min_height, max_width, min_width = 0, 0, 0, 0
+    structure1, structure2 = [], []
+
     for line in svg:
         if "green" in line or "numbering-label" in line:
             continue  # skip basepair lines and basepair numbers
@@ -124,11 +125,22 @@ def add_transform(svg):
         x1_coord, _, y1_coord, _ = re.search(
             r'x="(-?\d+(\.\d+)?)" y="(-?\d+(\.\d+)?)"', line
         ).groups()
-        x2_coord, _, y2_coord, _ = re.search(
-            r'x="(-?\d+(\.\d+)?)" y="(-?\d+(\.\d+)?)"', structure2[index]
-        ).groups()
-        delta_x = float(x2_coord) - float(x1_coord)
-        delta_y = float(y2_coord) - float(y1_coord)
+        try:
+            x2_coord, _, y2_coord, _ = re.search(
+                r'x="(-?\d+(\.\d+)?)" y="(-?\d+(\.\d+)?)"', structure2[index]
+            ).groups()
+        except IndexError:
+            continue
+
+        x1_coord, y1_coord, x2_coord, y2_coord = (
+            float(x1_coord),
+            float(y1_coord),
+            float(x2_coord),
+            float(y2_coord),
+        )
+
+        delta_x = x2_coord - x1_coord
+        delta_y = y2_coord - y1_coord
         transform_line = (
             f'<animateTransform id="anim{index}" '
             f'attributeName="transform" type="translate" from="0 0" '
@@ -137,7 +149,13 @@ def add_transform(svg):
         )
         line = line.replace("</text>", f"{transform_line}</text>")
         animated_lines.append(line)
-    return animated_lines
+
+        max_height = max(max_height, y2_coord + delta_y, y1_coord)
+        max_width = max(max_width, x2_coord + delta_x, x1_coord)
+        min_height = min(min_height, y2_coord + delta_y, y1_coord)
+        min_width = min(min_width, x2_coord + delta_x, x1_coord)
+
+    return animated_lines, max_height, max_width, min_height, min_width
 
 
 def read_in_svg(filename):
@@ -172,47 +190,60 @@ def get_lines(svg, include_class=None, add_class=None):
     return lines
 
 
-def get_width_height(svg1, svg2):
-    """Get maximum width and height of the SVGs.
-    width="158.66"
-        height="363.21">
-    """
-    width1, _ = re.search(r'width="(-?\d+(\.\d+)?)"', svg1[2]).groups()
-    width2, _ = re.search(r'width="(-?\d+(\.\d+)?)"', svg2[2]).groups()
-    height1, _ = re.search(r'height="(-?\d+(\.\d+)?)"', svg1[3]).groups()
-    height2, _ = re.search(r'height="(-?\d+(\.\d+)?)"', svg1[3]).groups()
-    return (
-        max(float(width1), float(width2)) + 50,
-        max(float(height1), float(height2)) + 50,
-    )
+def get_font_size(svg1, svg2):
+    """Get maximum font size of the SVGs."""
+    font_size1 = 0
+    font_size2 = 0
+    for line in svg1:
+        if "text.black" in line and "font-size" in line:
+            font_size1 = float(re.search(r"font-size: (\d+(\.\d+)?)px;", line).group(1))
+            break
+    for line in svg2:
+        if "text.black" in line and "font-size" in line:
+            font_size2 = float(re.search(r"font-size: (\d+(\.\d+)?)px;", line).group(1))
+            break
+    return max(font_size1, font_size2)
 
 
 def main():
     """Main function."""
-    if len(sys.argv) != 4:
-        print("Usage: python3 animate.py <seq1.svg> <seq2.svg> <animated.svg>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Generate an SVG animation.")
+    parser.add_argument("svg1", help="First SVG file")
+    parser.add_argument("svg2", help="Second SVG file")
+    parser.add_argument("animated", help="Animated SVG file")
+    args = parser.parse_args()
 
-    svg_filename1 = sys.argv[1]
-    svg_filename2 = sys.argv[2]
-    animated_svg = sys.argv[3]
-
-    svg1 = read_in_svg(svg_filename1)
-    svg2 = read_in_svg(svg_filename2)
+    svg1 = read_in_svg(args.svg1)
+    svg2 = read_in_svg(args.svg2)
     lines_moved = move_to_same_start(svg1, svg2)
 
     moved_svg_lines = generate_combined_svg(svg1, lines_moved)
-    animated_text = add_transform(moved_svg_lines)
+    animated_text, max_height, max_width, min_height, min_width = add_transform(
+        moved_svg_lines
+    )
 
     svg1_lines = get_lines(svg1, include_class=None, add_class="first")
     svg2_moved_lines = get_lines(
         moved_svg_lines, include_class="gray second", add_class=None
     ) + get_lines(moved_svg_lines, include_class="black second", add_class=None)
 
-    width, height = get_width_height(svg1, svg2)
-    with open(animated_svg, "w", encoding="utf-8") as f_svg:
+    height = max_height - min_height
+    width = max_width - min_width
+
+    height = ceil(height) + 5
+    width = ceil(width) + 5
+    min_height = floor(min_height)
+    min_width = floor(min_width)
+
+    font_size = get_font_size(svg1, svg2)
+
+    with open(args.animated, "w", encoding="utf-8") as f_svg:
         f_svg.write(
-            SVG_HEADER.replace("WIDTH", str(width)).replace("HEIGHT", str(height))
+            SVG_HEADER.replace("MIN_HEIGHT", str(min_height))
+            .replace("MIN_WIDTH", str(min_width))
+            .replace("WIDTH", str(width))
+            .replace("HEIGHT", str(height))
+            .replace("FONT_SIZE", str(font_size))
         )
         f_svg.write("".join(animated_text))
         f_svg.write("".join(svg1_lines))

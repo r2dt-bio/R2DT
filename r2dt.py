@@ -84,8 +84,6 @@ def setup():
     Generate all templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    if not os.path.exists(config.CM_LIBRARY):
-        os.makedirs(config.CM_LIBRARY)
     crw_setup()
     rfam.setup()
     gtrnadb.setup()
@@ -104,10 +102,9 @@ def crw_setup():
 
     # Move the directory
     source_dir = os.path.join(config.DATA, "crw-cms")
-    destination_dir = os.path.join(config.CM_LIBRARY, "crw")
 
     if os.path.exists(source_dir):
-        shutil.move(source_dir, destination_dir)
+        shutil.move(source_dir, config.CRW_CM_LIBRARY)
 
     # read CRW blacklist
     crw_blacklist = []
@@ -188,7 +185,7 @@ def is_templatefree(fasta_input):
     with an additional line specifying secondary structure
     in dot bracket format (pseudoknots allowed)."""
     with open(fasta_input) as f_in:
-        lines = [line for line in f_in.readlines() if line.strip()]
+        lines = [line.strip() for line in f_in.readlines() if line.strip()]
     if len(lines) != 3:
         return False
     header, sequence, structure = lines
@@ -242,6 +239,8 @@ def draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
 
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if is_templatefree(fasta_input):
         if not quiet:
             rprint("Detected templatefree input.")
@@ -277,6 +276,7 @@ def draw(
     gtrnadb_output = os.path.join(output_folder, "gtrnadb")
     rfam_trna_output = os.path.join(output_folder, "RF00005")
     rnasep_output = os.path.join(output_folder, "rnasep")
+    tmrna_output = os.path.join(output_folder, "tmrna")
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
@@ -289,11 +289,13 @@ def draw(
             "ribovision_draw_lsu": os.path.join(output_folder, "ribovision-lsu"),
             "rrna_draw": os.path.join(output_folder, "crw"),
             "rnasep_draw": os.path.join(output_folder, "rnasep"),
+            "tmrna_draw": os.path.join(output_folder, "tmrna"),
         }
         return subfolders.get(str(method_name), "")
 
     method_list = [
         "rnasep_draw",
+        "tmrna_draw",
         "ribovision_draw_ssu",
         "ribovision_draw_lsu",
         "rrna_draw",  # CRW
@@ -337,7 +339,7 @@ def draw(
                 shared.get_ribotyper_output(
                     subset_fasta,
                     rfam_output,
-                    os.path.join(config.CM_LIBRARY, "rfam"),
+                    config.RFAM_CM_LIBRARY,
                     skip_ribovore_filters,
                 ),
             ) as f_ribotyper:
@@ -414,6 +416,7 @@ def draw(
         gtrnadb_output,
         rfam_trna_output,
         rnasep_output,
+        tmrna_output,
     ]
     for folder in result_folders:
         organise_results(folder, output_folder)
@@ -422,6 +425,28 @@ def draw(
     # clean up
     os.system(f"rm {output_folder}/subset*")
     os.system(f"rm -f {fasta_input}.ssi")
+
+
+@cli.command()
+def compress_rfam_crw():
+    """Generate compressed tar.gz files for the CRW and Rfam all.cm files.
+    the files are located in the config.CRW_CM_LIBRARY and config.RFAM_CM_LIBRARY.
+    Upon uncompressing the tar.gz files, the files should be also called all.cm.
+    I want to only compress the all.cm files, not the entire folder.
+    """
+    rprint(shared.get_r2dt_version_header())
+    rprint("Compressing CRW and Rfam all.cm files")
+    crw_cm = Path(config.CRW_CM_LIBRARY) / "all.cm"
+    rfam_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    crw_tar = Path(config.CRW_CM_LIBRARY) / "all.cm.tar.gz"
+    rfam_tar = Path(config.RFAM_CM_LIBRARY) / "all.cm.tar.gz"
+    runner.run(
+        f"tar -czf {crw_tar} -C {os.path.dirname(crw_cm)} {os.path.basename(crw_cm)}"
+    )
+    runner.run(
+        f"tar -czf {rfam_tar} -C {os.path.dirname(rfam_cm)} {os.path.basename(rfam_cm)}"
+    )
+    rprint("Done")
 
 
 def organise_results(results_folder, output_folder):
@@ -526,6 +551,8 @@ def gtrnadb_draw(
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
 
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if domain and isotype:
         core.visualise_trna(
             domain.upper(),
@@ -592,6 +619,9 @@ def rnasep_draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.RNASEP_CM_LIBRARY, skip_ribovore_filters
@@ -601,6 +631,66 @@ def rnasep_draw(
             rnacentral_id, model_id, _ = line.split("\t")
             core.visualise(
                 "rnasep",
+                fasta_input,
+                output_folder,
+                rnacentral_id,
+                model_id,
+                constraint,
+                exclusion,
+                fold_type,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=quiet,
+            )
+
+
+@cli.group("tmrna")
+def tmrna_group():
+    """
+    Use tmRNA templates for structure visualisation.
+    """
+
+
+@tmrna_group.command("draw")
+@click.option(
+    "--constraint", default=False, is_flag=True, help="Fold insertions using RNAfold"
+)
+@click.option("--exclusion", default=None)
+@click.option("--fold_type", default=None)
+@click.option(
+    "--skip_ribovore_filters",
+    default=False,
+    is_flag=True,
+    help="Ignore ribovore QC checks",
+)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+@click.argument("fasta-input", type=click.Path())
+@click.argument("output-folder", type=click.Path())
+def tmrna_draw(
+    fasta_input,
+    output_folder,
+    constraint,
+    exclusion,
+    fold_type,
+    quiet,
+    skip_ribovore_filters,
+):
+    """Draw 2D diagrams using tmRNA templates."""
+    # pylint: disable=too-many-arguments
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+    os.makedirs(output_folder, exist_ok=True)
+    with open(
+        shared.get_ribotyper_output(
+            fasta_input, output_folder, config.TMRNA_CM_LIBRARY, skip_ribovore_filters
+        ),
+    ) as f_ribotyper:
+        for line in f_ribotyper.readlines():
+            rnacentral_id, model_id, _ = line.split("\t")
+            core.visualise(
+                "tmrna",
                 fasta_input,
                 output_folder,
                 rnacentral_id,
@@ -652,6 +742,9 @@ def rrna_draw(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.CRW_CM_LIBRARY, skip_ribovore_filters
@@ -712,6 +805,9 @@ def ribovision_draw_lsu(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input,
@@ -768,6 +864,9 @@ def ribovision_draw_ssu(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
     os.makedirs(output_folder, exist_ok=True)
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input,
@@ -853,6 +952,9 @@ def rfam_draw(
         template_type = "rscape"
     else:
         template_type = "auto"
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     if rfam.has_structure(rfam_acc):
         rfam.generate_2d(
             rfam_acc,
@@ -907,6 +1009,10 @@ def organise_metadata(output_folder, result_folders):
                         line = line.replace("PASS", "RNAse P Database").replace(
                             "FAIL", "RNAse P Database"
                         )
+                    elif "tmrna" in folder:
+                        line = line.replace("PASS", "tmRNA Database").replace(
+                            "FAIL", "tmRNA Database"
+                        )
                     f_out.write(line)
 
 
@@ -934,6 +1040,9 @@ def force_draw(
     # pylint: disable=too-many-arguments, too-many-locals
     if not quiet:
         rprint(shared.get_r2dt_version_header())
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
+
     model_type = lm.get_model_type(model_id)
     if not model_type:
         rprint("Error: Model not found. Please check model_id")
@@ -946,7 +1055,7 @@ def force_draw(
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
-    if model_type in ["crw", "rfam", "rnasep", "local_data"]:
+    if model_type in ["crw", "rfam", "rnasep", "tmrna", "local_data"]:
         core.visualise(
             model_type,
             fasta_input,
@@ -1002,6 +1111,7 @@ def force_draw(
         "ribovision_ssu": "RiboVision",
         "ribovision_lsu": "RiboVision",
         "rnasep": "RNAse P database",
+        "tmrna": "tmRNA database",
         "local_data": "Local data",
     }
     with open(
@@ -1028,6 +1138,8 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
         rscape = True
     if rnartist and rscape:
         raise ValueError("Please specify only one template type")
+
+    fasta_input = shared.sanitise_fasta(fasta_input)
 
     if rnartist:
         output_folder = Path(output_folder)
@@ -1170,28 +1282,6 @@ def generate_template(json_file, quiet):
     template = r2djs.SchemaToTemplate(json_file)
     if not quiet:
         rprint(f"Created a new {template}")
-
-
-@cli.command()
-@click.argument("release_version", type=click.STRING)
-def create_precomputed_library(release_version):
-    """Create a precomputed library for a given release version."""
-    rprint(shared.get_r2dt_version_header())
-
-    data_dir = Path(config.CM_LIBRARY)
-    release_dir = data_dir / release_version
-
-    # Create a temporary directory structure
-    release_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(data_dir / "crw", release_dir / "crw")
-    shutil.copytree(data_dir / "rfam", release_dir / "rfam")
-
-    # Compress the directory structure into a tar.gz file
-    with tarfile.open(data_dir / "cms.tar.gz", "w:gz") as tar:
-        tar.add(release_dir, arcname=release_version)
-
-    shutil.rmtree(release_dir)
-    rprint(f"Precomputed library created at {data_dir / 'cms.tar.gz'}")
 
 
 if __name__ == "__main__":

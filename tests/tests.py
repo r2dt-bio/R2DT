@@ -15,6 +15,7 @@ import filecmp
 import glob
 import os
 import shutil
+import tempfile
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -218,7 +219,10 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         modelinfo = os.path.join(location, "modelinfo.txt")
         all_cm = os.path.join(location, "all.cm")
         num_lines = self.count_lines(modelinfo)
-        num_cms = self.counts_cms(location)
+        if "crw" in location:
+            num_cms = count
+        else:
+            num_cms = self.counts_cms(location)
         self.assertTrue(
             os.path.exists(modelinfo), "A required file modelinfo.txt does not exist"
         )
@@ -246,6 +250,10 @@ class TestCovarianceModelDatabase(unittest.TestCase):
         """Check RNAse P covariance models."""
         self.verify_cm_database(config.RNASEP_CM_LIBRARY, 25)
 
+    def test_tmrna_cm_database(self):
+        """Check tmRNA covariance models."""
+        self.verify_cm_database(config.TMRNA_CM_LIBRARY, 7)
+
     def test_rfam_database(self):
         """
         Check Rfam covariance models and templates.
@@ -262,6 +270,8 @@ class TestCovarianceModelDatabase(unittest.TestCase):
             self.assertTrue(os.path.exists(fasta), f"{fasta} not found")
             cm_file = rfam.get_rfam_cm(rfam_acc)
             self.assertTrue(os.path.exists(cm_file), f"{cm_file} not found")
+        tempdir = Path(tempfile.gettempdir()) / "cms"
+        shutil.rmtree(tempdir)
 
 
 class TestRibovisionLSU(R2dtTestCase):
@@ -396,6 +406,7 @@ class TestSingleEntry(R2dtTestCase):
         "URS0000023412_9606-E_Thr.colored.svg",
         "URS00000012EC-M_Ile.colored.svg",
         "URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg",
+        "tmRNA_PCTA01000033-tmRNA.colored.svg",
     ]
 
     def test_examples(self):
@@ -448,6 +459,14 @@ class TestGtrnadbMitoVert(R2dtTestCase):
         "URS0000043FFB_392897-M_SerGCT.colored.svg",
         "URS0000247C4D_392897-M_Cys.colored.svg",
         "URS0002616B70_9606-M_SerGCT.colored.svg",
+        "chr1_46824277_46824348-M_LeuTAA.colored.svg",
+        "URS0000C88790-M_LeuTAG.colored.svg",
+        "URS00006B0D4F-M_LeuTAG.colored.svg",
+        "URS00006B5A23-M_LeuTAG.colored.svg",
+        "URS00019DBB15-M_LeuTAG.colored.svg",
+        "URS000066B91E-M_LeuTAG.colored.svg",
+        "URS000066635D-M_LeuTAG.colored.svg",
+        "URS000068492E-M_LeuTAG.colored.svg",
     ]
 
     def test_examples(self):
@@ -481,6 +500,32 @@ class TestRnasep(R2dtTestCase):
         "URS0000637B30_1247414-RNAseP_N_gonnorhoeae_JB.colored.svg",
         "URS0000664B0C_4896-RNAseP_e_S_pombe_JB.colored.svg",
         "URS000013F331_9606-RNAseP_e_H_sapiens_3D.colored.svg",
+    ]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestTmrna(R2dtTestCase):
+    """Check that tmRNA templates work."""
+
+    fasta_input = os.path.join("examples", "tmrna.fasta")
+    test_results = os.path.join("tests", "results", "tmrna")
+    precomputed_results = os.path.join("tests", "examples", "tmrna")
+    cmd = f"r2dt.py tmrna draw {fasta_input} {test_results} --quiet"
+    files = [
+        "hits.txt",
+        "alpha_tmRNA-cmconsensus-tmRNA_alpha.colored.svg",
+        "beta_tmRNA-cmconsensus-tmRNA_beta.colored.svg",
+        "cyano_tmRNA-cmconsensus-tmRNA_cyano.colored.svg",
+        "dup-ABCL01000004.1_58204-58555-tmRNA_alpha.colored.svg",
+        "dup-BRH-c25__sp001515955.1-tmRNA_intron.colored.svg",
+        "dup-BX548175.1_1677929-1677634-tmRNA_cyano.colored.svg",
+        "dup-CR555306.1_77117-77443-tmRNA_beta.colored.svg",
+        "dup-PCTA01000033.1:82380-82811_1-432-tmRNA.colored.svg",
+        "intron_tmRNA-cmconsensus-tmRNA_intron.colored.svg",
+        "std_tmRNA-cmconsensus-tmRNA.colored.svg",
     ]
 
     def test_examples(self):
@@ -758,6 +803,51 @@ class TestTemplateFreeRnartist(R2dtTestCase):
     def test_template_free_mode(self):
         """Check that RNArtist template-free mode works correctly."""
         self.check_examples()
+
+
+class TestLowerCase(R2dtTestCase):
+    """Check that lowercase nucleotides are transferred properly."""
+
+    fasta_input = Path("examples") / "lowercase.fasta"
+    test_results = Path("tests") / "results" / "lowercase"
+    precomputed_results = Path("tests") / "examples" / "lowercase"
+    test_results_subfolder = "results/svg"
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    files = [
+        "URS00004A7003_9606-RF00024.colored.svg",
+        "URS00004A7003_9606_large_insertion-RF00024.colored.svg",
+    ]
+
+    def test_lowercase(self):
+        """Check that the lowercase nucleotides are transferred properly."""
+        self.check_examples()
+
+
+class TestBadFastaName(R2dtTestCase):
+    """Check that the program can handle fasta files with bad names."""
+
+    fasta_input = os.path.join("examples", "bad-fasta-name.fasta")
+    test_results = os.path.join("tests", "results", "bad-fasta-name")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "bad-fasta-name")
+    cmd = f"r2dt.py draw {fasta_input} {test_results} --quiet"
+    files = ["DB_TEXT_MORE-d.5.e.H.sapiens.2.colored.svg"]
+
+    def test_examples(self):
+        """Check that files exist and are identical to examples."""
+        self.check_examples()
+
+
+class TestProcPsIsPresent(unittest.TestCase):
+    """Check that the procps package is present.
+    Ps is required by nextflow to check if a process is running
+    and the R2DT image needs to have it installed."""
+
+    def test_procps_is_present(self):
+        """Check that the procps package is present."""
+        self.assertTrue(
+            shutil.which("ps"), "The procps package is not installed on this system"
+        )
 
 
 class TestRnaview(R2dtTestCase):

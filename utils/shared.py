@@ -13,12 +13,14 @@ limitations under the License.
 
 import os
 import re
+import tempfile
 from pathlib import Path
 
 import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from . import config
 from .ribovore import Ribovore
 from .runner import runner
 
@@ -28,10 +30,30 @@ MAX_INSERTIONS = 100
 def get_r2dt_version_header():
     """Return a welcome message including release information."""
     header = """# R2DT :: visualise RNA secondary structure using templates
-# Version 2.0 (2024)
+# Version 2.1 (2025)
 # https://github.com/r2dt-bio/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
+
+
+def cmfetch(model_id: str, cm_library="") -> str:
+    """Use cmfetch to get the covariance model."""
+    cm_temp_dir = Path(tempfile.gettempdir()) / "cms"
+    cm_file = cm_temp_dir / f"{model_id}.cm"
+    if cm_file.exists():
+        return cm_file
+    cm_temp_dir.mkdir(parents=True, exist_ok=True)
+    if cm_library:
+        combined_cm = Path(cm_library) / "all.cm"
+    else:
+        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    if not combined_cm.exists():
+        raise FileNotFoundError(f"Covariance model library {combined_cm} not found")
+    ssi = combined_cm.with_suffix(".cm.ssi")
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {combined_cm}")
+    runner.run(f"cmfetch {combined_cm} {model_id} > {cm_file}")
+    return str(cm_file)
 
 
 def make_blast_db(cm_library):
@@ -49,6 +71,20 @@ def make_blast_db(cm_library):
     runner.run(cmd)
 
 
+def verify_ssi_exists(cm_library):
+    """
+    Verify that the ssi file exists for the covariance model library.
+    If it does not exist, create it using cmfetch.
+    The ssi file is only needed for the all.cm combined model files.
+    """
+    all_cm = Path(cm_library) / "all.cm"
+    if not all_cm.exists():
+        return
+    ssi = Path(cm_library) / "all.cm.ssi"
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {all_cm}")
+
+
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
     """
     Run ribotyper on the fasta sequences to select the best matching covariance
@@ -57,11 +93,14 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     ribotyper_long_out = os.path.join(
         output_folder, os.path.basename(output_folder) + ".ribotyper.long.out"
     )
-    if "rfam" not in cm_library:
+    if "rfam" in cm_library:
+        one_blast = ""
+    elif "tmrna" in cm_library:
+        one_blast = ""
+    else:
         one_blast = "--1blast"
         make_blast_db(cm_library)
-    else:
-        one_blast = ""
+    verify_ssi_exists(cm_library)
     if not os.path.exists(ribotyper_long_out):
         cmd = (
             f"ribotyper {one_blast} --skipval -i {cm_library}/modelinfo.txt "
@@ -82,7 +121,7 @@ def remove_large_insertions_pfam_stk(filename):
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
     """
-    insertion_removed = False
+    insertion_removed = []
     gc_ss_cons = ""
     gc_rf = ""
     gr_pp = ""
@@ -121,8 +160,15 @@ def remove_large_insertions_pfam_stk(filename):
         else:
             print("Unexpected number of lines in pfam stk")
             return insertion_removed
+
+        offset_match = re.search(r"^#=GC SS_cons\s+", gc_ss_cons)
+        if offset_match:
+            offset = offset_match.end()  # get length of matched string
+        else:
+            offset = 0
+
         # the tilda and period characters represent insert states in WUSS notation
-        match = re.finditer(r"([\.~_:]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
+        match = re.finditer(r"([\.~]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
         if not match:
             return insertion_removed
         for span in match:
@@ -153,10 +199,16 @@ def remove_large_insertions_pfam_stk(filename):
                     + "@" * (span.end() - span.start())
                     + gc_rf[span.end() :]
                 )
-        if "@" in sequence:
-            insertion_removed = True
-        else:
+        if "@" not in sequence:
             return insertion_removed
+
+        # find positions of all insertions relative to the original sequence
+        match = re.finditer(r"@+", sequence.replace("-", ""))
+        insertion_removed = [m.span() for m in match]
+        insertion_removed = [
+            (start - offset, end - offset) for start, end in insertion_removed
+        ]
+
         if len(lines) == 9:
             lines[3] = re.sub(r"@+", "XXXX", sequence)
             lines[4] = re.sub(r"@+", "1111", gr_pp)
@@ -493,3 +545,30 @@ def generate_thumbnail(image, description):
     thumbnail += " ".join(points)
     thumbnail += '"/></svg>'
     return thumbnail
+
+
+def sanitise_fasta(filename):
+    """
+    Replace unsafe characters in a fasta file with underscores.
+    Return the filename of the sanitised file or the original filename.
+    """
+    unsafe_chars = r'[<:"/\\|?*\0\(\)]'
+    sanitized = []
+    content_changed = False
+
+    with open(filename, "r", encoding="utf-8") as f_fasta:
+        for line in f_fasta:
+            if line.startswith(">"):
+                new_line = re.sub(unsafe_chars, "_", line)
+                if new_line != line:
+                    content_changed = True
+            else:
+                new_line = line
+            sanitized.append(new_line)
+
+    if content_changed:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f_fasta:
+            f_fasta.writelines(sanitized)
+            sanitised_filename = f_fasta.name
+            return sanitised_filename
+    return filename

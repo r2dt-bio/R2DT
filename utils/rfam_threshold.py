@@ -29,7 +29,7 @@ class RfamThresholds:
     """
 
     def __init__(self):
-        self.cm_filename = Path(config.CM_LIBRARY) / "rfam" / "all.cm"
+        self.cm_filename = Path(config.RFAM_CM_LIBRARY) / "all.cm"
         self.cached_filename = Path(tempfile.gettempdir()) / "rfam_thresholds.tsv"
         self.thresholds = {}
         self.load()
