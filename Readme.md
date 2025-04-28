@@ -1,6 +1,8 @@
 # R2DT
 
-**Version 2.1 (2025)**
+[![RTD badge](https://readthedocs.org/projects/r2dt/badge/?version=latest)](https://r2dt.readthedocs.io/en/latest/?badge=latest)
+[![GitHub release](https://img.shields.io/github/release/rnacentral/r2dt.svg)](https://github.com/r2dt-bio/r2dt/releases/)
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1038/s41467-021-23555-5)](https://www.nature.com/articles/s41467-021-23555-5)
 
 **[See the R2DT documentation](https://r2dt.readthedocs.io/)** or read the [latest preprint](https://www.biorxiv.org/content/10.1101/2024.09.29.611006v1).
 
