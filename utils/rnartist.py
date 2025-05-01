@@ -16,7 +16,7 @@ class RnaArtist:
         if destination:
             self.destination = Path(destination)
         else:
-            self.destination = Path(config.RFAM_DATA) / self.rfam_acc
+            self.destination = config.RFAM_DATA / self.rfam_acc
         if self.rfam_acc == "rnartist":
             self.fasta_file = ""
         else:
