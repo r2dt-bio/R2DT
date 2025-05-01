@@ -11,45 +11,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
+from pathlib import Path
 
-here = os.path.realpath(os.path.dirname(__file__))
-PROJECT_HOME = os.path.dirname(here)
-DATA = os.path.join(PROJECT_HOME, "data")
+here = Path(__file__).resolve().parent
+PROJECT_HOME = here.parent
+DATA = PROJECT_HOME / "data"
 
-CRW_CM_LIBRARY = os.path.join(DATA, "cms", "crw")
-CRW_PS_LIBRARY = os.path.join(DATA, "crw-ps")
-CRW_BPSEQ_LOCATION = os.path.join(DATA, "crw-bpseq")
-CRW_FASTA_LIBRARY = os.path.join(DATA, "crw-fasta-no-pseudoknots")
+CRW_CM_LIBRARY = DATA / "cms" / "crw"
+CRW_PS_LIBRARY = DATA / "crw-ps"
+CRW_BPSEQ_LOCATION = DATA / "crw-bpseq"
+CRW_FASTA_LIBRARY = DATA / "crw-fasta-no-pseudoknots"
 
-RFAM_DATA = os.path.join(DATA, "rfam")
+RFAM_DATA = DATA / "rfam"
 
-RIBOVISION_LSU = os.path.join(DATA, "ribovision-lsu")
-RIBOVISION_SSU = os.path.join(DATA, "ribovision-ssu")
-RIBOVISION_LSU_CM_LIBRARY = os.path.join(RIBOVISION_LSU, "cms")
-RIBOVISION_SSU_CM_LIBRARY = os.path.join(RIBOVISION_SSU, "cms")
-RIBOVISION_LSU_BPSEQ = os.path.join(RIBOVISION_LSU, "bpseq")
-RIBOVISION_SSU_BPSEQ = os.path.join(RIBOVISION_SSU, "bpseq")
-RIBOVISION_LSU_TRAVELER = os.path.join(RIBOVISION_LSU, "traveler")
-RIBOVISION_SSU_TRAVELER = os.path.join(RIBOVISION_SSU, "traveler")
+RIBOVISION_LSU = DATA / "ribovision-lsu"
+RIBOVISION_SSU = DATA / "ribovision-ssu"
+RIBOVISION_LSU_CM_LIBRARY = RIBOVISION_LSU / "cms"
+RIBOVISION_SSU_CM_LIBRARY = RIBOVISION_SSU / "cms"
+RIBOVISION_LSU_BPSEQ = RIBOVISION_LSU / "bpseq"
+RIBOVISION_SSU_BPSEQ = RIBOVISION_SSU / "bpseq"
+RIBOVISION_LSU_TRAVELER = RIBOVISION_LSU / "traveler"
+RIBOVISION_SSU_TRAVELER = RIBOVISION_SSU / "traveler"
 
-RNASEP = os.path.join(DATA, "rnasep")
-RNASEP_CM_LIBRARY = os.path.join(RNASEP, "cms")
-RNASEP_BPSEQ = os.path.join(RNASEP, "bpseq")
-RNASEP_TRAVELER = os.path.join(RNASEP, "traveler")
+RNASEP = DATA / "rnasep"
+RNASEP_CM_LIBRARY = RNASEP / "cms"
+RNASEP_BPSEQ = RNASEP / "bpseq"
+RNASEP_TRAVELER = RNASEP / "traveler"
 
-TMRNA = os.path.join(DATA, "tmrna")
-TMRNA_CM_LIBRARY = os.path.join(TMRNA, "cm")
-TMRNA_FASTA_LIBRARY = os.path.join(TMRNA, "fasta")
-TMRNA_STO_LIBRARY = os.path.join(TMRNA, "sto")
-TMRNA_XML_LIBRARY = os.path.join(TMRNA, "xml")
+TMRNA = DATA / "tmrna"
+TMRNA_CM_LIBRARY = TMRNA / "cm"
+TMRNA_FASTA_LIBRARY = TMRNA / "fasta"
+TMRNA_STO_LIBRARY = TMRNA / "sto"
+TMRNA_XML_LIBRARY = TMRNA / "xml"
 
-GTRNADB_CM_LIBRARY = os.path.join(DATA, "gtrnadb", "cms")
-GTRNADB_EUK = os.path.join(DATA, "gtrnadb", "eukaryota_isotype_specific")
-GTRNADB_BACT = os.path.join(DATA, "gtrnadb", "bacteria_isotype_specific")
-GTRNADB_ARCH = os.path.join(DATA, "gtrnadb", "archaea_isotype_specific")
-GTRNADB_MITO = os.path.join(DATA, "gtrnadb", "vertebrate_mitochondrial")
+GTRNADB_CM_LIBRARY = DATA / "gtrnadb" / "cms"
+GTRNADB_EUK = DATA / "gtrnadb" / "eukaryota_isotype_specific"
+GTRNADB_BACT = DATA / "gtrnadb" / "bacteria_isotype_specific"
+GTRNADB_ARCH = DATA / "gtrnadb" / "archaea_isotype_specific"
+GTRNADB_MITO = DATA / "gtrnadb" / "vertebrate_mitochondrial"
 
-CM_LIBRARY = os.path.join(DATA, "cms")
+CM_LIBRARY = DATA / "cms"
 
-LOCAL_DATA = os.path.join(DATA, "local_data")
+LOCAL_DATA = DATA / "local_data"
