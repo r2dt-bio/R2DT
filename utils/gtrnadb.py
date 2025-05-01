@@ -11,7 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -25,7 +24,7 @@ TRNASCAN_CONF = "/usr/bin/tRNAscan-SE.conf"
 
 def setup():
     """Extract tRNAScan covariance models as separate files."""
-    base = os.path.join("usr", "lib", "tRNAscan-SE", "models")
+    base = Path("usr") / "lib" / "tRNAscan-SE" / "models"
     cm_dbs = {
         "TRNAinf-arch-iso": "A",
         "TRNAinf-bact-iso": "B",
@@ -33,7 +32,7 @@ def setup():
         "TRNAinf-mito-vert": "M",
     }
     for cm_file, domain in cm_dbs.items():
-        path = Path(os.path.join(base, cm_file))
+        path = base / cm_file
         with path.open("r", encoding="utf-8") as raw:
             for line in raw:
                 line = line.strip()
@@ -134,14 +133,14 @@ def parse_trnascan_output(filename, domain):
 
 def run_trnascan(fasta_input, output_folder, domain):
     """Launch tRNAScan-SE and return parsed results."""
-    output_file = os.path.join(output_folder, f"{domain}-trnascan.txt")
-    if domain == "M":
-        domain = "M vert"
-    if not os.path.exists(output_file):
+    output_folder = Path(output_folder)
+    output_file = output_folder / f"{domain}-trnascan.txt"
+    run_domain = "M vert" if domain == "M" else domain
+    if not output_file.exists():
         runner.run(
-            f"tRNAscan-SE --detail -c {TRNASCAN_CONF} -q -{domain} -o {output_file} {fasta_input}"
+            f"tRNAscan-SE --detail -c {TRNASCAN_CONF} -q -{run_domain} -o {output_file} {fasta_input}"
         )
-    return parse_trnascan_output(output_file, domain)
+    return parse_trnascan_output(output_file, run_domain)
 
 
 def skip_trna(entry):
@@ -153,8 +152,8 @@ def skip_trna(entry):
 
 def classify_trna_sequences(fasta_input, output_folder):
     """Run tRNAScan-SE 2.0 and select the matching model."""
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
     mito_vert = run_trnascan(fasta_input, output_folder, "M")
     bacteria = run_trnascan(fasta_input, output_folder, "B")
     archaea = run_trnascan(fasta_input, output_folder, "A")
@@ -205,7 +204,7 @@ def classify_trna_sequences(fasta_input, output_folder):
                 )
             data.append(mito_vert[rna_id])
 
-    with open(os.path.join(output_folder, "hits.txt"), "w", encoding="utf-8") as f_out:
+    with (output_folder / "hits.txt").open("w", encoding="utf-8") as f_out:
         for entry in data:
             f_out.write(f"{entry['id']}\t{entry['domain']}_{entry['isotype']}\tPASS\n")
     return data
@@ -215,9 +214,10 @@ def get_trnascan_cm(domain, isotype):
     """
     Fetch a domain-specific isotype covariance model as a separate file.
     """
-    if not os.path.exists(config.GTRNADB_CM_LIBRARY):
-        os.mkdir(config.GTRNADB_CM_LIBRARY)
-    cm_output = Path(config.GTRNADB_CM_LIBRARY) / f"{domain}_{isotype}.cm"
+    cm_lib = config.GTRNADB_CM_LIBRARY
+    if not cm_lib.exists():
+        cm_lib.mkdir(parents=True, exist_ok=True)
+    cm_output = cm_lib / f"{domain}_{isotype}.cm"
     if cm_output.exists():
         return str(cm_output)
 
@@ -247,34 +247,28 @@ def get_trnascan_cm(domain, isotype):
 def get_traveler_template_xml(domain, isotype):
     """Get Traveler template with coordinates."""
     if domain == "A":
-        return os.path.join(
-            config.GTRNADB_ARCH, f"arch-{isotype}-traveler-template.xml"
-        )
+        return config.GTRNADB_ARCH / f"arch-{isotype}-traveler-template.xml"
     if domain == "B":
-        return os.path.join(
-            config.GTRNADB_BACT, f"bact-{isotype}-traveler-template.xml"
-        )
+        return config.GTRNADB_BACT / f"bact-{isotype}-traveler-template.xml"
     if domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
-        return os.path.join(
-            config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler-template.xml"
-        )
+        return config.GTRNADB_MITO / f"mito_vert_{isotype}-traveler-template.xml"
     if domain == "E":
-        return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler-template.xml")
+        return config.GTRNADB_EUK / f"euk-{isotype}-traveler-template.xml"
     raise ValueError(f"Unknown domain {domain}")
 
 
 def get_traveler_fasta(domain, isotype):
     """Get Traveler structure file."""
     if domain == "A":
-        return os.path.join(config.GTRNADB_ARCH, f"arch-{isotype}-traveler.fasta")
+        return config.GTRNADB_ARCH / f"arch-{isotype}-traveler.fasta"
     if domain == "B":
-        return os.path.join(config.GTRNADB_BACT, f"bact-{isotype}-traveler.fasta")
+        return config.GTRNADB_BACT / f"bact-{isotype}-traveler.fasta"
     if domain == "M":
         if "Leu" in isotype or "Ser" in isotype:
             isotype = isotype[0:3] + "_" + isotype[3:6]
-        return os.path.join(config.GTRNADB_MITO, f"mito_vert_{isotype}-traveler.fasta")
+        return config.GTRNADB_MITO / f"mito_vert_{isotype}-traveler.fasta"
     if domain == "E":
-        return os.path.join(config.GTRNADB_EUK, f"euk-{isotype}-traveler.fasta")
+        return config.GTRNADB_EUK / f"euk-{isotype}-traveler.fasta"
     raise ValueError(f"Unknown domain {domain}")
