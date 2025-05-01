@@ -13,7 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 # pylint: disable=too-many-lines
-import glob
 import json
 import os
 import re
@@ -22,6 +21,9 @@ import tarfile
 import time
 import unittest
 from pathlib import Path
+
+
+
 
 import click  # pylint: disable=import-error
 from rich import print as rprint
@@ -84,44 +86,50 @@ def setup():
     Generate all templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    if not os.path.exists(config.CM_LIBRARY):
-        os.makedirs(config.CM_LIBRARY)
+    cm_library = Path(config.CM_LIBRARY)
+    if not cm_library.exists():
+        cm_library.mkdir(parents=True)
     crw_setup()
     rfam.setup()
     gtrnadb.setup()
 
 
+
 def crw_setup():
     """Setup CRW CM library."""
-    if os.path.exists(config.CRW_CM_LIBRARY):
+    crw_cm_library = Path(config.CRW_CM_LIBRARY)
+    if crw_cm_library.exists():
         rprint("Deleting old CRW library")
-        shutil.rmtree(config.CRW_CM_LIBRARY)
+        shutil.rmtree(crw_cm_library)
 
     # Extract the tar.gz file
     rprint("Extracting precomputed CRW archive")
-    with tarfile.open(os.path.join(config.DATA, "crw-cms.tar.gz"), "r:gz") as tar:
+    with tarfile.open(Path(config.DATA) / "crw-cms.tar.gz", "r:gz") as tar:
         tar.extractall(path=config.DATA)
 
     # Move the directory
-    source_dir = os.path.join(config.DATA, "crw-cms")
-    destination_dir = os.path.join(config.CM_LIBRARY, "crw")
+    source_dir = Path(config.DATA) / "crw-cms"
+    destination_dir = Path(config.CM_LIBRARY) / "crw"
 
-    if os.path.exists(source_dir):
-        shutil.move(source_dir, destination_dir)
+    if source_dir.exists():
+        shutil.move(str(source_dir), str(destination_dir))
+
 
     # read CRW blacklist
     crw_blacklist = []
-    with open(os.path.join(config.DATA, "crw-blacklist.txt")) as f_in:
+    with open(Path(config.DATA) / "crw-blacklist.txt") as f_in:
         for line in f_in:
             if line.startswith("#"):
                 continue
             crw_blacklist.append(line.strip())
 
+
     # Delete models from the blacklist
     for model in crw_blacklist:
-        model_file = os.path.join(config.CRW_CM_LIBRARY, model + ".cm")
-        if os.path.exists(model_file):
-            os.remove(model_file)
+        model_file = Path(config.CRW_CM_LIBRARY) / f"{model}.cm"
+        if model_file.exists():
+            model_file.unlink()
+
 
     rprint("Generating CRW modelinfo file")
     gmi.generate_model_info(cm_library=config.CRW_CM_LIBRARY)
@@ -160,13 +168,14 @@ def get_hits(folder):
     Get a list of sequence ids found in the hits.txt file by ribovore.
     """
     hits = set()
-    hits_file = os.path.join(folder, "hits.txt")
-    if not os.path.exists(hits_file):
+    hits_file = Path(folder) / "hits.txt"
+    if not hits_file.exists():
         return hits
-    with open(hits_file) as f_in:
+    with hits_file.open() as f_in:
         for line in f_in:
             hits.add(line.split("\t")[0])
     return hits
+
 
 
 def get_subset_fasta(fasta_input, output_filename, seq_ids):
@@ -180,7 +189,8 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
             f_out.write(f"{seq_id}\n")
     runner.run(f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}")
     runner.run(f"esl-sfetch --index {output_filename}")
-    os.remove(index_filename)
+    Path(index_filename).unlink()
+
 
 
 def is_templatefree(fasta_input):
@@ -271,30 +281,33 @@ def draw(
             )
         return
 
-    os.makedirs(output_folder, exist_ok=True)
-    crw_output = os.path.join(output_folder, "crw")
-    ribovision_ssu_output = os.path.join(output_folder, "ribovision-ssu")
-    ribovision_lsu_output = os.path.join(output_folder, "ribovision-lsu")
-    rfam_output = os.path.join(output_folder, "rfam")
-    gtrnadb_output = os.path.join(output_folder, "gtrnadb")
-    rfam_trna_output = os.path.join(output_folder, "RF00005")
-    rnasep_output = os.path.join(output_folder, "rnasep")
-    tmrna_output = os.path.join(output_folder, "tmrna")
+    output_folder = Path(output_folder)
+    output_folder.mkdir(exist_ok=True, parents=True)
+    crw_output = output_folder / "crw"
+    ribovision_ssu_output = output_folder / "ribovision-ssu"
+    ribovision_lsu_output = output_folder / "ribovision-lsu"
+    rfam_output = output_folder / "rfam"
+    gtrnadb_output = output_folder / "gtrnadb"
+    rfam_trna_output = output_folder / "RF00005"
+    rnasep_output = output_folder / "rnasep"
+    tmrna_output = output_folder / "tmrna"
 
     hits = set()
-    subset_fasta = os.path.join(output_folder, "subset.fasta")
+    subset_fasta = output_folder / "subset.fasta"
     runner.run(f"esl-sfetch --index {fasta_input}")
+
 
     def get_output_subfolder(method_name):
         """Get folder within the output folder for a given method."""
         subfolders = {
-            "ribovision_draw_ssu": os.path.join(output_folder, "ribovision-ssu"),
-            "ribovision_draw_lsu": os.path.join(output_folder, "ribovision-lsu"),
-            "rrna_draw": os.path.join(output_folder, "crw"),
-            "rnasep_draw": os.path.join(output_folder, "rnasep"),
-            "tmrna_draw": os.path.join(output_folder, "tmrna"),
+            "ribovision_draw_ssu": output_folder / "ribovision-ssu",
+            "ribovision_draw_lsu": output_folder / "ribovision-lsu",
+            "rrna_draw": output_folder / "crw",
+            "rnasep_draw": output_folder / "rnasep",
+            "tmrna_draw": output_folder / "tmrna",
         }
         return subfolders.get(str(method_name), "")
+
 
     method_list = [
         "rnasep_draw",
@@ -426,57 +439,67 @@ def draw(
     organise_metadata(output_folder, result_folders)
 
     # clean up
-    os.system(f"rm {output_folder}/subset*")
-    os.system(f"rm -f {fasta_input}.ssi")
+    # Remove subset* files from output_folder
+    for file in output_folder.glob("subset*"):
+        file.unlink()
+    # Remove .ssi index file if it exists
+    ssi_file = Path(f"{fasta_input}.ssi")
+    if ssi_file.exists():
+        ssi_file.unlink()
+
 
 
 def organise_results(results_folder, output_folder):
     """Move files to the final folder structure."""
     folders = {}
     labels = ["svg", "fasta", "json", "thumbnail"]
-    destination = os.path.join(output_folder, "results")
+    destination = Path(output_folder) / "results"
     for label in labels:
-        folders[label] = os.path.join(destination, label)
-        os.makedirs(folders[label], exist_ok=True)
-    svgs = glob.glob(os.path.join(results_folder, "*.svg"))
+        folders[label] = destination / label
+        folders[label].mkdir(parents=True, exist_ok=True)
+    svgs = list(Path(results_folder).glob("*.svg"))
     if not svgs:
         return
+
     for svg in svgs:
-        if "colored" not in svg:
+        svg_path = Path(svg)
+        if "colored" not in str(svg_path):
             continue
-        if "enriched" in svg:
+        if "enriched" in str(svg_path):
             continue
-        with open(svg) as f_svg:
-            thumbnail = shared.generate_thumbnail(f_svg.read(), svg)
-            thumbnail_filename = svg.replace(".colored.", ".thumbnail.")
+        with svg_path.open() as f_svg:
+            thumbnail = shared.generate_thumbnail(f_svg.read(), str(svg_path))
+            thumbnail_filename = str(svg_path).replace(".colored.", ".thumbnail.")
             with open(thumbnail_filename, "w") as f_thumbnail:
                 f_thumbnail.write(thumbnail)
     results_path = Path(results_folder)
 
+
     # Move .thumbnail.svg files
     for file in results_path.glob("*.thumbnail.svg"):
-        shutil.copy(str(file), folders["thumbnail"])
+        shutil.copy(str(file), str(folders["thumbnail"]))
         file.unlink()
 
     # Move .colored.svg files
     for file in results_path.glob("*.colored.svg"):
-        shutil.copy(str(file), folders["svg"])
+        shutil.copy(str(file), str(folders["svg"]))
         file.unlink()
 
     # Move .enriched.svg files
     for file in results_path.glob("*.enriched.svg"):
-        shutil.copy(str(file), folders["svg"])
+        shutil.copy(str(file), str(folders["svg"]))
         file.unlink()
 
     # Move .fasta files
     for file in results_path.glob("*.fasta"):
-        shutil.copy(str(file), folders["fasta"])
+        shutil.copy(str(file), str(folders["fasta"]))
         file.unlink()
 
     # Move .json files
     for file in results_path.glob("*.json"):
-        shutil.copy(str(file), folders["json"])
+        shutil.copy(str(file), str(folders["json"]))
         file.unlink()
+
 
 
 @cli.group("gtrnadb")
@@ -530,7 +553,8 @@ def gtrnadb_draw(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
 
     fasta_input = shared.sanitise_fasta(fasta_input)
 
@@ -599,7 +623,8 @@ def rnasep_draw(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
 
     fasta_input = shared.sanitise_fasta(fasta_input)
 
@@ -662,7 +687,8 @@ def tmrna_draw(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
     with open(
         shared.get_ribotyper_output(
             fasta_input, output_folder, config.TMRNA_CM_LIBRARY, skip_ribovore_filters
@@ -721,7 +747,8 @@ def rrna_draw(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
 
     fasta_input = shared.sanitise_fasta(fasta_input)
 
@@ -784,7 +811,8 @@ def ribovision_draw_lsu(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
 
     fasta_input = shared.sanitise_fasta(fasta_input)
 
@@ -843,7 +871,8 @@ def ribovision_draw_ssu(
     # pylint: disable=too-many-arguments
     if not quiet:
         rprint(shared.get_r2dt_version_header())
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
 
     fasta_input = shared.sanitise_fasta(fasta_input)
 
@@ -966,34 +995,36 @@ def organise_metadata(output_folder, result_folders):
     """
     Aggregate hits.txt files from all subfolders.
     """
-    tsv_folder = os.path.join(output_folder, "results", "tsv")
-    os.makedirs(tsv_folder, exist_ok=True)
-    with open(os.path.join(tsv_folder, "metadata.tsv"), "w") as f_out:
+    tsv_folder = Path(output_folder) / "results" / "tsv"
+    tsv_folder.mkdir(parents=True, exist_ok=True)
+    with (tsv_folder / "metadata.tsv").open("w") as f_out:
         for folder in result_folders:
-            hits = os.path.join(folder, "hits.txt")
-            if not os.path.exists(hits):
+            hits = Path(folder) / "hits.txt"
+            if not hits.exists():
                 continue
-            with open(hits) as f_hits:
+            with hits.open() as f_hits:
                 for line in f_hits.readlines():
-                    if "gtrnadb" in folder:
+                    folder_str = str(folder)  # since folder is Path or str
+                    if "gtrnadb" in folder_str:
                         line = line.replace("PASS", "GtRNAdb")
-                    elif "crw" in folder:
+                    elif "crw" in folder_str:
                         line = line.replace("PASS", "CRW").replace("FAIL", "CRW")
-                    elif "rfam" in folder or "RF00005" in folder:
+                    elif "rfam" in folder_str or "RF00005" in folder_str:
                         line = line.replace("PASS", "Rfam").replace("FAIL", "Rfam")
-                    elif "ribovision-lsu" in folder or "ribovision-ssu" in folder:
+                    elif "ribovision-lsu" in folder_str or "ribovision-ssu" in folder_str:
                         line = line.replace("PASS", "RiboVision").replace(
                             "FAIL", "RiboVision"
                         )
-                    elif "rnasep" in folder:
+                    elif "rnasep" in folder_str:
                         line = line.replace("PASS", "RNAse P Database").replace(
                             "FAIL", "RNAse P Database"
                         )
-                    elif "tmrna" in folder:
+                    elif "tmrna" in folder_str:
                         line = line.replace("PASS", "tmRNA Database").replace(
                             "FAIL", "tmRNA Database"
                         )
                     f_out.write(line)
+
 
 
 @cli.command()
@@ -1081,9 +1112,9 @@ def force_draw(
         )
     # organise results into folders
     organise_results(output, output_folder)
-    metadata_folder = os.path.join(output_folder, "results", "tsv")
-    if not os.path.exists(metadata_folder):
-        os.makedirs(metadata_folder)
+    metadata_folder = Path(output_folder) / "results" / "tsv"
+    if not metadata_folder.exists():
+        metadata_folder.mkdir(parents=True)
     label_mapping = {
         "crw": "CRW",
         "gtrnadb": "GtRNAdb",
@@ -1094,11 +1125,10 @@ def force_draw(
         "tmrna": "tmRNA database",
         "local_data": "Local data",
     }
-    with open(
-        os.path.join(metadata_folder, "metadata.tsv"), "a", encoding="utf-8"
-    ) as f_out:
+    with (metadata_folder / "metadata.tsv").open("a", encoding="utf-8") as f_out:
         line = f"{seq_id}\t{model_id}\t{label_mapping[model_type]}\n"
         f_out.write(line)
+
 
 
 @cli.command()
@@ -1191,8 +1221,9 @@ def list_models():
     for item in data:
         rprint(item["description"])
     lm.check_unique_descriptions(data)
-    with open(os.path.join(config.DATA, "models.json"), "w") as models_file:
+    with (Path(config.DATA) / "models.json").open("w") as models_file:
         json.dump(data, models_file)
+
 
 
 @cli.command()

@@ -11,7 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -24,7 +23,7 @@ from .runner import runner
 def convert_bpseq_to_fasta(bpseq):
     """Use a Traveler script to convert from BPSEQ to FASTA."""
     fasta = bpseq.replace(".bpseq", ".fasta")
-    if not os.path.exists(fasta):
+    if not Path(fasta).exists():
         runner.run(f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}")
     return fasta
 
@@ -32,7 +31,7 @@ def convert_bpseq_to_fasta(bpseq):
 def break_pseudoknots(fasta):
     """Remove pseudoknots using RNAStructure."""
     fasta_no_knots = fasta.replace("-with-knots.fasta", ".fasta")
-    if not os.path.exists(fasta_no_knots):
+    if not Path(fasta_no_knots).exists():
         runner.run(f"RemovePseudoknots -b {fasta} {fasta_no_knots}")
     return fasta_no_knots
 
@@ -40,8 +39,8 @@ def break_pseudoknots(fasta):
 def convert_fasta_to_stockholm(fasta):
     """Convert fasta to stockholm."""
     stockholm = fasta.replace(".fasta", ".sto")
-    model_id = os.path.basename(stockholm).replace(".sto", "")
-    if not os.path.exists(stockholm):
+    model_id = Path(stockholm).stem
+    if not Path(stockholm).exists():
         with open(fasta, "r", encoding="utf-8") as f_input:
             with open(stockholm, "w", encoding="utf-8") as f_output:
                 lines = f_input.readlines()
@@ -86,10 +85,8 @@ def copy_cm_evalues(cm_filename):
 
 def build_cm(stockholm, cm_library):
     """Build an Infernal covariance model."""
-    cm_filename = os.path.join(
-        cm_library, os.path.basename(stockholm).replace(".sto", ".cm")
-    )
-    if not os.path.exists(cm_filename):
+    cm_filename = str(Path(cm_library) / (Path(stockholm).stem + ".cm"))
+    if not Path(cm_filename).exists():
         runner.run(f"cmbuild {cm_filename} {stockholm}")
         copy_cm_evalues(cm_filename)
     else:
