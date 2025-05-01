@@ -86,9 +86,8 @@ def setup():
     Generate all templates from scratch.
     """
     rprint(shared.get_r2dt_version_header())
-    cm_library = Path(config.CM_LIBRARY)
-    if not cm_library.exists():
-        cm_library.mkdir(parents=True)
+    if not config.CM_LIBRARY.exists():
+        config.CM_LIBRARY.mkdir(parents=True)
     crw_setup()
     rfam.setup()
     gtrnadb.setup()
@@ -97,19 +96,18 @@ def setup():
 
 def crw_setup():
     """Setup CRW CM library."""
-    crw_cm_library = Path(config.CRW_CM_LIBRARY)
-    if crw_cm_library.exists():
+    if config.CRW_CM_LIBRARY.exists():
         rprint("Deleting old CRW library")
-        shutil.rmtree(crw_cm_library)
+        shutil.rmtree(config.CRW_CM_LIBRARY)
 
     # Extract the tar.gz file
     rprint("Extracting precomputed CRW archive")
-    with tarfile.open(Path(config.DATA) / "crw-cms.tar.gz", "r:gz") as tar:
+    with tarfile.open(config.DATA / "crw-cms.tar.gz", "r:gz") as tar:
         tar.extractall(path=config.DATA)
 
     # Move the directory
-    source_dir = Path(config.DATA) / "crw-cms"
-    destination_dir = Path(config.CM_LIBRARY) / "crw"
+    source_dir = config.DATA / "crw-cms"
+    destination_dir = config.CM_LIBRARY / "crw"
 
     if source_dir.exists():
         shutil.move(str(source_dir), str(destination_dir))
@@ -117,7 +115,7 @@ def crw_setup():
 
     # read CRW blacklist
     crw_blacklist = []
-    with open(Path(config.DATA) / "crw-blacklist.txt") as f_in:
+    with open(config.DATA / "crw-blacklist.txt") as f_in:
         for line in f_in:
             if line.startswith("#"):
                 continue
@@ -126,7 +124,7 @@ def crw_setup():
 
     # Delete models from the blacklist
     for model in crw_blacklist:
-        model_file = Path(config.CRW_CM_LIBRARY) / f"{model}.cm"
+        model_file = config.CRW_CM_LIBRARY / f"{model}.cm"
         if model_file.exists():
             model_file.unlink()
 
