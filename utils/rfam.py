@@ -14,11 +14,11 @@ limitations under the License.
 import glob
 import gzip
 import io
-import os
 import re
 import shutil
 import tempfile
 from pathlib import Path
+
 
 import requests
 from tqdm import tqdm
@@ -60,7 +60,7 @@ BLACKLIST = [
     "RF02544",  # Mitochondrion-encoded tmRNA
 ]
 
-PREFER_RNARTIST_LIST = Path(config.RFAM_DATA) / "prefer_rnartist.txt"
+PREFER_RNARTIST_LIST = config.RFAM_DATA / "prefer_rnartist.txt"
 
 
 def blacklisted():
@@ -96,54 +96,59 @@ def get_traveler_template_xml(rfam_acc, method="auto"):
 
 def get_traveler_fasta(rfam_acc):
     """Get a path to a consensus structure FASTA given an Rfam accession."""
-    filename = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}-traveler.fasta")
+    filename = config.RFAM_DATA / rfam_acc / f"{rfam_acc}-traveler.fasta"
     return filename
+
 
 
 def get_rfam_cm(rfam_acc):
     """Get a path to an Rfam covariance model given an accession."""
     if rfam_acc == "RF00005":
-        return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + ".cm")
-    return os.path.join(config.CM_LIBRARY, "rfam", rfam_acc + ".cm")
+        return config.RFAM_DATA / rfam_acc / f"{rfam_acc}.cm"
+    return config.CM_LIBRARY / "rfam" / f"{rfam_acc}.cm"
+
 
 
 def get_rfam_cms():
     """Fetch Rfam covariance models excluding blacklisted models."""
-    rfam_cm_location = os.path.join(config.CM_LIBRARY, "rfam")
-    rfam_whitelisted_cm = os.path.join(rfam_cm_location, "all.cm")
+    rfam_cm_location = config.CM_LIBRARY / "rfam"
+    rfam_whitelisted_cm = rfam_cm_location / "all.cm"
+
 
     print("Deleting old Rfam library")
-    rfam_cm_path = Path(rfam_cm_location)
+    rfam_cm_path = rfam_cm_location
     shutil.rmtree(rfam_cm_path, ignore_errors=True)
     rfam_cm_path.mkdir(parents=True, exist_ok=True)
 
+
     print("Downloading Rfam.cm from Rfam FTP")
-    rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
-    rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
-    if not os.path.exists(rfam_cm):
+    rfam_cm = config.RFAM_DATA / "Rfam.cm"
+    rfam_ids = config.RFAM_DATA / "rfam_ids.txt"
+    if not rfam_cm.exists():
         url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
-        rfam_cm_path = Path(rfam_cm).with_suffix(".gz")
+        rfam_cm_gz = rfam_cm.with_suffix(".cm.gz")
 
         # Download the file
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
-        with rfam_cm_path.open("wb") as out_file:
+        with rfam_cm_gz.open("wb") as out_file:
             for chunk in response.iter_content(chunk_size=8192):
                 out_file.write(chunk)
 
         # Decompress the file
-        with gzip.open(rfam_cm_path, "rb") as f_in:
-            with rfam_cm_path.with_suffix(".cm").open("wb") as f_out:
+        with gzip.open(rfam_cm_gz, "rb") as f_in:
+            with rfam_cm.open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
-        rfam_cm_path.unlink()  # Remove the .gz file after decompression
+        rfam_cm_gz.unlink()  # Remove the .gz file after decompression
+
 
     print("Indexing Rfam.cm")
-    if not os.path.exists(f"{rfam_cm}.ssi"):
+    if not (rfam_cm.with_suffix(".cm.ssi")).exists() and not (rfam_cm.with_suffix(".ssi")).exists():
         runner.run(f"cmfetch --index {rfam_cm}")
     print("Get a list of all Rfam ids")
-    if not os.path.exists(rfam_ids):
+    if not rfam_ids.exists():
         with open(rfam_cm, "r") as infile, open(rfam_ids, "w") as outfile:
             for line in infile:
                 if line.startswith("ACC   RF"):
@@ -159,21 +164,23 @@ def get_rfam_cms():
                 continue
             print(rfam_acc)
             runner.run(f"cmfetch {rfam_cm} {rfam_acc} >> {rfam_whitelisted_cm}")
-            cm_file = os.path.join(rfam_cm_location, f"{rfam_acc}.cm")
+            cm_file = rfam_cm_location / f"{rfam_acc}.cm"
             runner.run(f"cmfetch {rfam_cm} {rfam_acc} > {cm_file}")
 
+
     print("Cleaning up")
-    rfam_cm_path = Path(rfam_cm)
+    rfam_cm_path = rfam_cm
     rfam_cm_ssi_path = rfam_cm_path.with_suffix(".ssi")
     rfam_cm_path.unlink(missing_ok=True)
     rfam_cm_ssi_path.unlink(missing_ok=True)
+
 
 
 def setup_trna_cm():
     """Make sure the RF00005 tRNA model exists as it is used as a fallback
     for all tRNA models that do not match tRNAScan-SE."""
     rfam_acc = "RF00005"
-    trna_cm_path = Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.cm"
+    trna_cm_path = config.RFAM_DATA / rfam_acc / f"{rfam_acc}.cm"
 
     # Create the directory if it doesn't exist
     trna_cm_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,14 +201,23 @@ def setup_trna_cm():
 def delete_preexisting_rfam_data():
     """Delete preexisting Rfam data."""
     # delete Rfam cms
-    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
-    os.system(f"rm -f {rfam_cms}/*.cm")
-    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
+    rfam_cms = config.CM_LIBRARY / "rfam"
+    for cm_file in rfam_cms.glob("*.cm"):
+        cm_file.unlink(missing_ok=True)
+    modelinfo = rfam_cms / "modelinfo.txt"
+    modelinfo.unlink(missing_ok=True)
     # delete template files
-    os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
+    for rfdir in config.RFAM_DATA.glob("RF0*"):
+        if rfdir.is_dir():
+            shutil.rmtree(rfdir, ignore_errors=True)
+        else:
+            rfdir.unlink(missing_ok=True)
     # delete summary files
-    os.system(f"rm -Rf {config.RFAM_DATA}/family.txt")
-    os.system(f"rm -Rf {config.RFAM_DATA}/rfam_ids.txt")
+    family_txt = config.RFAM_DATA / "family.txt"
+    family_txt.unlink(missing_ok=True)
+    rfam_ids = config.RFAM_DATA / "rfam_ids.txt"
+    rfam_ids.unlink(missing_ok=True)
+
 
 
 def setup_rnartist(rerun=False):
@@ -231,7 +247,8 @@ def setup(accessions=None) -> None:
     """Setup Rfam template library."""
     delete_preexisting_rfam_data()
     get_rfam_cms()
-    mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
+    mi.generate_model_info(cm_library=Path(config.CM_LIBRARY) / "rfam")
+
     RfamSeed().download_rfam_seed_archive().get_no_structure_file()
     if not accessions:
         accessions = get_all_rfam_acc()
@@ -245,6 +262,7 @@ def setup(accessions=None) -> None:
     setup_trna_cm()
     # delete temporary files
     os.system(f"cd {config.RFAM_DATA} && ./clean_up_files.sh")
+
 
 
 # pylint: disable-next=too-many-branches
@@ -263,10 +281,11 @@ def generate_traveler_fasta(rfam_acc):
 
     # get a list of alignments
     seeds = []
-    for seed in glob.glob(os.path.join(config.RFAM_DATA, rfam_acc, "*.R2R.sto")):
+    for seed in glob.glob(str(Path(config.RFAM_DATA) / rfam_acc / "*.R2R.sto")):
         seeds.append(seed)
     if len(seeds) != 1:
         print("Error: unusual number of seed alignments")
+
 
     with open(seeds[0], "r", encoding="utf-8") as f_seed:
         for line in f_seed.readlines():
@@ -453,17 +472,18 @@ def run_rscape(rfam_acc, destination):
     """
     rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
-    if not os.path.exists(os.path.join(destination, "rscape.done")):
+    rscape_done = Path(destination) / "rscape.done"
+    if not rscape_done.exists():
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
             folder=destination, rfam_seed=rfam_seed_no_pk
         )
         runner.run(cmd)
         # delete any temporary r2r_meta files
         for filename in glob.glob("*.r2r_meta"):
-            os.remove(filename)
+            Path(filename).unlink(missing_ok=True)
 
     rscape_svg = None
-    for svg in glob.glob(os.path.join(destination, "*.svg")):
+    for svg in glob.glob(str(Path(destination) / "*.svg")):
         if "R2R.sto.svg" in svg:
             rscape_svg = svg
     if not rscape_svg:
@@ -471,12 +491,13 @@ def run_rscape(rfam_acc, destination):
     return rscape_svg
 
 
+
 def convert_rscape_svg_to_one_line(rscape_svg, destination):
     """
     Convert R-scape SVG into SVG with 1 line per element.
     """
     # pylint: disable=consider-using-f-string
-    output = os.path.join(destination, "rscape-one-line.svg")
+    output = str(Path(destination) / "rscape-one-line.svg")
     cmd = (
         r"perl -0777 -pe 's/\n +fill/ fill/g' {rscape_svg} | "
         r"perl -0777 -pe 's/\n d=/ d=/g' | "
@@ -486,6 +507,7 @@ def convert_rscape_svg_to_one_line(rscape_svg, destination):
     ).format(rscape_svg=rscape_svg, output=output)
     runner.run(cmd)
     return output
+
 
 
 # pylint: disable=too-many-branches
@@ -508,14 +530,15 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
     xml_header = "<structure>\n"
     xml_footer = "</structure>"
 
-    traveler_template_svg = os.path.join(destination, "traveler-template.svg")
+    traveler_template_svg = Path(destination) / "traveler-template.svg"
     with open(rscape_one_line_svg, "r", encoding="utf-8") as f_in:
         with open(traveler_template_svg, "w", encoding="utf-8") as f_out:
             with open(
-                os.path.join(destination, "traveler-template.xml"),
+                Path(destination) / "traveler-template.xml",
                 "w",
                 encoding="utf-8",
             ) as xml_out:
+
                 f_out.write(header)
                 xml_out.write(xml_header)
 
@@ -558,18 +581,16 @@ def convert_rscape_svg_to_traveler(rscape_one_line_svg, destination):
 def rscape2traveler(rfam_acc):
     """Create a Traveler XML template based on an
     R-scape consensus 2D layout."""
-    destination = os.path.join(config.RFAM_DATA, rfam_acc)
-    if not os.path.exists(destination):
-        os.makedirs(destination)
-    if os.path.exists(get_traveler_fasta(rfam_acc)) and os.path.exists(
-        get_traveler_template_xml(rfam_acc, "r2r")
-    ):
+    destination = config.RFAM_DATA / rfam_acc
+    destination.mkdir(parents=True, exist_ok=True)
+    if get_traveler_fasta(rfam_acc).exists() and get_traveler_template_xml(rfam_acc, "r2r").exists():
         return
     rscape_svg = run_rscape(rfam_acc, destination)
     rscape_one_line_svg = convert_rscape_svg_to_one_line(rscape_svg, destination)
     convert_rscape_svg_to_traveler(rscape_one_line_svg, destination)
     scale_coordinates(get_traveler_template_xml(rfam_acc, "r2r"))
     generate_traveler_fasta(rfam_acc)
+
 
 
 # pylint: disable-next=too-many-arguments
@@ -585,11 +606,10 @@ def generate_2d(
 ):
     """Loop over the sequences in fasta file and visualise each
     using the family template."""
-    destination = f"{output_folder}/{rfam_acc}"
-    if not os.path.exists(destination):
-        os.makedirs(destination)
+    destination = Path(output_folder) / rfam_acc
+    destination.mkdir(parents=True, exist_ok=True)
 
-    if not os.path.exists(fasta_input + ".ssi"):
+    if not Path(f"{fasta_input}.ssi").exists():
         runner.run(f"esl-sfetch --index {fasta_input}")
     # pylint: disable=consider-using-with
     headers = tempfile.NamedTemporaryFile(delete=False).name
@@ -604,7 +624,7 @@ def generate_2d(
             core.visualise(
                 "rfam",
                 fasta_input,
-                destination,
+                str(destination),
                 seq_id,
                 rfam_acc,
                 constraint,
@@ -620,14 +640,16 @@ def generate_2d(
     Path(headers).unlink(missing_ok=True)
 
 
+
 def has_structure(rfam_acc):
     """Return a list of families that have consensus 2D structure."""
     no_structure = []
-    no_structure_filename = os.path.join(config.RFAM_DATA, "no_structure.txt")
+    no_structure_filename = config.RFAM_DATA / "no_structure.txt"
     with open(no_structure_filename) as f_list:
         for line in f_list.readlines():
             no_structure.append(line.strip())
     return rfam_acc not in no_structure
+
 
 
 def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
@@ -635,15 +657,15 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
     Run cmsearch on the fasta sequences using cmsearch in the --nohmm mode
     to get potentially missing hits.
     """
-    subfolder = os.path.join(output_folder, rfam_acc)
-    os.makedirs(subfolder, exist_ok=True)
-    tblout = os.path.join(subfolder, "cmsearch.tblout")
-    outfile = os.path.join(subfolder, "cmsearch.out.txt")
-    cm_file = os.path.join(config.RFAM_DATA, rfam_acc, f"{rfam_acc}.cm")
+    subfolder = Path(output_folder) / rfam_acc
+    subfolder.mkdir(parents=True, exist_ok=True)
+    tblout = subfolder / "cmsearch.tblout"
+    outfile = subfolder / "cmsearch.out.txt"
+    cm_file = config.RFAM_DATA / rfam_acc / f"{rfam_acc}.cm"
     runner.run(
         f"cmsearch --nohmm -o {outfile} --tblout {tblout} {cm_file} {fasta_input}"
     )
-    hits = os.path.join(subfolder, "hits.txt")
+    hits = subfolder / "hits.txt"
     with open(tblout, "r") as infile, open(hits, "w") as outfile:
         for line in infile:
             if not line.startswith("#") and "?" not in line:
@@ -660,3 +682,4 @@ def cmsearch_nohmm_mode(fasta_input, output_folder, rfam_acc):
                 hit_id, _, _ = line.strip().split("\t")
                 ids.add(hit_id)
     return ids
+
