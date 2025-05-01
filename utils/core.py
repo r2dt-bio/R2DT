@@ -11,7 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -100,11 +99,9 @@ def visualise(
         rprint(f"Visualising {seq_id} with {model_id}")
     elif domain and isotype and not quiet:
         rprint(f"Visualising {seq_id} with {domain} {isotype}")
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    filename_template = os.path.join(
-        output_folder, f"{seq_id.replace('/', '_')}_type.txt"
-    )
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
+    filename_template = output_folder / f"{seq_id.replace('/', '_')}_type.txt"
     if rna_type.lower() == "lsu":
         cm_library = config.RIBOVISION_LSU_CM_LIBRARY
         template_layout = config.RIBOVISION_LSU_TRAVELER
@@ -130,7 +127,7 @@ def visualise(
         if not model_id.startswith("RF"):
             model_id = rfam.get_rfam_acc_by_id(model_id)
     elif rna_type.lower() == "local_data":
-        cm_library = os.path.join(config.LOCAL_DATA, model_id)
+        cm_library = config.LOCAL_DATA / model_id
         template_layout = cm_library
         template_structure = cm_library
     elif rna_type.lower() == "gtrnadb":
@@ -139,23 +136,24 @@ def visualise(
         rprint("Please specify RNA type")
         return
 
-    temp_fasta = filename_template.replace("type", "fasta")
-    temp_sto = filename_template.replace("type", "sto")
-    temp_depaired = filename_template.replace("type", "depaired")
-    temp_stk = filename_template.replace("type", "stk")
-    temp_stk_original = filename_template.replace("type", "stk_original")
-    temp_sto_unfiltered = filename_template.replace("type", "sto_unfiltered")
-    temp_acc_list = filename_template.replace("type", "seed_list")
-    temp_post_prob = filename_template.replace("type", "post_prob")
-    temp_pfam_stk = filename_template.replace("type", "pfam_stk")
-    temp_pfam_stk_original = filename_template.replace("type", "pfam_stk_original")
-    temp_afa = filename_template.replace("type", "afa")
-    temp_afa_original = filename_template.replace("type", "afa_original")
-    temp_map = filename_template.replace("type", "map")
+    # NOTE: filename_template is a Path, so replace returns a str!
+    temp_fasta = str(filename_template).replace("type", "fasta")
+    temp_sto = str(filename_template).replace("type", "sto")
+    temp_depaired = str(filename_template).replace("type", "depaired")
+    temp_stk = str(filename_template).replace("type", "stk")
+    temp_stk_original = str(filename_template).replace("type", "stk_original")
+    temp_sto_unfiltered = str(filename_template).replace("type", "sto_unfiltered")
+    temp_acc_list = str(filename_template).replace("type", "seed_list")
+    temp_post_prob = str(filename_template).replace("type", "post_prob")
+    temp_pfam_stk = str(filename_template).replace("type", "pfam_stk")
+    temp_pfam_stk_original = str(filename_template).replace("type", "pfam_stk_original")
+    temp_afa = str(filename_template).replace("type", "afa")
+    temp_afa_original = str(filename_template).replace("type", "afa_original")
+    temp_map = str(filename_template).replace("type", "map")
 
     # get sequence from fasta file
     seq_range = f"-c {start}..{end}" if start and end else ""
-    if not os.path.exists(f"{fasta_input}.ssi"):
+    if not Path(f"{fasta_input}.ssi").exists():
         runner.run(f"esl-sfetch --index {fasta_input}")
     cmd = f"esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}"
     result = runner.run(cmd)
@@ -179,25 +177,25 @@ def visualise(
         template_layout = gtrnadb.get_traveler_template_xml(domain, isotype)
         template_structure = gtrnadb.get_traveler_fasta(domain, isotype)
     elif rna_type == "local_data":
-        model_path = os.path.join(config.LOCAL_DATA, model_id, model_id + ".cm")
-        if not os.path.exists(model_path):
+        model_path = config.LOCAL_DATA / model_id / f"{model_id}.cm"
+        if not model_path.exists():
             rprint(f"Model not found {model_path}")
             return
-        template_layout = os.path.join(template_layout, model_id + ".xml")
-        template_structure = os.path.join(template_structure, model_id + ".fasta")
-        template_sto = os.path.join(cm_library, model_id + ".sto")
+        template_layout = template_layout / f"{model_id}.xml"
+        template_structure = template_structure / f"{model_id}.fasta"
+        template_sto = cm_library / f"{model_id}.sto"
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
     elif rna_type == "tmrna":
-        model_path = os.path.join(cm_library, model_id + ".cm")
-        template_layout = os.path.join(template_layout, model_id + ".xml")
-        template_structure = os.path.join(template_structure, model_id + ".fasta")
-        template_sto = os.path.join(template_sto, model_id + ".sto")
+        model_path = cm_library / f"{model_id}.cm"
+        template_layout = template_layout / f"{model_id}.xml"
+        template_structure = template_structure / f"{model_id}.fasta"
+        template_sto = template_sto / f"{model_id}.sto"
         cmd = f"esl-alistat --list {temp_acc_list} {template_sto} > /dev/null"
         runner.run(cmd)
     else:
-        model_path = os.path.join(cm_library, model_id + ".cm")
-        if not os.path.exists(model_path):
+        model_path = cm_library / f"{model_id}.cm"
+        if not model_path.exists():
             rprint(f"Model not found {model_path}")
             return
 
@@ -319,14 +317,9 @@ def visualise(
         infernal_mapping_failed = runner.run(cmd)
 
     if rna_type == "gtrnadb":
-        result_base = os.path.join(
-            output_folder, seq_id.replace("/", "-") + "-" + domain + "_" + isotype
-        )
+        result_base = output_folder / f"{seq_id.replace('/', '-')}-{domain}_{isotype}"
     else:
-        result_base = os.path.join(
-            output_folder,
-            f"{seq_id.replace('/', '_')}-{model_id}",
-        )
+        result_base = output_folder / f"{seq_id.replace('/', '_')}-{model_id}"
 
     # convert stockholm to fasta with dot bracket secondary structure
     cmd = f"ali-pfam-sindi2dot-bracket.pl {temp_pfam_stk} > {result_base}.fasta"
@@ -413,8 +406,9 @@ def visualise(
         out.write(f"{overlaps}\n")
 
     # add metadata to json file
-    result_json = result_base + ".colored.json"
-    if os.path.exists(result_json) and os.path.getsize(result_json) > 0:
+    result_json = str(result_base) + ".colored.json"
+    result_json_path = Path(result_json)
+    if result_json_path.exists() and result_json_path.stat().st_size > 0:
         cmd = (
             f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
             f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
@@ -449,8 +443,9 @@ def visualise(
         temp_acc_list,
     ]
     for filename in files:
-        if os.path.exists(filename):
-            os.remove(filename)
+        file_path = Path(filename)
+        if file_path.exists():
+            file_path.unlink()
 
 
 def adjust_font_size(result_base):
@@ -494,9 +489,10 @@ def visualise_trna(
 ):
     """A wrapper for visualising multiple tRNA sequences in a FASTA file."""
     filename = "headers.txt"
-    os.makedirs(output_folder, exist_ok=True)
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
 
-    if not os.path.exists(f"{fasta_input}.ssi"):
+    if not Path(f"{fasta_input}.ssi").exists():
         cmd = f"esl-sfetch --index {fasta_input}"
         runner.run(cmd)
 
