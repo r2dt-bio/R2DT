@@ -52,6 +52,7 @@ R2DT can be used in a number of ways:
 * [FlyBase](http://flybase.org/reports/FBgn0053537#gene_model_products), [SGD](https://www.yeastgenome.org/locus/S000006550/sequence), and [PomBase](https://www.pombase.org/gene/SPSNRNA.01) show R2DT diagrams for RNA genes
 * [NAKB](https://www.nakb.org/) uses R2DT to visualise secondary structure of RNAs from PDB (for example, [1S72](https://www.nakb.org/r2dt.html?1S72:2))
 * [RiboVision 2.0](https://ribovision2.chemistry.gatech.edu/) uses R2DT to visualise RNA secondary structure and connect them to multiple sequence alignments and 3D structures
+* [GlycoRNAdb](http://glycornadb.com/#/homostructure/hsa-glycoRNA-13) displays glycosylation sites using R2DT
 
 Browse [papers citing R2DT &rarr;](https://scholar.google.com/scholar?cites=12435886377905515481)
 
