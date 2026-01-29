@@ -95,7 +95,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     )
     if "rfam" in cm_library:
         one_blast = ""
-    elif "tmrna" in cm_library:
+    elif any(keyword in cm_library for keyword in ("tmrna", "rnasep")):
         one_blast = ""
     else:
         one_blast = "--1blast"
