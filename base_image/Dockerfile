@@ -109,6 +109,13 @@ FROM build AS rnartist
 RUN \
     wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
 
+# Install s5cmd, required for AWS S3
+FROM build AS s5cmd
+RUN \
+    wget -q https://github.com/peak/s5cmd/releases/download/v2.3.0/s5cmd_2.3.0_Linux-64bit.tar.gz \
+    && tar -xzf s5cmd_2.3.0_Linux-64bit.tar.gz \
+    && mv s5cmd /usr/local/bin/
+
 FROM debian:bookworm-slim AS final-build
 
 ENV \
@@ -118,6 +125,7 @@ RUN \
     apt-get -qq update && apt-get install -qq -y --no-install-recommends  \
     ncbi-blast+ \
     openjdk-17-jre-headless \
+    awscli \
     python3  \
     python3-pip  \
     python3-venv  \
@@ -183,6 +191,7 @@ COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
 COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
 COPY --from=rnartist /rnartist.jar /usr/local/bin/
+COPY --from=s5cmd /usr/local/bin/s5cmd /usr/local/bin/s5cmd
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/
