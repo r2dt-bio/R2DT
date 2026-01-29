@@ -251,6 +251,8 @@ def get_insertions(filename):
 def get_full_constraint(filename):
     """Get folding constraint from an Infernal alignment."""
     constraint = ""
+    sequence = ""
+    gc_ss = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 3:
@@ -365,7 +367,7 @@ def handle_exclusion(exclusion, r2dt_constraint):
         return r2dt_constraint
 
 
-# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, too-many-positional-arguments
 def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
     """Fold insertions using RNAfold."""
     with open(input_fasta, "r", encoding="utf-8") as f_fasta:
@@ -514,6 +516,8 @@ def generate_thumbnail(image, description):
     move_to_start_position = None
     color = ColorHash(description).hex
     points = []
+    width = [("100", "")]
+    height = [("100", "")]
     for _, line in enumerate(image.split("\n")):
         if "width" in line and not "stroke-width" in line:
             width = re.findall(r'width="(\d+(\.\d+)?)"', line)
