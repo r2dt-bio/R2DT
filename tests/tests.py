@@ -850,5 +850,121 @@ class TestProcPsIsPresent(unittest.TestCase):
         )
 
 
+class TestRnaview(R2dtTestCase):
+    """Check that the RNAVIEW script works correctly."""
+
+    pdb_file = Path("examples") / "PZ1_Bujnicki_1.pdb"
+    test_results = Path("tests") / "results" / "rnaview"
+    precomputed_results = Path("tests") / "examples" / "rnaview"
+    files = ["PZ1_Bujnicki_1.colored.svg"]
+    output_file = Path("examples") / "PZ1_Bujnicki_1.colored.svg"
+    cmd = f"python ./utils/rnaview.py {pdb_file} > /dev/null 2>&1"
+
+    def setUp(self):
+        if not self.test_results.exists():
+            self.test_results.mkdir(parents=True)
+        runner.run(self.cmd, print_output=True)
+
+        shutil.copy(self.output_file, self.test_results)
+
+    def test_rnaview_output_exists(self):
+        """Check that the RNAVIEW script generates the expected output file."""
+        self.check_examples()
+
+    def test_rnaview_output_matches(self):
+        """Check that the generated file matches the precomputed file."""
+        self.check_examples()
+
+
+class TestAnimateSingle(R2dtTestCase):
+    """Check that single animation works correctly."""
+
+    # Reference PDB file
+    ref_pdb = Path("examples") / "PZ1_solution_0.pdb"
+    # Query PDB file
+    query_pdb = Path("examples") / "animate_bulk" / "PZ1_Bujnicki_1.pdb"
+    # Test results and precomputed results
+    test_results = Path("tests") / "results" / "animate_single"
+    precomputed_results = Path("tests") / "examples" / "animate_single"
+    files = ["PZ1_solution_0_to_PZ1_Bujnicki_1.animated.svg"]
+
+    # Command to run
+    cmd = (
+        f"python ./utils/animate3d.py {test_results / ref_pdb.name} "
+        f"{test_results / query_pdb.name} > /dev/null 2>&1"
+    )
+
+    def setUp(self):
+        """Set up the test environment."""
+        # Ensure test results directory exists
+        if not self.test_results.exists():
+            self.test_results.mkdir(parents=True)
+
+        # Copy reference and query PDBs to test results directory
+        shutil.copy(self.ref_pdb, self.test_results)
+        shutil.copy(self.query_pdb, self.test_results)
+
+        # Run the animation script
+        runner.run(self.cmd, print_output=True)
+
+    def test_single_animation_output_exists(self):
+        """Check that the animated SVG file is generated."""
+        self.check_examples()
+
+    def test_single_animation_output_matches(self):
+        """Check that the generated file matches the precomputed file."""
+        self.check_examples()
+
+
+class TestAnimateBulk(R2dtTestCase):
+    """Check that bulk animation works correctly."""
+
+    # Reference PDB file
+    ref_pdb = Path("examples") / "PZ1_solution_0.pdb"
+    # Directory containing query PDB files
+    query_dir = Path("examples") / "animate_bulk"
+    # Test results and precomputed results
+    test_results = Path("tests") / "results" / "animate_bulk"
+    ref_dest = test_results / "PZ1_solution_0.pdb"
+    query_dest = test_results / "query"
+
+    precomputed_results = Path("tests") / "examples" / "animate_bulk"
+    files = [
+        "PZ1_solution_0_to_PZ1_Bujnicki_1.animated.svg",
+        "PZ1_solution_0_to_PZ1_Bujnicki_2.animated.svg",
+        "PZ1_solution_0_to_PZ1_Bujnicki_3.animated.svg",
+    ]
+
+    # Command to run
+    cmd = f"python ./utils/animate3d.py -b {ref_dest} {query_dest} > /dev/null 2>&1"
+
+    def setUp(self):
+        """Set up the test environment."""
+        # Ensure test results directory exists
+        if not self.test_results.exists():
+            self.test_results.mkdir(parents=True)
+
+        # Copy reference PDB to test results directory
+        shutil.copy(self.ref_pdb, self.test_results)
+
+        # Create a query subdirectory and copy query PDBs into it
+        if not self.query_dest.exists():
+            self.query_dest.mkdir(parents=True)
+
+        for pdb_file in self.query_dir.glob("*.pdb"):
+            shutil.copy(pdb_file, self.query_dest)
+
+        # Run the animation script
+        runner.run(self.cmd, print_output=True)
+
+    def test_bulk_animation_output_exists(self):
+        """Check that all animated SVG files are generated."""
+        self.check_examples()
+
+    def test_bulk_animation_output_matches(self):
+        """Check that the generated files match the precomputed files."""
+        self.check_examples()
+
+
 if __name__ == "__main__":
     unittest.main()
