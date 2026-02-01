@@ -84,12 +84,30 @@ class RfamSeed:
         """Get a path to an Rfam seed alignment given an accession."""
         seed_filename = self.get_seed_filename(rfam_acc)
         if seed_filename.exists():
-            return seed_filename
+            # Validate the file starts with STOCKHOLM header
+            with open(seed_filename) as f:
+                first_line = f.readline().strip()
+            if first_line == "# STOCKHOLM 1.0":
+                return seed_filename
+            # Invalid file, remove and re-fetch
+            seed_filename.unlink()
+
         if self.seed_archive.exists():
             cmd = f"esl-afetch {self.seed_archive} {rfam_acc} > {seed_filename}"
             runner.run(cmd)
+
+            # Validate the fetched file
+            if seed_filename.exists():
+                with open(seed_filename) as f:
+                    first_line = f.readline().strip()
+                if first_line != "# STOCKHOLM 1.0":
+                    # Index may be corrupted, re-index and retry
+                    self._index_seed_archive()
+                    seed_filename.unlink(missing_ok=True)
+                    runner.run(cmd)
         else:
             self.download_rfam_seed(rfam_acc)
+
         if not seed_filename.exists():
             raise FileNotFoundError(f"Rfam seed alignment not found in {seed_filename}")
         return seed_filename
