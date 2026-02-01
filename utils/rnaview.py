@@ -41,6 +41,45 @@ def extract_sequence(pdb_file, model_id=0, chain_id=None):
     return "".join(sequence)
 
 
+def cleanup_rnaview_files(pdb_file):
+    """
+    Clean up temporary files created by RNAview.
+
+    RNAview creates several output files in the same directory as the input PDB:
+    - {pdb}.out, {pdb}.ps, {pdb}.xml
+    - {pdb}_new_torsion.out, {pdb}_patt.out, {pdb}_sort.out
+    - {pdb}_tmp.pdb
+    - base_pair_statistics.out (in current working directory)
+
+    Args:
+        pdb_file (str): Path to the PDB file.
+    """
+    pdb_path = Path(pdb_file)
+    pdb_dir = pdb_path.parent
+    pdb_name = pdb_path.name
+
+    # Files created by RNAview in the same directory as the PDB
+    rnaview_suffixes = [
+        ".out",
+        ".ps",
+        ".xml",
+        "_new_torsion.out",
+        "_patt.out",
+        "_sort.out",
+        "_tmp.pdb",
+    ]
+
+    for suffix in rnaview_suffixes:
+        temp_file = pdb_dir / f"{pdb_name}{suffix}"
+        if temp_file.exists():
+            temp_file.unlink()
+
+    # base_pair_statistics.out is created in the current working directory
+    stats_file = Path("base_pair_statistics.out")
+    if stats_file.exists():
+        stats_file.unlink()
+
+
 def run_rnaview(pdb_file):
     """
     Run RNAview on a given PDB file.
@@ -237,52 +276,62 @@ def get_structure_info(pdb_file):
         pdb_file (str): Path to the PDB file.
 
     Returns:
-        tuple: (structure, list of (model_id, chain_id) tuples)
+        tuple: (structure, list of model_ids with RNA chains)
     """
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("RNA", pdb_file)
 
-    model_chain_pairs = []
+    models_with_rna = []
     for model in structure:
+        has_rna = False
         for chain in model:
             # Check if chain has RNA residues
-            has_rna = any(
+            if any(
                 residue.id[0] == " " and residue.resname in ["A", "U", "G", "C"]
                 for residue in chain
-            )
-            if has_rna:
-                model_chain_pairs.append((model.id, chain.id))
+            ):
+                has_rna = True
+                break
+        if has_rna:
+            models_with_rna.append(model.id)
 
-    return structure, model_chain_pairs
+    return structure, models_with_rna
 
 
-def process_single(pdb_file, model_id=0, chain_id=None):
+def process_model(pdb_file, model_id=0, num_models=1):
     """
-    Process a single model/chain combination.
+    Process a single model (with all its chains).
+
+    For RNA structures, chains often base-pair with each other (e.g., duplexes),
+    so we process all chains together within a model.
 
     Args:
         pdb_file (str): Path to the PDB file.
         model_id (int): Model ID to extract.
-        chain_id (str): Chain ID to extract (None for first chain).
+        num_models (int): Total number of models (for output naming).
 
     Returns:
         bool: True if successful.
     """
-    sequence = extract_sequence(pdb_file, model_id=model_id, chain_id=chain_id)
+    # Extract ALL chains for this model to match RNAview output
+    sequence = extract_sequence(pdb_file, model_id=model_id, chain_id="all")
     if not sequence:
-        print(f"  No sequence found for model {model_id}, chain {chain_id}")
+        print(f"  No sequence found for model {model_id}")
         return False
 
     rnaview_output = run_rnaview(pdb_file)
     dot_bracket = parse_rnaview_output(rnaview_output, sequence)
     if not dot_bracket:
-        print(f"  Error parsing RNAview output for model {model_id}, chain {chain_id}")
+        print(f"  Error parsing RNAview output for model {model_id}")
         return False
 
-    # Generate output name
+    # Generate output name - simpler naming for single-model structures
     pdb_path = Path(pdb_file)
     pdb_name = pdb_path.stem
-    output_name = f"{pdb_name}_model{model_id}_chain{chain_id}"
+    if num_models == 1:
+        output_name = pdb_name
+    else:
+        output_name = f"{pdb_name}_model{model_id}"
 
     # Write FASTA
     fasta_path = pdb_path.parent / f"{output_name}.fasta"
@@ -290,32 +339,45 @@ def process_single(pdb_file, model_id=0, chain_id=None):
 
     print(f"  {output_name}: {len(sequence)} nt")
 
-    # Run R2DT
+    # Run R2DT and get the colored SVG path
     result = run_r2dt(str(fasta_path), output_name)
+
+    # Move the SVG to the expected location for backward compatibility
+    svg_source = pdb_path.parent / "svg" / f"{output_name}.svg"
+    svg_dest = pdb_path.parent / f"{output_name}.colored.svg"
+    if svg_source.exists():
+        shutil.move(str(svg_source), str(svg_dest))
+        # Clean up the svg directory if empty
+        svg_dir = pdb_path.parent / "svg"
+        if svg_dir.exists() and not any(svg_dir.iterdir()):
+            svg_dir.rmdir()
 
     # Clean up FASTA file
     if fasta_path.exists():
         fasta_path.unlink()
 
-    return result is not None
+    # Clean up RNAview temporary files
+    cleanup_rnaview_files(pdb_file)
+
+    return result is not None and svg_dest.exists()
 
 
 def main():
     """
     Main function for processing a PDB file, generating RNA secondary structure,
-    and running R2DT. Processes all models and chains.
+    and running R2DT. Processes all models (with all chains per model).
     """
     if len(sys.argv) < 2:
         print("Usage: python3 rnaview.py <pdb_file> [--single]")
-        print("  --single: Only process first model/chain (default: all)")
+        print("  --single: Only process first model (default: all models)")
         sys.exit(1)
 
     pdb_file = sys.argv[1]
     single_mode = "--single" in sys.argv
 
     if single_mode:
-        # Original behavior: first model, first chain
-        sequence = extract_sequence(pdb_file)
+        # Original behavior: first model with all chains
+        sequence = extract_sequence(pdb_file, model_id=0, chain_id="all")
         if not sequence:
             print("Error extracting sequence from PDB file.")
             sys.exit(1)
@@ -335,35 +397,33 @@ def main():
         write_fasta(str(fasta_path), pdb_path.stem, sequence, dot_bracket)
         r2dt_output = run_r2dt(str(fasta_path))
         print(r2dt_output)
+        # Clean up RNAview temporary files
+        cleanup_rnaview_files(pdb_file)
     else:
-        # Process all models and chains
-        _, model_chain_pairs = get_structure_info(pdb_file)
+        # Process all models (with all chains per model)
+        _, models_with_rna = get_structure_info(pdb_file)
 
-        if not model_chain_pairs:
+        if not models_with_rna:
             print("No RNA chains found in PDB file.")
             sys.exit(1)
 
-        # Check if multiple models (NMR) or just one
-        unique_models = set(m for m, c in model_chain_pairs)
-        unique_chains = set(c for m, c in model_chain_pairs if m == 0)
-
-        print(
-            f"Found {len(unique_models)} model(s) and {len(unique_chains)} RNA chain(s)"
-        )
+        num_models = len(models_with_rna)
+        print(f"Found {num_models} model(s) with RNA chains")
 
         # For NMR with many models, only process first model
-        if len(unique_models) > 1:
+        if num_models > 1:
             print(
-                f"NMR structure detected ({len(unique_models)} models). Processing model 0 only."
+                f"NMR structure detected ({num_models} models). Processing model 0 only."
             )
-            model_chain_pairs = [(m, c) for m, c in model_chain_pairs if m == 0]
+            models_with_rna = [0]
+            num_models = 1
 
         success = 0
-        for model_id, chain_id in model_chain_pairs:
-            if process_single(pdb_file, model_id, chain_id):
+        for model_id in models_with_rna:
+            if process_model(pdb_file, model_id, num_models):
                 success += 1
 
-        print(f"\nGenerated {success}/{len(model_chain_pairs)} images")
+        print(f"\nGenerated {success}/{len(models_with_rna)} images")
 
 
 if __name__ == "__main__":
