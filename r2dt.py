@@ -18,9 +18,11 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tarfile
 import time
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import click  # pylint: disable=import-error
@@ -1199,6 +1201,596 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, quiet):
             fasta_input,
             results_folder / "fasta" / f"{seq_id}.fasta",
         )
+
+
+# =============================================================================
+# SVG Stitching Commands
+# =============================================================================
+
+
+@cli.command()
+@click.argument("inputs", nargs=-1, type=click.Path(exists=True))
+@click.option(
+    "-o", "--output", type=click.Path(), required=True, help="Output SVG file path"
+)
+@click.option(
+    "--gap",
+    type=float,
+    default=100,
+    help="Horizontal gap between panels (default: 100)",
+)
+@click.option(
+    "--sort",
+    "sort_by_coords",
+    is_flag=True,
+    default=False,
+    help="Sort by genomic coordinates from filenames",
+)
+@click.option(
+    "--glyph",
+    type=click.Choice(["none", "bead", "bar", "break"]),
+    default="break",
+    help="Join glyph type (default: break)",
+)
+@click.option(
+    "--monochrome/--color",
+    default=True,
+    help="Monochrome output (default) or preserve colors",
+)
+@click.option(
+    "--captions",
+    multiple=True,
+    help="Caption for each panel (can specify multiple times)",
+)
+@click.option(
+    "--caption-font-size",
+    type=float,
+    default=None,
+    help="Caption font size (auto-detected if not set)",
+)
+@click.option(
+    "--keep-intermediate-labels",
+    is_flag=True,
+    default=False,
+    help="Keep all 5'/3' labels",
+)
+@click.option(
+    "--no-gap-labels",
+    is_flag=True,
+    default=False,
+    help="Hide nucleotide distance labels",
+)
+@click.option(
+    "--gap-label-font-size",
+    type=float,
+    default=None,
+    help="Font size for gap labels (auto-detected if not set)",
+)
+@click.option(
+    "--no-outline",
+    is_flag=True,
+    default=False,
+    help="Disable connecting outline stroke",
+)
+@click.option(
+    "--outline-color", type=str, default="#cccccc", help="Outline stroke color"
+)
+@click.option("--outline-width", type=float, default=3.0, help="Outline stroke width")
+@click.option(
+    "--outline-opacity", type=float, default=0.6, help="Outline opacity (0-1)"
+)
+@click.option(
+    "--anchor-label-font-size",
+    type=float,
+    default=None,
+    help="Font size for 5'/3' labels (auto-detected if not set)",
+)
+@click.option(
+    "--normalize-font-size",
+    is_flag=True,
+    default=False,
+    help="Scale panels to match nucleotide font size of first panel",
+)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+def stitch(
+    inputs,
+    output,
+    gap,
+    sort_by_coords,
+    glyph,
+    monochrome,
+    captions,
+    caption_font_size,
+    keep_intermediate_labels,
+    no_gap_labels,
+    gap_label_font_size,
+    no_outline,
+    outline_color,
+    outline_width,
+    outline_opacity,
+    anchor_label_font_size,
+    normalize_font_size,
+    quiet,
+):
+    """
+    Stitch multiple R2DT SVG diagrams into one combined SVG.
+
+    Arranges panels left-to-right with panel i's 3′ joining panel i+1's 5′.
+    """
+    from utils import stitch as stitch_module
+
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+
+    if len(inputs) < 2:
+        rprint("[red]Error: At least 2 input SVG files required[/red]")
+        return
+
+    # Parse all input SVGs
+    panels = []
+    for filepath in inputs:
+        try:
+            panel = stitch_module.parse_svg(Path(filepath))
+            panels.append(panel)
+            if not quiet:
+                rprint(f"Loaded: {filepath}")
+                rprint(f"  viewBox: {panel.viewbox}")
+                rprint(f"  5′ anchor: ({panel.anchor_5.x:.2f}, {panel.anchor_5.y:.2f})")
+                rprint(f"  3′ anchor: ({panel.anchor_3.x:.2f}, {panel.anchor_3.y:.2f})")
+                rprint(
+                    f"  genomic coords: {panel.genomic_start:,}-{panel.genomic_end:,}"
+                )
+        except (FileNotFoundError, ValueError) as e:
+            rprint(f"[red]Error: {e}[/red]")
+            return
+
+    # Sort by genomic position if requested
+    if sort_by_coords:
+        panels.sort(key=lambda p: p.sort_key)
+        if not quiet:
+            rprint("\nSorted order:")
+            for i, p in enumerate(panels):
+                rprint(
+                    f"  {i+1}. {p.filepath.name} ({p.genomic_start:,}-{p.genomic_end:,})"
+                )
+
+    # Validate captions
+    caption_list = list(captions) if captions else None
+    if caption_list and len(caption_list) != len(panels):
+        rprint(
+            f"[red]Error: --captions requires exactly {len(panels)} values (got {len(caption_list)})[/red]"
+        )
+        return
+
+    # Stitch panels
+    result = stitch_module.stitch_svgs(
+        panels=panels,
+        gap=gap,
+        glyph_type=glyph,
+        captions=caption_list,
+        caption_font_size=caption_font_size,
+        caption_pad=8,
+        keep_intermediate_labels=keep_intermediate_labels,
+        show_gap_labels=not no_gap_labels,
+        gap_label_font_size=gap_label_font_size,
+        monochrome=monochrome,
+        outline=not no_outline,
+        outline_color=outline_color,
+        outline_width=outline_width,
+        outline_opacity=outline_opacity,
+        anchor_label_font_size=anchor_label_font_size,
+        normalize_font_size=normalize_font_size,
+    )
+
+    # Write output
+    stitch_module.write_svg(result, Path(output))
+
+    if not quiet:
+        rprint(f"\n[green]Created: {output}[/green]")
+        rprint(f"  Panels: {len(panels)}")
+        rprint(f"  Joins: {len(panels) - 1}")
+        if caption_list:
+            rprint(f"  Captions: {caption_list}")
+
+
+# =============================================================================
+# Viral Genome Annotation
+# =============================================================================
+
+
+@cli.command("viral-annotate")
+@click.argument("genome-fasta", type=click.Path(exists=True))
+@click.argument("output-folder", type=click.Path())
+@click.option(
+    "--stitch-output",
+    type=click.Path(),
+    default=None,
+    help="Path for stitched SVG output",
+)
+@click.option(
+    "--cm-library",
+    type=click.Path(),
+    default=None,
+    help="Path to CM library (default: data/rfam/cms/all.cm)",
+)
+@click.option(
+    "--clanin", type=click.Path(), default=None, help="Path to Rfam.clanin file"
+)
+@click.option("--cpu", type=int, default=4, help="Number of CPUs for cmscan")
+@click.option(
+    "--evalue",
+    "-E",
+    type=float,
+    default=None,
+    help="E-value threshold (default: use Rfam GA thresholds)",
+)
+@click.option(
+    "--monochrome/--color",
+    default=True,
+    help="Monochrome output (default) or preserve colors",
+)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+def viral_annotate(
+    genome_fasta,
+    output_folder,
+    stitch_output,
+    cm_library,
+    clanin,
+    cpu,
+    evalue,
+    monochrome,
+    quiet,
+):
+    """
+    Annotate a viral genome with Rfam ncRNA families and generate diagrams.
+
+    Runs cmscan with Rfam GA thresholds, draws each hit, and stitches results.
+
+    Example:
+        r2dt.py viral-annotate genome.fasta output/ --stitch-output stitched.svg
+    """
+    from utils import stitch as stitch_module
+
+    if not quiet:
+        rprint(shared.get_r2dt_version_header())
+
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    # Set default CM library path
+    if cm_library is None:
+        cm_library = os.path.join(config.RFAM_CM_LIBRARY, "all.cm")
+
+    if not os.path.exists(cm_library):
+        rprint(f"[red]Error: CM library not found: {cm_library}[/red]")
+        return
+
+    # Check if CM library is indexed (cmpress creates .i1f, .i1i, .i1m, .i1p files)
+    cm_i1f = cm_library + ".i1f"
+    if not os.path.exists(cm_i1f):
+        if not quiet:
+            rprint("Indexing CM library with cmpress...")
+        runner.run(f"cmpress -F {cm_library}")
+
+    # Step 1: Calculate database size
+    if not quiet:
+        rprint("\n[bold]Step 1: Calculating genome size[/bold]")
+
+    # Try esl-seqstat first, fall back to Python parsing
+    total_residues = 0
+    seqstat_result = subprocess.run(
+        f"esl-seqstat {genome_fasta}",
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=False,  # Don't raise on non-zero exit
+    )
+    if seqstat_result.returncode == 0:
+        for line in seqstat_result.stdout.split("\n"):
+            # Match both "Total # residues:" and "Total # of residues:"
+            if "Total #" in line and "residues:" in line:
+                total_residues = int(line.split(":")[1].strip())
+                break
+
+    # Fallback: parse FASTA directly with Python
+    if total_residues == 0:
+        if not quiet:
+            rprint("  Using Python FASTA parsing (esl-seqstat not available)")
+        with open(genome_fasta) as f:
+            for line in f:
+                if not line.startswith(">"):
+                    total_residues += len(line.strip())
+
+    if total_residues == 0:
+        rprint("[red]Error: Could not determine genome size[/red]")
+        return
+
+    # Database size in Mb (both strands)
+    db_size = (total_residues * 2) / 1_000_000
+    if not quiet:
+        rprint(f"  Genome size: {total_residues:,} nt")
+        rprint(f"  Database size (Z): {db_size:.6f} Mb")
+
+    # Step 2: Run cmscan with Rfam recommended settings
+    if not quiet:
+        rprint("\n[bold]Step 2: Running cmscan with Rfam GA thresholds[/bold]")
+
+    # Find cmscan executable (may need full path in some environments)
+    import shutil
+
+    cmscan_bin = shutil.which("cmscan")
+    if cmscan_bin is None:
+        # Try common locations
+        for path in [
+            "/usr/bin/cmscan",
+            "/usr/local/bin/cmscan",
+            "/opt/infernal/bin/cmscan",
+        ]:
+            if os.path.exists(path):
+                cmscan_bin = path
+                break
+    if cmscan_bin is None:
+        rprint("[red]Error: cmscan not found. Please install Infernal.[/red]")
+        return
+
+    tblout_file = output_folder / "cmscan.tblout"
+    cmscan_output = output_folder / "cmscan.out"
+
+    # Build cmscan command following Rfam recommendations
+    if evalue is not None:
+        # Use E-value threshold instead of GA
+        threshold_opts = f"-E {evalue}"
+        if not quiet:
+            rprint(f"  Using E-value threshold: {evalue}")
+    else:
+        threshold_opts = "--cut_ga"
+
+    cmscan_cmd = (
+        f"{cmscan_bin} -Z {db_size:.6f} {threshold_opts} --rfam --nohmmonly "
+        f"--tblout {tblout_file} --fmt 2 "
+        f"--cpu {cpu} "
+    )
+
+    # Add clanin if provided
+    if clanin and os.path.exists(clanin):
+        cmscan_cmd += f"--clanin {clanin} "
+
+    cmscan_cmd += f"{cm_library} {genome_fasta} > {cmscan_output}"
+
+    if not quiet:
+        rprint("  Running: cmscan... (this may take several minutes)")
+
+    exit_code = runner.run(cmscan_cmd)
+
+    if exit_code != 0 or not tblout_file.exists():
+        rprint(
+            "[red]Error: cmscan failed. Check output/coronavirus/cmscan.out for details.[/red]"
+        )
+        return
+
+    # Step 3: Parse tblout and filter overlapping hits
+    if not quiet:
+        rprint("\n[bold]Step 3: Parsing cmscan results[/bold]")
+
+    hits = []
+    with open(tblout_file) as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            parts = line.split()
+            if len(parts) < 18:
+                continue
+
+            # Format 2 columns: idx, target, accession, query, accession, clan,
+            # mdl, mdl_from, mdl_to, seq_from, seq_to, strand, trunc, pass, gc,
+            # bias, score, E-value, inc, olp, ...
+
+            try:
+                target_name = parts[1]  # Rfam family name
+                target_acc = parts[2]  # Rfam accession (e.g., RF00507)
+                query_name = parts[3]  # Sequence name
+                seq_from = int(parts[9])
+                seq_to = int(parts[10])
+                strand = parts[11]
+                score = float(parts[16])
+                evalue = parts[17]
+                olp = parts[19] if len(parts) > 19 else "*"
+
+                # Filter: keep only non-overlapped or best-overlapped hits
+                # olp = "*" (no overlap), "^" (has overlap but is best), "=" (has better overlap)
+                if olp == "=":
+                    continue  # Skip hits with better overlapping hits
+
+                # Normalize coordinates (start < end)
+                start = min(seq_from, seq_to)
+                end = max(seq_from, seq_to)
+
+                hits.append(
+                    {
+                        "family": target_name,
+                        "accession": target_acc,
+                        "query": query_name,
+                        "start": start,
+                        "end": end,
+                        "strand": strand,
+                        "score": score,
+                        "evalue": evalue,
+                    }
+                )
+
+            except (ValueError, IndexError):
+                continue
+
+    if not hits:
+        rprint("[yellow]No RNA families found in the genome[/yellow]")
+        return
+
+    # Sort hits by genomic position
+    hits.sort(key=lambda h: h["start"])
+
+    if not quiet:
+        rprint(f"  Found {len(hits)} RNA family hits:")
+        for h in hits:
+            rprint(
+                f"    {h['accession']} ({h['family']}): {h['start']:,}-{h['end']:,} {h['strand']} score={h['score']:.1f}"
+            )
+
+    # Step 4: Extract hit regions and run rfam draw
+    if not quiet:
+        rprint("\n[bold]Step 4: Generating 2D diagrams for each hit[/bold]")
+
+    # Read genome sequence
+    genome_seq = ""
+    genome_id = ""
+    with open(genome_fasta) as f:
+        for line in f:
+            if line.startswith(">"):
+                genome_id = line[1:].split()[0]
+            else:
+                genome_seq += line.strip()
+
+    svg_files = []
+    rfam_output = output_folder / "rfam"
+    rfam_output.mkdir(exist_ok=True)
+
+    for hit in hits:
+        # Extract the hit region sequence
+        hit_seq = genome_seq[hit["start"] - 1 : hit["end"]]
+
+        if hit["strand"] == "-":
+            # Reverse complement
+            complement = {
+                "A": "U",
+                "T": "A",
+                "U": "A",
+                "G": "C",
+                "C": "G",
+                "a": "u",
+                "t": "a",
+                "u": "a",
+                "g": "c",
+                "c": "g",
+            }
+            hit_seq = "".join(complement.get(b, b) for b in reversed(hit_seq))
+
+        # Create a FASTA file for this hit
+        hit_id = f"{genome_id}_{hit['start']}-{hit['end']}_{hit['strand']}-{hit['accession']}"
+        hit_fasta = rfam_output / f"{hit_id}.fasta"
+
+        with open(hit_fasta, "w") as f:
+            f.write(f">{hit_id}\n{hit_seq}\n")
+
+        # Run R2DT visualization using the rfam draw command
+        try:
+            core.visualise(
+                "rfam",
+                str(hit_fasta),
+                str(rfam_output),
+                hit_id,
+                hit["accession"],
+                constraint=False,
+                exclusion=None,
+                fold_type=None,
+                domain=None,
+                isotype=None,
+                start=None,
+                end=None,
+                quiet=True,
+            )
+
+            # Look for the generated SVG
+            svg_pattern = rfam_output / f"{hit_id}.colored.svg"
+            if svg_pattern.exists():
+                svg_files.append(svg_pattern)
+                if not quiet:
+                    rprint(f"  [green]✓[/green] {hit['accession']} ({hit['family']})")
+            else:
+                # Try alternate naming patterns
+                for svg in rfam_output.glob(f"*{hit_id}*.svg"):
+                    if "colored" in str(svg):
+                        svg_files.append(svg)
+                        if not quiet:
+                            rprint(
+                                f"  [green]✓[/green] {hit['accession']} ({hit['family']})"
+                            )
+                        break
+                else:
+                    if not quiet:
+                        rprint(
+                            f"  [yellow]![/yellow] {hit['accession']} - SVG not found"
+                        )
+
+        except (FileNotFoundError, ValueError, ET.ParseError) as e:
+            if not quiet:
+                rprint(f"  [red]✗[/red] {hit['accession']} ({hit['family']}): {e}")
+
+    # Step 5: Stitch SVGs together
+    if svg_files and stitch_output:
+        if not quiet:
+            rprint(f"\n[bold]Step 5: Stitching {len(svg_files)} diagrams[/bold]")
+
+        # Parse and stitch
+        panels = []
+        for svg_file in svg_files:
+            try:
+                panel = stitch_module.parse_svg(svg_file)
+                panels.append(panel)
+            except (FileNotFoundError, ValueError) as e:
+                if not quiet:
+                    rprint(
+                        f"  [yellow]Warning: Could not parse {svg_file}: {e}[/yellow]"
+                    )
+
+        if len(panels) >= 2:
+            # Sort by genomic position
+            panels.sort(key=lambda p: p.sort_key)
+
+            # Generate captions from hit info
+            caption_list = [
+                f"{h['accession']} ({h['family']})"
+                for h in hits
+                if any(h["accession"] in str(p.filepath) for p in panels)
+            ]
+
+            result = stitch_module.stitch_svgs(
+                panels=panels,
+                gap=100,
+                glyph_type="break",
+                captions=caption_list if len(caption_list) == len(panels) else None,
+                caption_font_size=36,
+                caption_pad=8,
+                keep_intermediate_labels=False,
+                show_gap_labels=True,
+                gap_label_font_size=36,
+                monochrome=monochrome,
+                outline=True,
+                outline_color="#cccccc",
+                outline_width=3.0,
+                outline_opacity=0.6,
+                anchor_label_font_size=48,
+                normalize_font_size=True,
+            )
+
+            stitch_module.write_svg(result, Path(stitch_output))
+
+            if not quiet:
+                rprint(f"\n[green]Created stitched output: {stitch_output}[/green]")
+        elif len(panels) == 1:
+            # Just copy the single SVG
+            shutil.copy(svg_files[0], stitch_output)
+            if not quiet:
+                rprint(f"\n[green]Copied single diagram to: {stitch_output}[/green]")
+        else:
+            if not quiet:
+                rprint("[yellow]No SVGs available for stitching[/yellow]")
+
+    # Summary
+    if not quiet:
+        rprint("\n[bold]Summary[/bold]")
+        rprint(f"  Genome: {genome_id} ({total_residues:,} nt)")
+        rprint(f"  RNA families found: {len(hits)}")
+        rprint(f"  Diagrams generated: {len(svg_files)}")
+        rprint(f"  Output folder: {output_folder}")
 
 
 @cli.command()
