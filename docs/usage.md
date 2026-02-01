@@ -196,6 +196,87 @@ r2dt.py draw --skip_ribovore_filters examples/ribovore-filters.fasta temp/exampl
 
 Please note that this option should be used with caution as sequences with unexpected features often result in poor diagrams.
 
+## Stitching multiple diagrams
+
+The `stitch` command combines multiple R2DT SVG diagrams into a single horizontal layout. This is useful for displaying multiple RNA structures from a viral genome, comparing related structures, or creating publication-ready figures.
+
+### Basic usage
+
+```bash
+r2dt.py stitch diagram1.svg diagram2.svg diagram3.svg -o combined.svg
+```
+
+### Sorting by genomic coordinates
+
+When SVG filenames include genomic coordinates (e.g., `RF00507_13469-13546.svg`), the `--sort` flag arranges panels in genomic order:
+
+```bash
+r2dt.py stitch output/rfam/*.svg -o stitched.svg --sort
+```
+
+### Adding captions
+
+Add labels above each panel using `--captions` (specify once per panel):
+
+```bash
+r2dt.py stitch \
+    5utr.svg fse.svg 3utr.svg \
+    -o combined.svg \
+    --captions "5′ UTR" --captions "FSE" --captions "3′ UTR"
+```
+
+### Available options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output PATH` | Required | Output SVG file path |
+| `--gap FLOAT` | 100 | Horizontal gap between panels (pixels) |
+| `--sort` | False | Sort panels by genomic coordinates |
+| `--glyph TYPE` | break | Join glyph: `none`, `bead`, `bar`, `break` |
+| `--monochrome/--color` | monochrome | Monochrome (default) or preserve original colors |
+| `--captions TEXT` | None | Caption for each panel (repeat for each) |
+| `--caption-font-size FLOAT` | auto | Font size for captions |
+| `--keep-intermediate-labels` | False | Show all 5′/3′ labels |
+| `--no-gap-labels` | False | Hide nucleotide distance labels |
+| `--gap-label-font-size FLOAT` | auto | Font size for gap labels |
+| `--no-outline` | False | Disable connecting outline stroke |
+| `--outline-color COLOR` | #cccccc | Outline stroke color |
+| `--outline-width FLOAT` | 3.0 | Outline stroke width |
+| `--outline-opacity FLOAT` | 0.6 | Outline opacity (0-1) |
+| `--anchor-label-font-size FLOAT` | auto | Font size for 5′/3′ labels |
+| `--normalize-font-size` | False | Scale panels to match nucleotide font size of first panel |
+| `-q, --quiet` | False | Suppress output messages |
+
+### Join glyphs
+
+The `--glyph` option controls how panels are visually connected:
+
+- `none` - No connecting element
+- `bead` - Small circle at each join point
+- `bar` - Vertical line connecting 3′ to 5′
+- `break` - Double diagonal lines indicating a sequence break (default)
+
+### Example with all options
+
+```bash
+r2dt.py stitch \
+    panel1.svg panel2.svg panel3.svg \
+    -o publication-figure.svg \
+    --sort \
+    --gap 150 \
+    --glyph break \
+    --captions "Region A" --captions "Region B" --captions "Region C" \
+    --monochrome \
+    --outline-color "#999999" \
+    --outline-width 2.0
+```
+
+:::{note}
+Font sizes for captions, gap labels, and anchor labels are automatically detected from the nucleotide font size in the input SVGs. Override with explicit values if needed.
+:::
+
+For a complete workflow example using `stitch` with viral genomes, see [Annotating viral genomes](viral-genomes.md).
+
 ## Other useful commands
 
 * Print R2DT version
