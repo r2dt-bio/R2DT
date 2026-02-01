@@ -29,6 +29,8 @@ def update_fasta_with_original_sequence(
     Update the fasta file used by Traveler with the original sequence
     without large insertions that are replaced with XXXX characters.
     This ensures that lowercase characters are retained in the output.
+    Also converts T→U to ensure RNA notation is used in the visualization
+    (DNA T would be displayed as green/edited since templates use U).
     """
     lines = []
     original_sequence_insertions_removed = ""
@@ -37,6 +39,8 @@ def update_fasta_with_original_sequence(
         original_sequence = ""
         for line in lines[1:]:
             original_sequence += line.strip()
+        # Convert DNA T→U (RNA notation) to match templates which use U
+        original_sequence = original_sequence.replace("T", "U").replace("t", "u")
         lines = f_fasta.readlines()
 
     if insertion_removed:
@@ -77,6 +81,7 @@ def update_post_prob_file(temp_post_prob, original_sequence_insertions_removed):
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-positional-arguments
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-return-statements
 def visualise(
@@ -491,6 +496,7 @@ def adjust_font_size(result_base):
 
 
 # pylint: disable-next=too-many-arguments
+# pylint: disable=too-many-positional-arguments
 def visualise_trna(
     domain, isotype, fasta_input, output_folder, constraint, exclusion, fold_type, quiet
 ):
