@@ -165,7 +165,9 @@ def get_rfam_cms():
             temp_list.write(f"{rfam_acc}\n")
         temp_list.flush()
         runner.run(f"cmfetch -f {rfam_cm} {temp_list.name} >> {rfam_all_cm}")
-    runner.run(f"cmfetch --index {rfam_all_cm}")
+    rfam_all_cm_ssi = rfam_all_cm.with_suffix(".cm.ssi")
+    if not rfam_all_cm_ssi.exists():
+        runner.run(f"cmfetch --index {rfam_all_cm}")
 
     # Get the accession to Rfam ID mapping
     family_file_path = Path(config.RFAM_DATA) / "family.txt"
@@ -612,7 +614,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-# pylint: disable-next=too-many-arguments
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def generate_2d(
     rfam_acc,
     output_folder,
