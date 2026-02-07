@@ -2238,7 +2238,7 @@ def generate_template(json_file, quiet):
 
 
 @cli.command()
-@click.argument("pdb-id", type=click.STRING)
+@click.argument("pdb-input", type=click.STRING)
 @click.argument("output-folder", type=click.Path())
 @click.option(
     "--basepairs",
@@ -2270,13 +2270,20 @@ def generate_template(json_file, quiet):
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
 # pylint: disable=too-many-positional-arguments
 def pdb(
-    ctx, pdb_id, output_folder, basepairs, structure_format, chain, pseudoknots, quiet
+    ctx,
+    pdb_input,
+    output_folder,
+    basepairs,
+    structure_format,
+    chain,
+    pseudoknots,
+    quiet,
 ):
     """
-    Generate R2DT diagram from an RCSB PDB structure ID.
+    Generate R2DT diagram from a PDB structure.
 
-    Downloads the structure from RCSB, extracts RNA secondary structure,
-    and generates a 2D diagram.
+    Accepts either a PDB ID (downloads from RCSB) or a local PDB/mmCIF file.
+    Supports gzip-compressed files (.pdb.gz, .cif.gz).
 
     Examples:
 
@@ -2285,47 +2292,88 @@ def pdb(
         r2dt.py pdb 9FN3 output/ --basepairs fr3d
 
         r2dt.py pdb 1EHZ output/ --chain A
-    """
-    if not quiet:
-        rprint(shared.get_r2dt_version_header())
-        rprint(f"[bold]Processing PDB structure: {pdb_id}[/bold]")
 
-    # Validate PDB ID
-    if not pdb_fetch.validate_pdb_id(pdb_id):
-        rprint(f"[red]Error: Invalid PDB ID: {pdb_id}[/red]")
-        return
+        r2dt.py pdb ./structures/my_rna.cif output/
+
+        r2dt.py pdb ./structures/my_rna.pdb.gz output/ --basepairs rnaview
+    """
+    # Check if input is a local file or PDB ID
+    is_local_file = pdb_fetch.is_local_structure_file(pdb_input)
+
+    if is_local_file:
+        # Validate local file
+        file_path = Path(pdb_input)
+        is_valid, detected_format, error_msg = pdb_fetch.validate_structure_file(
+            file_path
+        )
+        if not is_valid:
+            rprint(f"[red]Error: {error_msg}[/red]")
+            return
+
+        # Derive structure ID from filename
+        structure_id = file_path.stem
+        if structure_id.endswith((".pdb", ".cif")):
+            structure_id = structure_id.rsplit(".", 1)[0]
+
+        actual_format = detected_format
+
+        if not quiet:
+            rprint(shared.get_r2dt_version_header())
+            rprint(f"[bold]Processing local structure file: {file_path}[/bold]")
+            rprint(f"Detected format: {actual_format}")
+    else:
+        # Treat as PDB ID
+        pdb_id = pdb_input
+        if not pdb_fetch.validate_pdb_id(pdb_id):
+            rprint(
+                f"[red]Error: '{pdb_input}' is not a valid PDB ID or file path[/red]"
+            )
+            rprint("PDB IDs should be 4+ alphanumeric characters (e.g., 1S72)")
+            rprint("File paths should end with .pdb, .cif, .pdb.gz, or .cif.gz")
+            return
+
+        if not quiet:
+            rprint(shared.get_r2dt_version_header())
+            rprint(f"[bold]Processing PDB structure: {pdb_id}[/bold]")
+
+        structure_id = pdb_id
 
     # Create output directory
     output_path = Path(output_folder)
     output_path.mkdir(parents=True, exist_ok=True)
-    downloads_dir = output_path / "downloads"
-    downloads_dir.mkdir(exist_ok=True)
 
-    # Determine preferred format based on basepairs tool
-    if structure_format == "auto":
-        # If user wants fr3d, prefer CIF (FR3D works best with CIF)
-        # If user wants rnaview, must use PDB
-        if basepairs == "fr3d":
-            prefer_format = "cif"
-        else:
-            prefer_format = "pdb"
+    if is_local_file:
+        # Use local file directly (in-place reference)
+        pass  # file_path and actual_format already set above
     else:
-        prefer_format = structure_format
+        # Download from RCSB
+        downloads_dir = output_path / "downloads"
+        downloads_dir.mkdir(exist_ok=True)
 
-    # Download structure
-    if not quiet:
-        rprint(f"Downloading structure from RCSB (prefer {prefer_format})...")
+        # Determine preferred format based on basepairs tool
+        if structure_format == "auto":
+            # If user wants fr3d, prefer CIF (FR3D works best with CIF)
+            # If user wants rnaview, must use PDB
+            if basepairs == "fr3d":
+                prefer_format = "cif"
+            else:
+                prefer_format = "pdb"
+        else:
+            prefer_format = structure_format
 
-    file_path, actual_format = pdb_fetch.download_structure(
-        pdb_id, downloads_dir, prefer_format=prefer_format
-    )
+        if not quiet:
+            rprint(f"Downloading structure from RCSB (prefer {prefer_format})...")
 
-    if not file_path:
-        rprint(f"[red]Error: Could not download structure {pdb_id} from RCSB[/red]")
-        return
+        file_path, actual_format = pdb_fetch.download_structure(
+            pdb_id, downloads_dir, prefer_format=prefer_format
+        )
 
-    if not quiet:
-        rprint(f"Downloaded: {file_path} (format: {actual_format})")
+        if not file_path:
+            rprint(f"[red]Error: Could not download structure {pdb_id} from RCSB[/red]")
+            return
+
+        if not quiet:
+            rprint(f"Downloaded: {file_path} (format: {actual_format})")
 
     # Determine which basepairs tool to use
     if basepairs == "auto":
@@ -2371,9 +2419,9 @@ def pdb(
         rprint(f"Base pairs: {dot_bracket.count('(')}")
 
     # Write FASTA file for R2DT
-    fasta_path = output_path / f"{pdb_id}.fasta"
+    fasta_path = output_path / f"{structure_id}.fasta"
     with open(fasta_path, "w") as f:
-        f.write(f">{pdb_id}\n")
+        f.write(f">{structure_id}\n")
         f.write(f"{sequence}\n")
         f.write(f"{dot_bracket}\n")
 
@@ -2395,7 +2443,7 @@ def pdb(
     )
 
     # Report success
-    svg_path = results_folder / "results" / "svg" / f"{pdb_id}.svg"
+    svg_path = results_folder / "results" / "svg" / f"{structure_id}.svg"
     if svg_path.exists():
         if not quiet:
             rprint(f"[green]Success! SVG created: {svg_path}[/green]")
@@ -2410,8 +2458,10 @@ def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
     """
     Extract secondary structure using RNAView.
 
+    Supports gzip-compressed PDB files (.pdb.gz).
+
     Args:
-        pdb_file: Path to PDB file.
+        pdb_file: Path to PDB file (may be gzip-compressed).
         chain_id: Optional chain ID. If None, uses first chain only.
         quiet: If True, suppress verbose output.
 
@@ -2419,27 +2469,30 @@ def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
         Tuple of (sequence, dot_bracket) or (None, None).
     """
     try:
-        # Extract sequence using rnaview module
-        # If no chain specified, use first chain only (consistent with FR3D behavior)
-        sequence = rnaview_utils.extract_sequence(
-            pdb_file, chain_id=chain_id, quiet=quiet
-        )
+        # Use DecompressedStructureFile to handle .gz files
+        # RNAView requires uncompressed file on disk
+        with pdb_fetch.DecompressedStructureFile(Path(pdb_file)) as decompressed_path:
+            # Extract sequence using rnaview module
+            # If no chain specified, use first chain only (consistent with FR3D behavior)
+            sequence = rnaview_utils.extract_sequence(
+                str(decompressed_path), chain_id=chain_id, quiet=quiet
+            )
 
-        if not sequence:
-            return None, None
+            if not sequence:
+                return None, None
 
-        # Run RNAView
-        rnaview_output = rnaview_utils.run_rnaview(pdb_file)
+            # Run RNAView
+            rnaview_output = rnaview_utils.run_rnaview(str(decompressed_path))
 
-        # Parse output to dot-bracket
-        dot_bracket = rnaview_utils.parse_rnaview_output(
-            rnaview_output, sequence, quiet
-        )
+            # Parse output to dot-bracket
+            dot_bracket = rnaview_utils.parse_rnaview_output(
+                rnaview_output, sequence, quiet
+            )
 
-        # Clean up temporary files
-        rnaview_utils.cleanup_rnaview_files(pdb_file)
+            # Clean up temporary files created by RNAView
+            rnaview_utils.cleanup_rnaview_files(str(decompressed_path))
 
-        return sequence, dot_bracket
+            return sequence, dot_bracket
 
     except Exception as e:  # pylint: disable=broad-exception-caught
         if not quiet:

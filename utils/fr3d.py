@@ -22,6 +22,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
+from utils.pdb_fetch import DecompressedStructureFile, open_structure_file
+
 
 def get_structure_info(structure_file: str) -> Dict:
     """
@@ -51,7 +53,7 @@ def _get_cif_structure_info(cif_file: str) -> Dict:
     try:
         from fr3d.cif.reader import Cif  # pylint: disable=import-outside-toplevel
 
-        with open(cif_file, "r") as f:
+        with open_structure_file(Path(cif_file), "r") as f:
             structure = Cif(f).structure()
 
         # Get all RNA nucleotides
@@ -86,7 +88,8 @@ def _get_pdb_structure_info(pdb_file: str) -> Dict:
         from Bio.PDB import PDBParser  # pylint: disable=import-outside-toplevel
 
         parser = PDBParser(QUIET=True)
-        structure = parser.get_structure("RNA", pdb_file)
+        with DecompressedStructureFile(Path(pdb_file)) as decompressed_path:
+            structure = parser.get_structure("RNA", str(decompressed_path))
 
         for model in structure:
             model_id = model.id
@@ -127,9 +130,10 @@ def run_fr3d(
     Run FR3D NA_pairwise_interactions.py on a structure file.
 
     FR3D can process both .cif and .pdb files directly.
+    Supports gzip-compressed files (.gz).
 
     Args:
-        structure_file: Path to the structure file (.cif or .pdb).
+        structure_file: Path to the structure file (.cif or .pdb, optionally .gz).
         output_dir: Directory to write output files.
         category: Interaction category to annotate (default: "basepair").
 
@@ -140,42 +144,53 @@ def run_fr3d(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Extract PDB ID from filename
-    pdb_id = structure_path.stem.replace(".cif", "").replace(".pdb", "")
+    # Extract PDB ID from filename (handle .gz extension)
+    stem = structure_path.stem
+    if stem.endswith(".cif") or stem.endswith(".pdb"):
+        pdb_id = stem.rsplit(".", 1)[0]
+    else:
+        pdb_id = stem
 
-    try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "fr3d.classifiers.NA_pairwise_interactions",
-                "-i",
-                str(structure_path.parent),
-                "-o",
-                str(output_path),
-                "-c",
-                category,
-                pdb_id,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
+    # Use DecompressedStructureFile to handle .gz files
+    with DecompressedStructureFile(structure_path) as decompressed_path:
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "fr3d.classifiers.NA_pairwise_interactions",
+                    "-i",
+                    str(decompressed_path.parent),
+                    "-o",
+                    str(output_path),
+                    "-c",
+                    category,
+                    decompressed_path.stem,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            print(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
 
-        # FR3D creates output file named {pdb_id}_basepair.txt
-        output_file = output_path / f"{pdb_id}_basepair.txt"
-        if output_file.exists():
-            return str(output_file)
-        return None
+            # FR3D creates output file named {stem}_basepair.txt
+            output_file = output_path / f"{decompressed_path.stem}_basepair.txt"
+            if output_file.exists():
+                # Rename to use original pdb_id if different
+                if decompressed_path.stem != pdb_id:
+                    final_output = output_path / f"{pdb_id}_basepair.txt"
+                    output_file.rename(final_output)
+                    return str(final_output)
+                return str(output_file)
+            return None
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error running FR3D: {e}")
-        print(f"stdout: {e.stdout}")
-        print(f"stderr: {e.stderr}")
-        return None
+        except subprocess.CalledProcessError as e:
+            print(f"Error running FR3D: {e}")
+            print(f"stdout: {e.stdout}")
+            print(f"stderr: {e.stderr}")
+            return None
 
 
 # pylint: disable=too-many-branches
@@ -184,6 +199,8 @@ def extract_sequence_from_cif(
 ) -> Tuple[str, Dict[str, int]]:
     """
     Extract RNA sequence from a mmCIF file using FR3D's structure loading.
+
+    Supports gzip-compressed files (.gz).
 
     Args:
         cif_file: Path to the mmCIF file.
@@ -196,7 +213,7 @@ def extract_sequence_from_cif(
     try:
         from fr3d.cif.reader import Cif  # pylint: disable=import-outside-toplevel
 
-        with open(cif_file, "r") as f:
+        with open_structure_file(Path(cif_file), "r") as f:
             structure = Cif(f).structure()
 
         # Get RNA nucleotides
@@ -265,6 +282,8 @@ def extract_sequence_from_pdb(
     """
     Extract RNA sequence from a PDB file using BioPython.
 
+    Supports gzip-compressed files (.gz).
+
     Args:
         pdb_file: Path to the PDB file.
         chain_id: Optional chain ID to extract. If None, extracts first RNA chain.
@@ -276,55 +295,61 @@ def extract_sequence_from_pdb(
         from Bio.PDB import PDBParser  # pylint: disable=import-outside-toplevel
 
         parser = PDBParser(QUIET=True)
-        structure = parser.get_structure("RNA", pdb_file)
+        with DecompressedStructureFile(Path(pdb_file)) as decompressed_path:
+            structure = parser.get_structure("RNA", str(decompressed_path))
 
-        # Get first model
-        model = structure[0]
+            # Get first model
+            model = structure[0]
 
-        # Collect RNA residues
-        rna_residues = []
-        for chain in model:
-            if chain_id and chain.id != chain_id:
-                continue
-            for residue in chain:
-                if residue.id[0] == " ":  # Standard residue
-                    resname = residue.resname.strip()
-                    if resname in ["A", "C", "G", "U", "DA", "DC", "DG", "DT"]:
-                        rna_residues.append((chain.id, residue))
-                    elif _get_parent_base(resname):
-                        rna_residues.append((chain.id, residue))
+            # Collect RNA residues
+            rna_residues = []
+            for chain in model:
+                if chain_id and chain.id != chain_id:
+                    continue
+                for residue in chain:
+                    if residue.id[0] == " ":  # Standard residue
+                        resname = residue.resname.strip()
+                        if resname in ["A", "C", "G", "U", "DA", "DC", "DG", "DT"]:
+                            rna_residues.append((chain.id, residue))
+                        elif _get_parent_base(resname):
+                            rna_residues.append((chain.id, residue))
 
-            # If no chain specified, use only first chain with RNA
-            if not chain_id and rna_residues:
-                break
+                # If no chain specified, use only first chain with RNA
+                if not chain_id and rna_residues:
+                    break
 
-        if not rna_residues:
-            return "", {}
+            if not rna_residues:
+                return "", {}
 
-        # Sort by chain and residue number
-        rna_residues.sort(key=lambda x: (x[0], x[1].id[1]))
+            # Sort by chain and residue number
+            rna_residues.sort(key=lambda x: (x[0], x[1].id[1]))
 
-        # Build sequence and mapping
-        sequence = []
-        residue_to_position = {}
+            # Build sequence and mapping
+            sequence = []
+            residue_to_position = {}
 
-        pdb_id = Path(pdb_file).stem
-        for i, (chain, residue) in enumerate(rna_residues):
-            resname = residue.resname.strip()
-            if resname in ["A", "C", "G", "U"]:
-                sequence.append(resname)
-            elif resname in ["DA", "DC", "DG", "DT"]:
-                sequence.append(resname[1] if resname != "DT" else "T")
-            else:
-                parent = _get_parent_base(resname)
-                sequence.append(parent if parent else "N")
+            # Get pdb_id from original file, handling .gz extension
+            pdb_path = Path(pdb_file)
+            pdb_id = pdb_path.stem
+            if pdb_id.endswith(".pdb") or pdb_id.endswith(".cif"):
+                pdb_id = pdb_id.rsplit(".", 1)[0]
 
-            # Create a key similar to FR3D unit_id format
-            res_num = residue.id[1]
-            key = f"{pdb_id}|1|{chain}|{resname}|{res_num}"
-            residue_to_position[key] = i
+            for i, (chain, residue) in enumerate(rna_residues):
+                resname = residue.resname.strip()
+                if resname in ["A", "C", "G", "U"]:
+                    sequence.append(resname)
+                elif resname in ["DA", "DC", "DG", "DT"]:
+                    sequence.append(resname[1] if resname != "DT" else "T")
+                else:
+                    parent = _get_parent_base(resname)
+                    sequence.append(parent if parent else "N")
 
-        return "".join(sequence), residue_to_position
+                # Create a key similar to FR3D unit_id format
+                res_num = residue.id[1]
+                key = f"{pdb_id}|1|{chain}|{resname}|{res_num}"
+                residue_to_position[key] = i
+
+            return "".join(sequence), residue_to_position
 
     except ImportError:
         print("BioPython not installed.")
