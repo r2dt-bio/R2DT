@@ -98,6 +98,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
    viral-genomes
    annotations
    editors
+   xrna-react-user-guide
    api
    widget
 ```
