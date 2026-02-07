@@ -1,3 +1,5 @@
+# pylint: disable=too-many-lines
+
 """
 Stitch multiple R2DT SVG diagrams into one combined SVG.
 
@@ -21,6 +23,7 @@ import math
 import re
 import sys
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 from typing import NamedTuple, Optional
 
@@ -187,6 +190,7 @@ def style_anchor_label(
     # Remove any existing font-size declarations from the style (handles optional semicolon)
     existing_style = re.sub(r"font-size:\s*[\d.]+px;?\s*", "", existing_style)
     # Build new style with our font-size
+    # pylint: disable-next=line-too-long
     new_style = f"font-size: {font_size}px; font-weight: {font_weight}; font-family: Helvetica, Arial, sans-serif;"
     if existing_style.strip():
         elem.set("style", f"{new_style} {existing_style.strip()}")
@@ -218,6 +222,7 @@ def extract_genomic_coords(filepath: Path) -> tuple[int, int]:
     return 0, 0  # Default if no number found
 
 
+# pylint: disable-next=too-many-branches,too-many-statements
 def detect_nucleotide_font_size(svg_root: ET.Element) -> float:
     """
     Detect the font size used for nucleotide letters in an SVG.
@@ -307,12 +312,11 @@ def detect_nucleotide_font_size(svg_root: ET.Element) -> float:
         return DEFAULT_NUCLEOTIDE_FONT_SIZE
 
     # Return the most common font size (mode)
-    from collections import Counter
-
     counter = Counter(font_sizes)
     return counter.most_common(1)[0][0]
 
 
+# pylint: disable-next=too-many-branches
 def normalize_text_font_sizes(svg_root: ET.Element, default_font_size: float) -> None:
     """
     Add inline style font-size to all text elements and remove font-size from CSS.
@@ -442,13 +446,16 @@ class BBox(NamedTuple):
 
     @property
     def width(self) -> float:
+        """Return the width of the bounding box."""
         return self.max_x - self.min_x
 
     @property
     def height(self) -> float:
+        """Return the height of the bounding box."""
         return self.max_y - self.min_y
 
 
+# pylint: disable-next=too-many-branches,too-many-statements
 def calculate_visual_bbox(svg_root: ET.Element, viewbox: ViewBox) -> BBox:
     """
     Calculate the actual visual bounding box of SVG content.
@@ -547,6 +554,7 @@ def calculate_visual_bbox(svg_root: ET.Element, viewbox: ViewBox) -> BBox:
     return BBox(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y)
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def create_outline_path(
     panels: list,
     translations: list[tuple[float, float]],
@@ -662,6 +670,7 @@ def parse_svg(filepath: Path) -> PanelData:
     )
 
 
+# pylint: disable-next=too-many-statements
 def create_glyph(
     glyph_type: str, center_x: float, center_y: float, size: float = 12
 ) -> Optional[ET.Element]:
@@ -778,7 +787,7 @@ def remove_text_element(root: ET.Element, target_elem: ET.Element) -> bool:
     removed = False
 
     # Iterate and find matching elements to remove
-    for parent in root.iter():
+    for parent in root.iter():  # pylint: disable=too-many-nested-blocks
         for child in list(parent):
             tag_local = child.tag.split("}")[-1] if "}" in child.tag else child.tag
 
@@ -835,6 +844,7 @@ def calculate_visual_gap(
     return min(visual_gap, max_gap)
 
 
+# pylint: disable-next=too-many-branches
 def strip_svg_styling(root: ET.Element) -> None:
     """
     Strip color styling from SVG elements to create a monochrome version.
@@ -922,6 +932,107 @@ def strip_svg_styling(root: ET.Element) -> None:
                 break
 
 
+# pylint: disable-next=too-many-branches
+def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
+    """
+    Transform an SVG into an outline-only version for high-level overview.
+
+    This function:
+    - Removes nucleotide text (single letters A, U, G, C, N, R, Y, etc.)
+    - Keeps structural labels (5', 3', numbering)
+    - Makes backbone lines much thicker with solid strokes
+    - Removes colored circles/backgrounds
+    - Creates a simplified silhouette view
+
+    Args:
+        root: SVG root element (modified in place)
+        stroke_width: Width for backbone strokes (default 3.0)
+    """
+    elements_to_remove = []
+    nucleotide_pattern = re.compile(
+        r"^[AUGCNRYWSMKBDHVaugcnrywsmkbdhv]$|^[AUGC]-[AUGC]$"
+    )
+
+    for elem in root.iter():
+        tag_local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+
+        # Remove nucleotide text elements (single letters)
+        if tag_local == "text":
+            text_content = elem.text.strip() if elem.text else ""
+            # Keep 5', 3', numbering labels, and captions
+            if nucleotide_pattern.match(text_content):
+                elements_to_remove.append(elem)
+                continue
+
+        # Remove residue circles
+        if tag_local == "circle":
+            class_attr = elem.get("class", "")
+            if "residue" in class_attr or "posterior" in class_attr:
+                elements_to_remove.append(elem)
+
+        # Make lines thicker and solid
+        if tag_local == "line":
+            class_attr = elem.get("class", "")
+            # Skip numbering lines
+            if "numbering" not in class_attr:
+                elem.set("stroke-width", str(stroke_width))
+                elem.set("stroke", "black")
+                # Remove any dash pattern
+                if elem.get("stroke-dasharray"):
+                    del elem.attrib["stroke-dasharray"]
+
+        # Make polylines thicker and solid
+        if tag_local == "polyline":
+            elem.set("stroke-width", str(stroke_width))
+            elem.set("stroke", "black")
+            if elem.get("stroke-dasharray"):
+                del elem.attrib["stroke-dasharray"]
+
+        # Modify CSS style block
+        if tag_local == "style":
+            if elem.text:
+                css = elem.text
+                # Increase stroke width for all line classes
+                css = re.sub(
+                    r"stroke-width:\s*[\d.]+;",
+                    f"stroke-width: {stroke_width};",
+                    css,
+                )
+                # Remove all dash patterns
+                css = re.sub(
+                    r"stroke-dasharray:\s*[^;]+;",
+                    "",
+                    css,
+                )
+                # Make all fills black
+                css = re.sub(
+                    r"fill:\s*rgb\([^)]+\)",
+                    "fill: rgb(0, 0, 0)",
+                    css,
+                )
+                # Make all strokes black
+                css = re.sub(
+                    r"stroke:\s*rgb\([^)]+\)",
+                    "stroke: rgb(0, 0, 0)",
+                    css,
+                )
+                # Hide residue circles
+                css = re.sub(
+                    r"\.residue-circle\s*\{[^}]+\}",
+                    ".residue-circle { fill: none; stroke: none; }",
+                    css,
+                )
+                elem.text = css
+
+    # Remove marked elements
+    for elem in elements_to_remove:
+        for parent in root.iter():
+            if elem in list(parent):
+                parent.remove(elem)
+                break
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments,too-many-locals,too-many-branches,too-many-statements
 def stitch_svgs(
     panels: list[PanelData],
     gap: float = 100,
@@ -986,7 +1097,7 @@ def stitch_svgs(
     # Apply defaults using multipliers if not explicitly set
     # Use a minimum caption size for readability in wide diagrams
     min_caption_font_size = 24.0
-    effective_caption_font_size: float = (
+    _ = (  # Computed but used later via final_caption_font_size
         caption_font_size
         if caption_font_size is not None
         else max(min_caption_font_size, detected_nt_size * FONT_MULTIPLIERS["caption"])
@@ -1244,8 +1355,7 @@ def stitch_svgs(
             # Cap caption size at 3.5% of diagram height to avoid oversized captions
             # on shorter diagrams (like dengue with only 4 panels)
             max_caption_size = current_height * 0.035
-            if final_caption_font_size > max_caption_size:
-                final_caption_font_size = max_caption_size
+            final_caption_font_size = min(final_caption_font_size, max_caption_size)
 
         for caption_text, bbox in zip(captions, panel_bboxes):
             min_x, max_x, max_y = bbox
