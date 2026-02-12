@@ -69,17 +69,6 @@ class RfamSeed:
             filename.parent.mkdir(parents=True, exist_ok=True)
         return filename
 
-    def download_rfam_seed(self, rfam_acc):
-        """Fetch Rfam seed alignment using the API."""
-        seed_filename = self.get_seed_filename(rfam_acc)
-        if seed_filename.exists():
-            return seed_filename
-        url = f"https://rfam.org/family/{rfam_acc}/alignment"
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        seed_filename.write_text(response.text)
-        return seed_filename
-
     def get_rfam_seed(self, rfam_acc) -> Path:
         """Get a path to an Rfam seed alignment given an accession."""
         seed_filename = self.get_seed_filename(rfam_acc)
@@ -106,7 +95,10 @@ class RfamSeed:
                     seed_filename.unlink(missing_ok=True)
                     runner.run(cmd)
         else:
-            self.download_rfam_seed(rfam_acc)
+            # Download the full archive from FTP to ensure seeds match CMs
+            self.download_rfam_seed_archive()
+            cmd = f"esl-afetch {self.seed_archive} {rfam_acc} > {seed_filename}"
+            runner.run(cmd)
 
         if not seed_filename.exists():
             raise FileNotFoundError(f"Rfam seed alignment not found in {seed_filename}")
