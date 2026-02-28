@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 # pylint: disable=too-many-lines
 import glob
 import json
@@ -35,8 +36,9 @@ from utils import generate_cm_library as gcl
 from utils import generate_model_info as gmi
 from utils import gtrnadb
 from utils import list_models as lm
-from utils import pdb_fetch, r2r, rfam
+from utils import pdb_fetch, pdb_post, r2r, rfam
 from utils import rna2djsonschema as r2djs
+from utils import rnapuzzler
 from utils import rnaview as rnaview_utils
 from utils import shared
 from utils import stockholm as stockholm_utils
@@ -1191,7 +1193,7 @@ def _fix_svg_font_size(svg_path, min_font_size=8.0):
 
 def _templatefree_auto(fasta_input, output_folder, quiet):
     """
-    Run both R2R and RNArtist, return the layout with fewer overlaps.
+    Run R2R, RNArtist, and RNApuzzler, return the layout with fewest overlaps.
     Prefers R2R if overlap counts are equal or very similar.
     """
     # pylint: disable=import-outside-toplevel,too-many-branches,too-many-statements,too-many-locals
@@ -1203,13 +1205,16 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
     output_folder = Path(output_folder)
     results_folder = output_folder / "results"
 
-    # Create temp directories for both layouts
+    # Create temp directories for all layouts
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         r2r_output = tmpdir / "r2r"
         rnartist_output = tmpdir / "rnartist"
+        puzzler_output = tmpdir / "rnapuzzler"
 
+        # ------------------------------------------------------------------
         # Run R2R
+        # ------------------------------------------------------------------
         r2r_folder = r2r_output / "r2r"
         for folder in [r2r_output, r2r_folder]:
             folder.mkdir(exist_ok=True, parents=True)
@@ -1223,17 +1228,18 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
         organise_results(r2r_folder, r2r_output)
         r2r_json = r2r_output / "results" / "json" / f"{seq_id}.colored.json"
 
-        # Check R2R overlaps first - skip RNArtist if R2R is perfect
         r2r_overlaps = _count_overlaps(r2r_json)
 
         if r2r_overlaps == 0:
-            # R2R has no overlaps, no need to run RNArtist
+            # R2R has no overlaps — no need to run the others
             if not quiet:
                 rprint("[green]R2R overlaps: 0 -> Using R2R[/green]")
             winner = "R2R"
             winner_output = r2r_output
         else:
-            # Run RNArtist to compare
+            # ----------------------------------------------------------
+            # Run RNArtist
+            # ----------------------------------------------------------
             rnartist_folder_work = rnartist_output / "rnartist"
             for folder in [rnartist_output, rnartist_folder_work]:
                 folder.mkdir(exist_ok=True, parents=True)
@@ -1243,8 +1249,6 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             rnartist_obj.seq_label = seq_id
             rnartist_obj.run(rerun=True)
 
-            # Scale RNArtist coordinates to avoid Traveler numerical issues
-            # RNArtist can place nucleotides very close together in tight loops
             rnartist_template = rnartist_folder_work / "rnartist-template.xml"
             scale_coordinates(rnartist_template, scaling_factor=3)
 
@@ -1259,7 +1263,6 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             runner.run(cmd)
             organise_results(rnartist_folder_work, rnartist_output)
 
-            # Fix font size in RNArtist SVGs (Traveler uses tiny fonts for tight layouts)
             rnartist_svg = rnartist_output / "results" / "svg" / f"{seq_id}.colored.svg"
             if rnartist_svg.exists():
                 _fix_svg_font_size(rnartist_svg)
@@ -1267,22 +1270,49 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             rnartist_json = (
                 rnartist_output / "results" / "json" / f"{seq_id}.colored.json"
             )
-
-            # Count RNArtist overlaps
             rnartist_overlaps = _count_overlaps(rnartist_json)
 
-            # Choose winner (prefer R2R if equal or R2R has fewer)
-            if r2r_overlaps <= rnartist_overlaps:
-                winner = "R2R"
-                winner_output = r2r_output
-            else:
-                winner = "RNArtist"
-                winner_output = rnartist_output
+            # ----------------------------------------------------------
+            # Run RNApuzzler
+            # ----------------------------------------------------------
+            puzzler_folder_work = puzzler_output / "rnapuzzler"
+            for folder in [puzzler_output, puzzler_folder_work]:
+                folder.mkdir(exist_ok=True, parents=True)
+
+            try:
+                rnapuzzler.run_puzzler_pipeline(
+                    fasta_input,
+                    puzzler_folder_work,
+                    seq_id,
+                    sequence,
+                    structure,
+                )
+                organise_results(puzzler_folder_work, puzzler_output)
+                puzzler_json = (
+                    puzzler_output / "results" / "json" / f"{seq_id}.colored.json"
+                )
+                puzzler_overlaps = _count_overlaps(puzzler_json)
+            except Exception:  # pylint: disable=broad-except
+                puzzler_overlaps = float("inf")
+
+            # ----------------------------------------------------------
+            # Pick the winner (prefer R2R on ties)
+            # ----------------------------------------------------------
+            candidates = [
+                ("R2R", r2r_overlaps, r2r_output),
+                ("RNArtist", rnartist_overlaps, rnartist_output),
+                ("RNApuzzler", puzzler_overlaps, puzzler_output),
+            ]
+            # Sort by overlaps; on ties the original order (R2R first) wins
+            candidates.sort(key=lambda c: c[1])
+            winner, _, winner_output = candidates[0]
 
             if not quiet:
                 rprint(
                     f"[green]R2R overlaps: {r2r_overlaps}, "
-                    f"RNArtist overlaps: {rnartist_overlaps} -> Using {winner}[/green]"
+                    f"RNArtist overlaps: {rnartist_overlaps}, "
+                    f"RNApuzzler overlaps: {puzzler_overlaps} "
+                    f"-> Using {winner}[/green]"
                 )
 
         # Copy winner to output
@@ -1315,16 +1345,25 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
 @click.option("--rnartist", default=False, is_flag=True)
 @click.option("--rscape", default=False, is_flag=True)
 @click.option(
+    "--rnapuzzler",
+    "rnapuzzler_flag",
+    default=False,
+    is_flag=True,
+    help="Use RNApuzzler for overlap-free layout (ViennaRNA)",
+)
+@click.option(
     "--auto",
     default=False,
     is_flag=True,
-    help="Run both R2R and RNArtist, pick best layout",
+    help="Run R2R, RNArtist, and RNApuzzler, pick best layout",
 )
 # pylint: disable=too-many-arguments,too-many-positional-arguments
-# pylint: disable=too-many-statements,inconsistent-return-statements
-def templatefree(fasta_input, output_folder, rnartist, rscape, auto, quiet):
+# pylint: disable=too-many-statements,inconsistent-return-statements,too-many-branches
+def templatefree(
+    fasta_input, output_folder, rnartist, rscape, rnapuzzler_flag, auto, quiet
+):
     """
-    Run template-free visualisation using R2R to generate a layout.
+    Run template-free visualisation using R2R, RNArtist, or RNApuzzler.
     """
     if not quiet:
         rprint(shared.get_r2dt_version_header())
@@ -1333,9 +1372,10 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, auto, quiet):
     if auto:
         return _templatefree_auto(fasta_input, output_folder, quiet)
 
-    if not rnartist and not rscape:
+    chosen = sum([rnartist, rscape, rnapuzzler_flag])
+    if chosen == 0:
         rscape = True
-    if rnartist and rscape:
+    if chosen > 1:
         raise ValueError("Please specify only one template type")
 
     fasta_input = shared.sanitise_fasta(fasta_input)
@@ -1399,12 +1439,45 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, auto, quiet):
         rscape_one_line_svg = rfam.convert_rscape_svg_to_one_line(r2r_svg, r2r_folder)
         rfam.convert_rscape_svg_to_traveler(rscape_one_line_svg, r2r_folder)
         scale_coordinates(r2r_folder / "traveler-template.xml", scaling_factor=3)
-        r2r.run_traveler(fasta_input, r2r_folder, seq_id)
+
+        has_structure = any(c in structure for c in "()[]{}<>")
+        if has_structure:
+            r2r.run_traveler(fasta_input, r2r_folder, seq_id)
+        else:
+            # No base pairs — Traveler segfaults on all-dots structures.
+            # Convert the R2R SVG directly into Traveler-compatible format.
+            r2r.r2r_svg_to_colored(
+                str(r2r_folder / "traveler-template.svg"),
+                str(r2r_folder / f"{seq_id}.colored.svg"),
+            )
+
         organise_results(r2r_folder, output_folder)
         tsv_folder = results_folder / "tsv"
         tsv_folder.mkdir(exist_ok=True, parents=True)
         with open(tsv_folder / "metadata.tsv", "w") as f_out:
             f_out.write(f"{seq_id}\tR2R\tR2R\n")
+        shutil.copyfile(
+            fasta_input,
+            results_folder / "fasta" / f"{seq_id}.fasta",
+        )
+
+    if rnapuzzler_flag:
+        output_folder = Path(output_folder)
+        results_folder = output_folder / "results"
+        puzzler_folder = output_folder / "rnapuzzler"
+        for folder in [output_folder, results_folder, puzzler_folder]:
+            folder.mkdir(exist_ok=True, parents=True)
+
+        seq_id, sequence, structure = r2r.parse_fasta(fasta_input)
+        rnapuzzler.run_puzzler_pipeline(
+            fasta_input, puzzler_folder, seq_id, sequence, structure
+        )
+
+        organise_results(puzzler_folder, output_folder)
+        tsv_folder = results_folder / "tsv"
+        tsv_folder.mkdir(exist_ok=True, parents=True)
+        with open(tsv_folder / "metadata.tsv", "w") as f_out:
+            f_out.write(f"{seq_id}\tRNApuzzler\tRNApuzzler\n")
         shutil.copyfile(
             fasta_input,
             results_folder / "fasta" / f"{seq_id}.fasta",
@@ -1443,9 +1516,36 @@ def templatefree(fasta_input, output_folder, rnartist, rscape, auto, quiet):
     help="Monochrome stitched output (default) or preserve colors",
 )
 @click.option(
+    "--color-by",
+    type=click.Choice(["none", "structure", "region"], case_sensitive=False),
+    default="none",
+    help=(
+        "Auto-colour panels: 'structure' = unique colour per structureID, "
+        "'region' = same colour for all structures sharing a regionID "
+        "(overrides --monochrome)"
+    ),
+)
+@click.option(
+    "--color-config",
+    type=click.Path(exists=True),
+    default=None,
+    help="TSV file mapping structure/region names to SVG colours (overrides --monochrome)",
+)
+@click.option(
     "--auto-repair/--no-auto-repair",
     default=False,
     help="Attempt to auto-repair unbalanced bracket structures",
+)
+@click.option(
+    "--all-structures/--named-only",
+    default=False,
+    help="Include unnamed segments that contain secondary structure (default: named only)",
+)
+@click.option(
+    "--max-unpaired",
+    type=int,
+    default=30,
+    help="Split regions at unpaired stretches longer than N nucleotides (0=disabled)",
 )
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
 # pylint: disable=too-many-positional-arguments
@@ -1457,19 +1557,42 @@ def stockholm(
     stitch,
     stitch_output,
     monochrome,
+    color_by,
+    color_config,
     auto_repair,
+    all_structures,
+    max_unpaired,
 ):
     """
     Process a Stockholm alignment with named secondary structure regions.
 
-    Parses the Stockholm file, extracts regions marked in #=GC knownSS_names,
-    computes RF consensus sequences, and generates template-free visualizations
-    for each region. Optionally stitches all outputs into a single SVG.
+    Parses the Stockholm file, extracts structural elements and generates
+    template-free visualizations for each region. Supports three annotation
+    formats:
 
-    Example:
+    **New format** (preferred)::
+
+        #=GC structureID  |..SLI..|..SLII..|...
+        #=GC regionID     |..5'UTR.........|..core_protein...
+
+    **Legacy format** (fallback)::
+
+        #=GC knownSS_names  |..SLI..|..SLII..|...
+
+    **Simple alignment** (e.g. Rfam seed)::
+
+        No structureID/regionID required.
+        Uses #=GC RF for consensus, #=GF ID/AC for naming.
+        Entire alignment treated as one region; stitch auto-skipped.
+
+    Optionally stitches all outputs into a single SVG.
+
+    Example::
+
         r2dt.py stockholm alignment.stk output_folder
     """
     # pylint: disable=import-outside-toplevel,redefined-outer-name
+    from utils import coloring
     from utils import stitch as stitch_module
 
     if not quiet:
@@ -1484,6 +1607,9 @@ def stockholm(
         include_novel=include_novel,
         quiet=quiet,
         auto_repair=auto_repair,
+        include_all=all_structures,
+        max_unpaired=max_unpaired,
+        fallback_name=Path(stockholm_input).stem,
     )
 
     if not processed_regions:
@@ -1509,8 +1635,50 @@ def stockholm(
                     rprint(f"[yellow]Warning: Could not parse {svg_path}: {e}[/yellow]")
 
         if len(panels) >= 2:
-            # Generate captions from region names
-            captions = [r["name"] for r in processed_regions]
+            # Structure names as per-panel captions.
+            # Unnamed regions get empty captions.  When a named region
+            # has been split into sub-panels, only the first sub-panel
+            # carries the parent's name; the rest get empty captions.
+            captions = []
+            seen_parents: set[str] = set()
+            for r in processed_regions:
+                if r.get("is_unnamed"):
+                    captions.append("")
+                elif r.get("parent_name"):
+                    parent = r["parent_name"]
+                    if parent not in seen_parents:
+                        seen_parents.add(parent)
+                        captions.append(parent)
+                    else:
+                        captions.append("")
+                else:
+                    captions.append(r["name"])
+
+            # Build region label spans: group consecutive panels by region
+            region_labels = []
+            if any(r.get("region") for r in processed_regions):
+                current_region = None
+                span_start = 0
+                for idx, r in enumerate(processed_regions):
+                    rname = r.get("region") or ""
+                    if rname != current_region:
+                        if current_region:
+                            region_labels.append((current_region, span_start, idx - 1))
+                        current_region = rname
+                        span_start = idx
+                if current_region:
+                    region_labels.append(
+                        (current_region, span_start, len(processed_regions) - 1)
+                    )
+
+            # Build per-panel colours (if requested)
+            panel_colors = None
+            if color_config:
+                panel_colors = coloring.build_color_map(
+                    processed_regions, "config", Path(color_config)
+                )
+            elif color_by in ("structure", "region"):
+                panel_colors = coloring.build_color_map(processed_regions, color_by)
 
             # Stitch
             combined = stitch_module.stitch_svgs(
@@ -1518,9 +1686,11 @@ def stockholm(
                 gap=100,
                 glyph_type="break",
                 captions=captions,
-                monochrome=monochrome,
+                monochrome=monochrome and not panel_colors,
                 show_gap_labels=True,
                 outline=True,
+                region_labels=region_labels if region_labels else None,
+                panel_colors=panel_colors,
             )
 
             # Write output
@@ -1545,6 +1715,36 @@ def stockholm(
 
             if not quiet:
                 rprint(f"[green]✓[/green] Outline SVG written to: {outline_path}")
+
+            # Create a clean thumbnail: no annotations, no glyphs, uniform colour
+            thumb_panels = []
+            for svg_path in svg_paths:
+                try:
+                    thumb_panels.append(stitch_module.parse_svg(svg_path))
+                except (FileNotFoundError, ValueError):
+                    pass
+
+            if len(thumb_panels) >= 2:
+                thumb_combined = stitch_module.stitch_svgs(
+                    panels=thumb_panels,
+                    gap=20,
+                    glyph_type="none",
+                    captions=None,
+                    monochrome=not panel_colors,
+                    show_gap_labels=False,
+                    outline=True,
+                    outline_width=4.0,
+                    keep_intermediate_labels=False,
+                    region_labels=None,
+                    panel_colors=panel_colors,
+                )
+                stitch_module.create_thumbnail_svg(thumb_combined, stroke_width=4.0)
+
+                thumb_path = output_path.with_stem(output_path.stem + "-thumbnail")
+                stitch_module.write_svg(thumb_combined, thumb_path)
+
+                if not quiet:
+                    rprint(f"[green]✓[/green] Thumbnail SVG written to: {thumb_path}")
         else:
             if not quiet:
                 rprint(
@@ -2244,7 +2444,7 @@ def generate_template(json_file, quiet):
     "--basepairs",
     type=click.Choice(["auto", "rnaview", "fr3d"]),
     default="auto",
-    help="Tool for base pair extraction (default: auto)",
+    help="Tool for base pair extraction (default: auto = prefer FR3D)",
 )
 @click.option(
     "--format",
@@ -2260,10 +2460,16 @@ def generate_template(json_file, quiet):
     help="Specific chain ID to extract (default: first RNA chain)",
 )
 @click.option(
-    "--pseudoknots",
-    is_flag=True,
+    "--pseudoknots/--no-pseudoknots",
+    default=True,
+    help="Include pseudoknots in structure (FR3D only, uses Aa/Bb notation, default: on)",
+)
+@click.option(
+    "--rnapuzzler",
+    "rnapuzzler_flag",
     default=False,
-    help="Include pseudoknots in structure (FR3D only, uses Aa/Bb notation)",
+    is_flag=True,
+    help="Use RNApuzzler for overlap-free layout (ViennaRNA)",
 )
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
@@ -2277,6 +2483,7 @@ def pdb(
     structure_format,
     chain,
     pseudoknots,
+    rnapuzzler_flag,
     quiet,
 ):
     """
@@ -2377,10 +2584,8 @@ def pdb(
 
     # Determine which basepairs tool to use
     if basepairs == "auto":
-        if actual_format == "pdb":
-            use_basepairs = "rnaview"
-        else:
-            use_basepairs = "fr3d"
+        # Prefer FR3D: it supports pseudoknots and handles both PDB and CIF
+        use_basepairs = "fr3d"
     elif basepairs == "rnaview" and actual_format == "cif":
         rprint(
             "[red]Error: RNAView cannot process mmCIF files. "
@@ -2392,6 +2597,14 @@ def pdb(
 
     if not quiet:
         rprint(f"Using {use_basepairs} for base pair extraction...")
+
+    # Pre-detect RNA chain so FR3D and RNAview use the same one
+    if not chain and actual_format == "pdb":
+        _, _, detected_chain = fr3d_utils.get_full_sequence(str(file_path), None)
+        if detected_chain:
+            chain = detected_chain
+            if not quiet:
+                rprint(f"Auto-detected RNA chain: {chain}")
 
     # Extract secondary structure
     extraction_dir = output_path / "extraction"
@@ -2410,6 +2623,28 @@ def pdb(
             quiet=quiet,
         )
 
+        # If FR3D returned a sequence but no base pairs (crash/failure),
+        # fall back to RNAview for PDB files
+        if (
+            sequence
+            and dot_bracket
+            and dot_bracket.count("(") == 0
+            and actual_format == "pdb"
+        ):
+            if not quiet:
+                rprint(
+                    "[yellow]FR3D found no base pairs, "
+                    "trying RNAView as fallback...[/yellow]"
+                )
+            rv_seq, rv_db = _extract_with_rnaview(str(file_path), chain, quiet)
+            if rv_seq and rv_db and rv_db.count("(") > 0:
+                sequence, dot_bracket = rv_seq, rv_db
+                if not quiet:
+                    rprint(
+                        f"[green]RNAView recovered {rv_db.count('(')} "
+                        f"base pairs[/green]"
+                    )
+
     if not sequence or not dot_bracket:
         rprint("[red]Error: Could not extract secondary structure[/red]")
         return
@@ -2417,6 +2652,31 @@ def pdb(
     if not quiet:
         rprint(f"Sequence length: {len(sequence)}")
         rprint(f"Base pairs: {dot_bracket.count('(')}")
+
+    # --- Full-sequence expansion (missing residues) ---
+    resolved_mask = None
+    full_sequence, mask, _used_chain = fr3d_utils.get_full_sequence(
+        str(file_path), chain
+    )
+    if full_sequence and len(full_sequence) > len(sequence):
+        n_missing = len(full_sequence) - len(sequence)
+        if not quiet:
+            rprint(
+                f"Full deposited sequence: {len(full_sequence)} nt "
+                f"({n_missing} unresolved)"
+            )
+        try:
+            dot_bracket = fr3d_utils.remap_dot_bracket(dot_bracket, mask)
+            sequence = full_sequence
+            resolved_mask = mask
+        except ValueError as exc:
+            if not quiet:
+                rprint(
+                    f"[yellow]Could not map to full sequence: {exc}. "
+                    f"Using resolved sequence only.[/yellow]"
+                )
+    elif not quiet and full_sequence:
+        rprint("No missing residues detected")
 
     # Write FASTA file for R2DT
     fasta_path = output_path / f"{structure_id}.fasta"
@@ -2438,9 +2698,21 @@ def pdb(
         fasta_input=str(fasta_path),
         output_folder=str(results_folder),
         rnartist=False,
-        rscape=True,
+        rscape=not rnapuzzler_flag,
+        rnapuzzler_flag=rnapuzzler_flag,
         quiet=quiet,
     )
+
+    # --- Post-process: grey out unresolved nucleotides ---
+    if resolved_mask is not None:
+        n_greyed = pdb_post.grey_out_svg_files(
+            str(results_folder), structure_id, resolved_mask, quiet=quiet
+        )
+        if not quiet and n_greyed:
+            rprint(
+                f"[dim]Greyed out unresolved nucleotides in "
+                f"{n_greyed} SVG file(s)[/dim]"
+            )
 
     # Report success
     svg_path = results_folder / "results" / "svg" / f"{structure_id}.svg"
