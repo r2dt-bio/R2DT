@@ -49,6 +49,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          context: .
           platforms: linux/amd64,linux/arm64
           push: true
           labels: ${{ steps.docker_meta.outputs.labels }}
