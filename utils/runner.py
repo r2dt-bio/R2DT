@@ -19,8 +19,7 @@ class Runner:
         if self.print_command:
             rprint(f"[green]Executing:[/green] {cmd}")
 
-        # pylint: disable=consider-using-with
-        process = subprocess.Popen(
+        with subprocess.Popen(
             cmd,
             shell=True,
             stdout=subprocess.PIPE,
@@ -28,26 +27,25 @@ class Runner:
             text=True,
             bufsize=1,
             universal_newlines=True,
-        )
+        ) as process:
+            while True:
+                reads = [process.stdout.fileno(), process.stderr.fileno()]
+                ret = select.select(reads, [], [])
 
-        while True:
-            reads = [process.stdout.fileno(), process.stderr.fileno()]
-            ret = select.select(reads, [], [])
+                for file_descriptor in ret[0]:
+                    if file_descriptor == process.stdout.fileno():
+                        line = process.stdout.readline()
+                        if line and line.strip():
+                            self._stdout_callback(line.strip(), print_output)
+                    if file_descriptor == process.stderr.fileno():
+                        line = process.stderr.readline()
+                        if line and line.strip():
+                            self._stderr_callback(line.strip())
 
-            for file_descriptor in ret[0]:
-                if file_descriptor == process.stdout.fileno():
-                    line = process.stdout.readline()
-                    if line and line.strip():
-                        self._stdout_callback(line.strip(), print_output)
-                if file_descriptor == process.stderr.fileno():
-                    line = process.stderr.readline()
-                    if line and line.strip():
-                        self._stderr_callback(line.strip())
+                if process.poll() is not None:
+                    break
 
-            if process.poll() is not None:
-                break
-
-        return process.returncode
+            return process.returncode
 
     def _stdout_callback(self, line: str, print_output: Optional[bool]) -> None:
         if print_output is None and self.print_output:

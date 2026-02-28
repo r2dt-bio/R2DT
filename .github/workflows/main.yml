@@ -5,28 +5,17 @@ on:
     branches:
       - main
       - develop
+    tags:
+      - 'v*'  # Push events to tags matching v*, i.e. v1.0, v20.15.10
   pull_request:
     branches:
       - main
       - develop
 
-
 permissions:
   pull-requests: write
 
 jobs:
-  initial-notification:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Initial notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_MESSAGE: 'Creating image in Docker Hub'
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          MSG_MINIMAL: true
-
   create-docker-tag:
     runs-on: ubuntu-latest
     steps:
@@ -60,6 +49,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          context: .
           platforms: linux/amd64,linux/arm64
           push: true
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -92,16 +82,3 @@ jobs:
             ${{ steps.docker_meta.outputs.labels }}
             ```
           edit-mode: replace
-
-  final-notification:
-    runs-on: ubuntu-latest
-    needs: create-docker-tag
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Final notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_MESSAGE: 'New image created in Docker Hub'
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          MSG_MINIMAL: true

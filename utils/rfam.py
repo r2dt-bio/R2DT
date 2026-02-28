@@ -24,13 +24,13 @@ import requests
 from tqdm import tqdm
 
 from . import config, core
-from . import generate_model_info as mi
 from .rfamseed import RfamSeed
 from .ribovore import MIN_GA
 from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
 from .scale_template import scale_coordinates
+from .shared import cmfetch
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -51,6 +51,7 @@ BLACKLIST = [
     "RF00010",  # Bacterial RNase P class A
     "RF00011",  # Bacterial RNase P class B
     "RF00373",  # Archaeal RNase P
+    "RF01577",  # Plasmodium RNase_P
     "RF00061",  # HCV IRES
     "RF02357",  # RNAse P Type T
     "RF00023",  # tmRNA
@@ -103,47 +104,45 @@ def get_traveler_fasta(rfam_acc):
 def get_rfam_cm(rfam_acc):
     """Get a path to an Rfam covariance model given an accession."""
     if rfam_acc == "RF00005":
-        return os.path.join(config.RFAM_DATA, rfam_acc, rfam_acc + ".cm")
-    return os.path.join(config.CM_LIBRARY, "rfam", rfam_acc + ".cm")
+        return str(Path(config.RFAM_DATA) / rfam_acc / f"{rfam_acc}.cm")
+    return cmfetch(rfam_acc)
 
 
+# pylint: disable=too-many-locals, too-many-statements, too-many-branches
 def get_rfam_cms():
     """Fetch Rfam covariance models excluding blacklisted models."""
-    rfam_cm_location = os.path.join(config.CM_LIBRARY, "rfam")
-    rfam_whitelisted_cm = os.path.join(rfam_cm_location, "all.cm")
+    rfam_all_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
 
     print("Deleting old Rfam library")
-    rfam_cm_path = Path(rfam_cm_location)
-    shutil.rmtree(rfam_cm_path, ignore_errors=True)
-    rfam_cm_path.mkdir(parents=True, exist_ok=True)
+    rfam_all_cm.unlink(missing_ok=True)
 
     print("Downloading Rfam.cm from Rfam FTP")
-    rfam_cm = os.path.join(config.RFAM_DATA, "Rfam.cm")
-    rfam_ids = os.path.join(config.RFAM_DATA, "rfam_ids.txt")
-    if not os.path.exists(rfam_cm):
+    rfam_cm = Path(config.RFAM_DATA) / "Rfam.cm"
+    rfam_ids = Path(config.RFAM_DATA) / "rfam_ids.txt"
+    if not rfam_cm.exists():
         url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz"
-        rfam_cm_path = Path(rfam_cm).with_suffix(".gz")
+        rfam_gz = rfam_cm.with_suffix(".gz")
 
-        # Download the file
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
-        with rfam_cm_path.open("wb") as out_file:
+        with rfam_gz.open("wb") as out_file:
             for chunk in response.iter_content(chunk_size=8192):
                 out_file.write(chunk)
 
-        # Decompress the file
-        with gzip.open(rfam_cm_path, "rb") as f_in:
-            with rfam_cm_path.with_suffix(".cm").open("wb") as f_out:
+        with gzip.open(rfam_gz, "rb") as f_in:
+            with rfam_gz.with_suffix(".cm").open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
-        rfam_cm_path.unlink()  # Remove the .gz file after decompression
+        rfam_gz.unlink()  # Remove the .gz file after decompression
 
-    print("Indexing Rfam.cm")
-    if not os.path.exists(f"{rfam_cm}.ssi"):
+    rfam_ssi = rfam_cm.with_suffix(rfam_cm.suffix + ".ssi")
+    if not rfam_ssi.exists():
+        print("Indexing Rfam.cm")
         runner.run(f"cmfetch --index {rfam_cm}")
-    print("Get a list of all Rfam ids")
-    if not os.path.exists(rfam_ids):
+
+    if not rfam_ids.exists():
+        print("Extracting Rfam IDs")
         with open(rfam_cm, "r") as infile, open(rfam_ids, "w") as outfile:
             for line in infile:
                 if line.startswith("ACC   RF"):
@@ -152,21 +151,63 @@ def get_rfam_cms():
                         outfile.write(parts[1] + "\n")
 
     print("Fetching whitelisted Rfam CMs")
+    rfam_accs = []
     with open(rfam_ids, "r", encoding="utf-8") as f_in:
         for line in f_in:
             rfam_acc = line.strip()
             if rfam_acc in blacklisted():
                 continue
-            print(rfam_acc)
-            runner.run(f"cmfetch {rfam_cm} {rfam_acc} >> {rfam_whitelisted_cm}")
-            cm_file = os.path.join(rfam_cm_location, f"{rfam_acc}.cm")
-            runner.run(f"cmfetch {rfam_cm} {rfam_acc} > {cm_file}")
+            rfam_accs.append(rfam_acc)
 
-    print("Cleaning up")
-    rfam_cm_path = Path(rfam_cm)
-    rfam_cm_ssi_path = rfam_cm_path.with_suffix(".ssi")
-    rfam_cm_path.unlink(missing_ok=True)
-    rfam_cm_ssi_path.unlink(missing_ok=True)
+    # Fetch the covariance models
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_list:
+        for rfam_acc in rfam_accs:
+            temp_list.write(f"{rfam_acc}\n")
+        temp_list.flush()
+        runner.run(f"cmfetch -f {rfam_cm} {temp_list.name} >> {rfam_all_cm}")
+
+    # Get the accession to Rfam ID mapping
+    family_file_path = Path(config.RFAM_DATA) / "family.txt"
+
+    # Download the file if it doesn't exist
+    if not family_file_path.exists():
+        url = "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/database_files/family.txt.gz"
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        gzipped_path = family_file_path.with_suffix(".txt.gz")
+        with gzipped_path.open("wb") as out_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                out_file.write(chunk)
+
+        # Decompress the file
+        with gzip.open(gzipped_path, "rt", errors="ignore") as f_in:
+            with family_file_path.open("w") as f_out:
+                for line in f_in:
+                    f_out.write(line)
+
+        gzipped_path.unlink()  # Remove the .gz file after decompression
+
+    model_ids = {}
+    with family_file_path.open(errors="ignore") as f_db_dump:
+        for line in f_db_dump:
+            if line.startswith("RF"):
+                parts = line.split()
+                model_id = parts[1]
+                rfam_acc = parts[0]
+                model_ids[rfam_acc] = model_id
+
+    # Generate model info file
+    modelinfo = Path(config.RFAM_CM_LIBRARY) / "modelinfo.txt"
+    with open(modelinfo, "w", encoding="utf-8") as model_out:
+        model_out.write("*all*    -    -    all.cm\n")
+        for rfam_acc in rfam_accs:
+            model_out.write(
+                "    ".join([model_ids[rfam_acc], "SSU", "Bacteria", "-\n"])
+            )
+
+    rfam_cm.unlink(missing_ok=True)
+    rfam_ssi.unlink(missing_ok=True)
 
 
 def setup_trna_cm():
@@ -194,9 +235,19 @@ def setup_trna_cm():
 def delete_preexisting_rfam_data():
     """Delete preexisting Rfam data."""
     # delete Rfam cms
-    rfam_cms = os.path.join(config.CM_LIBRARY, "rfam")
-    os.system(f"rm -f {rfam_cms}/*.cm")
-    os.system(f"rm -f {rfam_cms}/modelinfo.txt")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm.ssi")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm.i1*")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/modelinfo.txt")
+    # delete full Rfam.cm downloaded from FTP
+    os.system(f"rm -f {config.RFAM_DATA}/Rfam.cm")
+    os.system(f"rm -f {config.RFAM_DATA}/Rfam.cm.ssi")
+    # delete Rfam seed
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/Rfam.seed")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/Rfam.seed.ssi")
+    # delete tmp cache
+    os.system("rm -Rf /tmp/rfam_seed")
+    os.system("rm -Rf /tmp/cms")
     # delete template files
     os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
     # delete summary files
@@ -206,6 +257,9 @@ def delete_preexisting_rfam_data():
 
 def setup_rnartist(rerun=False):
     """Generate a list of Rfam accessions where RNArtist templates are preferred."""
+    # Clear cached seeds and CMs to force re-extraction from the current archives
+    os.system("rm -Rf /tmp/rfam_seed")
+    os.system("rm -Rf /tmp/cms")
     prefer_rnartist = []
     for rfam_acc in tqdm(get_all_rfam_acc(), "Comparing R-scape and RNArtist"):
         if rfam_acc in BLACKLIST:
@@ -231,16 +285,14 @@ def setup(accessions=None) -> None:
     """Setup Rfam template library."""
     delete_preexisting_rfam_data()
     get_rfam_cms()
-    mi.generate_model_info(cm_library=os.path.join(config.CM_LIBRARY, "rfam"))
     RfamSeed().download_rfam_seed_archive().get_no_structure_file()
     if not accessions:
         accessions = get_all_rfam_acc()
-    for accession in accessions:
+    for accession in tqdm(accessions, "Generating R2R templates"):
         if accession in BLACKLIST:
             continue
         if not has_structure(accession):
             continue
-        print(accession)
         rscape2traveler(accession)
     setup_trna_cm()
     # delete temporary files
@@ -451,7 +503,7 @@ def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
+    rfam_seed = RfamSeed().get_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(os.path.join(destination, "rscape.done")):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
@@ -572,7 +624,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-# pylint: disable-next=too-many-arguments
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def generate_2d(
     rfam_acc,
     output_folder,

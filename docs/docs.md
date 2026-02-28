@@ -15,6 +15,20 @@ To generate documentation locally:
 An alternative port can be specified using the `port` variable: `just port=3000 docs`
 :::
 
+## Regenerating doc images
+
+The viral genome diagrams in `docs/images/` are generated from example inputs in `examples/viral/` and `examples/hcv-alignment.stk`. To regenerate all of them:
+
+```bash
+just docs-images
+```
+
+This runs `viral-annotate`, `stitch`, and `stockholm` inside Docker against the checked-in example FASTA and Stockholm files, then copies the resulting SVGs into `docs/images/`. Run this after any algorithm change that affects diagram output, and commit the updated images alongside the code change.
+
+:::{tip}
+Use `just docs-images some-tag` to regenerate against a specific Docker image tag.
+:::
+
 ## Verifying documentation
 
 To check that all hyperlinks are live:

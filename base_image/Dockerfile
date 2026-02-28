@@ -5,11 +5,11 @@ ENV tRNAscan_VER=2.0.11 \
     traveler_COMMIT=78c1cd63dcf40be83d97d07b8eb9eb6a9dc63f7f \
     jiffy_COMMIT=31d6c3b826d432a30620507830749cee58e15e68 \
     Rscape_VER=v2.0.4.c \
-    Ribovore_COMMIT=5df943c6f2866d7979bb13c948ca9d8531076898 \
+    Ribovore_COMMIT=50786b64c7f503a5a4481121a6cbd7592c7eee60 \
     BioEasel_VER=0.11 \
     INFERNAL_VER=1.1.5 \
-    RNArtist_VER=0.4.6
-
+    RNArtist_VER=0.4.6 \
+    RNAView_COMMIT=2f74eccc47c86acdf0627004e6243454978cd4c1
 
 FROM build AS rscape
 
@@ -109,6 +109,25 @@ FROM build AS rnartist
 RUN \
     wget -q -O rnartist.jar https://github.com/fjossinet/RNArtistCore/releases/download/${RNArtist_VER}-SNAPSHOT/rnartistcore-${RNArtist_VER}-SNAPSHOT-jar-with-dependencies.jar
 
+FROM build AS rnaview
+
+# Install RNAview
+RUN \
+    git clone https://github.com/rcsb/RNAView && \
+    cd RNAView && \
+    git checkout ${RNAView_COMMIT} && \
+    make && \
+    mkdir -p /install/rnaview && \
+    cp -r ./* /install/rnaview/
+
+FROM build AS s5cmd
+
+# Install s5cmd, required for AWS S3
+RUN \
+    wget -q https://github.com/peak/s5cmd/releases/download/v2.3.0/s5cmd_2.3.0_Linux-64bit.tar.gz \
+    && tar -xzf s5cmd_2.3.0_Linux-64bit.tar.gz \
+    && mv s5cmd /usr/local/bin/
+
 FROM debian:bookworm-slim AS final-build
 
 ENV \
@@ -118,12 +137,14 @@ RUN \
     apt-get -qq update && apt-get install -qq -y --no-install-recommends  \
     ncbi-blast+ \
     openjdk-17-jre-headless \
+    awscli \
     python3  \
     python3-pip  \
     python3-venv  \
     python3-cairo  \
     chafa \
     procps \
+    git \
     perl &&  \
     rm -rf /var/lib/{apt,lpkg,cache,log}
 RUN \
@@ -165,10 +186,21 @@ ENV \
     PERL5LIB="$RIBOSCRIPTSDIR":"$RIBOSEQUIPDIR":"$VECPLUSDIR":"$PERL5LIB" \
     PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH"
 
+
+
 ENV \
     PATH="$RIBOSCRIPTSDIR":"$RRNASENSORDIR":"$PATH" \
     PATH="$RNA/traveler/bin:$RIBODIR:$RIBOEASELDIR:$RIBOINFERNALDIR:/rna/rscape/bin:/rna/jiffy-infernal-hmmer-scripts:/rna/r2dt:/rna/RNAstructure/exe:$PATH" \
     PERL5LIB="$RIBOSCRIPTSDIR:$RIBOSEQUIPDIR:$VECPLUSDIR:$BIOEASELDIR:$RIBODIR:$EPNOPTDIR:$EPNOFILEDIR:$EPNTESTDIR:$PERL5LIB:/usr/lib/tRNAscan-SE"
+
+
+
+    ENV \
+    RNAVIEW="${RNA}/rnaview" \
+    PATH="${RNA}/rnaview/bin:${PATH}"
+
+
+COPY --from=rnaview /install/ ${RNA}/
 
 COPY --from=rscape /rna/rscape/ ${RNA}/rscape
 
@@ -183,6 +215,7 @@ COPY --from=scripts /install/ ${RNA}/jiffy-infernal-hmmer-scripts/
 
 COPY --from=ribovore-infernal-easel /install/ ${RNA}/ribovore
 COPY --from=rnartist /rnartist.jar /usr/local/bin/
+COPY --from=s5cmd /usr/local/bin/s5cmd /usr/local/bin/s5cmd
 
 COPY --from=traveler /install/traveler /usr/local/bin/traveler
 COPY --from=traveler /install/utils/* ${RNA}/traveler/utils/

@@ -20,6 +20,7 @@ import requests  # pylint: disable=import-error
 import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
+from . import config
 from .ribovore import Ribovore
 from .runner import runner
 
@@ -29,10 +30,30 @@ MAX_INSERTIONS = 100
 def get_r2dt_version_header():
     """Return a welcome message including release information."""
     header = """# R2DT :: visualise RNA secondary structure using templates
-# Version 2.1 (2025)
+# Version 2.2 (2026)
 # https://github.com/r2dt-bio/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
+
+
+def cmfetch(model_id: str, cm_library="") -> str:
+    """Use cmfetch to get the covariance model."""
+    cm_temp_dir = Path(tempfile.gettempdir()) / "cms"
+    cm_file = cm_temp_dir / f"{model_id}.cm"
+    if cm_file.exists():
+        return cm_file
+    cm_temp_dir.mkdir(parents=True, exist_ok=True)
+    if cm_library:
+        combined_cm = Path(cm_library) / "all.cm"
+    else:
+        combined_cm = Path(config.RFAM_CM_LIBRARY) / "all.cm"
+    if not combined_cm.exists():
+        raise FileNotFoundError(f"Covariance model library {combined_cm} not found")
+    ssi = combined_cm.with_suffix(".cm.ssi")
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {combined_cm}")
+    runner.run(f"cmfetch {combined_cm} {model_id} > {cm_file}")
+    return str(cm_file)
 
 
 def make_blast_db(cm_library):
@@ -50,6 +71,20 @@ def make_blast_db(cm_library):
     runner.run(cmd)
 
 
+def verify_ssi_exists(cm_library):
+    """
+    Verify that the ssi file exists for the covariance model library.
+    If it does not exist, create it using cmfetch.
+    The ssi file is only needed for the all.cm combined model files.
+    """
+    all_cm = Path(cm_library) / "all.cm"
+    if not all_cm.exists():
+        return
+    ssi = Path(cm_library) / "all.cm.ssi"
+    if not ssi.exists():
+        runner.run(f"cmfetch --index {all_cm}")
+
+
 def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_filters):
     """
     Run ribotyper on the fasta sequences to select the best matching covariance
@@ -60,11 +95,12 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
     )
     if "rfam" in cm_library:
         one_blast = ""
-    elif "tmrna" in cm_library:
+    elif any(keyword in cm_library for keyword in ("tmrna", "rnasep")):
         one_blast = ""
     else:
         one_blast = "--1blast"
         make_blast_db(cm_library)
+    verify_ssi_exists(cm_library)
     if not os.path.exists(ribotyper_long_out):
         cmd = (
             f"ribotyper {one_blast} --skipval -i {cm_library}/modelinfo.txt "
@@ -80,7 +116,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
 
 
 # pylint: disable=too-many-branches,too-many-statements
-def remove_large_insertions_pfam_stk(filename):
+def remove_large_insertions_pfam_stk(filename, max_insertions=MAX_INSERTIONS):
     """
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
@@ -132,7 +168,7 @@ def remove_large_insertions_pfam_stk(filename):
             offset = 0
 
         # the tilda and period characters represent insert states in WUSS notation
-        match = re.finditer(r"([\.~]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
+        match = re.finditer(r"([\.~]{" + str(max_insertions) + ",})", gc_ss_cons)
         if not match:
             return insertion_removed
         for span in match:
@@ -215,6 +251,8 @@ def get_insertions(filename):
 def get_full_constraint(filename):
     """Get folding constraint from an Infernal alignment."""
     constraint = ""
+    sequence = ""
+    gc_ss = ""
     with open(filename) as f_stockholm:
         lines = f_stockholm.readlines()
         if len(lines) == 3:
@@ -329,7 +367,7 @@ def handle_exclusion(exclusion, r2dt_constraint):
         return r2dt_constraint
 
 
-# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, too-many-positional-arguments
 def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
     """Fold insertions using RNAfold."""
     with open(input_fasta, "r", encoding="utf-8") as f_fasta:
@@ -478,6 +516,8 @@ def generate_thumbnail(image, description):
     move_to_start_position = None
     color = ColorHash(description).hex
     points = []
+    width = [("100", "")]
+    height = [("100", "")]
     for _, line in enumerate(image.split("\n")):
         if "width" in line and not "stroke-width" in line:
             width = re.findall(r'width="(\d+(\.\d+)?)"', line)
@@ -516,7 +556,7 @@ def sanitise_fasta(filename):
     Replace unsafe characters in a fasta file with underscores.
     Return the filename of the sanitised file or the original filename.
     """
-    unsafe_chars = r'[<:"/\\|?*\0]'
+    unsafe_chars = r'[<:"/\\|?*\0\(\)]'
     sanitized = []
     content_changed = False
 
