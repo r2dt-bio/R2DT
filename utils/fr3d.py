@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """
 FR3D-python wrapper for extracting RNA secondary structure from 3D structures.
 
@@ -125,6 +126,7 @@ def run_fr3d(
     structure_file: str,
     output_dir: str,
     category: str = "basepair",
+    quiet: bool = False,
 ) -> Optional[str]:
     """
     Run FR3D NA_pairwise_interactions.py on a structure file.
@@ -136,6 +138,7 @@ def run_fr3d(
         structure_file: Path to the structure file (.cif or .pdb, optionally .gz).
         output_dir: Directory to write output files.
         category: Interaction category to annotate (default: "basepair").
+        quiet: If True, suppress FR3D progress output.
 
     Returns:
         Path to the basepairs output file, or None if failed.
@@ -171,9 +174,11 @@ def run_fr3d(
                 text=True,
                 check=True,
             )
-            print(result.stdout)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr)
+            if not quiet:
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
 
             # FR3D creates output file named {stem}_basepair.txt
             output_file = output_path / f"{decompressed_path.stem}_basepair.txt"
@@ -187,15 +192,19 @@ def run_fr3d(
             return None
 
         except subprocess.CalledProcessError as e:
-            print(f"Error running FR3D: {e}")
-            print(f"stdout: {e.stdout}")
-            print(f"stderr: {e.stderr}")
+            if not quiet:
+                print(f"Error running FR3D: {e}")
+                print(f"stdout: {e.stdout}")
+                print(f"stderr: {e.stderr}")
             return None
 
 
 # pylint: disable=too-many-branches
 def extract_sequence_from_cif(
-    cif_file: str, chain_id: Optional[str] = None, model_id: Optional[int] = None
+    cif_file: str,
+    chain_id: Optional[str] = None,
+    model_id: Optional[int] = None,
+    quiet: bool = False,
 ) -> Tuple[str, Dict[str, int]]:
     """
     Extract RNA sequence from a mmCIF file using FR3D's structure loading.
@@ -206,6 +215,7 @@ def extract_sequence_from_cif(
         cif_file: Path to the mmCIF file.
         chain_id: Optional chain ID to extract. If None, extracts first RNA chain.
         model_id: Optional model ID to extract. If None, extracts first model only.
+        quiet: If True, suppress error messages.
 
     Returns:
         Tuple of (sequence string, mapping of unit_id to sequence position).
@@ -268,16 +278,18 @@ def extract_sequence_from_cif(
         return "".join(sequence), unit_id_to_position
 
     except ImportError:
-        print("FR3D not installed. Please install fr3d-python.")
+        if not quiet:
+            print("FR3D not installed. Please install fr3d-python.")
         return "", {}
     except Exception as e:  # pylint: disable=broad-exception-caught
-        print(f"Error extracting sequence from CIF: {e}")
+        if not quiet:
+            print(f"Error extracting sequence from CIF: {e}")
         return "", {}
 
 
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches,too-many-statements
 def extract_sequence_from_pdb(
-    pdb_file: str, chain_id: Optional[str] = None
+    pdb_file: str, chain_id: Optional[str] = None, quiet: bool = False
 ) -> Tuple[str, Dict[str, int]]:
     """
     Extract RNA sequence from a PDB file using BioPython.
@@ -287,6 +299,7 @@ def extract_sequence_from_pdb(
     Args:
         pdb_file: Path to the PDB file.
         chain_id: Optional chain ID to extract. If None, extracts first RNA chain.
+        quiet: If True, suppress error messages.
 
     Returns:
         Tuple of (sequence string, mapping of residue_key to sequence position).
@@ -302,9 +315,49 @@ def extract_sequence_from_pdb(
             model = structure[0]
 
             # Collect RNA residues
+            # When no chain is specified, prefer true RNA chains (A/C/G/U)
+            # over DNA chains (DA/DC/DG/DT)
             rna_residues = []
+            selected_chain = chain_id
+
+            if not selected_chain:
+                # Two-pass: first look for RNA, then fall back to DNA
+                for prefer_rna in (True, False):
+                    for chain in model:
+                        has_target = False
+                        for residue in chain:
+                            if residue.id[0] == " ":
+                                resname = residue.resname.strip()
+                                if prefer_rna and resname in (
+                                    "A",
+                                    "C",
+                                    "G",
+                                    "U",
+                                ):
+                                    has_target = True
+                                    break
+                                if prefer_rna and _get_parent_base(resname):
+                                    has_target = True
+                                    break
+                                if not prefer_rna and resname in (
+                                    "DA",
+                                    "DC",
+                                    "DG",
+                                    "DT",
+                                ):
+                                    has_target = True
+                                    break
+                        if has_target:
+                            selected_chain = chain.id
+                            break
+                    if selected_chain:
+                        break
+
+            if not selected_chain:
+                return "", {}
+
             for chain in model:
-                if chain_id and chain.id != chain_id:
+                if chain.id != selected_chain:
                     continue
                 for residue in chain:
                     if residue.id[0] == " ":  # Standard residue
@@ -313,10 +366,6 @@ def extract_sequence_from_pdb(
                             rna_residues.append((chain.id, residue))
                         elif _get_parent_base(resname):
                             rna_residues.append((chain.id, residue))
-
-                # If no chain specified, use only first chain with RNA
-                if not chain_id and rna_residues:
-                    break
 
             if not rna_residues:
                 return "", {}
@@ -352,10 +401,12 @@ def extract_sequence_from_pdb(
             return "".join(sequence), residue_to_position
 
     except ImportError:
-        print("BioPython not installed.")
+        if not quiet:
+            print("BioPython not installed.")
         return "", {}
     except Exception as e:  # pylint: disable=broad-exception-caught
-        print(f"Error extracting sequence from PDB: {e}")
+        if not quiet:
+            print(f"Error extracting sequence from PDB: {e}")
         return "", {}
 
 
@@ -401,6 +452,365 @@ def _get_parent_base(modified_nt: str) -> Optional[str]:
         "P": "U",
     }
     return modifications.get(modified_nt.upper())
+
+
+# ============================================================================
+# Full-sequence extraction (SEQRES / entity_poly) for missing-residue support
+# ============================================================================
+
+# Standard three-letter RNA codes → one-letter
+_THREE_TO_ONE = {
+    "A": "A",
+    "C": "C",
+    "G": "G",
+    "U": "U",
+    "I": "I",
+    "DA": "A",
+    "DC": "C",
+    "DG": "G",
+    "DT": "T",
+}
+
+
+def _resname_to_one_letter(resname: str) -> str:
+    """Convert a three-letter (or one-letter) residue name to single char."""
+    resname = resname.strip().upper()
+    if resname in _THREE_TO_ONE:
+        return _THREE_TO_ONE[resname]
+    parent = _get_parent_base(resname)
+    return parent if parent else "N"
+
+
+def get_full_sequence_from_pdb(  # pylint: disable=too-many-statements
+    pdb_file: str, chain_id: Optional[str] = None
+) -> Tuple[str, List[bool], str]:
+    """
+    Extract the full deposited sequence and resolved-residue mask from a PDB file.
+
+    Parses SEQRES records for the complete sequence and compares with ATOM
+    records to identify unresolved (missing) residue positions.
+
+    Args:
+        pdb_file: Path to PDB file (may be gzip-compressed).
+        chain_id: Chain ID to extract.  If ``None`` the first RNA chain
+            (based on ATOM records) is used and then the corresponding
+            SEQRES chain is looked up.
+
+    Returns:
+        Tuple of ``(full_sequence, resolved_mask, used_chain_id)`` where
+
+        * *full_sequence* is the deposited sequence from SEQRES,
+        * *resolved_mask* is a list of booleans (``True`` = resolved),
+        * *used_chain_id* is the chain that was actually used.
+
+        Returns ``("", [], "")`` on failure.
+    """
+    try:
+        from Bio.PDB import PDBParser  # pylint: disable=import-outside-toplevel
+
+        parser = PDBParser(QUIET=True)
+
+        with DecompressedStructureFile(Path(pdb_file)) as decompressed_path:
+            # --- 1. Parse SEQRES lines manually (BioPython gives 'X' for RNA)
+            seqres_by_chain: Dict[str, List[str]] = defaultdict(list)
+            with open(str(decompressed_path), "r") as fh:
+                for line in fh:
+                    if line.startswith("SEQRES"):
+                        cid = line[11].strip()
+                        residues = line[19:].split()
+                        seqres_by_chain[cid].extend(residues)
+
+            # --- 2. Parse ATOM records for resolved residue numbers
+            structure = parser.get_structure("RNA", str(decompressed_path))
+            model = structure[0]
+
+            # Determine chain if not provided
+            # Prefer RNA chains (A/C/G/U) over DNA (DA/DC/DG/DT)
+            if chain_id is None:
+                dna_chain = None
+                for chain_obj in model:
+                    for residue in chain_obj:
+                        if residue.id[0] == " ":
+                            resname = residue.resname.strip()
+                            if resname in ("A", "C", "G", "U") or _get_parent_base(
+                                resname
+                            ):
+                                chain_id = chain_obj.id
+                                break
+                            if (
+                                resname
+                                in (
+                                    "DA",
+                                    "DC",
+                                    "DG",
+                                    "DT",
+                                )
+                                and dna_chain is None
+                            ):
+                                dna_chain = chain_obj.id
+                    if chain_id:
+                        break
+                if chain_id is None:
+                    chain_id = dna_chain
+
+            if not chain_id:
+                return "", [], ""
+
+            # Collect resolved residue numbers for the chain
+            resolved_resnums: Set[int] = set()
+            if chain_id in [c.id for c in model]:
+                for residue in model[chain_id]:
+                    if residue.id[0] == " ":
+                        resname = residue.resname.strip()
+                        if resname in (
+                            "A",
+                            "C",
+                            "G",
+                            "U",
+                            "DA",
+                            "DC",
+                            "DG",
+                            "DT",
+                        ) or _get_parent_base(resname):
+                            resolved_resnums.add(residue.id[1])
+
+            # --- 2b. Parse REMARK 465 for missing residue numbers
+            missing_resnums: Set[int] = set()
+            with open(str(decompressed_path), "r") as fh:
+                for line in fh:
+                    if line.startswith("REMARK 465") and len(line) > 20:
+                        parts = line.split()
+                        # Format: REMARK 465   resname chain resnum
+                        if len(parts) >= 5:
+                            try:
+                                r465_chain = parts[3]
+                                r465_resnum = int(parts[4])
+                                if r465_chain == chain_id:
+                                    missing_resnums.add(r465_resnum)
+                            except (ValueError, IndexError):
+                                pass
+
+            # --- 3. Build full sequence and mask from SEQRES
+            seqres_residues = seqres_by_chain.get(chain_id, [])
+            if not seqres_residues:
+                return "", [], chain_id
+
+            # Build the SEQRES-to-PDB-resnum mapping.
+            # When REMARK 465 data is available, combine resolved + missing
+            # residue numbers to get the correct mapping (handles negative
+            # numbering and non-standard offsets like 9JFS chain B: -52..193).
+            all_resnums = sorted(resolved_resnums | missing_resnums)
+
+            full_sequence_chars: List[str] = []
+            resolved_mask: List[bool] = []
+
+            for i, resname in enumerate(seqres_residues):
+                one_letter = _resname_to_one_letter(resname)
+                full_sequence_chars.append(one_letter)
+                if all_resnums and len(all_resnums) == len(seqres_residues):
+                    # Use proper PDB residue number mapping
+                    resolved_mask.append(all_resnums[i] in resolved_resnums)
+                else:
+                    # Fallback: assume 1-based SEQRES == PDB resnum
+                    resolved_mask.append((i + 1) in resolved_resnums)
+
+            return "".join(full_sequence_chars), resolved_mask, chain_id
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        print(f"Error extracting full sequence from PDB: {e}")
+        return "", [], ""
+
+
+def get_full_sequence_from_cif(
+    cif_file: str, chain_id: Optional[str] = None
+) -> Tuple[str, List[bool], str]:
+    """
+    Extract the full deposited sequence and resolved-residue mask from mmCIF.
+
+    Reads ``_entity_poly.pdbx_seq_one_letter_code_can`` for the complete
+    sequence and ``_pdbx_unobs_or_zero_occ_residues`` for missing positions.
+
+    Args:
+        cif_file: Path to mmCIF file (may be gzip-compressed).
+        chain_id: Auth chain ID to extract.  If ``None`` the first RNA chain
+            is used.
+
+    Returns:
+        Same as :func:`get_full_sequence_from_pdb`.
+    """
+    try:
+        import re as _re  # pylint: disable=import-outside-toplevel
+
+        with open_structure_file(Path(cif_file), "r") as fh:
+            cif_text = fh.read()
+
+        # --- 1. Find entity_poly entries and pick the RNA entity
+        #     Look for _entity_poly.pdbx_seq_one_letter_code_can
+        #     and _entity_poly.pdbx_strand_id to map entity → chains
+        entity_blocks = _re.findall(
+            r"_entity_poly\.pdbx_strand_id\s+(\S+)",
+            cif_text,
+        )
+        entity_seqs = _re.findall(
+            r"_entity_poly\.pdbx_seq_one_letter_code_can\s*\n?;([^;]+);",
+            cif_text,
+        )
+        entity_types = _re.findall(
+            r"_entity_poly\.type\s+['\"]?([^'\";\n]+)",
+            cif_text,
+        )
+
+        if not entity_seqs:
+            # Try single-line format
+            entity_seqs = _re.findall(
+                r"_entity_poly\.pdbx_seq_one_letter_code_can\s+(\S+)",
+                cif_text,
+            )
+
+        # Match entities to types and chains
+        target_seq = ""
+        target_chains = ""
+
+        for i, etype in enumerate(entity_types):
+            if "ribonucleotide" in etype.lower():
+                if i < len(entity_seqs):
+                    target_seq = entity_seqs[i].replace("\n", "").replace(" ", "")
+                if i < len(entity_blocks):
+                    target_chains = entity_blocks[i]
+                break
+
+        if not target_seq:
+            return "", [], ""
+
+        # Resolve chain
+        available_chains = [c.strip() for c in target_chains.split(",")]
+        if chain_id is None:
+            chain_id = available_chains[0] if available_chains else ""
+        if not chain_id:
+            return "", [], ""
+
+        # --- 2. Find unobserved residues from _pdbx_unobs_or_zero_occ_residues
+        #     This is a loop category; parse the relevant columns.
+        unobs_positions: Set[int] = set()
+
+        # Try to find the loop block
+        unobs_match = _re.search(
+            r"loop_\s*\n"
+            r"((?:_pdbx_unobs_or_zero_occ_residues\.\w+\s*\n)+)"
+            r"((?:(?!loop_|#|_).*\n)*)",
+            cif_text,
+        )
+        if unobs_match:
+            header_text = unobs_match.group(1)
+            data_text = unobs_match.group(2)
+
+            headers = _re.findall(
+                r"_pdbx_unobs_or_zero_occ_residues\.(\w+)", header_text
+            )
+            auth_asym_idx = (
+                headers.index("auth_asym_id") if "auth_asym_id" in headers else None
+            )
+            seq_id_idx = (
+                headers.index("auth_seq_id") if "auth_seq_id" in headers else None
+            )
+            label_seq_idx = (
+                headers.index("label_seq_id") if "label_seq_id" in headers else None
+            )
+
+            # Use label_seq_id (entity sequence numbering) if available
+            pos_idx = label_seq_idx if label_seq_idx is not None else seq_id_idx
+
+            for data_line in data_text.strip().split("\n"):
+                fields = data_line.split()
+                if not fields or len(fields) <= max(
+                    f for f in [auth_asym_idx, pos_idx] if f is not None
+                ):
+                    continue
+                if auth_asym_idx is not None and fields[auth_asym_idx] != chain_id:
+                    continue
+                if pos_idx is not None:
+                    try:
+                        unobs_positions.add(int(fields[pos_idx]))
+                    except ValueError:
+                        pass
+
+        # --- 3. Build mask
+        full_sequence = target_seq
+        resolved_mask = [
+            (i + 1) not in unobs_positions for i in range(len(full_sequence))
+        ]
+
+        return full_sequence, resolved_mask, chain_id
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        print(f"Error extracting full sequence from CIF: {e}")
+        return "", [], ""
+
+
+def get_full_sequence(
+    structure_file: str, chain_id: Optional[str] = None
+) -> Tuple[str, List[bool], str]:
+    """
+    Extract full deposited sequence and resolved mask from any structure file.
+
+    Dispatches to PDB or CIF parser based on file extension.
+
+    Args:
+        structure_file: Path to PDB or mmCIF file.
+        chain_id: Optional chain ID.
+
+    Returns:
+        Tuple of ``(full_sequence, resolved_mask, used_chain_id)``.
+    """
+    path = Path(structure_file)
+    # Strip .gz to check real extension
+    name = path.name.lower()
+    if name.endswith(".gz"):
+        name = name[:-3]
+
+    if name.endswith(".cif"):
+        return get_full_sequence_from_cif(structure_file, chain_id)
+    return get_full_sequence_from_pdb(structure_file, chain_id)
+
+
+def remap_dot_bracket(
+    resolved_dot_bracket: str,
+    resolved_mask: List[bool],
+) -> str:
+    """
+    Expand a dot-bracket string from resolved-only indexing to full-sequence indexing.
+
+    Inserts ``'.'`` at every unresolved position so the result has the same
+    length as the full deposited sequence.
+
+    Args:
+        resolved_dot_bracket: Dot-bracket from base-pair extraction (covers
+            only resolved nucleotides).
+        resolved_mask: Boolean list for the full sequence (``True`` = resolved).
+
+    Returns:
+        Expanded dot-bracket string with ``len(resolved_mask)`` characters.
+
+    Raises:
+        ValueError: If the number of ``True`` values in *resolved_mask*
+            doesn't match *len(resolved_dot_bracket)*.
+    """
+    resolved_count = sum(resolved_mask)
+    if resolved_count != len(resolved_dot_bracket):
+        raise ValueError(
+            f"Resolved count ({resolved_count}) != "
+            f"dot-bracket length ({len(resolved_dot_bracket)})"
+        )
+
+    result = []
+    res_idx = 0
+    for is_resolved in resolved_mask:
+        if is_resolved:
+            result.append(resolved_dot_bracket[res_idx])
+            res_idx += 1
+        else:
+            result.append(".")
+    return "".join(result)
 
 
 # pylint: disable=too-many-branches, too-many-statements
@@ -624,11 +1034,11 @@ def get_secondary_structure_fr3d(
     # Extract sequence based on file type
     if structure_path.suffix.lower() == ".cif":
         sequence, unit_id_to_position = extract_sequence_from_cif(
-            str(structure_path), chain_id, model_id
+            str(structure_path), chain_id, model_id, quiet=quiet
         )
     else:
         sequence, unit_id_to_position = extract_sequence_from_pdb(
-            str(structure_path), chain_id
+            str(structure_path), chain_id, quiet=quiet
         )
 
     if not sequence:
@@ -640,7 +1050,7 @@ def get_secondary_structure_fr3d(
         print(f"Extracted sequence: {len(sequence)} nucleotides")
 
     # Run FR3D to get basepair annotations
-    basepair_file = run_fr3d(str(structure_path), output_dir)
+    basepair_file = run_fr3d(str(structure_path), output_dir, quiet=quiet)
     if not basepair_file:
         if not quiet:
             print("FR3D analysis failed, returning unpaired structure")
