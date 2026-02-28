@@ -23,7 +23,7 @@ RUN python3 -m venv $VENV && pip3 install --upgrade pip
 ADD requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt --no-cache-dir
 
-# Install FR3D-python (requires git from base image)
-RUN pip3 install --no-cache-dir git+https://github.com/BGSU-RNA/fr3d-python.git@3c7dc20
+# Install FR3D-python
+RUN pip3 install --no-cache-dir https://github.com/BGSU-RNA/fr3d-python/archive/3c7dc20.tar.gz
 
 ADD . /rna/r2dt
