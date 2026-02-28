@@ -612,6 +612,87 @@ def create_outline_path(
     return path
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def create_colored_outline_paths(
+    panels: list,
+    translations: list[tuple[float, float]],
+    panel_colors: list[str],
+    scale_factors: list[float] = None,
+    stroke_width: float = 3.0,
+    stroke_opacity: float = 0.6,
+) -> list[ET.Element]:
+    """
+    Create per-panel SVG path elements, each coloured with its panel's accent.
+
+    Instead of one monolithic ``<path>`` through all nucleotide positions,
+    this produces one ``<path>`` per panel so each segment can carry the
+    panel's own colour.
+
+    Args:
+        panels: List of PanelData objects
+        translations: List of (tx, ty) translation offsets for each panel
+        panel_colors: List of SVG colour strings, one per panel
+        scale_factors: Optional list of scale factors for each panel
+        stroke_width: Width of the outline stroke
+        stroke_opacity: Opacity of the outline (0-1)
+
+    Returns:
+        List of SVG ``<path>`` elements (may be empty)
+    """
+    paths: list[ET.Element] = []
+    # Keep the last global point of each panel so we can bridge gaps.
+    prev_last_pt: Optional[tuple[float, float]] = None
+
+    for i, (panel, (tx, ty)) in enumerate(zip(panels, translations)):
+        scale = scale_factors[i] if scale_factors else 1.0
+        local_points = extract_nucleotide_positions(panel.root)
+
+        if len(local_points) < 2:
+            continue
+
+        # Transform to global coordinates
+        global_pts = [(lx * scale + tx, ly * scale + ty) for lx, ly in local_points]
+
+        color = panel_colors[i] if i < len(panel_colors) else "#cccccc"
+
+        # Bridge from previous panel's last point to this panel's first point
+        if prev_last_pt is not None:
+            bridge_data = (
+                f"M{prev_last_pt[0]:.1f} {prev_last_pt[1]:.1f}"
+                f" L{global_pts[0][0]:.1f} {global_pts[0][1]:.1f}"
+            )
+            bridge = ET.Element("path")
+            bridge.set("d", bridge_data)
+            bridge.set("fill", "none")
+            bridge.set("stroke", color)
+            bridge.set("stroke-width", str(stroke_width))
+            bridge.set("stroke-opacity", str(stroke_opacity))
+            bridge.set("stroke-linecap", "round")
+            bridge.set("stroke-linejoin", "round")
+            bridge.set("class", "connecting-outline")
+            paths.append(bridge)
+
+        # Build path data for this panel's nucleotides
+        path_data = f"M{global_pts[0][0]:.1f} {global_pts[0][1]:.1f}"
+        for x, y in global_pts[1:]:
+            path_data += f" L{x:.1f} {y:.1f}"
+
+        path = ET.Element("path")
+        path.set("d", path_data)
+        path.set("fill", "none")
+        path.set("stroke", color)
+        path.set("stroke-width", str(stroke_width))
+        path.set("stroke-opacity", str(stroke_opacity))
+        path.set("stroke-linecap", "round")
+        path.set("stroke-linejoin", "round")
+        path.set("class", "connecting-outline")
+        paths.append(path)
+
+        prev_last_pt = global_pts[-1]
+
+    return paths
+
+
 def parse_svg(filepath: Path) -> PanelData:
     """
     Parse an R2DT SVG file and extract necessary data.
@@ -760,18 +841,70 @@ def create_glyph(
     return None
 
 
+def scope_panel_css(panel_group: ET.Element, panel_id: str) -> None:
+    """Scope CSS selectors in <style> blocks so they only target this panel.
+
+    Rewrites bare selectors like ``text { ... }`` to ``#panel_0 text { ... }``
+    so that CSS from one embedded panel cannot leak into other panels,
+    captions, or region labels in the stitched SVG.
+
+    Args:
+        panel_group: The ``<g id="panel_N">`` element containing the panel's
+            children (including ``<style>`` blocks copied from the source SVG).
+        panel_id: The ``id`` attribute of the panel group (e.g. ``"panel_0"``).
+    """
+    rule_re = re.compile(r"([^{}]+?)\{([^{}]*)\}", re.DOTALL)
+
+    for elem in panel_group.iter():  # recurse into all descendants
+        tag = elem.tag.split("}")[-1] if "}" in str(elem.tag) else str(elem.tag)
+        if tag != "style":
+            continue
+        css = elem.text or ""
+        if not css.strip():
+            continue
+
+        def _rewrite(match: re.Match) -> str:
+            selectors_raw = match.group(1)
+            declarations = match.group(2)
+            parts = []
+            for sel in selectors_raw.split(","):
+                sel = sel.strip()
+                if sel:
+                    parts.append(f"#{panel_id} {sel}")
+            return ",".join(parts) + "{" + declarations + "}"
+
+        elem.text = rule_re.sub(_rewrite, css)
+
+
 def create_caption_element(
-    text: str, x: float, y: float, font_size: float
+    text: str,
+    x: float,
+    y: float,
+    font_size: float,
+    rotate: bool = False,
 ) -> ET.Element:
-    """Create a caption text element with inline style to override CSS rules."""
+    """Create a caption text element with inline style to override CSS rules.
+
+    Args:
+        text: Caption text
+        x: X position
+        y: Y position
+        font_size: Font size in SVG units
+        rotate: If True, rotate caption 90° counter-clockwise (vertical text)
+    """
     caption = ET.Element("text")
     caption.set("x", str(x))
     caption.set("y", str(y))
-    caption.set("text-anchor", "middle")
-    # Use inline style attribute (highest CSS priority) to override stylesheet rules
+    # Use inline style attribute (highest CSS priority) to set font properties.
     caption.set(
-        "style", f"font-size: {font_size}px; font-family: Helvetica, Arial, sans-serif;"
+        "style",
+        f"font-size: {font_size}px; font-family: Helvetica, Arial, sans-serif;",
     )
+    if rotate:
+        caption.set("text-anchor", "start")
+        caption.set("transform", f"rotate(-90, {x}, {y})")
+    else:
+        caption.set("text-anchor", "middle")
     caption.text = text
     return caption
 
@@ -844,15 +977,60 @@ def calculate_visual_gap(
     return min(visual_gap, max_gap)
 
 
+_NUCLEOTIDE_RE = re.compile(r"^[AUGCNRYWSMKBDHVaugcnrywsmkbdhv]$|^[AUGC]-[AUGC]$")
+
+_COLOR_CLASSES = ("green", "red", "blue", "brown", "black")
+
+_TRAVELER_RGB_FILLS = (
+    "fill: rgb(0, 255, 0)",  # green
+    "fill: rgb(255, 0, 255)",  # magenta
+    "fill: rgb(0, 0, 255)",  # blue
+    "fill: rgb(211.65, 104.55, 30.6)",  # brown
+    "fill: rgb(0, 0, 0)",  # black
+)
+
+
+def _set_inline_style(elem: ET.Element, prop: str, value: str) -> None:
+    """Set a single CSS property in an element's inline ``style`` attribute.
+
+    Existing properties are preserved; if *prop* already exists it is
+    replaced.  Using inline ``style`` gives the highest CSS specificity
+    (short of ``!important``), ensuring the value is not overridden by
+    class-based rules from ``<style>`` blocks.
+    """
+    existing = elem.get("style", "")
+    # Remove existing declaration for this property (if any)
+    existing = (
+        re.sub(
+            rf"(^|;)\s*{re.escape(prop)}\s*:[^;]*(;|$)",
+            r"\1",
+            existing,
+        )
+        .strip()
+        .rstrip(";")
+    )
+    if existing:
+        elem.set("style", f"{existing}; {prop}: {value}")
+    else:
+        elem.set("style", f"{prop}: {value}")
+
+
 # pylint: disable-next=too-many-branches
-def strip_svg_styling(root: ET.Element) -> None:
+def apply_panel_color(root: ET.Element, color: str) -> None:
+    """Recolour nucleotide text in an SVG panel.
+
+    * Residue circles and posterior-probability backgrounds are removed.
+    * Single-letter nucleotide ``<text>`` elements get ``fill=color``.
+    * Labels (5′/3′, numbering, captions) are left black.
+    * The CSS ``<style>`` block is patched so Traveler colour classes
+      resolve to *color* for nucleotides and posterior circles are hidden.
+
+    Args:
+        root: SVG root element (modified **in place**).
+        color: Any SVG-valid colour string (``"red"``, ``"#e63946"``,
+            ``"rgb(38,70,83)"``, …).
     """
-    Strip color styling from SVG elements to create a monochrome version.
-    - Removes residue circles (colored backgrounds behind nucleotides)
-    - Makes all text black
-    - Modifies the CSS style block to override colors
-    """
-    elements_to_remove = []
+    elements_to_remove: list[ET.Element] = []
 
     for elem in root.iter():
         tag_local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -861,62 +1039,55 @@ def strip_svg_styling(root: ET.Element) -> None:
         if tag_local == "circle":
             class_attr = elem.get("class", "")
             if "residue-circle" in class_attr or "color-posterior" in class_attr:
-                # Mark for removal (can't remove while iterating)
                 elements_to_remove.append(elem)
 
-        # Make all text black
-        if tag_local == "text":
+        # Recolour backbone lines with the panel colour
+        if tag_local == "line":
             class_attr = elem.get("class", "")
-            # Remove color classes and set fill to black
-            if any(
-                c in class_attr
-                for c in ["text-green", "text-red", "text-blue", "text-brown"]
-            ):
-                # Replace color class with text-black
-                new_class = class_attr
-                for color_class in [
-                    "text-green",
-                    "text-red",
-                    "text-blue",
-                    "text-brown",
-                ]:
-                    new_class = new_class.replace(color_class, "text-black")
-                elem.set("class", new_class)
-            # Also set explicit fill attribute to ensure black
-            elem.set("fill", "black")
+            if "gray" in class_attr and "numbering" not in class_attr:
+                _set_inline_style(elem, "stroke", color)
 
-        # Modify the CSS style block
+        # Recolour nucleotide text; leave labels black
+        if tag_local == "text":
+            text_content = (elem.text or "").strip()
+            class_attr = elem.get("class", "")
+
+            # Strip Traveler colour classes so they cannot fight
+            # the inline style we set below.
+            if any(c in class_attr for c in _COLOR_CLASSES):
+                new_class = class_attr
+                for cc in _COLOR_CLASSES:
+                    new_class = new_class.replace(cc, "")
+                new_class = " ".join(new_class.split())  # collapse whitespace
+                elem.set("class", new_class)
+
+            # Only nucleotide letters get the panel colour.
+            # Use inline *style* so CSS class rules cannot override.
+            if _NUCLEOTIDE_RE.match(text_content):
+                _set_inline_style(elem, "fill", color)
+            else:
+                _set_inline_style(elem, "fill", "black")
+
+        # Patch the CSS style block
         if tag_local == "style":
             if elem.text:
                 css = elem.text
-                # Override all text colors to black
-                css = css.replace(
-                    "fill: rgb(0, 255, 0)", "fill: rgb(0, 0, 0)"
-                )  # green -> black
-                css = css.replace(
-                    "fill: rgb(255, 0, 255)", "fill: rgb(0, 0, 0)"
-                )  # magenta -> black
-                css = css.replace(
-                    "fill: rgb(0, 0, 255)", "fill: rgb(0, 0, 0)"
-                )  # blue -> black
-                css = css.replace(
-                    "fill: rgb(211.65, 104.55, 30.6)", "fill: rgb(0, 0, 0)"
-                )  # brown -> black
+                # Override Traveler nucleotide-colour rules to *color*
+                for old_fill in _TRAVELER_RGB_FILLS:
+                    css = css.replace(old_fill, f"fill: {color}")
                 # Make residue circles transparent/invisible
                 css = css.replace(
                     ".residue-circle { fill: rgb(255,255,255);  }",
                     ".residue-circle { fill: none; stroke: none;  }",
                 )
-                # Make all posterior probability colors transparent
+                # Make all posterior probability colours transparent
                 for i in range(11):
-                    old_pattern = f".color-posterior_probability-{i} {{"
-                    if old_pattern in css:
-                        # Find and replace the whole rule
-                        css = re.sub(
-                            rf"\.color-posterior_probability-{i} \{{ fill: rgb\([^)]+\);  \}}",
-                            f".color-posterior_probability-{i} {{ fill: none;  }}",
-                            css,
-                        )
+                    css = re.sub(
+                        rf"\.color-posterior_probability-{i}"
+                        rf" \{{ fill: rgb\([^)]+\);  \}}",
+                        f".color-posterior_probability-{i} {{ fill: none;  }}",
+                        css,
+                    )
                 css = re.sub(
                     r"\.color-posterior_probability-_ \{ fill: rgb\([^)]+\);  \}",
                     ".color-posterior_probability-_ { fill: none;  }",
@@ -932,15 +1103,275 @@ def strip_svg_styling(root: ET.Element) -> None:
                 break
 
 
+def strip_svg_styling(root: ET.Element) -> None:
+    """Strip colour styling to create a monochrome (black) version.
+
+    This is a convenience wrapper around :func:`apply_panel_color` with
+    ``color="black"``.
+    """
+    apply_panel_color(root, "black")
+
+
+# pylint: disable-next=too-many-branches,too-many-statements
+def create_thumbnail_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
+    """
+    Transform an SVG into a minimal thumbnail with no annotations at all.
+
+    Unlike :func:`create_outline_svg`, which keeps 5′/3′ labels, numbering,
+    and captions, this function strips **everything** except the backbone
+    lines, producing a clean silhouette suitable for use as an icon or
+    overview thumbnail.
+
+    When panel groups carry a ``data-panel-color`` attribute the backbone
+    lines are drawn in that colour; otherwise they default to black.
+
+    Args:
+        root: SVG root element (modified in place)
+        stroke_width: Width for backbone strokes (default 3.0)
+    """
+    # Build a map panel_group → colour
+    _panel_color_map: dict[ET.Element, str] = {}
+    for group in root.iter():
+        tag = group.tag.split("}")[-1] if "}" in group.tag else group.tag
+        if tag == "g" and group.get("data-panel-color"):
+            _panel_color_map[group] = group.get("data-panel-color", "")
+
+    def _panel_stroke(elem: ET.Element) -> str:
+        """Return the panel colour if available, else black."""
+        for pg, pc in _panel_color_map.items():
+            if _is_descendant(pg, elem):
+                return pc
+        return "black"
+
+    elements_to_remove: list[ET.Element] = []
+
+    for elem in root.iter():
+        tag_local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+
+        # Remove ALL text elements — nucleotides, labels, captions, numbering
+        if tag_local == "text":
+            elements_to_remove.append(elem)
+            continue
+
+        # Remove residue circles
+        if tag_local == "circle":
+            elements_to_remove.append(elem)
+            continue
+
+        # Keep only backbone lines (class "gray"); remove base-pair
+        # rungs (class "black"), softened base-pair lines (class
+        # "gray softened"), and numbering tick-marks so that the
+        # thumbnail shows a clean silhouette of the RNA strand.
+        if tag_local == "line":
+            css_class = elem.get("class", "")
+            if (
+                "numbering-line" in css_class
+                or css_class == "black"
+                or "softened" in css_class
+            ):
+                elements_to_remove.append(elem)
+                continue
+            # Use inline style so CSS class rules cannot override.
+            pstroke = _panel_stroke(elem)
+            _set_inline_style(elem, "stroke", pstroke)
+            _set_inline_style(elem, "stroke-width", str(stroke_width))
+            for attr in ("stroke-dasharray", "stroke-opacity"):
+                if attr in elem.attrib:
+                    del elem.attrib[attr]
+
+        # Remove pseudoknot polylines; make remaining polylines uniform
+        if tag_local == "polyline":
+            css_class = elem.get("class", "")
+            if "pseudoknot" in css_class:
+                elements_to_remove.append(elem)
+                continue
+            pstroke = _panel_stroke(elem)
+            _set_inline_style(elem, "stroke", pstroke)
+            _set_inline_style(elem, "stroke-width", str(stroke_width))
+            for attr in ("stroke-dasharray", "stroke-opacity"):
+                if attr in elem.attrib:
+                    del elem.attrib[attr]
+
+        # Make connecting-outline paths lighter in thumbnail.
+        # Per-panel coloured paths keep their colour; monochrome uses gray.
+        if tag_local == "path":
+            if "connecting-outline" in elem.get("class", ""):
+                if not _panel_color_map:
+                    elem.set("stroke", "#cccccc")
+                elem.set("stroke-opacity", "1")
+
+        # Modify CSS style block
+        if tag_local == "style":
+            if elem.text:
+                css = elem.text
+                css = re.sub(
+                    r"stroke-width:\s*[\d.]+;",
+                    f"stroke-width: {stroke_width};",
+                    css,
+                )
+                css = re.sub(r"stroke-dasharray:\s*[^;]+;", "", css)
+                css = re.sub(r"stroke-opacity:\s*[\d.]+;", "", css)
+                css = re.sub(r"fill:\s*rgb\([^)]+\)", "fill: rgb(0, 0, 0)", css)
+                css = re.sub(r"stroke:\s*rgb\([^)]+\)", "stroke: rgb(0, 0, 0)", css)
+                css = re.sub(
+                    r"\.residue-circle\s*\{[^}]+\}",
+                    ".residue-circle { fill: none; stroke: none; }",
+                    css,
+                )
+                elem.text = css
+
+    # Remove joins group (glyphs / gap labels) — should already be absent
+    # in thumbnail stitch, but remove defensively
+    for group in list(root):
+        if group.get("id") in ("joins", "captions", "region-labels"):
+            root.remove(group)
+
+    # Remove marked elements
+    for elem in elements_to_remove:
+        for parent in root.iter():
+            if elem in list(parent):
+                parent.remove(elem)
+                break
+
+    # Merge remaining backbone segments into continuous polylines
+    _merge_backbone_lines(root, stroke_width, "black")
+
+
 # pylint: disable-next=too-many-branches
-def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
+def _merge_backbone_lines(  # pylint: disable=too-many-nested-blocks
+    root: ET.Element, stroke_width: float, default_color: str
+) -> None:
+    """Merge individual backbone ``<line>`` segments into continuous ``<polyline>``\\s.
+
+    Traveler wraps every backbone line in its own ``<g>``::
+
+        <g id="panel_0">
+          <g><line class="gray" .../></g>   ← one wrapper per segment
+          <g><line class="gray" .../></g>
+          ...
+
+    This creates a visible dashed pattern because of gaps between segments.
+    We collect all backbone lines per panel, chain consecutive ones, and
+    replace the ``<g><line/></g>`` wrappers with a single ``<polyline>``
+    (e.g. 2 700 lines → ~46 polylines).
+
+    If a panel group carries a ``data-panel-color`` attribute the polylines
+    use that colour; otherwise *default_color* is used.
+    """
+    ns_prefix = f"{{{SVG_NS}}}" if "}" in root.tag else ""
+    polyline_tag = f"{ns_prefix}polyline"
+    max_gap = 25.0  # px – generous; typical nucleotide gap is ~12 px
+
+    # Find the panels container
+    panels_g = None
+    for child in root:
+        if child.get("id") == "panels":
+            panels_g = child
+            break
+    if panels_g is None:
+        # Fall back: treat entire root as single panel
+        panels_g = root
+
+    for panel in list(panels_g):
+        # Resolve the colour for this panel
+        panel_color = panel.get("data-panel-color") or default_color
+
+        # Collect backbone lines from this panel (may be wrapped in <g>)
+        entries: list[tuple] = []  # (wrapper_g, line_elem, x1, y1, x2, y2)
+        for wrapper in list(panel):
+            wtag = wrapper.tag.split("}")[-1] if "}" in wrapper.tag else wrapper.tag
+            # Direct line child of panel
+            if wtag == "line":
+                cls = wrapper.get("class", "")
+                if "gray" in cls and "numbering" not in cls:
+                    entries.append(
+                        (
+                            None,
+                            wrapper,
+                            float(wrapper.get("x1", "0")),
+                            float(wrapper.get("y1", "0")),
+                            float(wrapper.get("x2", "0")),
+                            float(wrapper.get("y2", "0")),
+                        )
+                    )
+                continue
+            # Wrapped in <g>: look for single gray line child
+            if wtag == "g":
+                for gc in wrapper:
+                    gctag = gc.tag.split("}")[-1] if "}" in gc.tag else gc.tag
+                    if gctag == "line":
+                        cls = gc.get("class", "")
+                        if "gray" in cls and "numbering" not in cls:
+                            entries.append(
+                                (
+                                    wrapper,
+                                    gc,
+                                    float(gc.get("x1", "0")),
+                                    float(gc.get("y1", "0")),
+                                    float(gc.get("x2", "0")),
+                                    float(gc.get("y2", "0")),
+                                )
+                            )
+
+        if not entries:
+            continue
+
+        # Build chains of consecutive segments
+        chains: list[list[tuple]] = [[entries[0]]]
+        for i in range(1, len(entries)):
+            prev = chains[-1][-1]
+            curr = entries[i]
+            gap = math.sqrt((curr[2] - prev[4]) ** 2 + (curr[3] - prev[5]) ** 2)
+            if gap < max_gap:
+                chains[-1].append(curr)
+            else:
+                chains.append([curr])
+
+        for chain in chains:
+            # Build points: every segment contributes its start and end
+            pts: list[str] = []
+            for _, _, x1, y1, x2, y2 in chain:
+                pts.append(f"{x1},{y1}")
+                pts.append(f"{x2},{y2}")
+
+            polyline = ET.SubElement(panel, polyline_tag)
+            polyline.set("points", " ".join(pts))
+            polyline.set("fill", "none")
+            # Use inline style so scoped CSS class rules cannot
+            # override the panel colour.
+            _set_inline_style(polyline, "stroke", panel_color)
+            _set_inline_style(polyline, "stroke-width", str(stroke_width))
+            _set_inline_style(polyline, "stroke-linejoin", "round")
+
+            # Remove original <g><line/></g> wrappers (or bare lines)
+            for wrapper_g, line_elem, *_ in chain:
+                if wrapper_g is not None:
+                    panel.remove(wrapper_g)
+                else:
+                    panel.remove(line_elem)
+
+
+def _is_descendant(ancestor: ET.Element, target: ET.Element) -> bool:
+    """Return True if *target* is a descendant of *ancestor*."""
+    for elem in ancestor.iter():
+        if elem is target:
+            return True
+    return False
+
+
+# pylint: disable-next=too-many-branches
+def create_outline_svg(  # pylint: disable=too-many-statements
+    root: ET.Element, stroke_width: float = 3.0
+) -> None:
     """
     Transform an SVG into an outline-only version for high-level overview.
 
     This function:
     - Removes nucleotide text (single letters A, U, G, C, N, R, Y, etc.)
     - Keeps structural labels (5', 3', numbering)
-    - Makes backbone lines much thicker with solid strokes
+    - Removes base-pair lines (class="black") to avoid a dashed look
+    - Makes backbone lines thicker; colour comes from the panel's
+      ``data-panel-color`` attribute when present, otherwise uniform grey
     - Removes colored circles/backgrounds
     - Creates a simplified silhouette view
 
@@ -948,10 +1379,24 @@ def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
         root: SVG root element (modified in place)
         stroke_width: Width for backbone strokes (default 3.0)
     """
+    # Build a map panel_group → colour for panels that carry a colour stamp
+    _panel_color_map: dict[ET.Element, str] = {}
+    for group in root.iter():
+        tag = group.tag.split("}")[-1] if "}" in group.tag else group.tag
+        if tag == "g" and group.get("data-panel-color"):
+            _panel_color_map[group] = group.get("data-panel-color", "")
     elements_to_remove = []
     nucleotide_pattern = re.compile(
         r"^[AUGCNRYWSMKBDHVaugcnrywsmkbdhv]$|^[AUGC]-[AUGC]$"
     )
+    outline_gray = "rgb(180, 180, 180)"
+
+    def _panel_stroke(elem: ET.Element) -> str:
+        """Return the panel colour if available, else the default gray."""
+        for pg, pc in _panel_color_map.items():
+            if _is_descendant(pg, elem):
+                return pc
+        return outline_gray
 
     for elem in root.iter():
         tag_local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -970,21 +1415,33 @@ def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
             if "residue" in class_attr or "posterior" in class_attr:
                 elements_to_remove.append(elem)
 
-        # Make lines thicker and solid
+        # Process line elements
         if tag_local == "line":
             class_attr = elem.get("class", "")
             # Skip numbering lines
-            if "numbering" not in class_attr:
-                elem.set("stroke-width", str(stroke_width))
-                elem.set("stroke", "black")
-                # Remove any dash pattern
-                if elem.get("stroke-dasharray"):
-                    del elem.attrib["stroke-dasharray"]
+            if "numbering" in class_attr:
+                continue
+            # Remove base-pair lines — they create a dashed pattern.
+            # Also remove softened lines (long bp lines recoloured gray).
+            if "black" in class_attr or "softened" in class_attr:
+                elements_to_remove.append(elem)
+                continue
+            # Make backbone lines thicker; use panel colour when
+            # available.  Inline style overrides CSS class rules.
+            pstroke = _panel_stroke(elem)
+            _set_inline_style(elem, "stroke", pstroke)
+            _set_inline_style(elem, "stroke-width", str(stroke_width))
+            if elem.get("stroke-dasharray"):
+                del elem.attrib["stroke-dasharray"]
 
-        # Make polylines thicker and solid
+        # Make polylines thicker; use panel colour when available
         if tag_local == "polyline":
-            elem.set("stroke-width", str(stroke_width))
-            elem.set("stroke", "black")
+            pstroke = _panel_stroke(elem)
+            _set_inline_style(elem, "stroke", pstroke)
+            _set_inline_style(elem, "stroke-width", str(stroke_width))
+            # Override Traveler's low stroke-opacity on pseudoknot
+            # classes (0.2 / 0.4) so coloured backbones are solid.
+            _set_inline_style(elem, "stroke-opacity", "1")
             if elem.get("stroke-dasharray"):
                 del elem.attrib["stroke-dasharray"]
 
@@ -1004,16 +1461,16 @@ def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
                     "",
                     css,
                 )
-                # Make all fills black
+                # Make all fills grey
                 css = re.sub(
                     r"fill:\s*rgb\([^)]+\)",
-                    "fill: rgb(0, 0, 0)",
+                    f"fill: {outline_gray}",
                     css,
                 )
-                # Make all strokes black
+                # Make all strokes grey
                 css = re.sub(
                     r"stroke:\s*rgb\([^)]+\)",
-                    "stroke: rgb(0, 0, 0)",
+                    f"stroke: {outline_gray}",
                     css,
                 )
                 # Hide residue circles
@@ -1030,6 +1487,9 @@ def create_outline_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
             if elem in list(parent):
                 parent.remove(elem)
                 break
+
+    # Merge remaining backbone segments into continuous polylines
+    _merge_backbone_lines(root, stroke_width, outline_gray)
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments,too-many-locals,too-many-branches,too-many-statements
@@ -1050,6 +1510,8 @@ def stitch_svgs(
     outline_opacity: float = 0.6,
     anchor_label_font_size: Optional[float] = None,
     normalize_font_size: bool = False,
+    region_labels: Optional[list[tuple[str, int, int]]] = None,
+    panel_colors: Optional[list[str]] = None,
 ) -> ET.Element:
     """
     Stitch multiple SVG panels into one combined SVG.
@@ -1071,6 +1533,12 @@ def stitch_svgs(
         outline_opacity: Opacity of the outline (0-1)
         anchor_label_font_size: Font size for 5'/3' labels (None = auto-detect from nucleotide size)
         normalize_font_size: If True, scale panels to match the first panel's nucleotide font size
+        region_labels: Optional list of (region_name, first_panel_index, last_panel_index)
+            tuples.  Each region is drawn as a labelled bracket on a row below the
+            per-panel captions, centred across the span of panels it covers.
+        panel_colors: Optional list of SVG colour strings, one per panel.
+            When provided, each panel's nucleotide text is recoloured to the
+            corresponding colour.  Overrides *monochrome*.
 
     Returns:
         Root element of combined SVG
@@ -1113,8 +1581,11 @@ def stitch_svgs(
         else detected_nt_size * FONT_MULTIPLIERS["anchor_label"]
     )
 
-    # Apply monochrome styling to each panel if requested
-    if monochrome:
+    # Apply per-panel colouring or monochrome styling
+    if panel_colors:
+        for panel, pcolor in zip(panels, panel_colors):
+            apply_panel_color(panel.root, pcolor)
+    elif monochrome:
         for panel in panels:
             strip_svg_styling(panel.root)
 
@@ -1195,19 +1666,33 @@ def stitch_svgs(
 
     # Create outline path first (so it renders behind everything)
     if outline:
-        outline_path = create_outline_path(
-            panels,
-            translations,
-            scale_factors=scale_factors if scale_factors else None,
-            stroke_color=outline_color,
-            stroke_width=outline_width,
-            stroke_opacity=outline_opacity,
-        )
-        if outline_path is not None:
-            outline_group = ET.SubElement(root, "g")
-            outline_group.set("id", "outline")
-            outline_path.set("class", "connecting-outline")
-            outline_group.append(outline_path)
+        outline_group = ET.SubElement(root, "g")
+        outline_group.set("id", "outline")
+
+        if panel_colors:
+            # Per-panel coloured segments
+            colored_paths = create_colored_outline_paths(
+                panels,
+                translations,
+                panel_colors,
+                scale_factors=scale_factors if scale_factors else None,
+                stroke_width=outline_width,
+                stroke_opacity=outline_opacity,
+            )
+            for cp in colored_paths:
+                outline_group.append(cp)
+        else:
+            outline_path = create_outline_path(
+                panels,
+                translations,
+                scale_factors=scale_factors if scale_factors else None,
+                stroke_color=outline_color,
+                stroke_width=outline_width,
+                stroke_opacity=outline_opacity,
+            )
+            if outline_path is not None:
+                outline_path.set("class", "connecting-outline")
+                outline_group.append(outline_path)
 
     # Create panel group
     panels_group = ET.SubElement(root, "g")
@@ -1259,9 +1744,17 @@ def stitch_svgs(
         else:
             panel_group.set("transform", f"translate({tx},{ty})")
 
+        # Stamp panel colour so downstream views (outline / thumbnail)
+        # can recolour backbone lines per panel.
+        if panel_colors and i < len(panel_colors):
+            panel_group.set("data-panel-color", panel_colors[i])
+
         # Copy all children from source SVG (re-fetch after potential removals)
         for child in list(panel.root):
             panel_group.append(child)
+
+        # Scope CSS selectors so this panel's <style> rules don't leak
+        scope_panel_css(panel_group, f"panel_{i}")
 
         # Calculate panel bbox in global coordinates (accounting for scale)
         vb = panel.viewbox
@@ -1357,20 +1850,140 @@ def stitch_svgs(
             max_caption_size = current_height * 0.035
             final_caption_font_size = min(final_caption_font_size, max_caption_size)
 
+        # Detect whether horizontal captions would overlap.
+        # Estimate text width as character_count * font_size * 0.55 (approx glyph width)
+        # and check if any adjacent captions collide.
+        # Only non-empty captions participate in overlap detection.
+        rotate_captions = False
+        non_empty_captions = [c for c in captions if c]
+        if len(non_empty_captions) > 1:
+            char_width_factor = 0.55
+            caption_positions = []
+            for caption_text, bbox in zip(captions, panel_bboxes):
+                if not caption_text:
+                    continue
+                min_x, max_x, _ = bbox
+                cx = (min_x + max_x) / 2
+                half_w = (
+                    len(caption_text) * final_caption_font_size * char_width_factor / 2
+                )
+                caption_positions.append((cx - half_w, cx + half_w))
+
+            for j in range(len(caption_positions) - 1):
+                if caption_positions[j][1] > caption_positions[j + 1][0]:
+                    rotate_captions = True
+                    break
+
         for caption_text, bbox in zip(captions, panel_bboxes):
+            if not caption_text:
+                continue
+
             min_x, max_x, max_y = bbox
 
-            # Caption position: centered horizontally, below panel
+            # Caption position: centered horizontally, below panel.
+            # For rotated captions the text extends upward from the anchor,
+            # so push the anchor further down to avoid overlapping the panel.
             caption_x = (min_x + max_x) / 2
-            caption_y = max_y + caption_pad + final_caption_font_size
+            if rotate_captions:
+                text_len = len(caption_text) * final_caption_font_size * 0.55
+                caption_y = max_y + caption_pad + text_len
+            else:
+                caption_y = max_y + caption_pad + final_caption_font_size
 
             caption_elem = create_caption_element(
-                caption_text, caption_x, caption_y, final_caption_font_size
+                caption_text,
+                caption_x,
+                caption_y,
+                final_caption_font_size,
+                rotate=rotate_captions,
             )
             captions_group.append(caption_elem)
 
             # Update global bounds to include caption
-            global_max_y = max(global_max_y, caption_y + final_caption_font_size)
+            if rotate_captions:
+                # Rotated captions extend upward; estimate text height
+                text_height = len(caption_text) * final_caption_font_size * 0.55
+                global_min_y = min(global_min_y, caption_y - text_height)
+                global_max_y = max(global_max_y, caption_y + final_caption_font_size)
+            else:
+                global_max_y = max(global_max_y, caption_y + final_caption_font_size)
+
+    # Create region labels (separate row below captions)
+    if region_labels and panel_bboxes:
+        regions_group = ET.SubElement(root, "g")
+        regions_group.set("id", "region-labels")
+
+        # Font size: slightly smaller than captions
+        if captions:
+            region_font_size = final_caption_font_size * 0.85
+        else:
+            region_font_size = detected_nt_size * FONT_MULTIPLIERS["caption"] * 0.7
+        # Vertical position: leave a comfortable gap below the captions.
+        # Use the caption font size as the gap so the bracket row is clearly
+        # separated, especially when captions are rotated vertically.
+        if captions:
+            region_gap = final_caption_font_size
+        else:
+            region_gap = caption_pad * 2
+        region_y_base = global_max_y + region_gap
+
+        bracket_stroke = "#999"
+        bracket_width = max(1.5, region_font_size * 0.04)
+        tick_height = region_font_size * 0.4
+
+        for region_name, first_idx, last_idx in region_labels:
+            # Clamp indices to valid range
+            first_idx = max(0, first_idx)
+            last_idx = min(len(panel_bboxes) - 1, last_idx)
+
+            # Human-friendly label: underscores → spaces
+            display_name = region_name.replace("_", " ")
+
+            # Span from left edge of first panel to right edge of last panel
+            span_left = panel_bboxes[first_idx][0]  # min_x of first panel
+            span_right = panel_bboxes[last_idx][1]  # max_x of last panel
+            span_width = span_right - span_left
+            span_center = (span_left + span_right) / 2
+
+            # Draw bracket: horizontal line with short vertical ticks at ends
+            bracket_y = region_y_base + tick_height
+            bracket = ET.Element("path")
+            bracket.set(
+                "d",
+                f"M {span_left},{bracket_y - tick_height} "
+                f"L {span_left},{bracket_y} "
+                f"L {span_right},{bracket_y} "
+                f"L {span_right},{bracket_y - tick_height}",
+            )
+            bracket.set("fill", "none")
+            bracket.set("stroke", bracket_stroke)
+            bracket.set("stroke-width", str(bracket_width))
+            regions_group.append(bracket)
+
+            # Shrink font if estimated text width exceeds bracket span
+            char_width_factor = 0.55
+            est_text_width = len(display_name) * region_font_size * char_width_factor
+            label_font = region_font_size
+            if est_text_width > span_width > 0:
+                label_font = span_width / (len(display_name) * char_width_factor)
+
+            # Label text centred below the bracket
+            label_y = bracket_y + label_font + caption_pad
+            label = ET.Element("text")
+            label.set("x", str(span_center))
+            label.set("y", str(label_y))
+            label.set("text-anchor", "middle")
+            label.set(
+                "style",
+                f"font-size: {label_font}px; "
+                f"font-family: Helvetica, Arial, sans-serif; "
+                f"fill: #555; font-style: italic;",
+            )
+            label.text = display_name
+            regions_group.append(label)
+
+            # Update global bounds
+            global_max_y = max(global_max_y, label_y + label_font)
 
     # Set final viewBox with padding around the image
     margin = 50

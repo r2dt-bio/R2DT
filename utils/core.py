@@ -20,6 +20,7 @@ from rich import print as rprint
 from . import config, gtrnadb, rfam, shared
 from .rfamseed import RfamSeed
 from .runner import runner
+from .svg import namespace_svg_file, replace_xxxx_with_arc, soften_long_basepair_lines
 
 
 def update_fasta_with_original_sequence(
@@ -438,6 +439,24 @@ def visualise(
 
     if rna_type in ["rfam", "gtrnadb"]:
         adjust_font_size(result_base)
+
+    # Namespace SVGs so they can be safely embedded alongside other SVGs.
+    # Soften long base-pair lines BEFORE replacing XXXX so the arc
+    # replacement can remove gray lines that fall inside the arc bbox.
+    for suffix in [".colored.svg", ".enriched.svg", ".svg"]:
+        svg_path = result_base + suffix
+        if os.path.exists(svg_path) and os.path.getsize(svg_path) > 0:
+            scope_id = f"r2dt-{Path(result_base).stem}"
+            namespace_svg_file(svg_path, scope_id)
+            soften_long_basepair_lines(svg_path)
+
+    # Replace XXXX placeholders with curved arc indicators
+    if insertion_removed:
+        sizes = [end - start for start, end in insertion_removed]
+        for ext in (".colored.svg", ".svg"):
+            svg_file = f"{result_base}{ext}"
+            if os.path.exists(svg_file):
+                replace_xxxx_with_arc(svg_file, sizes)
 
     # clean up
     files = [
