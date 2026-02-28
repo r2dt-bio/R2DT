@@ -95,12 +95,33 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 
    installation
    usage
-   viral-genomes
    annotations
    editors
    xrna-react-user-guide
    api
    widget
+```
+
+```{eval-rst}
+.. toctree::
+   :caption: 3D structures
+   :name: 3d_structures
+   :hidden:
+   :maxdepth: 1
+
+   pdb
+```
+
+```{eval-rst}
+.. toctree::
+   :caption: Alignments
+   :name: alignments
+   :hidden:
+   :maxdepth: 1
+
+   stockholm-alignments
+   viral-genomes
+   covariation
 ```
 
 ```{eval-rst}
