@@ -181,6 +181,49 @@ This figure is hidden but ensures Sphinx copies the image to _images/
 </style>
 ```
 
+## Two approaches to viral RNA annotation
+
+R2DT supports two complementary approaches for annotating viral genomes:
+
+| Approach | Command | Best for |
+|----------|---------|----------|
+| **FASTA + Rfam** | `viral-annotate` | Automatic discovery — finds known RNA families in any genome |
+| **Stockholm alignment** | `stockholm` | Expert curation — uses manually annotated structures and regions |
+
+The FASTA approach (shown above with SARS-CoV-2) automatically scans the genome against Rfam and is fully automated. However, it can only find structures that already have Rfam models.
+
+The Stockholm approach uses a curated multiple sequence alignment where structures have been manually annotated with `#=GC structureID` and `#=GC regionID` lines. This can capture structures that are not in Rfam, and groups them by genomic region (e.g. 5′UTR, NS5B).
+
+### Example: HCV using Stockholm alignment
+
+The HCV genome contains over 40 annotated RNA structures across the 5′UTR, coding regions, and 3′UTR. An alignment of 57 HCV sequences with named structures is included at `examples/hcv-alignment.stk`.
+
+```bash
+r2dt.py stockholm examples/hcv-alignment.stk output/hcv-stockholm/
+```
+
+Each structure is labelled with its parent genomic region, producing captions like _"SLI (5′UTR)"_ or _"5BSL3.1 (NS5B)"_ in the stitched output:
+
+```{raw} html
+<div style="border: 1px solid #ddd; border-radius: 4px; margin: 1em 0; position: relative;">
+  <div style="background: #f5f5f5; padding: 8px 12px; border-bottom: 1px solid #ddd; font-size: 0.85em; color: #666;">
+    🔍 Use mouse wheel to zoom, drag to pan. <button id="hcv-stk-reset" style="margin-left: 10px; cursor: pointer;">Reset view</button>
+  </div>
+  <div id="hcv-stk-container" style="width: 100%; height: 400px; overflow: hidden;">
+    <object id="hcv-stk-svg" type="image/svg+xml" data="_images/hcv-stockholm-stitched.svg?v=2" style="width: 100%; height: 100%;"></object>
+  </div>
+</div>
+```
+
+```{figure} images/hcv-stockholm-stitched.svg
+:alt: HCV RNA structures from Stockholm alignment with structureID and regionID annotations
+:class: hidden
+
+HCV RNA structures generated from a Stockholm alignment using `#=GC structureID` and `#=GC regionID` annotations. Structures are labelled with their parent genomic region.
+```
+
+Compare this with the [Rfam-based HCV diagram](#hepatitis-c-virus-hcv) in the gallery below — the Stockholm approach captures significantly more structures because it supports manually curated annotations, including families that have not yet been added to Rfam.
+
 ## Command reference
 
 ### viral-annotate
@@ -372,6 +415,10 @@ If some hits don't produce diagrams:
 
 Examples of RNA structure annotations for different viral genomes, generated with `--normalize-font-size` for consistent visual appearance.
 
+:::{note}
+All gallery images are regenerated from example inputs with `just docs-images`. See [Updating documentation](docs.md#regenerating-doc-images) for details.
+:::
+
 ### SARS-CoV-2 coronavirus
 
 Genome: [OX309346.1](https://www.ebi.ac.uk/ena/browser/view/OX309346.1) (29,903 nt) | RNA structures: 3
@@ -462,11 +509,13 @@ Genome: [NC_001474.2](https://www.ncbi.nlm.nih.gov/nuccore/NC_001474.2) (10,723 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       initPanZoom('covid-svg', 'covid-reset');
-      initPanZoom('hcv-svg', 'hcv-reset');
-      initPanZoom('dengue-svg', 'dengue-reset');
+    initPanZoom('hcv-stk-svg', 'hcv-stk-reset');
+    initPanZoom('hcv-svg', 'hcv-reset');
+    initPanZoom('dengue-svg', 'dengue-reset');
     });
   } else {
     initPanZoom('covid-svg', 'covid-reset');
+    initPanZoom('hcv-stk-svg', 'hcv-stk-reset');
     initPanZoom('hcv-svg', 'hcv-reset');
     initPanZoom('dengue-svg', 'dengue-reset');
   }

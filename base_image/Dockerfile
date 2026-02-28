@@ -144,6 +144,7 @@ RUN \
     python3-cairo  \
     chafa \
     procps \
+    git \
     perl &&  \
     rm -rf /var/lib/{apt,lpkg,cache,log}
 RUN \

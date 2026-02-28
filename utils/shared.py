@@ -116,7 +116,7 @@ def get_ribotyper_output(fasta_input, output_folder, cm_library, skip_ribovore_f
 
 
 # pylint: disable=too-many-branches,too-many-statements
-def remove_large_insertions_pfam_stk(filename):
+def remove_large_insertions_pfam_stk(filename, max_insertions=MAX_INSERTIONS):
     """
     The Pfam Stockholm files can contain 9 or 11 lines depending on whether
     the description line is present.
@@ -168,7 +168,7 @@ def remove_large_insertions_pfam_stk(filename):
             offset = 0
 
         # the tilda and period characters represent insert states in WUSS notation
-        match = re.finditer(r"([\.~]{" + str(MAX_INSERTIONS) + ",})", gc_ss_cons)
+        match = re.finditer(r"([\.~]{" + str(max_insertions) + ",})", gc_ss_cons)
         if not match:
             return insertion_removed
         for span in match:

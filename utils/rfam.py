@@ -165,7 +165,6 @@ def get_rfam_cms():
             temp_list.write(f"{rfam_acc}\n")
         temp_list.flush()
         runner.run(f"cmfetch -f {rfam_cm} {temp_list.name} >> {rfam_all_cm}")
-    runner.run(f"cmfetch --index {rfam_all_cm}")
 
     # Get the accession to Rfam ID mapping
     family_file_path = Path(config.RFAM_DATA) / "family.txt"
@@ -238,7 +237,17 @@ def delete_preexisting_rfam_data():
     # delete Rfam cms
     os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm")
     os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm.ssi")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/all.cm.i1*")
     os.system(f"rm -f {config.RFAM_CM_LIBRARY}/modelinfo.txt")
+    # delete full Rfam.cm downloaded from FTP
+    os.system(f"rm -f {config.RFAM_DATA}/Rfam.cm")
+    os.system(f"rm -f {config.RFAM_DATA}/Rfam.cm.ssi")
+    # delete Rfam seed
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/Rfam.seed")
+    os.system(f"rm -f {config.RFAM_CM_LIBRARY}/Rfam.seed.ssi")
+    # delete tmp cache
+    os.system("rm -Rf /tmp/rfam_seed")
+    os.system("rm -Rf /tmp/cms")
     # delete template files
     os.system(f"rm -Rf {config.RFAM_DATA}/RF0*")
     # delete summary files
@@ -248,6 +257,9 @@ def delete_preexisting_rfam_data():
 
 def setup_rnartist(rerun=False):
     """Generate a list of Rfam accessions where RNArtist templates are preferred."""
+    # Clear cached seeds and CMs to force re-extraction from the current archives
+    os.system("rm -Rf /tmp/rfam_seed")
+    os.system("rm -Rf /tmp/cms")
     prefer_rnartist = []
     for rfam_acc in tqdm(get_all_rfam_acc(), "Comparing R-scape and RNArtist"):
         if rfam_acc in BLACKLIST:
@@ -491,7 +503,7 @@ def run_rscape(rfam_acc, destination):
     """
     Run R-scape on Rfam seed alignment to get the R-scape/R2R layout.
     """
-    rfam_seed = RfamSeed().download_rfam_seed(rfam_acc)
+    rfam_seed = RfamSeed().get_rfam_seed(rfam_acc)
     rfam_seed_no_pk = remove_pseudoknot_from_ss_cons(rfam_seed)
     if not os.path.exists(os.path.join(destination, "rscape.done")):
         cmd = "R-scape --outdir {folder} {rfam_seed} && touch {folder}/rscape.done".format(
@@ -612,7 +624,7 @@ def rscape2traveler(rfam_acc):
     generate_traveler_fasta(rfam_acc)
 
 
-# pylint: disable-next=too-many-arguments
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def generate_2d(
     rfam_acc,
     output_folder,

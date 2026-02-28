@@ -6,7 +6,7 @@ from pathlib import Path
 from Bio.PDB import PDBParser
 
 
-def extract_sequence(pdb_file, model_id=0, chain_id=None):
+def extract_sequence(pdb_file, model_id=0, chain_id=None, quiet=False):
     """
     Extract the sequence from a PDB file.
 
@@ -16,6 +16,7 @@ def extract_sequence(pdb_file, model_id=0, chain_id=None):
                         Useful for NMR structures with multiple models.
         chain_id (str): Chain ID to extract (default: None, uses first chain only).
                         Set to 'all' to extract all chains.
+        quiet (bool): If True, suppress verbose output.
 
     Returns:
         str: The extracted sequence as a string.
@@ -37,7 +38,8 @@ def extract_sequence(pdb_file, model_id=0, chain_id=None):
         for residue in chain:
             if residue.id[0] == " ":
                 sequence.append(residue.resname)
-    print("".join(sequence))
+    if not quiet:
+        print("".join(sequence))
     return "".join(sequence)
 
 
@@ -100,13 +102,15 @@ def run_rnaview(pdb_file):
         sys.exit(1)
 
 
-def parse_rnaview_output(output, sequence):
+# pylint: disable=too-many-branches
+def parse_rnaview_output(output, sequence, quiet=False):
     """
     Parse RNAview output and convert it to dot-bracket notation.
 
     Args:
         output (str): RNAview output.
         sequence (str): RNA sequence.
+        quiet (bool): If True, suppress verbose output.
 
     Returns:
         str: Dot-bracket notation or None if parsing fails.
@@ -171,7 +175,8 @@ def parse_rnaview_output(output, sequence):
     # Clean up invalid patterns like "()" - adjacent open/close with nothing between
     dot_bracket_str = fix_invalid_pairs(dot_bracket_str)
 
-    print(dot_bracket_str)
+    if not quiet:
+        print(dot_bracket_str)
     return dot_bracket_str if dot_bracket else None
 
 

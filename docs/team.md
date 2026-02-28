@@ -9,6 +9,7 @@
 - [Philip Johnson](https://github.com/pzhaojohnson) and [Anne Simon](https://simona065.wixsite.com/simon-lab) ([RNAcanvas](https://rnacanvas.app) structure editor)
 - [Alexey Naiden](https://github.com/anayden) (Software and infrastructure)
 - [Craig Zirbel](https://www.bgsu.edu/arts-and-sciences/mathematics-and-statistics/faculty-and-staff/craig-zirbel.html) and [Jacob Mitchell](https://www.linkedin.com/in/jacobirvingmitchell/) (FR3D and JAR3D software)
+- [Tomasz Wirecki](https://scholar.google.com/citations?user=9uLq_ecAAAAJ&hl=en) (RNAView integration and animation)
 - [Robin Gutell](https://scholar.google.com/citations?user=IdDGv6oAAAAJ&hl=en) and [Jamie Cannone](https://scholar.google.com/citations?user=PnqrMGAAAAAJ&hl=en) (CRW)
 - [Blake Sweeney](https://www.ebi.ac.uk/people/person/blake-sweeney/), [Carlos Ribas](https://www.ebi.ac.uk/people/person/carlos-eduardo-ribas), [Fabio Madeira](https://www.ebi.ac.uk/people/person/fabio-madeira/), [Rob Finn](https://www.ebi.ac.uk/people/person/rob-finn/)
 - [Anton I. Petrov](https://antonpetrov.com)

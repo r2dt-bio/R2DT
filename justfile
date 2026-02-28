@@ -61,6 +61,56 @@ bbuild:
 # Build base and then the r2dt images locally
 full-build: bbuild (tag-build "latest")
 
+# Regenerate viral doc images from example inputs
+docs-images tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    img=docs/images
+    tmp=temp/docs-images
+    run="docker run {{ platform_arg }} --rm -v $(pwd):/rna/r2dt -w /rna/r2dt {{ image }}:{{tag}}"
+
+    echo "==> SARS-CoV-2 (FASTA → viral-annotate + stitch)"
+    $run python3 r2dt.py viral-annotate \
+        examples/viral/coronavirus.fasta $tmp/coronavirus/ --quiet
+    cp $tmp/coronavirus/rfam/*_26-299_*-RF03120*.colored.svg   $img/RF03120_26-299.svg
+    cp $tmp/coronavirus/rfam/*_13469-13546_*-RF00507*.colored.svg $img/RF00507_13469-13546.svg
+    cp $tmp/coronavirus/rfam/*_29536-29870_*-RF03125*.colored.svg $img/RF03125_29536-29870.svg
+    $run python3 r2dt.py stitch \
+        $tmp/coronavirus/rfam/*.colored.svg \
+        -o $img/coronavirus-stitched.svg \
+        --sort --normalize-font-size \
+        --captions "5′ UTR" --captions "FSE" --captions "3′ UTR"
+    $run python3 r2dt.py stitch \
+        $tmp/coronavirus/rfam/*.colored.svg \
+        -o $img/coronavirus-stitched-color.svg \
+        --sort --color --normalize-font-size \
+        --captions "5′ UTR" --captions "FSE" --captions "3′ UTR"
+
+    echo "==> HCV (FASTA → viral-annotate + stitch)"
+    $run python3 r2dt.py viral-annotate \
+        examples/viral/hcv.fasta $tmp/hcv-rfam/ --quiet
+    $run python3 r2dt.py stitch \
+        $tmp/hcv-rfam/rfam/*.colored.svg \
+        -o $img/hcv-stitched.svg \
+        --sort --normalize-font-size
+
+    echo "==> Dengue 2 (FASTA → viral-annotate + stitch)"
+    $run python3 r2dt.py viral-annotate \
+        examples/viral/dengue2.fasta $tmp/dengue/ --quiet
+    $run python3 r2dt.py stitch \
+        $tmp/dengue/rfam/*.colored.svg \
+        -o $img/dengue2-stitched.svg \
+        --sort --normalize-font-size
+
+    echo "==> HCV (Stockholm → stockholm)"
+    $run python3 r2dt.py stockholm \
+        examples/hcv-alignment.stk $tmp/hcv-stockholm/ --quiet
+    cp $tmp/hcv-stockholm/stitched.svg           $img/hcv-stockholm-stitched.svg
+    cp $tmp/hcv-stockholm/stitched-thumbnail.svg $img/hcv-stockholm-thumbnail.svg
+
+    rm -rf $tmp
+    echo "✓ All viral doc images regenerated in $img/"
+
 # Start a development docs server
 docs:
     docker run {{platform}} -p {{port}}:{{port}} -v $(pwd):/rna/r2dt -it --rm {{image}} sphinx-autobuild --host 0.0.0.0 --port {{port}} docs docs/_build/html
