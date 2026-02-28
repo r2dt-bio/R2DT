@@ -22,6 +22,25 @@ This approach ensures that the R2DT image remains compact, containing only the P
 
 When a Git tag (e.g., `v2.1.3`) is pushed to the repository, the [main.yml](https://github.com/r2dt-bio/R2DT/blob/main/.github/workflows/main.yml) workflow automatically builds and tags the Docker image with the corresponding version tags (e.g., `2.1.3` and `2.1`). This ensures that stable version tags are available for the main R2DT image, making it easier to pin specific versions of R2DT as dependencies.
 
+### Bundled covariance model libraries
+
+Starting with version 2.2, the Rfam and CRW covariance models are bundled directly in the Docker image. The uncompressed `all.cm` files are too large for git (~275 MB for Rfam, ~508 MB for CRW), so they are stored as compressed `all.cm.tar.gz` archives in the repository. The Dockerfile extracts and indexes them at build time:
+
+```dockerfile
+ADD data/rfam/cms/all.cm.tar.gz data/rfam/cms/
+RUN cmfetch --index data/rfam/cms/all.cm
+```
+
+When updating Rfam or CRW models, regenerate the tarballs before building:
+
+```bash
+python3 r2dt.py compress-rfam-crw
+git add data/rfam/cms/all.cm.tar.gz data/crw/all.cm.tar.gz
+git commit -m "Update CM library archives"
+```
+
+This eliminates the need for users to download and mount a precomputed library separately.
+
 View [rnacentral/r2dt](https://hub.docker.com/r/rnacentral/r2dt) on Docker Hub &rarr;
 
 ## Upgrade process
