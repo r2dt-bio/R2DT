@@ -76,6 +76,18 @@ release branch, test and stabilize. When everything is ready, you merge to `mast
 that commit with the version number; then you also merge back to
 `develop`, and delete the release branch.
 
+:::{important}
+If Rfam or CRW covariance models have been updated since the last release, regenerate the compressed archives before creating the release branch:
+
+```bash
+python3 r2dt.py compress-rfam-crw
+git add data/rfam/cms/all.cm.tar.gz data/crw/all.cm.tar.gz
+git commit -m "Update CM library archives"
+```
+
+The `all.cm` files are gitignored (too large), but the compressed `all.cm.tar.gz` files are tracked and extracted by the Dockerfile at build time. See [Docker images](./docker.md) for details.
+:::
+
 For example, here's the git flow for an R2DT release.
 Suppose R2DT is currently at v1.1.5 and we decide this release will
 be R2DT 1.2. We first make a new release from R2DT's `develop` branch:
