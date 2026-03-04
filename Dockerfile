@@ -27,3 +27,11 @@ RUN pip3 install -r /tmp/requirements.txt --no-cache-dir
 RUN pip3 install --no-cache-dir https://github.com/BGSU-RNA/fr3d-python/archive/3c7dc20.tar.gz
 
 ADD . /rna/r2dt
+
+# Index covariance model libraries included as plain files
+RUN rm -f data/rnasep/cms/all.cm.ssi data/tmrna/cm/all.cm.ssi \
+        data/ribovision-ssu/cms/all.cm.ssi data/ribovision-lsu/cms/all.cm.ssi && \
+    cmfetch --index data/rnasep/cms/all.cm && \
+    cmfetch --index data/tmrna/cm/all.cm && \
+    cmfetch --index data/ribovision-ssu/cms/all.cm && \
+    cmfetch --index data/ribovision-lsu/cms/all.cm
