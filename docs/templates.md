@@ -20,11 +20,11 @@ GitHub currently does not support attaching files with `.fasta`, `.bpseq`, or `.
 
 It is possible to generate new templates using [RNA 2D JSON Schema](https://github.com/LDWLab/RNA2D-data-schema/) files as input.
 
-### XRNA-React
+### Exornata
 
-1. Run your sequence through [R2DT](https://r2dt.bio) webserver and click `Edit in XRNA`
+1. Run your sequence through [R2DT](https://r2dt.bio) webserver and click `Edit in Exornata`
     1. Alternatively, generate a structure using R2DT on the command line and locate the JSON file in the `json` folder.
-    1. Upload JSON file to an [interactive editor](https://ldwlab.github.io/XRNA-React)
+    1. Upload JSON file to the [Exornata editor](https://exornata.chemistry.gatech.edu/)
 1. Manually edit the layout
 1. Download the edited structure as a new JSON file and save it in the `data/new` folder
 1. Run the following command:
