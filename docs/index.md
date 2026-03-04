@@ -90,7 +90,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 ```{eval-rst}
 .. toctree::
    :caption: Getting started
-   :name: getting_started
+   :name: getting_started_toc
    :hidden:
    :maxdepth: 1
 
@@ -98,7 +98,6 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
    usage
    annotations
    editors
-   xrna-react-user-guide
    api
    widget
 ```

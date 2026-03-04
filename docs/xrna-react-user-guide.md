@@ -1,7 +1,17 @@
+---
+orphan: true
+---
 
-# XRNA-REACT User Guide
+# XRNA-React User Guide (Legacy)
 
-## About XRNA-REACT
+:::{warning}
+This page documents the legacy XRNA-React interface. XRNA-React has been renamed to
+**Exornata** and the interface has been significantly redesigned. Please refer to the
+[Exornata documentation](https://exornata.chemistry.gatech.edu/#/docs) for up-to-date
+information.
+:::
+
+## About XRNA-React
 
 XRNA-REACT is a web-based tool for editing and visualizing RNA secondary structures. It is an upgraded version of the original XRNA software developed by Harry Noller (available as a depreciated [Java applet](http://rna.ucsc.edu/rnacenter/xrna/xrna.html)). Please note that XRNA can be used with a trackpad but works best with a mouse, as several functions require a mouse wheel.
 
@@ -24,7 +34,7 @@ Download an :download:`example XRNA </files/5S_E_coli.xrna>` or an :download:`ex
 * Add/remove annotations (Annotate tab)
 * These options are explained in the “Tabs” and "Constraints" sections of this guide.
 
-#### Demo
+### Demo
 
 ```{eval-rst}
 .. raw:: html
