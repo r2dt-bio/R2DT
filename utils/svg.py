@@ -23,6 +23,31 @@ from pathlib import Path
 
 _NON_CSS_IDENT_RE = re.compile(r"[^a-zA-Z0-9_-]")
 
+# ---------------------------------------------------------------------------
+# Covariation rectangle constants
+# ---------------------------------------------------------------------------
+# Padding added on each end of the bp-line (along-axis).
+_COV_DARK_PAD = 8.0
+_COV_LIGHT_PAD = 16.0
+# Full height of the rectangle (perpendicular to bp-line).
+_COV_DARK_HEIGHT = 18.0
+_COV_LIGHT_HEIGHT = 30.0
+# Corner rounding.
+_COV_RECT_RX = 1.5
+_COV_RECT_RY = 1.5
+# CSS rules injected into the <style> block.
+_COV_CSS = (
+    ".cov-rect-dark { fill: rgb(49, 163, 84); fill-opacity: 0.7; }\n"
+    ".cov-rect-light { fill: rgb(175, 240, 168); fill-opacity: 0.7; }\n"
+)
+# Regex to parse nucleotide text elements — handles both plain Traveler
+# (``class="black"``) and enrichment formats (``class="text-black font"``).
+_COV_NT_RE = re.compile(
+    r"<g><title>(?:Position:\s*)?(\d+)\s[^<]*</title>"
+    r'<text\s+x="([\d.]+)"\s+y="([\d.]+)"\s+'
+    r'class="[^"]*"\s*>([^<]+)</text></g>'
+)
+
 
 def soften_long_basepair_lines(svg_path: str | Path, multiplier: float = 2.0) -> None:
     """Recolour abnormally long base-pair lines to light grey.
@@ -93,6 +118,116 @@ def soften_long_basepair_lines(svg_path: str | Path, multiplier: float = 2.0) ->
     parts.append(content[prev_end:])
 
     svg_path.write_text("".join(parts), encoding="utf-8")
+
+
+def add_covariation_rectangles(  # pylint: disable=too-many-locals,too-many-branches
+    svg_path: str | Path,
+    pairs: list[tuple[int, int, str]],
+) -> bool:
+    """Inject covariation rectangles into a Traveler SVG.
+
+    For each covarying base pair a filled ``<rect>`` is drawn behind
+    the nucleotide letters, oriented along the base-pair line.  A pair
+    may appear twice in *pairs* — once as ``light_green`` and once as
+    ``dark_green`` — so that the wider light-green rect peeks out
+    behind the narrower dark-green one.
+
+    - **dark_green** — compact, vivid rectangle (significant pair
+      covariation).
+    - **light_green** — wider, softer rectangle (helix-level
+      aggregated covariation).
+
+    Args:
+        svg_path: Path to the SVG file (modified in place).
+        pairs: List of ``(i, j, category)`` tuples where *i* and *j*
+            are 1-based residue indices and *category* is
+            ``"dark_green"`` or ``"light_green"``.  A pair may appear
+            with both categories.
+
+    Returns:
+        ``True`` if at least one rectangle was inserted.
+    """
+    svg_path = Path(svg_path)
+    if not svg_path.exists() or not pairs:
+        return False
+
+    content = svg_path.read_text(encoding="utf-8")
+
+    # Build position → (x, y) coordinate map from nucleotide text elements.
+    coord_map: dict[int, tuple[float, float]] = {}
+    for m in _COV_NT_RE.finditer(content):
+        pos = int(m.group(1))
+        coord_map[pos] = (float(m.group(2)), float(m.group(3)))
+
+    # Build rectangle SVG fragments for each covarying pair.
+    rect_fragments: list[str] = []
+    for pos_i, pos_j, category in pairs:
+        if pos_i not in coord_map or pos_j not in coord_map:
+            continue
+
+        x_i, y_i = coord_map[pos_i]
+        x_j, y_j = coord_map[pos_j]
+        mid_x = (x_i + x_j) / 2
+        mid_y = (y_i + y_j) / 2
+        bp_len = math.hypot(x_j - x_i, y_j - y_i)
+        angle = math.degrees(math.atan2(y_j - y_i, x_j - x_i))
+
+        if category == "dark_green":
+            pad, height, css_cls = _COV_DARK_PAD, _COV_DARK_HEIGHT, "cov-rect-dark"
+        else:
+            pad, height, css_cls = _COV_LIGHT_PAD, _COV_LIGHT_HEIGHT, "cov-rect-light"
+
+        # Taper height for long base-pair lines (e.g. pseudoknots):
+        # full height up to 60px, then shrink linearly down to 40%
+        # at 300px, and clamp there for anything longer.
+        if bp_len > 60:
+            scale = max(0.4, 1.0 - 0.6 * (bp_len - 60) / 240)
+            height *= scale
+            pad *= scale
+
+        width = bp_len + 2 * pad
+        rect = (
+            f'<rect x="{-width / 2:.2f}" y="{-height / 2:.2f}" '
+            f'width="{width:.2f}" height="{height:.2f}" '
+            f'rx="{_COV_RECT_RX}" ry="{_COV_RECT_RY}" '
+            f'class="{css_cls}" '
+            f'transform="translate({mid_x:.2f},{mid_y:.2f}) '
+            f'rotate({angle:.2f})"/>\n'
+        )
+        rect_fragments.append(rect)
+
+    if not rect_fragments:
+        return False
+
+    # Inject CSS rules into the <style> block.
+    cdata_end = content.find("]]>")
+    if cdata_end != -1:
+        content = content[:cdata_end] + _COV_CSS + content[cdata_end:]
+    else:
+        style_end = content.find("</style>")
+        if style_end != -1:
+            content = content[:style_end] + _COV_CSS + content[style_end:]
+
+    # Insert rectangles after backbone / bp-line elements but before
+    # the first nucleotide text element so they render behind letters.
+    # Light-green (helix-level) rects are drawn first so dark-green
+    # (pair-level) rects appear on top.
+    light = [r for r in rect_fragments if "cov-rect-light" in r]
+    dark = [r for r in rect_fragments if "cov-rect-dark" in r]
+    ordered = light + dark
+    block = "".join(ordered)
+
+    if first_text := _COV_NT_RE.search(content):
+        insert_pos = first_text.start()
+        content = content[:insert_pos] + block + content[insert_pos:]
+    else:
+        # Fallback: insert before </svg>
+        close_idx = content.rfind("</svg>")
+        if close_idx != -1:
+            content = content[:close_idx] + block + content[close_idx:]
+
+    svg_path.write_text(content, encoding="utf-8")
+    return True
 
 
 def _collect_arc_points(chain):

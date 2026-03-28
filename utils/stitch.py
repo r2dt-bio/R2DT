@@ -1035,10 +1035,14 @@ def apply_panel_color(root: ET.Element, color: str) -> None:
     for elem in root.iter():
         tag_local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
 
-        # Find and remove residue circles
+        # Find and remove residue circles and covariation rectangles
         if tag_local == "circle":
             class_attr = elem.get("class", "")
             if "residue-circle" in class_attr or "color-posterior" in class_attr:
+                elements_to_remove.append(elem)
+        if tag_local == "rect":
+            class_attr = elem.get("class", "")
+            if "cov-rect" in class_attr:
                 elements_to_remove.append(elem)
 
         # Recolour backbone lines with the panel colour
@@ -1079,6 +1083,17 @@ def apply_panel_color(root: ET.Element, color: str) -> None:
                 css = css.replace(
                     ".residue-circle { fill: rgb(255,255,255);  }",
                     ".residue-circle { fill: none; stroke: none;  }",
+                )
+                # Hide covariation rectangles
+                css = re.sub(
+                    r"\.cov-rect-dark\s*\{[^}]+\}",
+                    ".cov-rect-dark { fill: none; }",
+                    css,
+                )
+                css = re.sub(
+                    r"\.cov-rect-light\s*\{[^}]+\}",
+                    ".cov-rect-light { fill: none; }",
+                    css,
                 )
                 # Make all posterior probability colours transparent
                 for i in range(11):
@@ -1153,10 +1168,15 @@ def create_thumbnail_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
             elements_to_remove.append(elem)
             continue
 
-        # Remove residue circles
+        # Remove residue circles and covariation rectangles
         if tag_local == "circle":
             elements_to_remove.append(elem)
             continue
+        if tag_local == "rect":
+            class_attr = elem.get("class", "")
+            if "cov-rect" in class_attr:
+                elements_to_remove.append(elem)
+                continue
 
         # Keep only backbone lines (class "gray"); remove base-pair
         # rungs (class "black"), softened base-pair lines (class
@@ -1216,6 +1236,16 @@ def create_thumbnail_svg(root: ET.Element, stroke_width: float = 3.0) -> None:
                 css = re.sub(
                     r"\.residue-circle\s*\{[^}]+\}",
                     ".residue-circle { fill: none; stroke: none; }",
+                    css,
+                )
+                css = re.sub(
+                    r"\.cov-rect-dark\s*\{[^}]+\}",
+                    ".cov-rect-dark { fill: none; }",
+                    css,
+                )
+                css = re.sub(
+                    r"\.cov-rect-light\s*\{[^}]+\}",
+                    ".cov-rect-light { fill: none; }",
                     css,
                 )
                 elem.text = css
@@ -1409,10 +1439,14 @@ def create_outline_svg(  # pylint: disable=too-many-statements
                 elements_to_remove.append(elem)
                 continue
 
-        # Remove residue circles
+        # Remove residue circles and covariation rectangles
         if tag_local == "circle":
             class_attr = elem.get("class", "")
             if "residue" in class_attr or "posterior" in class_attr:
+                elements_to_remove.append(elem)
+        if tag_local == "rect":
+            class_attr = elem.get("class", "")
+            if "cov-rect" in class_attr:
                 elements_to_remove.append(elem)
 
         # Process line elements
@@ -1477,6 +1511,17 @@ def create_outline_svg(  # pylint: disable=too-many-statements
                 css = re.sub(
                     r"\.residue-circle\s*\{[^}]+\}",
                     ".residue-circle { fill: none; stroke: none; }",
+                    css,
+                )
+                # Hide covariation rectangles
+                css = re.sub(
+                    r"\.cov-rect-dark\s*\{[^}]+\}",
+                    ".cov-rect-dark { fill: none; }",
+                    css,
+                )
+                css = re.sub(
+                    r"\.cov-rect-light\s*\{[^}]+\}",
+                    ".cov-rect-light { fill: none; }",
                     css,
                 )
                 elem.text = css
