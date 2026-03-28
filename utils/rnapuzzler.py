@@ -20,6 +20,114 @@ from .runner import runner
 # ViennaRNA layout type constants
 _LAYOUT_PUZZLER = 4
 
+# Minimum number of unpaired bases inside a hairpin loop for ViennaRNA.
+# RNA.svg_rna_plot produces nan coordinates for hairpins smaller than this.
+_MIN_HAIRPIN_SIZE = 3
+
+
+def _remove_small_hairpins(structure, min_loop=_MIN_HAIRPIN_SIZE):
+    """Remove base pairs that form hairpins with fewer than *min_loop* bases.
+
+    ViennaRNA's layout engine cannot handle empty pairs ``()`` or very
+    small hairpin loops like ``(.)`` — it produces ``nan`` coordinates.
+    This function iteratively strips such pairs until all remaining
+    hairpins have at least *min_loop* unpaired bases.
+
+    Only ``(``, ``)``, and ``.`` characters are expected in *structure*.
+    """
+    chars = list(structure)
+    changed = True
+    while changed:
+        changed = False
+        # Build a pairing map using a stack
+        stack = []
+        pair_map = {}
+        for i, char in enumerate(chars):
+            if char == "(":
+                stack.append(i)
+            elif char == ")":
+                if stack:
+                    j = stack.pop()
+                    pair_map[j] = i
+                    pair_map[i] = j
+        # Find hairpin-forming pairs with < min_loop unpaired bases
+        for open_pos, close_pos in list(pair_map.items()):
+            if open_pos >= close_pos:
+                continue
+            # Check if this pair forms a hairpin (no nested pairs inside)
+            inner = chars[open_pos + 1 : close_pos]
+            if all(c == "." for c in inner) and len(inner) < min_loop:
+                chars[open_pos] = "."
+                chars[close_pos] = "."
+                changed = True
+    return "".join(chars)
+
+
+def _write_linear_colored_svg(rnapuzzler_svg, output_path):
+    """Write a Traveler-compatible SVG for an all-dots (no pairs) structure.
+
+    When hairpin removal strips every base pair, Traveler cannot run.
+    This function reads nucleotide coordinates from the ViennaRNA SVG
+    and writes them in Traveler's coloured SVG format so the rest of
+    the pipeline (stitching, font adjustment, etc.) works unchanged.
+    """
+    coords = parse_svg_coordinates(rnapuzzler_svg)
+    if not coords:
+        return
+
+    padding = 15
+    font_half = 6
+    label_offset = 18
+    xs = [c[0] for c in coords]
+    ys = [c[1] for c in coords]
+    label_y_first = coords[0][1] + label_offset
+    label_y_last = coords[-1][1] + label_offset
+    min_x = min(xs) - padding
+    min_y = min(ys + [label_y_first, label_y_last]) - font_half - padding
+    max_x = max(xs) + padding
+    max_y = max(ys + [label_y_first, label_y_last]) + font_half + padding
+    vb_w = max_x - min_x
+    vb_h = max_y - min_y
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{vb_w:.2f}" height="{vb_h:.2f}" '
+        f'viewBox="{min_x:.2f} {min_y:.2f} {vb_w:.2f} {vb_h:.2f}">',
+        "<style>.black{font-size:12px;}</style>",
+    ]
+    # Backbone
+    for i in range(len(coords) - 1):
+        x1, y1, _ = coords[i]
+        x2, y2, _ = coords[i + 1]
+        lines.append(
+            f'<line x1="{x1:.3f}" y1="{y1:.3f}" '
+            f'x2="{x2:.3f}" y2="{y2:.3f}" '
+            f'stroke="gray" stroke-width="1.5" />'
+        )
+    # Nucleotides
+    for idx, (x, y, letter) in enumerate(coords):
+        lines.append(
+            f"<g><title>{idx} (position.label in template: {idx})</title>"
+            f'<text x="{x:.3f}" y="{y:.3f}" class="black">{letter}</text></g>'
+        )
+    # 5'/3' labels
+    lines.append(
+        f"<g><title>0 (position.label in template: 0.5')</title>"
+        f'<text x="{coords[0][0]:.3f}" y="{coords[0][1] + label_offset:.3f}" '
+        f'class="green">5\'</text></g>'
+    )
+    lines.append(
+        f"<g><title>{len(coords) - 1} "
+        f"(position.label in template: {len(coords) - 1}.3')</title>"
+        f'<text x="{coords[-1][0]:.3f}" y="{coords[-1][1] + label_offset:.3f}" '
+        f'class="green">3\'</text></g>'
+    )
+    lines.append("</svg>")
+
+    output_path = Path(output_path)
+    with open(output_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
+
 
 def generate_layout_svg(sequence, structure, output_dir):
     """Generate an overlap-free SVG layout using ViennaRNA's RNApuzzler.
@@ -42,6 +150,9 @@ def generate_layout_svg(sequence, structure, output_dir):
 
     # ViennaRNA only understands () and . — strip pseudoknot characters
     clean_structure = re.sub(r"[^().]", ".", structure)
+
+    # Remove pairs that form hairpins too small for ViennaRNA to lay out.
+    clean_structure = _remove_small_hairpins(clean_structure)
 
     # Set layout type to RNApuzzler (type 4)
     RNA.cvar.rna_plot_type = _LAYOUT_PUZZLER
@@ -160,18 +271,32 @@ def run_puzzler_pipeline(_fasta_input, output_dir, seq_id, sequence, structure):
         "(" if c in _open else ")" if c in _close else "." for c in structure
     )
 
-    # Template FASTA: normalised structure matching the RNApuzzler layout.
+    # Remove pairs that form hairpins too small for ViennaRNA to lay out.
+    # This must happen before writing the template FASTA so that the
+    # structure in the FASTA matches the coordinates in the XML template.
+    layout_structure = _remove_small_hairpins(norm_structure)
+
+    # Also remove the same pairs from the target structure so Traveler
+    # does not try to draw pairs that have no coordinates.
+    target_structure = list(structure)
+    for i, (old, new) in enumerate(zip(norm_structure, layout_structure)):
+        if old != new:  # pair was removed
+            target_structure[i] = "."
+    target_structure = "".join(target_structure)
+
+    # Template FASTA: cleaned structure matching the RNApuzzler layout.
     template_fasta = output_dir / "rnapuzzler-template.fasta"
     with open(template_fasta, "w", encoding="utf-8") as fh:
-        fh.write(f">{seq_id}\n{sequence}\n{norm_structure}\n")
+        fh.write(f">{seq_id}\n{sequence}\n{layout_structure}\n")
 
-    # Target FASTA: original structure preserving pseudoknots for Traveler.
+    # Target FASTA: structure preserving pseudoknots for Traveler,
+    # but with small hairpins removed to match the template layout.
     target_fasta = output_dir / "rnapuzzler-target.fasta"
     with open(target_fasta, "w", encoding="utf-8") as fh:
-        fh.write(f">{seq_id}\n{sequence}\n{structure}\n")
+        fh.write(f">{seq_id}\n{sequence}\n{target_structure}\n")
 
     # Step 1: Generate overlap-free layout
-    svg_path = generate_layout_svg(sequence, norm_structure, output_dir)
+    svg_path = generate_layout_svg(sequence, layout_structure, output_dir)
 
     # Step 2: Convert to Traveler template XML
     xml_path = svg_to_traveler_template(svg_path, output_dir)
@@ -181,7 +306,7 @@ def run_puzzler_pipeline(_fasta_input, output_dir, seq_id, sequence, structure):
     # No additional scaling is required here.
 
     # Step 3: Run Traveler — target keeps pseudoknots, template matches layout
-    has_structure = any(c != "." for c in structure)
+    has_structure = any(c != "." for c in target_structure)
     if has_structure:
         cmd = (
             f"traveler --verbose "
@@ -194,10 +319,9 @@ def run_puzzler_pipeline(_fasta_input, output_dir, seq_id, sequence, structure):
         runner.run(cmd)
     else:
         # No base pairs — Traveler crashes on all-dots structures.
-        # Fall back to the R2R direct-SVG converter.
-        from . import r2r  # pylint: disable=import-outside-toplevel
-
-        r2r.r2r_svg_to_colored(
-            str(output_dir / "rnapuzzler.svg"),
-            str(output_dir / f"{seq_id}.colored.svg"),
+        # Build a minimal colored SVG directly from the ViennaRNA
+        # coordinates (the R2R converter expects a different SVG format).
+        _write_linear_colored_svg(
+            svg_path,
+            output_dir / f"{seq_id}.colored.svg",
         )
