@@ -20,7 +20,12 @@ from rich import print as rprint
 from . import config, gtrnadb, rfam, shared
 from .rfamseed import RfamSeed
 from .runner import runner
-from .svg import namespace_svg_file, replace_xxxx_with_arc, soften_long_basepair_lines
+from .svg import (
+    adjust_font_size_by_spacing,
+    namespace_svg_file,
+    replace_xxxx_with_arc,
+    soften_long_basepair_lines,
+)
 
 
 def update_fasta_with_original_sequence(
@@ -437,8 +442,10 @@ def visualise(
             )
             runner.run(cmd)
 
-    if rna_type in ["rfam", "gtrnadb"]:
-        adjust_font_size(result_base)
+    # Layout-aware font-size adjustment (all RNA types).
+    for suffix in [".colored.svg", ".enriched.svg", ".svg"]:
+        svg_path = result_base + suffix
+        adjust_font_size_by_spacing(svg_path)
 
     # Namespace SVGs so they can be safely embedded alongside other SVGs.
     # Soften long base-pair lines BEFORE replacing XXXX so the arc
@@ -477,41 +484,6 @@ def visualise(
     for filename in files:
         if os.path.exists(filename):
             os.remove(filename)
-
-
-def adjust_font_size(result_base):
-    """
-    Adjust font size.
-    """
-    filenames = [
-        result_base + ".colored.svg",
-        result_base + ".enriched.svg",
-        result_base + ".svg",
-    ]
-    for filename in filenames:
-        if not os.path.exists(filename) or not os.path.getsize(filename):
-            continue
-        with open(filename) as f_svg:
-            content = f_svg.read()
-            try:
-                font_size = float(
-                    re.search(r"font-size: (\d+(\.\d+)?)px;", content).group(1)
-                )
-            except AttributeError:
-                rprint(f"[red]Font-size not found in {filename}[/red]")
-                continue
-            # get approximate number of nucleotides
-            num_nucleotides = len(re.findall(r"<text", content))
-            # adjust font-size if diagram is small and font-size is too small or too large
-            if num_nucleotides < 100:
-                font_size = max(7, font_size)
-            elif num_nucleotides < 200:
-                font_size = max(12, font_size)
-            # update font-size
-            content = re.sub(
-                r"font-size: (\d+(\.\d+)?)px;", f"font-size: {font_size}px;", content
-            )
-        Path(filename).write_text(content)
 
 
 # pylint: disable-next=too-many-arguments

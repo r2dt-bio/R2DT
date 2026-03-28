@@ -584,6 +584,72 @@ def _scope_css(css: str, scope_id: str) -> str:
     return _RULE_RE.sub(_rewrite_rule, css)
 
 
+# ---------------------------------------------------------------------------
+# Layout-aware font-size adjustment
+# ---------------------------------------------------------------------------
+
+_FONT_SIZE_MULTIPLIER = 0.56
+_FONT_SIZE_FLOOR = 2.0
+_FONT_SIZE_CAP = 20.0
+
+
+def adjust_font_size_by_spacing(svg_path: str | Path) -> None:
+    """Increase font size based on median nearest-neighbour nucleotide spacing.
+
+    Traveler derives font size from the template coordinate grid, which can
+    produce text that is too small to read in large molecules.  This function
+    computes the median nearest-neighbour distance between nucleotide
+    positions and scales the font proportionally, while never *decreasing*
+    the existing font size.
+
+    Formula: ``new = max(current, min(cap, max(floor, 0.56 * median_nn)))``
+    """
+    path = Path(svg_path)
+    if not path.exists() or path.stat().st_size == 0:
+        return
+
+    text = path.read_text()
+
+    # Parse nucleotide coordinates
+    coords = []
+    for match in _COV_NT_RE.finditer(text):
+        coords.append((float(match.group(2)), float(match.group(3))))
+
+    if len(coords) < 2:
+        return
+
+    # Brute-force nearest-neighbour distances
+    import statistics  # pylint: disable=import-outside-toplevel
+
+    nn_dists = []
+    for i, (x1, y1) in enumerate(coords):
+        min_dist = float("inf")
+        for j, (x2, y2) in enumerate(coords):
+            if i == j:
+                continue
+            dist = math.hypot(x2 - x1, y2 - y1)
+            min_dist = min(min_dist, dist)
+        nn_dists.append(min_dist)
+
+    median_nn = statistics.median(nn_dists)
+    proposed = min(
+        _FONT_SIZE_CAP, max(_FONT_SIZE_FLOOR, _FONT_SIZE_MULTIPLIER * median_nn)
+    )
+
+    # Read current font size
+    font_match = re.search(r"font-size:\s*([\d.]+)px;", text)
+    if not font_match:
+        return
+    current = float(font_match.group(1))
+
+    new_font = max(current, proposed)
+    if new_font == current:
+        return
+
+    text = re.sub(r"font-size:\s*[\d.]+px;", f"font-size: {new_font}px;", text)
+    path.write_text(text)
+
+
 def _wrap_body(svg_text: str, scope_id: str) -> str:
     """Insert ``<g id="scope_id">`` right after the opening ``<svg>`` tag
     and ``</g>`` right before the closing ``</svg>`` tag."""

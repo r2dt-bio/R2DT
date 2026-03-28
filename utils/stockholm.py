@@ -36,7 +36,7 @@ try:
 except ImportError:
     rprint = print
 
-from .svg import soften_long_basepair_lines
+from .svg import adjust_font_size_by_spacing, soften_long_basepair_lines
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -1441,6 +1441,7 @@ def process_stockholm_alignment(
                             dest_enriched = svg_folder / f"{base_stem}.covariation.svg"
                             shutil.copy(enriched, dest_enriched)
                             _normalize_svg_scale(dest_enriched, target_font_size=9.0)
+                            adjust_font_size_by_spacing(dest_enriched)
                             soften_long_basepair_lines(dest_enriched)
 
                     # Normalise the SVG so that its nucleotide font size
@@ -1449,6 +1450,7 @@ def process_stockholm_alignment(
                     # much bigger scale; rescaling here keeps all panels
                     # visually consistent when stitched together.
                     _normalize_svg_scale(dest_svg, target_font_size=9.0)
+                    adjust_font_size_by_spacing(dest_svg)
                     soften_long_basepair_lines(dest_svg)
 
                     processed_regions.append(
