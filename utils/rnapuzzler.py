@@ -260,34 +260,49 @@ def run_puzzler_pipeline(_fasta_input, output_dir, seq_id, sequence, structure):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Normalise the structure for ViennaRNA layout generation.
-    # ViennaRNA only accepts () and . — pseudoknot characters (Aa, Bb,
-    # [], {} etc.) must be stripped for the coordinate calculation.
-    # However, the *original* structure is passed to Traveler so that
+    # Build two normalised structures:
+    #
+    # 1. *layout_structure* — for ViennaRNA coordinate generation.
+    #    ViennaRNA only accepts () and ., so ALL bracket types are
+    #    converted to () here.
+    #
+    # 2. *template_structure* — for the Traveler template FASTA.
+    #    Traveler interprets () as nested pair-tree nodes and []{}
+    #    as pseudoknot arcs.  The template FASTA must have the SAME
+    #    pair-tree topology as the target, so pseudoknot characters
+    #    must become dots (not parentheses) in the template.
+    #
+    # The target FASTA keeps the original structure unchanged so
     # pseudoknot arcs are still rendered in the final SVG.
     _open = set("([{<")
     _close = set(")]}>")
-    norm_structure = "".join(
+
+    layout_structure = "".join(
         "(" if c in _open else ")" if c in _close else "." for c in structure
     )
+    template_structure = "".join(c if c in "()" else "." for c in structure)
 
     # Remove pairs that form hairpins too small for ViennaRNA to lay out.
     # This must happen before writing the template FASTA so that the
     # structure in the FASTA matches the coordinates in the XML template.
-    layout_structure = _remove_small_hairpins(norm_structure)
+    layout_structure = _remove_small_hairpins(layout_structure)
+    template_structure = _remove_small_hairpins(template_structure)
 
     # Also remove the same pairs from the target structure so Traveler
     # does not try to draw pairs that have no coordinates.
+    # Compare against the original ()(). only template to detect removals.
+    orig_template = "".join(c if c in "()" else "." for c in structure)
     target_structure = list(structure)
-    for i, (old, new) in enumerate(zip(norm_structure, layout_structure)):
+    for i, (old, new) in enumerate(zip(orig_template, template_structure)):
         if old != new:  # pair was removed
             target_structure[i] = "."
     target_structure = "".join(target_structure)
 
     # Template FASTA: cleaned structure matching the RNApuzzler layout.
+    # Uses only () pairs — same tree topology as the target.
     template_fasta = output_dir / "rnapuzzler-template.fasta"
     with open(template_fasta, "w", encoding="utf-8") as fh:
-        fh.write(f">{seq_id}\n{sequence}\n{layout_structure}\n")
+        fh.write(f">{seq_id}\n{sequence}\n{template_structure}\n")
 
     # Target FASTA: structure preserving pseudoknots for Traveler,
     # but with small hairpins removed to match the template layout.
