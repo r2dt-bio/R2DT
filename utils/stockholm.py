@@ -36,7 +36,7 @@ try:
 except ImportError:
     rprint = print
 
-from .svg import soften_long_basepair_lines
+from .svg import adjust_font_size_by_spacing, soften_long_basepair_lines
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -213,6 +213,53 @@ def parse_stockholm(filepath: Path) -> StockholmAlignment:
     )
 
 
+# Letter pairs used for pseudoknot layers: Aa, Bb, Cc, …
+_PK_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def merge_pseudoknots(ss_cons: str, gc_annotations: dict[str, str]) -> str:
+    """Merge ``SS_cons_pk_*`` pseudoknot layers into a single structure.
+
+    R-scape / CaCoFold store pseudoknot base pairs in separate ``#=GC``
+    lines named ``SS_cons_pk_1``, ``SS_cons_pk_2``, etc.  Each layer
+    uses ``<>`` (or other WUSS brackets) for its pairs and dots
+    elsewhere.
+
+    This function overlays each layer onto *ss_cons*, replacing dots
+    with letter-pair pseudoknot characters (``Aa`` for pk_1, ``Bb``
+    for pk_2, …).
+
+    Args:
+        ss_cons: The primary ``#=GC SS_cons`` string (WUSS notation).
+        gc_annotations: The ``gc_annotations`` dict from the alignment.
+
+    Returns:
+        Merged structure string with pseudoknots encoded as letter pairs.
+    """
+    result = list(ss_cons)
+
+    pk_keys = sorted(k for k in gc_annotations if k.startswith("SS_cons_pk_"))
+
+    open_brackets = set("(<[{")
+    close_brackets = set(")>]}")
+
+    for layer_idx, key in enumerate(pk_keys):
+        if layer_idx >= len(_PK_LETTERS):
+            break
+        upper = _PK_LETTERS[layer_idx]
+        lower = upper.lower()
+        pk_ss = gc_annotations[key]
+        for i, c in enumerate(pk_ss):
+            if i >= len(result):
+                break
+            if c in open_brackets:
+                result[i] = upper
+            elif c in close_brackets:
+                result[i] = lower
+
+    return "".join(result)
+
+
 def wuss_to_dotbracket(ss_cons: str) -> str:
     """Convert WUSS notation to dot-bracket with letter-pair pseudoknots.
 
@@ -239,6 +286,35 @@ def wuss_to_dotbracket(ss_cons: str) -> str:
         else:
             result.append(".")  # '.', ',', '-', '_', ':', '~'
     return "".join(result)
+
+
+_WUSS_BRACKETS = set("(<[{)>]}")
+
+
+def rf_match_columns(rf: str, ss_cons: str) -> list[int]:
+    """Return column indices to keep when filtering by ``#=GC RF``.
+
+    Standard RF filtering keeps columns where ``RF != '.'``.  However,
+    ``SS_cons`` may place a bracket at an RF-dot column (the position is
+    structurally important even though sequence conservation is low).
+    Dropping such a column removes one side of a base pair, creating an
+    unbalanced structure.
+
+    This function returns the union of *RF match columns* and *columns
+    where SS_cons is a bracket character*, so no base-pair information
+    is lost.
+
+    Args:
+        rf: ``#=GC RF`` annotation string.
+        ss_cons: ``#=GC SS_cons`` annotation string (same length).
+
+    Returns:
+        Sorted list of 0-based column indices to retain.
+    """
+    return sorted(
+        {i for i, c in enumerate(rf) if c != "."}
+        | {i for i, c in enumerate(ss_cons) if c in _WUSS_BRACKETS or c.isalpha()}
+    )
 
 
 def extract_named_regions(
@@ -320,18 +396,34 @@ def extract_named_regions(
             or fallback_name
             or "unknown"
         )
+        # Merge pseudoknot layers (SS_cons_pk_1, …) into the primary SS
+        merged_ss = merge_pseudoknots(alignment.ss_cons, alignment.gc_annotations or {})
         if alignment.rf:
-            # Rfam-style: use RF to identify match columns
-            match_cols = [i for i, c in enumerate(alignment.rf) if c != "."]
-            ss_match = "".join(alignment.ss_cons[i] for i in match_cols)
+            # Rfam-style: use RF to identify match columns,
+            # expanded to include any SS_cons bracket columns
+            match_cols = rf_match_columns(alignment.rf, merged_ss)
+            ss_match = "".join(merged_ss[i] for i in match_cols)
             structure = wuss_to_dotbracket(ss_match)
-            consensus = "".join(alignment.rf[i].upper() for i in match_cols)
+            # For promoted columns (RF is dot but SS_cons has a bracket),
+            # derive the consensus nucleotide from the alignment sequences
+            seq_consensus = compute_rf_consensus(
+                alignment.sequences, 0, len(alignment.ss_cons)
+            )
+            consensus_chars = []
+            for i in match_cols:
+                rf_char = alignment.rf[i]
+                if rf_char != ".":
+                    consensus_chars.append(rf_char.upper())
+                else:
+                    nt = seq_consensus[i].upper() if i < len(seq_consensus) else "N"
+                    consensus_chars.append(nt if nt not in "-." else "N")
+            consensus = "".join(consensus_chars)
         else:
             # Plain alignment: compute consensus and strip gap columns
             consensus_raw = compute_rf_consensus(
                 alignment.sequences, 0, len(alignment.ss_cons)
             )
-            structure, consensus = remove_gap_columns(alignment.ss_cons, consensus_raw)
+            structure, consensus = remove_gap_columns(merged_ss, consensus_raw)
         regions.append(
             NamedRegion(
                 name=name,
@@ -339,7 +431,7 @@ def extract_named_regions(
                 end=len(alignment.ss_cons),
                 structure=structure,
                 consensus=consensus,
-                original_structure=alignment.ss_cons,
+                original_structure=merged_ss,
                 alignment_start=0,
             )
         )
@@ -1041,61 +1133,35 @@ def _enrich_covariation(
     src_svg: Path,
     quiet: bool = False,
 ) -> Path:
-    """Enrich a region SVG with covariation colours if data is available.
+    """Enrich a region SVG with covariation rectangles.
 
-    Looks for the ``.colored.json`` produced by Traveler, generates a
-    covariation TSV from the R-scape ``#=GC`` annotations, then calls
-    ``enrich_json.py`` + ``json2svg.py`` to produce an ``.enriched.svg``.
+    Computes per-basepair covariation from the R-scape ``#=GC``
+    annotations, then injects coloured ``<rect>`` elements into a
+    copy of *src_svg*.  Dark-green rectangles mark significant pair
+    covariation; light-green rectangles mark helix-level covariation.
 
     Returns the path to the enriched SVG on success, or *src_svg*
     unchanged on failure.
     """
     # pylint: disable=import-outside-toplevel
     from . import covariation
-    from .runner import runner
+    from .svg import add_covariation_rectangles
 
-    json_candidates = list(r2r_folder.glob(f"*{sub_region.name}*.colored.json")) + list(
-        r2r_folder.glob("*.colored.json")
-    )
-    if not json_candidates:
-        return src_svg
-
-    colored_json = json_candidates[0]
-    tsv_path = r2r_folder / "covariation.tsv"
-
-    wrote_tsv = covariation.generate_covariation_tsv(
+    pairs = covariation.get_covariation_pairs(
         alignment=alignment,
         region_start=sub_region.start,
         region_end=sub_region.end,
         original_structure=sub_region.original_structure,
         consensus=sub_region.consensus,
         structure=sub_region.structure,
-        output_path=tsv_path,
     )
-    if not wrote_tsv:
+    if not pairs:
         return src_svg
 
-    enriched_json = r2r_folder / f"{sub_region.name}.enriched.json"
-    enriched_svg = r2r_folder / f"{sub_region.name}.enriched.svg"
+    enriched_svg = r2r_folder / f"{sub_region.name}.covariation.svg"
+    shutil.copy(src_svg, enriched_svg)
 
-    cmd = (
-        f"python3 /rna/traveler/utils/enrich_json.py "
-        f"--input-json {colored_json} "
-        f"--input-data {tsv_path} "
-        f"--output {enriched_json}"
-    )
-    result = runner.run(cmd)
-    if result != 0:
-        return src_svg
-
-    cmd = (
-        f"python3 /rna/traveler/utils/json2svg.py "
-        f"-p /rna/r2dt/utils/covariation_colorscheme.json "
-        f"-i {enriched_json} -o {enriched_svg}"
-    )
-    runner.run(cmd)
-
-    if enriched_svg.exists():
+    if add_covariation_rectangles(enriched_svg, pairs):
         if not quiet:
             rprint("    [green]✓[/green] Added covariation colouring")
         return enriched_svg
@@ -1375,6 +1441,7 @@ def process_stockholm_alignment(
                             dest_enriched = svg_folder / f"{base_stem}.covariation.svg"
                             shutil.copy(enriched, dest_enriched)
                             _normalize_svg_scale(dest_enriched, target_font_size=9.0)
+                            adjust_font_size_by_spacing(dest_enriched)
                             soften_long_basepair_lines(dest_enriched)
 
                     # Normalise the SVG so that its nucleotide font size
@@ -1383,6 +1450,7 @@ def process_stockholm_alignment(
                     # much bigger scale; rescaling here keeps all panels
                     # visually consistent when stitched together.
                     _normalize_svg_scale(dest_svg, target_font_size=9.0)
+                    adjust_font_size_by_spacing(dest_svg)
                     soften_long_basepair_lines(dest_svg)
 
                     processed_regions.append(
