@@ -1193,7 +1193,7 @@ def _fix_svg_font_size(svg_path, min_font_size=8.0):
 
 def _templatefree_auto(fasta_input, output_folder, quiet):
     """
-    Run R2R, RNArtist, and RNApuzzler, return the layout with fewest overlaps.
+    Run R2R, RNApuzzler, and RNArtist, return the layout with fewest overlaps.
     Prefers R2R if overlap counts are equal or very similar.
     """
     # pylint: disable=import-outside-toplevel,too-many-branches,too-many-statements,too-many-locals
@@ -1238,6 +1238,29 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             winner_output = r2r_output
         else:
             # ----------------------------------------------------------
+            # Run RNApuzzler
+            # ----------------------------------------------------------
+            puzzler_folder_work = puzzler_output / "rnapuzzler"
+            for folder in [puzzler_output, puzzler_folder_work]:
+                folder.mkdir(exist_ok=True, parents=True)
+
+            try:
+                rnapuzzler.run_puzzler_pipeline(
+                    fasta_input,
+                    puzzler_folder_work,
+                    seq_id,
+                    sequence,
+                    structure,
+                )
+                organise_results(puzzler_folder_work, puzzler_output)
+                puzzler_json = (
+                    puzzler_output / "results" / "json" / f"{seq_id}.colored.json"
+                )
+                puzzler_overlaps = _count_overlaps(puzzler_json)
+            except Exception:  # pylint: disable=broad-except
+                puzzler_overlaps = float("inf")
+
+            # ----------------------------------------------------------
             # Run RNArtist
             # ----------------------------------------------------------
             rnartist_folder_work = rnartist_output / "rnartist"
@@ -1273,35 +1296,12 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             rnartist_overlaps = _count_overlaps(rnartist_json)
 
             # ----------------------------------------------------------
-            # Run RNApuzzler
-            # ----------------------------------------------------------
-            puzzler_folder_work = puzzler_output / "rnapuzzler"
-            for folder in [puzzler_output, puzzler_folder_work]:
-                folder.mkdir(exist_ok=True, parents=True)
-
-            try:
-                rnapuzzler.run_puzzler_pipeline(
-                    fasta_input,
-                    puzzler_folder_work,
-                    seq_id,
-                    sequence,
-                    structure,
-                )
-                organise_results(puzzler_folder_work, puzzler_output)
-                puzzler_json = (
-                    puzzler_output / "results" / "json" / f"{seq_id}.colored.json"
-                )
-                puzzler_overlaps = _count_overlaps(puzzler_json)
-            except Exception:  # pylint: disable=broad-except
-                puzzler_overlaps = float("inf")
-
-            # ----------------------------------------------------------
             # Pick the winner (prefer R2R on ties)
             # ----------------------------------------------------------
             candidates = [
                 ("R2R", r2r_overlaps, r2r_output),
-                ("RNArtist", rnartist_overlaps, rnartist_output),
                 ("RNApuzzler", puzzler_overlaps, puzzler_output),
+                ("RNArtist", rnartist_overlaps, rnartist_output),
             ]
             # Sort by overlaps; on ties the original order (R2R first) wins
             candidates.sort(key=lambda c: c[1])
@@ -1310,8 +1310,8 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             if not quiet:
                 rprint(
                     f"[green]R2R overlaps: {r2r_overlaps}, "
-                    f"RNArtist overlaps: {rnartist_overlaps}, "
-                    f"RNApuzzler overlaps: {puzzler_overlaps} "
+                    f"RNApuzzler overlaps: {puzzler_overlaps}, "
+                    f"RNArtist overlaps: {rnartist_overlaps} "
                     f"-> Using {winner}[/green]"
                 )
 
@@ -1352,10 +1352,9 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
     help="Use RNApuzzler for overlap-free layout (ViennaRNA)",
 )
 @click.option(
-    "--auto",
-    default=False,
-    is_flag=True,
-    help="Run R2R, RNArtist, and RNApuzzler, pick best layout",
+    "--auto/--no-auto",
+    default=True,
+    help="Run R2R, RNApuzzler, and RNArtist, pick best layout (default)",
 )
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 # pylint: disable=too-many-statements,inconsistent-return-statements,too-many-branches
@@ -1368,8 +1367,9 @@ def templatefree(
     if not quiet:
         rprint(shared.get_r2dt_version_header())
 
-    # Handle auto mode
-    if auto:
+    # Handle auto mode (default unless a specific engine is chosen)
+    chosen = sum([rnartist, rscape, rnapuzzler_flag])
+    if auto and chosen == 0:
         return _templatefree_auto(fasta_input, output_folder, quiet)
 
     chosen = sum([rnartist, rscape, rnapuzzler_flag])

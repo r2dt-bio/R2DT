@@ -807,6 +807,37 @@ class TestTemplateFreeRnartist(R2dtTestCase):
         self.check_examples()
 
 
+class TestTemplateFreeAutoPicksRnapuzzler(R2dtTestCase):
+    """Check that auto mode picks RNApuzzler for a complex pseudoknotted sequence."""
+
+    fasta_input = os.path.join("examples", "rnapuzzler-auto.fasta")
+    test_results = os.path.join("tests", "results", "rnapuzzler-auto")
+    test_results_subfolder = os.path.join("results", "svg")
+    precomputed_results = os.path.join("tests", "examples", "rnapuzzler-auto")
+    cmd = f"r2dt.py templatefree {fasta_input} {test_results} --quiet"
+    files = ["9ZCC.colored.svg"]
+
+    def test_examples(self):
+        """Check that SVG output matches the reference."""
+        self.check_examples()
+
+    def test_rnapuzzler_selected(self):
+        """Verify that auto mode selects RNApuzzler for this input."""
+        metadata_file = os.path.join(
+            self.test_results, "results", "tsv", "metadata.tsv"
+        )
+        self.assertTrue(
+            os.path.exists(metadata_file), f"Metadata file {metadata_file} not found"
+        )
+        with open(metadata_file) as f_meta:
+            content = f_meta.read()
+        self.assertIn(
+            "RNApuzzler",
+            content,
+            f"Expected RNApuzzler to be selected but metadata says: {content.strip()}",
+        )
+
+
 class TestLowerCase(R2dtTestCase):
     """Check that lowercase nucleotides are transferred properly."""
 
