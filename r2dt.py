@@ -1337,6 +1337,11 @@ def _templatefree_auto(fasta_input, output_folder, quiet):
             results_folder / "fasta" / f"{seq_id}.fasta",
         )
 
+        # Remove intermediate RNApuzzler FASTA files from results
+        fasta_folder = results_folder / "fasta"
+        for name in ("rnapuzzler-template.fasta", "rnapuzzler-target.fasta"):
+            (fasta_folder / name).unlink(missing_ok=True)
+
 
 @cli.command()
 @click.argument("fasta-input", type=click.Path())
@@ -1474,6 +1479,12 @@ def templatefree(
         )
 
         organise_results(puzzler_folder, output_folder)
+
+        # Remove intermediate RNApuzzler FASTA files from results
+        fasta_folder = results_folder / "fasta"
+        for name in ("rnapuzzler-template.fasta", "rnapuzzler-target.fasta"):
+            (fasta_folder / name).unlink(missing_ok=True)
+
         tsv_folder = results_folder / "tsv"
         tsv_folder.mkdir(exist_ok=True, parents=True)
         with open(tsv_folder / "metadata.tsv", "w") as f_out:
