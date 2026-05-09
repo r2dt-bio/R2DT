@@ -79,6 +79,16 @@ class StockholmAlignment:  # pylint: disable=too-many-instance-attributes
             self.gc_annotations = {}
 
 
+# Stockholm gap characters: dash, underscore, dot, tilde.
+# Columns where RF (or another consensus annotation) holds one of these
+# are dropped from BOTH the consensus sequence and the corresponding
+# secondary-structure positions, so the two stay in lockstep.  ViennaRNA
+# silently skips non-letter characters when emitting nucleotide
+# coordinates, so leaving them in produces a Traveler template whose
+# point count no longer matches the structure length.
+STOCKHOLM_GAP_CHARS = frozenset("-_.~")
+
+
 # IUPAC ambiguity codes for nucleotides
 IUPAC_CODES = {
     frozenset("A"): "A",
@@ -294,15 +304,17 @@ _WUSS_BRACKETS = set("(<[{)>]}")
 def rf_match_columns(rf: str, ss_cons: str) -> list[int]:
     """Return column indices to keep when filtering by ``#=GC RF``.
 
-    Standard RF filtering keeps columns where ``RF != '.'``.  However,
-    ``SS_cons`` may place a bracket at an RF-dot column (the position is
+    Stockholm uses four characters as gaps in the RF annotation: ``-``,
+    ``_``, ``.`` and ``~`` (see :data:`STOCKHOLM_GAP_CHARS`).  Standard
+    RF filtering keeps columns where RF is a non-gap character.  However,
+    ``SS_cons`` may place a bracket at an RF-gap column (the position is
     structurally important even though sequence conservation is low).
     Dropping such a column removes one side of a base pair, creating an
     unbalanced structure.
 
     This function returns the union of *RF match columns* and *columns
-    where SS_cons is a bracket character*, so no base-pair information
-    is lost.
+    where SS_cons is a bracket or letter-pair pseudoknot character*, so
+    no base-pair information is lost.
 
     Args:
         rf: ``#=GC RF`` annotation string.
@@ -312,7 +324,7 @@ def rf_match_columns(rf: str, ss_cons: str) -> list[int]:
         Sorted list of 0-based column indices to retain.
     """
     return sorted(
-        {i for i, c in enumerate(rf) if c != "."}
+        {i for i, c in enumerate(rf) if c not in STOCKHOLM_GAP_CHARS}
         | {i for i, c in enumerate(ss_cons) if c in _WUSS_BRACKETS or c.isalpha()}
     )
 
@@ -404,19 +416,20 @@ def extract_named_regions(
             match_cols = rf_match_columns(alignment.rf, merged_ss)
             ss_match = "".join(merged_ss[i] for i in match_cols)
             structure = wuss_to_dotbracket(ss_match)
-            # For promoted columns (RF is dot but SS_cons has a bracket),
-            # derive the consensus nucleotide from the alignment sequences
+            # For promoted columns (RF is a gap character but SS_cons
+            # has a bracket), derive the consensus nucleotide from the
+            # alignment sequences.
             seq_consensus = compute_rf_consensus(
                 alignment.sequences, 0, len(alignment.ss_cons)
             )
             consensus_chars = []
             for i in match_cols:
                 rf_char = alignment.rf[i]
-                if rf_char != ".":
+                if rf_char not in STOCKHOLM_GAP_CHARS:
                     consensus_chars.append(rf_char.upper())
                 else:
                     nt = seq_consensus[i].upper() if i < len(seq_consensus) else "N"
-                    consensus_chars.append(nt if nt not in "-." else "N")
+                    consensus_chars.append(nt if nt not in STOCKHOLM_GAP_CHARS else "N")
             consensus = "".join(consensus_chars)
         else:
             # Plain alignment: compute consensus and strip gap columns
@@ -569,8 +582,8 @@ def split_region_at_unpaired(  # pylint: disable=too-many-locals,too-many-branch
     for col_offset, (ss_char, seq_char) in enumerate(
         zip(original_ss, original_consensus)
     ):
-        is_gap_seq = seq_char in "-."
-        is_gap_ss = ss_char in ".-"
+        is_gap_seq = seq_char in STOCKHOLM_GAP_CHARS
+        is_gap_ss = ss_char in STOCKHOLM_GAP_CHARS
         if not is_gap_seq or not is_gap_ss:
             col_map.append(region.start + col_offset)
 
@@ -912,8 +925,8 @@ def remove_gap_columns(structure: str, sequence: str) -> tuple[str, str]:
         # Keep the column if:
         # - The sequence is a nucleotide (not gap)
         # - OR the structure has a bracket (even if sequence is gap)
-        is_gap_seq = seq in "-."
-        is_gap_ss = ss in ".-"
+        is_gap_seq = seq in STOCKHOLM_GAP_CHARS
+        is_gap_ss = ss in STOCKHOLM_GAP_CHARS
 
         if not is_gap_seq or not is_gap_ss:
             filtered_structure.append(ss)

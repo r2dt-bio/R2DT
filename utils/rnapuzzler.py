@@ -151,12 +151,19 @@ def generate_layout_svg(sequence, structure, output_dir):
     # ViennaRNA only understands () and . — strip pseudoknot characters
     clean_structure = re.sub(r"[^().]", ".", structure)
 
+    # ViennaRNA silently skips non-letter characters (e.g. Stockholm gap
+    # chars `~`, `_`, `.`, `-`) when emitting nucleotide coordinates,
+    # which would leave the resulting Traveler template with fewer
+    # points than the structure has positions.  Coerce anything outside
+    # the alphabet to ``N`` so the count stays in lockstep.
+    clean_sequence = re.sub(r"[^A-Za-z]", "N", sequence)
+
     # Remove pairs that form hairpins too small for ViennaRNA to lay out.
     clean_structure = _remove_small_hairpins(clean_structure)
 
     # Set layout type to RNApuzzler (type 4)
     RNA.cvar.rna_plot_type = _LAYOUT_PUZZLER
-    result = RNA.svg_rna_plot(sequence, clean_structure, str(svg_path))
+    result = RNA.svg_rna_plot(clean_sequence, clean_structure, str(svg_path))
 
     if result != 1 or not svg_path.exists():
         raise RuntimeError(
