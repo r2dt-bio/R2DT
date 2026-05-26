@@ -30,7 +30,7 @@ from .rnartist import RnaArtist
 from .rnartist_setup import compare_rnartist_and_rscape
 from .runner import runner
 from .scale_template import scale_coordinates
-from .shared import cmfetch
+from .shared import cmfetch, ensure_fasta_index
 
 # these RNAs are better handled by other methods
 BLACKLIST = [
@@ -641,8 +641,7 @@ def generate_2d(
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    if not os.path.exists(fasta_input + ".ssi"):
-        runner.run(f"esl-sfetch --index {fasta_input}")
+    ensure_fasta_index(fasta_input)
     # pylint: disable=consider-using-with
     headers = tempfile.NamedTemporaryFile(delete=False).name
     with open(fasta_input, "r") as infile, open(headers, "w") as outfile:

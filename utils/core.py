@@ -166,8 +166,7 @@ def visualise(
 
     # get sequence from fasta file
     seq_range = f"-c {start}..{end}" if start and end else ""
-    if not os.path.exists(f"{fasta_input}.ssi"):
-        runner.run(f"esl-sfetch --index {fasta_input}")
+    shared.ensure_fasta_index(fasta_input)
     cmd = f"esl-sfetch {seq_range} {fasta_input} {seq_id} > {temp_fasta}"
     result = runner.run(cmd)
     if result:
@@ -495,9 +494,7 @@ def visualise_trna(
     filename = "headers.txt"
     os.makedirs(output_folder, exist_ok=True)
 
-    if not os.path.exists(f"{fasta_input}.ssi"):
-        cmd = f"esl-sfetch --index {fasta_input}"
-        runner.run(cmd)
+    shared.ensure_fasta_index(fasta_input)
 
     cmd = f"grep '>' {fasta_input} > {filename}"
     runner.run(cmd)
