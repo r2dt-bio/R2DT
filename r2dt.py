@@ -288,7 +288,7 @@ def draw(
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
-    shared.ensure_fasta_index(subset_fasta)
+    shared.ensure_fasta_index(fasta_input)
 
     def get_output_subfolder(method_name):
         """Get folder within the output folder for a given method."""
