@@ -42,6 +42,7 @@ from utils import rnapuzzler
 from utils import rnaview as rnaview_utils
 from utils import shared
 from utils import stockholm as stockholm_utils
+from utils import viewer_export, viewer_html
 from utils.rnartist import RnaArtist
 from utils.runner import runner
 from utils.scale_template import scale_coordinates
@@ -2735,6 +2736,202 @@ def pdb(
             rprint(
                 "[yellow]Diagram generation completed. Check output folder.[/yellow]"
             )
+
+
+@cli.command("pdb_2d_3d")
+@click.argument("pdb-input", type=click.STRING)
+@click.argument("output-folder", type=click.Path())
+@click.option(
+    "--basepairs",
+    type=click.Choice(["auto", "rnaview", "fr3d"]),
+    default="auto",
+)
+@click.option(
+    "--format",
+    "structure_format",
+    type=click.Choice(["auto", "pdb", "cif"]),
+    default="auto",
+)
+@click.option("--chain", type=str, default=None)
+@click.option("--pseudoknots/--no-pseudoknots", default=True)
+@click.option("--rnapuzzler", "rnapuzzler_flag", default=False, is_flag=True)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+@click.pass_context
+# pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
+def pdb_2d_3d(
+    ctx,
+    pdb_input,
+    output_folder,
+    basepairs,
+    structure_format,
+    chain,
+    pseudoknots,
+    rnapuzzler_flag,
+    quiet,
+):
+    """
+    Generate an interactive 2D+3D viewer page from a PDB structure.
+
+    Runs the same pipeline as ``pdb`` and additionally writes a
+    ``viewer/`` folder containing ``viewer.html``, the two JSON blobs
+    consumed by pdb-rna-viewer, the structure file, and the viewer
+    assets.  Opening ``viewer.html`` in a browser shows the linked 2D
+    diagram + 3D molstar view.
+
+    Examples:
+
+        r2dt.py pdb_2d_3d 1Y26 output/
+
+        r2dt.py pdb_2d_3d ./my_rna.cif output/ --basepairs fr3d
+    """
+    # 1) Run the existing pdb pipeline.
+    ctx.invoke(
+        pdb,
+        pdb_input=pdb_input,
+        output_folder=output_folder,
+        basepairs=basepairs,
+        structure_format=structure_format,
+        chain=chain,
+        pseudoknots=pseudoknots,
+        rnapuzzler_flag=rnapuzzler_flag,
+        quiet=quiet,
+    )
+
+    # 2) Resolve the file paths the pdb command wrote.
+    output_path = Path(output_folder)
+    is_local_file = pdb_fetch.is_local_structure_file(pdb_input)
+    if is_local_file:
+        file_path = Path(pdb_input)
+        structure_id = file_path.stem
+        if structure_id.endswith((".pdb", ".cif")):
+            structure_id = structure_id.rsplit(".", 1)[0]
+        _, actual_format, _ = pdb_fetch.validate_structure_file(file_path)
+        source_structure_path = file_path
+    else:
+        structure_id = pdb_input
+        downloads = output_path / "downloads"
+        # The pdb command preserves the original-case PDB ID in the
+        # downloaded filename; lowercasing it would break the unit_id
+        # key match against the FR3D basepair file.
+        cands = (
+            list(downloads.glob(f"{structure_id}.cif"))
+            + list(downloads.glob(f"{structure_id}.pdb"))
+            + list(downloads.glob(f"{structure_id}.*"))
+        )
+        cands = [c for c in cands if c.is_file()]
+        if not cands:
+            rprint("[red]Viewer step: cannot locate downloaded structure[/red]")
+            return
+        source_structure_path = cands[0]
+        actual_format = source_structure_path.suffix.lstrip(".")
+
+    colored_json = (
+        output_path / "results" / "results" / "json" / f"{structure_id}.colored.json"
+    )
+    colored_svg = (
+        output_path / "results" / "results" / "svg" / f"{structure_id}.colored.svg"
+    )
+    basepair_txt = output_path / "extraction" / f"{structure_id}_basepair.txt"
+    if not colored_json.exists():
+        rprint(f"[red]Viewer step: missing {colored_json}[/red]")
+        return
+
+    # 3) Re-derive resolved_mask and unit_id_to_position so we can write
+    # both the apiData mapping and the FR3D label remap.  These calls
+    # are the same the pdb command makes internally.
+    _, resolved_mask, used_chain = fr3d_utils.get_full_sequence(
+        str(source_structure_path), chain
+    )
+    if not resolved_mask:
+        resolved_mask = None
+    if str(source_structure_path).lower().endswith(".cif"):
+        _, unit_id_to_position = fr3d_utils.extract_sequence_from_cif(
+            str(source_structure_path), used_chain or chain, quiet=quiet
+        )
+    else:
+        _, unit_id_to_position = fr3d_utils.extract_sequence_from_pdb(
+            str(source_structure_path), used_chain or chain, quiet=quiet
+        )
+
+    # 4) Build the JSON blobs.
+    colored = json.loads(colored_json.read_text())
+    n_full = sum(
+        1
+        for nuc in colored["rnaComplexes"][0]["rnaMolecules"][0]["sequence"]
+        if nuc.get("residueName") not in ("5'", "3'")
+        and len(nuc.get("residueName", "")) == 1
+    )
+    api_data = viewer_export.build_api_data(
+        colored_json,
+        structure_id=structure_id,
+        chain_id=used_chain or chain,
+        resolved_mask=resolved_mask,
+        unit_id_to_position=unit_id_to_position,
+        colored_svg_path=colored_svg if colored_svg.exists() else None,
+    )
+    fr3d_data = viewer_export.build_fr3d_data(
+        basepair_txt,
+        structure_id=structure_id,
+        chain_id=used_chain or chain,
+        unit_id_to_position=unit_id_to_position or {},
+        resolved_mask=resolved_mask,
+        n_full=n_full,
+    )
+
+    # 5) Lay out the viewer folder.
+    viewer_dir = output_path / "viewer"
+    viewer_dir.mkdir(exist_ok=True)
+    (viewer_dir / "api.json").write_text(json.dumps(api_data))
+    (viewer_dir / "fr3d.json").write_text(json.dumps(fr3d_data))
+    structure_dest_name = f"{structure_id}.{actual_format}"
+    shutil.copyfile(source_structure_path, viewer_dir / structure_dest_name)
+
+    # Copy the viewer plugin + css so the folder works offline (small).
+    _copy_viewer_assets(viewer_dir, quiet=quiet)
+
+    html_path = viewer_html.render(
+        viewer_dir,
+        structure_id=structure_id,
+        chain_id=used_chain or chain,
+        structure_filename=structure_dest_name,
+        structure_format=actual_format,
+    )
+
+    if not quiet:
+        rprint(f"[green]Viewer ready: file://{html_path.resolve()}[/green]")
+
+
+def _copy_viewer_assets(viewer_dir: Path, quiet: bool = False) -> None:
+    """Copy pdb-rna-viewer plugin + stylesheet next to ``viewer.html``.
+
+    Searches, in order:
+      1. ``$R2DT_VIEWER_ASSETS_DIR``
+      2. sibling ``pdb-rna-viewer/build/`` (next to the r2dt checkout)
+      3. ``$HOME/localdocs/pdb-rna-viewer/build/``
+    The viewer's build artefacts aren't on a public CDN, so the user has
+    to point this at a local clone of github.com/PDBeurope/pdb-rna-viewer.
+    """
+    candidates = []
+    if env_dir := os.environ.get("R2DT_VIEWER_ASSETS_DIR"):
+        candidates.append(Path(env_dir))
+    here = Path(__file__).resolve().parent
+    candidates.append(here.parent / "pdb-rna-viewer" / "build")
+    candidates.append(Path.home() / "localdocs" / "pdb-rna-viewer" / "build")
+
+    wanted = [viewer_html.VIEWER_PLUGIN_FILENAME, viewer_html.VIEWER_CSS_FILENAME]
+    for base in candidates:
+        if all((base / w).exists() for w in wanted):
+            for w in wanted:
+                shutil.copyfile(base / w, viewer_dir / w)
+            return
+    if not quiet:
+        rprint(
+            "[yellow]Could not find pdb-rna-viewer assets. Set "
+            "R2DT_VIEWER_ASSETS_DIR or place pdb-rna-viewer/build/ "
+            "next to the r2dt checkout. Looked in:[/yellow]"
+        )
+        for base in candidates:
+            rprint(f"[yellow]  {base}[/yellow]")
 
 
 def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
