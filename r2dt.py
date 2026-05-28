@@ -2481,7 +2481,18 @@ def generate_template(json_file, quiet):
     "rnapuzzler_flag",
     default=False,
     is_flag=True,
-    help="Use RNApuzzler for overlap-free layout (ViennaRNA)",
+    help="Use RNApuzzler for overlap-free layout (ViennaRNA, templatefree only)",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["auto", "templated", "templatefree"]),
+    default="auto",
+    help=(
+        "Layout mode. 'templatefree' uses the FR3D-derived dot-bracket and "
+        "R2R/RNApuzzler/RNArtist. 'templated' runs the full R2DT template "
+        "search (CRW/RiboVision/Rfam/GtRNAdb/RNase P/tmRNA). 'auto' (default) "
+        "currently behaves as templatefree."
+    ),
 )
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
@@ -2496,6 +2507,7 @@ def pdb(
     chain,
     pseudoknots,
     rnapuzzler_flag,
+    mode,
     quiet,
 ):
     """
@@ -2690,7 +2702,7 @@ def pdb(
     elif not quiet and full_sequence:
         rprint("No missing residues detected")
 
-    # Write FASTA file for R2DT
+    # Write FASTA file for R2DT (3-line: seq + dot-bracket, for templatefree)
     fasta_path = output_path / f"{structure_id}.fasta"
     with open(fasta_path, "w") as f:
         f.write(f">{structure_id}\n")
@@ -2700,20 +2712,58 @@ def pdb(
     if not quiet:
         rprint(f"Created FASTA: {fasta_path}")
 
-    # Run R2DT templatefree
-    if not quiet:
-        rprint("Generating 2D diagram with R2DT...")
-
     results_folder = output_path / "results"
-    ctx.invoke(
-        templatefree,
-        fasta_input=str(fasta_path),
-        output_folder=str(results_folder),
-        rnartist=False,
-        rscape=not rnapuzzler_flag,
-        rnapuzzler_flag=rnapuzzler_flag,
-        quiet=quiet,
-    )
+
+    # Resolve mode. 'auto' currently behaves as 'templatefree' — keep the
+    # quick path as the default and let the user opt in to the slow
+    # template search with --mode templated.
+    effective_mode = "templatefree" if mode == "auto" else mode
+
+    if effective_mode == "templated":
+        # Templated layout: feed sequence-only fasta into `draw`, which
+        # picks a template (CRW / RiboVision / Rfam / GtRNAdb / RNase P /
+        # tmRNA / Rfam-tRNA) and lays the diagram out via Traveler.
+        if not quiet:
+            rprint("Generating 2D diagram with R2DT (templated mode)...")
+        draw_fasta = output_path / f"{structure_id}.draw.fasta"
+        with open(draw_fasta, "w") as f:
+            f.write(f">{structure_id}\n")
+            f.write(f"{sequence}\n")
+
+        ctx.invoke(
+            draw,
+            fasta_input=str(draw_fasta),
+            output_folder=str(results_folder),
+            quiet=quiet,
+        )
+
+        # `draw` names its outputs ``<structure_id>-<template_id>.colored.*``.
+        # Downstream code (grey-out, viewer-export) keys on the plain
+        # ``<structure_id>`` basename, so collapse the template suffix here.
+        matched_template = _rename_templated_outputs(results_folder, structure_id)
+        if matched_template is None:
+            rprint("[red]No template matched this structure in templated mode.[/red]")
+            rprint(
+                "[yellow]Try --mode templatefree, or --mode auto for the "
+                "FR3D-derived layout.[/yellow]"
+            )
+            return
+        if not quiet:
+            rprint(f"[green]Matched template: {matched_template}[/green]")
+    else:
+        # Templatefree layout: hand the FR3D dot-bracket to R2R / RNApuzzler
+        # / RNArtist via the templatefree command.
+        if not quiet:
+            rprint("Generating 2D diagram with R2DT (templatefree mode)...")
+        ctx.invoke(
+            templatefree,
+            fasta_input=str(fasta_path),
+            output_folder=str(results_folder),
+            rnartist=False,
+            rscape=not rnapuzzler_flag,
+            rnapuzzler_flag=rnapuzzler_flag,
+            quiet=quiet,
+        )
 
     # --- Post-process: grey out unresolved nucleotides ---
     if resolved_mask is not None:
@@ -2755,9 +2805,15 @@ def pdb(
 @click.option("--chain", type=str, default=None)
 @click.option("--pseudoknots/--no-pseudoknots", default=True)
 @click.option("--rnapuzzler", "rnapuzzler_flag", default=False, is_flag=True)
+@click.option(
+    "--mode",
+    type=click.Choice(["auto", "templated", "templatefree"]),
+    default="auto",
+)
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
+# pylint: disable=too-many-statements
 def pdb_2d_3d(
     ctx,
     pdb_input,
@@ -2767,15 +2823,16 @@ def pdb_2d_3d(
     chain,
     pseudoknots,
     rnapuzzler_flag,
+    mode,
     quiet,
 ):
     """
     Generate an interactive 2D+3D viewer page from a PDB structure.
 
     Runs the same pipeline as ``pdb`` and additionally writes a
-    ``viewer/`` folder containing ``viewer.html``, the two JSON blobs
+    ``viewer/`` folder containing ``index.html``, the two JSON blobs
     consumed by pdb-rna-viewer, the structure file, and the viewer
-    assets.  Opening ``viewer.html`` in a browser shows the linked 2D
+    assets.  Opening ``index.html`` in a browser shows the linked 2D
     diagram + 3D molstar view.
 
     Examples:
@@ -2794,6 +2851,7 @@ def pdb_2d_3d(
         chain=chain,
         pseudoknots=pseudoknots,
         rnapuzzler_flag=rnapuzzler_flag,
+        mode=mode,
         quiet=quiet,
     )
 
@@ -2832,8 +2890,10 @@ def pdb_2d_3d(
         output_path / "results" / "results" / "svg" / f"{structure_id}.colored.svg"
     )
     basepair_txt = output_path / "extraction" / f"{structure_id}_basepair.txt"
+    # If `pdb` bailed (e.g. templated mode with no template match) there
+    # is no colored SVG/JSON to build a viewer from -- abort quietly; the
+    # pdb step has already explained why.
     if not colored_json.exists():
-        rprint(f"[red]Viewer step: missing {colored_json}[/red]")
         return
 
     # 3) Re-derive resolved_mask and unit_id_to_position so we can write
@@ -2853,6 +2913,18 @@ def pdb_2d_3d(
             str(source_structure_path), used_chain or chain, quiet=quiet
         )
 
+    # Fall back to deriving the chain from a FR3D unit_id when neither the
+    # user nor the upstream auto-detect supplied one. Without this the
+    # viewer ends up with auth_asym_id="" and molstar's visual.select()
+    # matches no residue.
+    effective_chain = used_chain or chain
+    if not effective_chain and unit_id_to_position:
+        for unit in unit_id_to_position:
+            parts = unit.split("|")
+            if len(parts) >= 3 and parts[2]:
+                effective_chain = parts[2]
+                break
+
     # 4) Build the JSON blobs.
     colored = json.loads(colored_json.read_text())
     n_full = sum(
@@ -2864,7 +2936,7 @@ def pdb_2d_3d(
     api_data = viewer_export.build_api_data(
         colored_json,
         structure_id=structure_id,
-        chain_id=used_chain or chain,
+        chain_id=effective_chain,
         resolved_mask=resolved_mask,
         unit_id_to_position=unit_id_to_position,
         colored_svg_path=colored_svg if colored_svg.exists() else None,
@@ -2872,7 +2944,7 @@ def pdb_2d_3d(
     fr3d_data = viewer_export.build_fr3d_data(
         basepair_txt,
         structure_id=structure_id,
-        chain_id=used_chain or chain,
+        chain_id=effective_chain,
         unit_id_to_position=unit_id_to_position or {},
         resolved_mask=resolved_mask,
         n_full=n_full,
@@ -2886,52 +2958,88 @@ def pdb_2d_3d(
     structure_dest_name = f"{structure_id}.{actual_format}"
     shutil.copyfile(source_structure_path, viewer_dir / structure_dest_name)
 
-    # Copy the viewer plugin + css so the folder works offline (small).
-    _copy_viewer_assets(viewer_dir, quiet=quiet)
+    # Copy the vendored pdb-rna-viewer build files next to index.html.
+    _copy_viewer_assets(viewer_dir)
 
     html_path = viewer_html.render(
         viewer_dir,
         structure_id=structure_id,
-        chain_id=used_chain or chain,
+        chain_id=effective_chain,
         structure_filename=structure_dest_name,
         structure_format=actual_format,
     )
 
     if not quiet:
-        rprint(f"[green]Viewer ready: file://{html_path.resolve()}[/green]")
-
-
-def _copy_viewer_assets(viewer_dir: Path, quiet: bool = False) -> None:
-    """Copy pdb-rna-viewer plugin + stylesheet next to ``viewer.html``.
-
-    Searches, in order:
-      1. ``$R2DT_VIEWER_ASSETS_DIR``
-      2. sibling ``pdb-rna-viewer/build/`` (next to the r2dt checkout)
-      3. ``$HOME/localdocs/pdb-rna-viewer/build/``
-    The viewer's build artefacts aren't on a public CDN, so the user has
-    to point this at a local clone of github.com/PDBeurope/pdb-rna-viewer.
-    """
-    candidates = []
-    if env_dir := os.environ.get("R2DT_VIEWER_ASSETS_DIR"):
-        candidates.append(Path(env_dir))
-    here = Path(__file__).resolve().parent
-    candidates.append(here.parent / "pdb-rna-viewer" / "build")
-    candidates.append(Path.home() / "localdocs" / "pdb-rna-viewer" / "build")
-
-    wanted = [viewer_html.VIEWER_PLUGIN_FILENAME, viewer_html.VIEWER_CSS_FILENAME]
-    for base in candidates:
-        if all((base / w).exists() for w in wanted):
-            for w in wanted:
-                shutil.copyfile(base / w, viewer_dir / w)
-            return
-    if not quiet:
+        rprint(f"[dim]Viewer chain: {effective_chain or '(none)'}[/dim]")
+        # The viewer fetches api.json / fr3d.json / the structure file via
+        # relative URLs, which browsers block over file://. Tell the user
+        # to serve the folder instead of double-clicking the HTML.
+        rprint(f"[green]Viewer ready: {html_path.resolve()}[/green]")
         rprint(
-            "[yellow]Could not find pdb-rna-viewer assets. Set "
-            "R2DT_VIEWER_ASSETS_DIR or place pdb-rna-viewer/build/ "
-            "next to the r2dt checkout. Looked in:[/yellow]"
+            "[dim]Serve it over HTTP, e.g.:\n"
+            f"  python3 -m http.server -d {viewer_dir.resolve()} 8000\n"
+            "then open http://localhost:8000/[/dim]"
         )
-        for base in candidates:
-            rprint(f"[yellow]  {base}[/yellow]")
+
+
+def _copy_viewer_assets(viewer_dir: Path) -> None:
+    """Copy the vendored viewer assets next to ``index.html``.
+
+    The pdb-rna-viewer compiled bundle isn't on a CDN, isn't on npm, and
+    the GitHub release downloads are served with ``application/octet-stream``
+    which browsers refuse to load as a stylesheet. So we vendor it (plus
+    the ``viewer.js`` interaction glue) under ``data/viewer/`` in the R2DT
+    repo (Apache-2.0) and copy it into each output folder.
+    """
+    src = Path(__file__).resolve().parent / "data" / "viewer"
+    wanted = (
+        viewer_html.VIEWER_PLUGIN_FILENAME,
+        viewer_html.VIEWER_CSS_FILENAME,
+        viewer_html.VIEWER_JS_FILENAME,
+    )
+    missing = [name for name in wanted if not (src / name).is_file()]
+    if missing:
+        raise click.ClickException(
+            f"Missing vendored viewer assets in {src}: {', '.join(missing)}. "
+            "The R2DT checkout looks incomplete."
+        )
+    for name in wanted:
+        shutil.copyfile(src / name, viewer_dir / name)
+
+
+def _rename_templated_outputs(results_folder: Path, structure_id: str):
+    """Collapse ``<structure_id>-<template_id>.<ext>`` filenames produced
+    by ``draw`` into plain ``<structure_id>.<ext>`` so the rest of the
+    ``pdb`` / ``pdb_2d_3d`` pipeline (grey-out, viewer-export) doesn't
+    need to know which template won.
+
+    Returns the matched template id (the trailing portion after the
+    structure id) if a templated SVG was found, otherwise ``None``.
+    """
+    svg_dir = results_folder / "results" / "svg"
+    candidates = list(svg_dir.glob(f"{structure_id}-*.colored.svg"))
+    if not candidates:
+        return None
+    # Take the first match -- there should be only one per structure.
+    colored_svg = candidates[0]
+    full_stem = colored_svg.name[: -len(".colored.svg")]
+    template_id = full_stem[len(structure_id) + 1 :]
+
+    suffix_dirs = {
+        "results/svg": [".colored.svg", ".enriched.svg"],
+        "results/thumbnail": [".thumbnail.svg"],
+        "results/json": [".colored.json"],
+        "results/fasta": [".fasta"],
+    }
+    for subdir, suffixes in suffix_dirs.items():
+        d = results_folder / subdir
+        if not d.is_dir():
+            continue
+        for suffix in suffixes:
+            src = d / f"{full_stem}{suffix}"
+            if src.exists():
+                src.replace(d / f"{structure_id}{suffix}")
+    return template_id
 
 
 def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):

@@ -109,6 +109,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
    :maxdepth: 1
 
    pdb
+   pdb-2d-3d-viewer
 ```
 
 ```{eval-rst}
