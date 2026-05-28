@@ -16,7 +16,7 @@ port := "8000"
 # 2D+3D viewer gallery: where it is published and what it contains.
 # Each entry is "PDB_ID:mode" (mode = auto | templated | templatefree).
 viewers_dir := "output/site"
-viewers_structures := "9RJA:templated 8SH5:templated 9CFN:auto"
+viewers_structures := "9RJA:auto 8SH5:auto 9CFN:auto"
 # Cloudflare Pages project name. Set CLOUDFLARE_PROJECT in your (gitignored)
 # .env or environment -- it is deliberately not hardcoded here.
 cloudflare_project := env_var_or_default("CLOUDFLARE_PROJECT", "")

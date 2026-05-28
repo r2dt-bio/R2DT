@@ -2488,10 +2488,11 @@ def generate_template(json_file, quiet):
     type=click.Choice(["auto", "templated", "templatefree"]),
     default="auto",
     help=(
-        "Layout mode. 'templatefree' uses the FR3D-derived dot-bracket and "
-        "R2R/RNApuzzler/RNArtist. 'templated' runs the full R2DT template "
-        "search (CRW/RiboVision/Rfam/GtRNAdb/RNase P/tmRNA). 'auto' (default) "
-        "currently behaves as templatefree."
+        "Layout mode. 'auto' (default) tries the template search first and "
+        "falls back to templatefree if no template matches. 'templated' runs "
+        "the full R2DT template search (CRW/RiboVision/Rfam/GtRNAdb/RNase P/"
+        "tmRNA) and fails if nothing matches. 'templatefree' uses the "
+        "FR3D-derived dot-bracket with R2R/RNApuzzler/RNArtist."
     ),
 )
 @click.option("--quiet", "-q", is_flag=True, default=False)
@@ -2714,45 +2715,8 @@ def pdb(
 
     results_folder = output_path / "results"
 
-    # Resolve mode. 'auto' currently behaves as 'templatefree' — keep the
-    # quick path as the default and let the user opt in to the slow
-    # template search with --mode templated.
-    effective_mode = "templatefree" if mode == "auto" else mode
-
-    if effective_mode == "templated":
-        # Templated layout: feed sequence-only fasta into `draw`, which
-        # picks a template (CRW / RiboVision / Rfam / GtRNAdb / RNase P /
-        # tmRNA / Rfam-tRNA) and lays the diagram out via Traveler.
-        if not quiet:
-            rprint("Generating 2D diagram with R2DT (templated mode)...")
-        draw_fasta = output_path / f"{structure_id}.draw.fasta"
-        with open(draw_fasta, "w") as f:
-            f.write(f">{structure_id}\n")
-            f.write(f"{sequence}\n")
-
-        ctx.invoke(
-            draw,
-            fasta_input=str(draw_fasta),
-            output_folder=str(results_folder),
-            quiet=quiet,
-        )
-
-        # `draw` names its outputs ``<structure_id>-<template_id>.colored.*``.
-        # Downstream code (grey-out, viewer-export) keys on the plain
-        # ``<structure_id>`` basename, so collapse the template suffix here.
-        matched_template = _rename_templated_outputs(results_folder, structure_id)
-        if matched_template is None:
-            rprint("[red]No template matched this structure in templated mode.[/red]")
-            rprint(
-                "[yellow]Try --mode templatefree, or --mode auto for the "
-                "FR3D-derived layout.[/yellow]"
-            )
-            return
-        if not quiet:
-            rprint(f"[green]Matched template: {matched_template}[/green]")
-    else:
-        # Templatefree layout: hand the FR3D dot-bracket to R2R / RNApuzzler
-        # / RNArtist via the templatefree command.
+    def run_templatefree():
+        # Hand the FR3D dot-bracket to R2R / RNApuzzler / RNArtist.
         if not quiet:
             rprint("Generating 2D diagram with R2DT (templatefree mode)...")
         ctx.invoke(
@@ -2764,6 +2728,56 @@ def pdb(
             rnapuzzler_flag=rnapuzzler_flag,
             quiet=quiet,
         )
+
+    def run_templated():
+        # Feed a sequence-only fasta into `draw`, which picks a template
+        # (CRW / RiboVision / Rfam / GtRNAdb / RNase P / tmRNA / Rfam-tRNA)
+        # and lays the diagram out via Traveler. Returns the matched
+        # template id, or None if nothing matched.
+        if not quiet:
+            rprint("Generating 2D diagram with R2DT (templated mode)...")
+        draw_fasta = output_path / f"{structure_id}.draw.fasta"
+        with open(draw_fasta, "w") as f:
+            f.write(f">{structure_id}\n")
+            f.write(f"{sequence}\n")
+        ctx.invoke(
+            draw,
+            fasta_input=str(draw_fasta),
+            output_folder=str(results_folder),
+            quiet=quiet,
+        )
+        # `draw` names its outputs ``<structure_id>-<template_id>.colored.*``.
+        # Downstream code (grey-out, viewer-export) keys on the plain
+        # ``<structure_id>`` basename, so collapse the template suffix here.
+        return _rename_templated_outputs(results_folder, structure_id)
+
+    if mode == "templatefree":
+        run_templatefree()
+    else:
+        # 'templated' and 'auto' both try the template search first.
+        matched_template = run_templated()
+        if matched_template is not None:
+            if not quiet:
+                rprint(f"[green]Matched template: {matched_template}[/green]")
+        elif mode == "templated":
+            rprint("[red]No template matched this structure in templated mode.[/red]")
+            rprint(
+                "[yellow]Try --mode templatefree, or --mode auto, which "
+                "falls back to the FR3D-derived layout automatically.[/yellow]"
+            )
+            return
+        else:
+            # auto: no template matched -> fall back to templatefree. Clear
+            # the partial `draw` output first so it can't shadow the
+            # templatefree results.
+            if not quiet:
+                rprint(
+                    "[yellow]No template matched; falling back to "
+                    "templatefree layout.[/yellow]"
+                )
+            if results_folder.exists():
+                shutil.rmtree(results_folder)
+            run_templatefree()
 
     # --- Post-process: grey out unresolved nucleotides ---
     if resolved_mask is not None:

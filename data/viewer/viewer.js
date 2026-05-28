@@ -329,10 +329,40 @@
     selectInMolstar(labelsFromEvent(e));
   });
 
+  // Select a base pair: colour its 2D line orange (if its path is in the
+  // DOM) and select both partner residues in 3D. `pathEl` may be null --
+  // e.g. when triggered from the base-pair list while that pair's line
+  // isn't currently rendered.
+  const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
+  function selectBasePair(a, b, pathEl) {
+    if (pathEl) {
+      // Restore the previously selected BP's stroke, then mark this one so
+      // only one base pair appears highlighted at a time.
+      if (lastBPSelected && lastBPSelected !== pathEl) {
+        const prevOrig = lastBPSelected.dataset.r2dtOrigStroke;
+        if (prevOrig !== undefined) lastBPSelected.setAttribute('stroke', prevOrig);
+      }
+      if (pathEl.dataset.r2dtOrigStroke === undefined) {
+        pathEl.dataset.r2dtOrigStroke = pathEl.getAttribute('stroke') || '';
+      }
+      pathEl.setAttribute('stroke', BP_SELECTED_COLOR);
+      lastBPSelected = pathEl;
+    }
+    selectInMolstar([a, b]);
+  }
+
+  // Find a rendered base-pair path by its two seq ids (either order).
+  // The bp class is the last token, "<bp>_<a>_<b>", so an attribute
+  // "ends-with" match avoids false hits like _5_27 inside _5_271.
+  function findBPPath(a, b) {
+    return document.querySelector(
+      `.rnaviewBP[class$="_${a}_${b}"], .rnaviewBP[class$="_${b}_${a}"]`
+    );
+  }
+
   // Base-pair lines in 2D don't emit PDB.RNA.viewer.click; wire our own
   // click handler that picks both partners out of the class name
   // (e.g. "cWW_5_27" -> labels [5, 27]).
-  const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
   function attachBPClicks() {
     document.querySelectorAll('path[class*="rnaviewBP"]').forEach((el) => {
       // Strip the plugin's inline tooltip handlers so hovering a base pair
@@ -347,22 +377,27 @@
         const m = cls.match(/[a-zA-Z]{3}_(\d+)_(\d+)/);
         if (!m) return;
         ev.stopPropagation();
-        // Restore the previously selected BP's original stroke, then mark
-        // this one so only one base pair appears highlighted at a time.
-        if (lastBPSelected && lastBPSelected !== el) {
-          const prevOrig = lastBPSelected.dataset.r2dtOrigStroke;
-          if (prevOrig !== undefined) lastBPSelected.setAttribute('stroke', prevOrig);
-        }
-        if (el.dataset.r2dtOrigStroke === undefined) {
-          el.dataset.r2dtOrigStroke = el.getAttribute('stroke') || '';
-        }
-        el.setAttribute('stroke', BP_SELECTED_COLOR);
-        lastBPSelected = el;
-        selectInMolstar([parseInt(m[1]), parseInt(m[2])]);
+        selectBasePair(parseInt(m[1]), parseInt(m[2]), el);
       });
     });
   }
   attachBPClicks();
+
+  // Base Pairings List rows: the plugin handles a row click by dispatching
+  // a click onto the matching SVG path, which silently does nothing when
+  // that path isn't currently rendered (e.g. nested pairs in the non-nested
+  // view). Handle row clicks directly so every listed pair updates 3D.
+  const bpListId = 'bpListDialog-' + STRUCTURE_ID.toLowerCase();
+  document.addEventListener('click', (ev) => {
+    const li = ev.target.closest && ev.target.closest('#' + bpListId + ' li');
+    if (!li) return;
+    // Row text looks like "G5 - C27; cWW" -- pull out the two seq ids.
+    const m = (li.textContent || '').match(/(\d+)\D*?-\D*?(\d+)/);
+    if (!m) return;
+    const a = parseInt(m[1]);
+    const b = parseInt(m[2]);
+    selectBasePair(a, b, findBPPath(a, b));
+  });
   // The plugin re-renders bp paths when the filter changes, so reattach.
   const bpObserver = new MutationObserver(() => {
     if (bpObserver._pending) return;

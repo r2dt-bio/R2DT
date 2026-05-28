@@ -22,19 +22,23 @@ The command accepts the same options as [`pdb`](./pdb.md): `--mode`, `--basepair
 
 ## Layout modes
 
-The 2D layout can come from one of two pipelines:
+The `--mode` option controls how the 2D layout is produced:
 
-- **`--mode templatefree`** (default, via `--mode auto`) — fast. R2DT uses the FR3D-derived dot-bracket and lays out the diagram with R2R, RNApuzzler, or RNArtist (auto-picked). Works on any RNA but gives an ad-hoc layout that may not match conventional textbook diagrams.
-- **`--mode templated`** — slower but biologically meaningful. R2DT runs the full template search (CRW, RiboVision SSU/LSU, Rfam, GtRNAdb, RNase P, tmRNA, Rfam-tRNA) and renders the diagram on the matched template via Traveler. Recommended for rRNAs, tRNAs, and any RNA that has a curated template.
+- **`--mode auto`** (default) — try templated first, fall back to templatefree. R2DT runs the template search; if a template matches it is used, otherwise R2DT automatically falls back to the templatefree layout. This always produces a diagram and gives the best layout available for the structure.
+- **`--mode templated`** — templated only. R2DT runs the full template search (CRW, RiboVision SSU/LSU, Rfam, GtRNAdb, RNase P, tmRNA, Rfam-tRNA) and renders the diagram on the matched template via Traveler. Biologically meaningful and recommended for rRNAs, tRNAs, and anything with a curated template, but **fails** (with a hint) if no template matches.
+- **`--mode templatefree`** — templatefree only. R2DT uses the FR3D-derived dot-bracket and lays out the diagram with R2R, RNApuzzler, or RNArtist (auto-picked). Fast, works on any RNA, but gives an ad-hoc layout that may not match conventional textbook diagrams.
 
-In both modes the FR3D base-pair overlay is identical — only the 2D *layout* differs. If `--mode templated` finds no matching template, the command fails with a hint to retry with `--mode templatefree` or `--mode auto`.
+The mode only affects the 2D *layout* — the FR3D base-pair overlay is identical in all three.
 
 ```bash
-# Default (templatefree, ~seconds)
+# Default: templated if a template matches, otherwise templatefree
 r2dt.py pdb_2d_3d 9RJA output/
 
-# Templated layout (matches an SSU rRNA template)
+# Force the templated layout (errors if no template matches)
 r2dt.py pdb_2d_3d 9RJA output/ --mode templated
+
+# Force the quick templatefree layout
+r2dt.py pdb_2d_3d 9RJA output/ --mode templatefree
 ```
 
 The `--rnapuzzler` flag only applies to the templatefree path; in templated mode the layout comes from the matched template.
@@ -62,17 +66,21 @@ The folder is self-contained relative to its own location: every data file is fe
 
 ## Running via Docker
 
-The same command works inside the published Docker image:
+`pdb_2d_3d` is not in a released image yet, so use the pull-request build that has the code baked in (`rnacentral/r2dt:pr-219`). Mount an output directory to get the results back on your host:
 
 ```bash
 docker run --rm \
-    -v $(pwd):/rna/r2dt \
+    -v $(pwd)/output:/rna/r2dt/output \
     -w /rna/r2dt \
-    rnacentral/r2dt:latest \
+    rnacentral/r2dt:pr-219 \
     ./r2dt.py pdb_2d_3d 9RJA output/9RJA_2d3d
 ```
 
-The output appears under `output/9RJA_2d3d/viewer/` on your host. Pull-request builds (for example `rnacentral/r2dt:pr-219`) work the same way.
+The output appears under `output/9RJA_2d3d/viewer/` on your host.
+
+:::{note}
+Don't use `rnacentral/r2dt:latest` yet — it predates this command. Once the feature is merged and released, `:latest` will include it. If you have a local checkout of this feature's branch, you can instead mount it over the image (`-v $(pwd):/rna/r2dt`) and run against any recent tag, since the mount supplies the code.
+:::
 
 ## Opening the viewer
 
