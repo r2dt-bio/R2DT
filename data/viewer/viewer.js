@@ -430,4 +430,156 @@
   document.addEventListener('PDB.molstar.mouseout', () => {
     document.dispatchEvent(new CustomEvent('protvista-mouseout', { detail: {} }));
   });
+
+  // ── LBN (layered dot-bracket notation) panel ────────────────────────────
+  // Load lbn.json (generated alongside api.json / fr3d.json).  The file may
+  // be absent for viewers built before this feature; skip gracefully.
+  let lbnData = null;
+  try {
+    const resp = await fetch('lbn.json');
+    if (resp.ok) lbnData = await resp.json();
+  } catch (_) { /* ignore */ }
+
+  if (lbnData && lbnData.rows && lbnData.rows.length > 0) {
+    const lbnPanel = document.getElementById('lbn-panel');
+    const lbnBody  = document.getElementById('lbn-body');
+    if (lbnPanel && lbnBody) {
+      lbnPanel.style.display = '';
+      _renderLBN(lbnData, lbnBody);
+    }
+  }
+
+  function _renderLBN(data, container) {
+    const SEQ = data.sequence;
+    const N   = SEQ.length;
+    const BLOCK = 100;
+
+    // Color per LW family (label strip of overflow suffix before lookup).
+    const COLORS = {
+      WC:  '#2ca02c', cWW: '#1f77b4',
+      tWW: '#ff7f0e',
+      cWH: '#c5573a', tWH: '#c5573a',
+      cWS: '#9467bd', tWS: '#9467bd',
+      cHW: '#8c564b', tHW: '#8c564b',
+      cHH: '#e377c2', tHH: '#e377c2',
+      cHS: '#7f7f7f', tHS: '#7f7f7f',
+      cSW: '#bcbd22', tSW: '#bcbd22',
+      cSH: '#17becf', tSH: '#17becf',
+      cSS: '#d62728', tSS: '#d62728',
+    };
+    function colorOf(label) {
+      return COLORS[label.replace(/\(\d+\)$/, '')] || '#555';
+    }
+
+    // Build all blocks into a document fragment.
+    const frag = document.createDocumentFragment();
+
+    for (let s = 0; s < N; s += BLOCK) {
+      const e     = Math.min(s + BLOCK, N);
+      const block = document.createElement('div');
+      block.className = 'lbn-block';
+      block.dataset.blockStart = s + 1;
+
+      let html = '';
+      if (N > BLOCK) {
+        html += `<div class="lbn-block-header">${s + 1}–${e}</div>`;
+      }
+
+      // seq row — every character is a clickable span.
+      html += '<div class="lbn-row"><span class="lbn-label">seq         : </span>';
+      for (let i = s; i < e; i++) {
+        html += `<span data-pos="${i + 1}" class="lbn-nt">${SEQ[i]}</span>`;
+      }
+      html += '</div>';
+
+      // One row per LW layer.
+      for (const row of data.rows) {
+        const col    = colorOf(row.label);
+        const label  = (row.label + '            ').slice(0, 12);
+        html += `<div class="lbn-row"><span class="lbn-label" style="color:${col}">${label}: </span>`;
+        for (let i = s; i < e; i++) {
+          const pos = i + 1;
+          const ch  = row.chars[i];
+          if (ch === '.') {
+            html += '.';
+          } else {
+            const partner = row.partners[String(pos)];
+            const pAttr   = partner != null ? ` data-partner="${partner}"` : '';
+            html += `<span data-pos="${pos}"${pAttr} class="lbn-bp" style="color:${col}">${ch}</span>`;
+          }
+        }
+        html += '</div>';
+      }
+
+      block.innerHTML = html;
+      frag.appendChild(block);
+    }
+
+    container.innerHTML = '';
+    container.appendChild(frag);
+
+    // Pre-build position → [span, …] index for O(1) highlight lookups.
+    const posSpans = {};
+    container.querySelectorAll('[data-pos]').forEach((sp) => {
+      const p = +sp.dataset.pos;
+      (posSpans[p] = posSpans[p] || []).push(sp);
+    });
+
+    // Track what is currently highlighted so we can clear it quickly.
+    let highlighted = [];
+
+    function _lbnHighlight(positions) {
+      highlighted.forEach((sp) => sp.classList.remove('lbn-selected', 'lbn-partner'));
+      highlighted = [];
+      if (!positions || positions.length === 0) return;
+
+      // First position is the "clicked" one; rest are partners.
+      positions.forEach((pos, idx) => {
+        const cls = idx === 0 ? 'lbn-selected' : 'lbn-partner';
+        (posSpans[pos] || []).forEach((sp) => {
+          sp.classList.add(cls);
+          highlighted.push(sp);
+        });
+      });
+
+      // Scroll the block that contains the first span into view.
+      if (highlighted.length > 0) {
+        const blk = highlighted[0].closest('.lbn-block');
+        if (blk) blk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    // LBN click → 2D + 3D.
+    container.addEventListener('click', (ev) => {
+      const sp = ev.target.closest('[data-pos]');
+      if (!sp) return;
+      const pos     = +sp.dataset.pos;
+      const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+      const labels  = partner != null ? [pos, partner] : [pos];
+
+      selectInMolstar(labels);
+      document.dispatchEvent(new CustomEvent('protvista-click', {
+        detail: { start: pos, end: pos },
+      }));
+      _lbnHighlight(labels);
+    });
+
+    // 2D → LBN.
+    document.addEventListener('PDB.RNA.viewer.click', (e) => {
+      const labels = labelsFromEvent(e);
+      if (labels.length > 0) _lbnHighlight([labels[0]]);
+    });
+
+    // 3D → LBN.
+    document.addEventListener('PDB.molstar.click', (ev) => {
+      if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
+      const lbl = authToLabel[ev.eventData.auth_seq_id];
+      if (lbl) _lbnHighlight([lbl]);
+    });
+
+    // Expose for console debugging.
+    window.__r2dt.lbnData      = data;
+    window.__r2dt.lbnHighlight = _lbnHighlight;
+  }
+  // ── end LBN ─────────────────────────────────────────────────────────────
 })();
