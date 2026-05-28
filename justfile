@@ -13,6 +13,14 @@ image := "rnacentral/r2dt"
 default_tag := "latest"
 port := "8000"
 
+# 2D+3D viewer gallery: where it is published and what it contains.
+# Each entry is "PDB_ID:mode" (mode = auto | templated | templatefree).
+viewers_dir := "output/site"
+viewers_structures := "9RJA:templated 8SH5:templated 9CFN:auto"
+# Cloudflare Pages project name. Set CLOUDFLARE_PROJECT in your (gitignored)
+# .env or environment -- it is deliberately not hardcoded here.
+cloudflare_project := env_var_or_default("CLOUDFLARE_PROJECT", "")
+
 # Default recipe to display help information
 default:
     @just --list
@@ -110,6 +118,50 @@ docs-images tag=default_tag:
 
     rm -rf $tmp
     echo "✓ All viral doc images regenerated in $img/"
+
+# Regenerate every 2D+3D viewer and rebuild the gallery index
+viewers tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run="docker run {{ platform_arg }} --rm -v $(pwd):/rna/r2dt -w /rna/r2dt {{ image }}:{{tag}}"
+    work=output/viewers
+    site={{ viewers_dir }}
+    mkdir -p "$site"
+
+    for entry in {{ viewers_structures }}; do
+        id="${entry%%:*}"
+        mode="${entry##*:}"
+        echo "==> $id (--mode $mode)"
+        rm -rf "$work/$id"
+        $run python3 r2dt.py pdb_2d_3d "$id" "$work/$id" --mode "$mode" --quiet
+
+        svg="$work/$id/results/results/svg/$id.colored.svg"
+        if [[ ! -d "$work/$id/viewer" || ! -f "$svg" ]]; then
+            echo "!! $id produced no viewer (no template match in templated mode?)" >&2
+            exit 1
+        fi
+        rm -rf "$site/$id"
+        mkdir -p "$site/$id"
+        cp "$work/$id"/viewer/* "$site/$id/"
+        cp "$svg" "$site/$id/2d.svg"
+    done
+
+    $run python3 utils/build_viewers.py "$site"
+    echo "✓ Viewer gallery built in $site/ — preview with: just viewers-serve"
+
+# Serve the viewer gallery locally for preview
+viewers-serve:
+    python3 -m http.server -d {{ viewers_dir }} {{ port }}
+
+# Publish the viewer gallery to Cloudflare Pages (needs wrangler + CLOUDFLARE_API_TOKEN)
+viewers-deploy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -z "{{ cloudflare_project }}" ]]; then
+        echo "Set CLOUDFLARE_PROJECT (e.g. in .env) to your Cloudflare Pages project name." >&2
+        exit 1
+    fi
+    npx wrangler@latest pages deploy {{ viewers_dir }} --project-name {{ cloudflare_project }}
 
 # Start a development docs server
 docs:
