@@ -238,6 +238,16 @@ def build_fr3d_data(
             "annotations": annotations,
         }
 
+    # FR3D reports every pair twice -- once in each direction (e.g. both
+    # "19 cSS 22" and "22 cSS 19"). The viewer draws one glyph per
+    # annotation, so a second, direction-reversed copy renders on top of
+    # the first. For symmetric symbols (cWW circle, cHH square) the copies
+    # coincide and it's invisible, but the Sugar-edge triangle is oriented
+    # along the pair axis, so the reversed copy points the opposite way and
+    # the two triangles visibly overlap. Keep only the first occurrence of
+    # each unordered pair.
+    seen_pairs = set()
+
     for raw in basepair_txt_path.read_text().splitlines():
         row = raw.strip()
         if not row:
@@ -257,6 +267,10 @@ def build_fr3d_data(
             continue
         if pos1 >= len(resolved_to_full) or pos2 >= len(resolved_to_full):
             continue
+        pair_key = frozenset((pos1, pos2))
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
         seq_id1 = resolved_to_full[pos1] + 1
         seq_id2 = resolved_to_full[pos2] + 1
         annotations.append(
