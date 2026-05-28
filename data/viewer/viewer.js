@@ -186,6 +186,26 @@
     tick();
   })();
 
+  // Rename the plugin's "Filter Base Pairings" button to "Filter Base
+  // Pairs", preserving its help icon and caret (only the text node).
+  (function renameBpFilterBtn() {
+    let attempts = 0;
+    const tick = () => {
+      const btn = document.getElementById('bpFilterBtn');
+      if (!btn) {
+        if (attempts++ > 40) return;
+        setTimeout(tick, 100);
+        return;
+      }
+      btn.childNodes.forEach((node) => {
+        if (node.nodeType === 3 && node.nodeValue.includes('Filter Base Pairings')) {
+          node.nodeValue = node.nodeValue.replace('Filter Base Pairings', 'Filter Base Pairs');
+        }
+      });
+    };
+    tick();
+  })();
+
   // Declared up front so the post-render fixup pass (which skips the
   // currently-selected BP) can reference it before the click handler
   // block initializes -- temporal-dead-zone errors otherwise.
