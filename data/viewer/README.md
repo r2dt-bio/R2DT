@@ -20,3 +20,21 @@ artefacts are not published on a CDN or npm.
 To upgrade pdb-rna-viewer, download the new release's `build/` files,
 replace the two filenames above (updating the version in the names and in
 `utils/viewer_html.py`), and re-test the viewer.
+
+## Local modification to the plugin
+
+`pdb-rna-viewer-plugin-0.3.0.js` carries one local patch that must be
+re-applied after any upgrade. Upstream draws a filled Leontis–Westhof circle
+only for cWW **G-U/U-G** wobbles and a plain line for every other cWW pair --
+which makes non-canonical cWW pairs (e.g. U-U) look identical to canonical
+Watson–Crick pairs. We broadened the condition so the filled circle is drawn
+for *any* cWW pair that is **not** a canonical WC pair (A-U, U-A, G-C, C-G,
+A-T, T-A); canonical pairs keep the plain line. Find `if("cWW"==s)` and the
+condition immediately after it:
+
+```js
+// upstream:
+"G"==l&&"U"==u||"U"==l&&"G"==u
+// patched:
+!("A"==l&&"U"==u||"U"==l&&"A"==u||"G"==l&&"C"==u||"C"==l&&"G"==u||"A"==l&&"T"==u||"T"==l&&"A"==u)
+```

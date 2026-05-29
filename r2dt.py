@@ -30,11 +30,11 @@ import click  # pylint: disable=import-error
 from rich import print as rprint
 
 from tests import tests
-from utils import config, core
+from utils import cif_basepairs, config, core
 from utils import fr3d as fr3d_utils
 from utils import generate_cm_library as gcl
 from utils import generate_model_info as gmi
-from utils import gtrnadb
+from utils import gtrnadb, lbn_export
 from utils import list_models as lm
 from utils import pdb_fetch, pdb_post, r2r, rfam
 from utils import rna2djsonschema as r2djs
@@ -42,7 +42,7 @@ from utils import rnapuzzler
 from utils import rnaview as rnaview_utils
 from utils import shared
 from utils import stockholm as stockholm_utils
-from utils import lbn_export, viewer_export, viewer_html
+from utils import viewer_export, viewer_html
 from utils.rnartist import RnaArtist
 from utils.runner import runner
 from utils.scale_template import scale_coordinates
@@ -2454,9 +2454,13 @@ def generate_template(json_file, quiet):
 @click.argument("output-folder", type=click.Path())
 @click.option(
     "--basepairs",
-    type=click.Choice(["auto", "rnaview", "fr3d"]),
+    type=click.Choice(["auto", "rnaview", "fr3d", "cif"]),
     default="auto",
-    help="Tool for base pair extraction (default: auto = prefer FR3D)",
+    help=(
+        "Tool for base pair extraction (default: auto = prefer FR3D). "
+        "'cif' reads pairs from the mmCIF's own DNATCO/NDB annotation, no "
+        "FR3D run."
+    ),
 )
 @click.option(
     "--format",
@@ -2498,7 +2502,7 @@ def generate_template(json_file, quiet):
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
-# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-positional-arguments,too-many-return-statements
 def pdb(
     ctx,
     pdb_input,
@@ -2584,9 +2588,9 @@ def pdb(
 
         # Determine preferred format based on basepairs tool
         if structure_format == "auto":
-            # If user wants fr3d, prefer CIF (FR3D works best with CIF)
-            # If user wants rnaview, must use PDB
-            if basepairs == "fr3d":
+            # If user wants fr3d/cif, prefer CIF (FR3D works best with CIF; the
+            # cif source reads CIF-only annotation). rnaview must use PDB.
+            if basepairs in ("fr3d", "cif"):
                 prefer_format = "cif"
             else:
                 prefer_format = "pdb"
@@ -2617,6 +2621,21 @@ def pdb(
             "Use --basepairs fr3d or --format pdb[/red]"
         )
         return
+    elif basepairs == "cif":
+        if actual_format != "cif":
+            rprint(
+                "[red]Error: --basepairs cif needs an mmCIF input "
+                "(use --format cif or provide a .cif file)[/red]"
+            )
+            return
+        if not cif_basepairs.has_annotation(file_path):
+            rprint(
+                "[red]Error: this mmCIF has no base-pair annotation "
+                "(_ndb_base_pair_list / _ndb_base_pair_annotation). Use a "
+                "DNATCO/NDB-annotated CIF, or --basepairs fr3d[/red]"
+            )
+            return
+        use_basepairs = "cif"
     else:
         use_basepairs = basepairs
 
@@ -2638,6 +2657,16 @@ def pdb(
     if use_basepairs == "rnaview":
         # Use existing rnaview module
         sequence, dot_bracket = _extract_with_rnaview(str(file_path), chain, quiet)
+    elif use_basepairs == "cif":
+        # Read pairs from the CIF's own annotation; no FR3D run.
+        sequence, dot_bracket = cif_basepairs.get_secondary_structure_cif(
+            str(file_path),
+            str(extraction_dir),
+            structure_id=structure_id,
+            chain_id=chain,
+            include_pseudoknots=pseudoknots,
+            quiet=quiet,
+        )
     else:
         # Use FR3D
         sequence, dot_bracket = fr3d_utils.get_secondary_structure_fr3d(
@@ -2807,7 +2836,7 @@ def pdb(
 @click.argument("output-folder", type=click.Path())
 @click.option(
     "--basepairs",
-    type=click.Choice(["auto", "rnaview", "fr3d"]),
+    type=click.Choice(["auto", "rnaview", "fr3d", "cif"]),
     default="auto",
 )
 @click.option(
@@ -2827,7 +2856,7 @@ def pdb(
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-branches
 def pdb_2d_3d(
     ctx,
     pdb_input,
@@ -2913,19 +2942,30 @@ def pdb_2d_3d(
     # 3) Re-derive resolved_mask and unit_id_to_position so we can write
     # both the apiData mapping and the FR3D label remap.  These calls
     # are the same the pdb command makes internally.
-    _, resolved_mask, used_chain = fr3d_utils.get_full_sequence(
-        str(source_structure_path), chain
-    )
-    if not resolved_mask:
-        resolved_mask = None
-    if str(source_structure_path).lower().endswith(".cif"):
-        _, unit_id_to_position = fr3d_utils.extract_sequence_from_cif(
-            str(source_structure_path), used_chain or chain, quiet=quiet
+    if basepairs == "cif":
+        # CIF source: read sequence/positions from the vendored script (no
+        # fr3d-python), keyed identically to the basepair file written above.
+        cif_chain = cif_basepairs.resolve_chain(str(source_structure_path), chain)
+        _, resolved_mask, _ = fr3d_utils.get_full_sequence(
+            str(source_structure_path), cif_chain
+        )
+        _, unit_id_to_position, used_chain = cif_basepairs.read_sequence_and_positions(
+            str(source_structure_path), cif_chain, quiet=quiet
         )
     else:
-        _, unit_id_to_position = fr3d_utils.extract_sequence_from_pdb(
-            str(source_structure_path), used_chain or chain, quiet=quiet
+        _, resolved_mask, used_chain = fr3d_utils.get_full_sequence(
+            str(source_structure_path), chain
         )
+        if str(source_structure_path).lower().endswith(".cif"):
+            _, unit_id_to_position = fr3d_utils.extract_sequence_from_cif(
+                str(source_structure_path), used_chain or chain, quiet=quiet
+            )
+        else:
+            _, unit_id_to_position = fr3d_utils.extract_sequence_from_pdb(
+                str(source_structure_path), used_chain or chain, quiet=quiet
+            )
+    if not resolved_mask:
+        resolved_mask = None
 
     # Fall back to deriving the chain from a FR3D unit_id when neither the
     # user nor the upstream auto-detect supplied one. Without this the
@@ -2983,6 +3023,9 @@ def pdb_2d_3d(
         chain_id=effective_chain,
         structure_filename=structure_dest_name,
         structure_format=actual_format,
+        annotation_source=viewer_html.ANNOTATION_SOURCE_HTML.get(
+            basepairs if basepairs != "auto" else "fr3d"
+        ),
     )
 
     if not quiet:

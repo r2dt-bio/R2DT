@@ -16,7 +16,16 @@ port := "8000"
 # 2D+3D viewer gallery: where it is published and what it contains.
 # Each entry is "PDB_ID:mode" (mode = auto | templated | templatefree).
 viewers_dir := "output/site"
-viewers_structures := "9RJA:auto 8SH5:auto 9CFN:auto"
+viewers_structures := "9RJA:auto 8SH5:auto 9CFN:auto 9SFQ:auto 9HRF:auto 9E5I:auto 8XZN:auto 8BWT:auto 8EYW:auto"
+
+# Workstream 1 dashboard: base pairs read from the mmCIF's own annotation
+# (--basepairs cif), using the FR3D-converted mmCIF inputs from the na-hackathon
+# repo. Published under <viewers_dir>/workstream1/ so it sits beside, but
+# clearly apart from, the main gallery.
+ws1_dir := viewers_dir / "workstream1"
+ws1_structures := "8bwt 8vjt 8xzn 9e5i 9hrf 9sfq"
+ws1_base := "https://raw.githubusercontent.com/na-hackathon/na-hackathon-2026/main/data/tests/conversion_outputs/fr3d_mmcif_outputs"
+
 # Cloudflare Pages project name. Set CLOUDFLARE_PROJECT in your (gitignored)
 # .env or environment -- it is deliberately not hardcoded here.
 cloudflare_project := env_var_or_default("CLOUDFLARE_PROJECT", "")
@@ -35,6 +44,17 @@ venv:
 download data_version="2.1":
     curl -O -L https://github.com/r2dt-bio/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
     tar -xzf cms.tar.gz
+
+# Refresh the vendored layered-bp-notation script from the hackathon repo
+sync-lbn:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    base="https://raw.githubusercontent.com/na-hackathon/na-hackathon-2026/main/workstreams/ws2-prediction-non-Watson-Crick/layered-bp-notation"
+    dest="utils/layered_bp_notation"
+    for f in common.py standalone_lbn_script.py; do
+        curl -fsSL "$base/$f" -o "$dest/$f"
+        echo "✓ synced $dest/$f"
+    done
 
 # Run shell in docker
 run tag=default_tag:
@@ -149,11 +169,47 @@ viewers tag=default_tag:
     $run python3 utils/build_viewers.py "$site"
     echo "✓ Viewer gallery built in $site/ — preview with: just viewers-serve"
 
+# Regenerate the Workstream 1 dashboard (--basepairs cif) under workstream1/
+ws1-viewers tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run="docker run {{ platform_arg }} --rm -v $(pwd):/rna/r2dt -w /rna/r2dt {{ image }}:{{tag}}"
+    work=output/workstream1
+    site={{ ws1_dir }}
+    mkdir -p "$work/inputs" "$site"
+
+    for id in {{ ws1_structures }}; do
+        cif="$work/inputs/${id}_fr3d.cif"
+        [[ -f "$cif" ]] || curl -fsSL "{{ ws1_base }}/${id}_fr3d_basepairs.cif" -o "$cif"
+        echo "==> $id (--basepairs cif)"
+        rm -rf "$work/out/${id}_fr3d"
+        # A structure may have no asymmetric-unit pairs (e.g. 8vjt: symmetry
+        # contacts only) and produce no viewer; that is fine, skip it.
+        $run python3 r2dt.py pdb_2d_3d "$work/inputs/${id}_fr3d.cif" \
+            "$work/out/${id}_fr3d" --basepairs cif --mode auto --quiet || true
+
+        svg="$work/out/${id}_fr3d/results/results/svg/${id}_fr3d.colored.svg"
+        if [[ -d "$work/out/${id}_fr3d/viewer" && -f "$svg" ]]; then
+            rm -rf "$site/${id}_fr3d"
+            mkdir -p "$site/${id}_fr3d"
+            cp "$work/out/${id}_fr3d"/viewer/* "$site/${id}_fr3d/"
+            cp "$svg" "$site/${id}_fr3d/2d.svg"
+            echo "   OK -> $site/${id}_fr3d"
+        else
+            echo "!! ${id}_fr3d: no viewer produced, skipping" >&2
+        fi
+    done
+
+    $run python3 utils/build_viewers.py "$site"
+    echo "✓ Workstream 1 dashboard built in $site/ — deploy with: just viewers-deploy"
+
 # Serve the viewer gallery locally for preview
 viewers-serve:
     python3 -m http.server -d {{ viewers_dir }} {{ port }}
 
-# Publish the viewer gallery to Cloudflare Pages (needs wrangler + CLOUDFLARE_API_TOKEN)
+# Publish the viewer gallery (incl. workstream1/) to Cloudflare Pages
+# (needs wrangler + CLOUDFLARE_API_TOKEN). Deploys all of viewers_dir, so run
+# `just viewers` and/or `just ws1-viewers` first to refresh its contents.
 viewers-deploy:
     #!/usr/bin/env bash
     set -euo pipefail

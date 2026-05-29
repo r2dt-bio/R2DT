@@ -41,6 +41,21 @@ VIEWER_JS_FILENAME = "viewer.js"
 # in the 2D diagram (light grey rather than stark black).
 _BP_SYMBOL_COLOR = "#ccc"
 
+# Credit shown in the header for where the base-pair annotations came from.
+# Keyed by the --basepairs source; defaults to FR3D.
+ANNOTATION_SOURCE_HTML = {
+    "fr3d": (
+        '<a href="https://github.com/BGSU-RNA/fr3d-python" target="_blank" '
+        'rel="noopener">FR3D (Python)</a>'
+    ),
+    "rnaview": (
+        '<a href="https://github.com/rcsb/RNAView" target="_blank" '
+        'rel="noopener">RNAView</a>'
+    ),
+    "cif": "the mmCIF's own DNATCO/NDB base-pair annotation",
+}
+_DEFAULT_ANNOTATION_SOURCE = ANNOTATION_SOURCE_HTML["fr3d"]
+
 
 _TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -92,7 +107,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <div class="meta">
   2D diagram by <a href="https://r2dt.bio" target="_blank" rel="noopener">R2DT</a>,
   3D by <a href="https://github.com/molstar/pdbe-molstar" target="_blank" rel="noopener">pdbe-molstar</a>,
-  base-pair annotations from <a href="https://github.com/BGSU-RNA/fr3d-python" target="_blank" rel="noopener">FR3D (Python)</a>.
+  base-pair annotations from {annotation_source}.
   Unresolved residues are dimmed.
 </div>
 <div class="vis">
@@ -215,12 +230,14 @@ open = <em>trans</em>. For asymmetric pairs both symbol orders are shown.</p>
 _LEGEND_HTML = _bp_legend_html()
 
 
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 def render(
     out_dir: Path,
     structure_id: str,
     chain_id: Optional[str],
     structure_filename: str,
     structure_format: str,
+    annotation_source: Optional[str] = None,
 ) -> Path:
     """Write ``index.html`` into ``out_dir`` and return its path.
 
@@ -243,6 +260,7 @@ def render(
         chain_id=chain_id or "",
         config_json=config_json,
         legend=_LEGEND_HTML,
+        annotation_source=annotation_source or _DEFAULT_ANNOTATION_SOURCE,
         viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
         viewer_css=VIEWER_CSS_FILENAME,
         viewer_js=VIEWER_JS_FILENAME,

@@ -18,7 +18,7 @@ For example:
 r2dt.py pdb_2d_3d 1Y26 output/
 ```
 
-The command accepts the same options as [`pdb`](./pdb.md): `--mode`, `--basepairs`, `--format`, `--chain`, `--pseudoknots/--no-pseudoknots`, `--rnapuzzler`, and `-q/--quiet`. The 2D viewer renders base-pair annotations from FR3D, so leaving `--basepairs` at its default (or setting `--basepairs fr3d`) is recommended.
+The command accepts the same options as [`pdb`](./pdb.md): `--mode`, `--basepairs`, `--format`, `--chain`, `--pseudoknots/--no-pseudoknots`, `--rnapuzzler`, and `-q/--quiet`. By default the 2D viewer renders base-pair annotations computed by FR3D. You can also read pairs straight from a DNATCO/NDB-annotated mmCIF with [`--basepairs cif`](./pdb.md#choosing-a-base-pair-extractor) (no FR3D run); the viewer header credits whichever source was used.
 
 ## Layout modes
 
@@ -28,7 +28,7 @@ The `--mode` option controls how the 2D layout is produced:
 - **`--mode templated`** — templated only. R2DT runs the full template search (CRW, RiboVision SSU/LSU, Rfam, GtRNAdb, RNase P, tmRNA, Rfam-tRNA) and renders the diagram on the matched template via Traveler. Biologically meaningful and recommended for rRNAs, tRNAs, and anything with a curated template, but **fails** (with a hint) if no template matches.
 - **`--mode templatefree`** — templatefree only. R2DT uses the FR3D-derived dot-bracket and lays out the diagram with R2R, RNApuzzler, or RNArtist (auto-picked). Fast, works on any RNA, but gives an ad-hoc layout that may not match conventional textbook diagrams.
 
-The mode only affects the 2D *layout* — the FR3D base-pair overlay is identical in all three.
+The mode only affects the 2D *layout* — the base-pair overlay (from whichever `--basepairs` source) is identical in all three.
 
 ```bash
 # Default: templated if a template matches, otherwise templatefree
@@ -93,6 +93,15 @@ python3 -m http.server -d <output_folder>/viewer 8000
 
 To publish it, upload the `viewer/` folder to any static host (GitHub Pages, Cloudflare Pages, an S3 bucket, etc.) — no server-side configuration is required.
 
+## Galleries
+
+Several `viewer/` folders can be combined into a browsable gallery with `utils/build_viewers.py`, which writes an `index.html` of 2D-diagram thumbnails linking to each interactive viewer. Two galleries are wired up as `just` recipes:
+
+- **Main gallery** — `just viewers` regenerates a gallery of curated PDB structures (FR3D base pairs) under `output/site/`.
+- **Workstream 1 dashboard** — `just ws1-viewers` regenerates a gallery that uses [`--basepairs cif`](./pdb.md#choosing-a-base-pair-extractor) on the FR3D-converted mmCIF inputs from the [na-hackathon](https://github.com/na-hackathon/na-hackathon-2026) repo. It downloads the inputs, runs `pdb_2d_3d --basepairs cif` on each, and publishes under `output/site/workstream1/` — beside, but separate from, the main gallery.
+
+`just viewers-deploy` publishes all of `output/site/` (both galleries) to Cloudflare Pages, so the workstream1 dashboard lands at `/workstream1/`. Run `just viewers` and/or `just ws1-viewers` first to refresh the contents. Set `CLOUDFLARE_PROJECT` in a gitignored `.env`.
+
 ## Interaction model
 
 - **2D → 3D.** Clicking a nucleotide in the 2D diagram selects and focuses the corresponding residue in the 3D view.
@@ -112,6 +121,9 @@ r2dt.py pdb_2d_3d 1EHZ output/
 
 # Local mmCIF
 r2dt.py pdb_2d_3d ./my_rna.cif output/ --basepairs fr3d
+
+# DNATCO/NDB-annotated mmCIF (pairs read from the file, no FR3D run)
+r2dt.py pdb_2d_3d ./my_rna_dnatco.cif output/ --basepairs cif
 
 # Specific chain
 r2dt.py pdb_2d_3d 1S72 output/ --chain 9

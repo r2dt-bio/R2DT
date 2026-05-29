@@ -129,6 +129,78 @@
     inner.insertBefore(polyline, inner.firstChild);
     return true;
   }
+  // Declared up front so the post-render fixup pass (which skips the
+  // currently-selected BP) can reference it before the click handler
+  // block initializes -- temporal-dead-zone errors otherwise.
+  let lastBPSelected = null;
+
+  // Post-render fixups: (a) dim nucleotide letters for unobserved
+  // residues -- the plugin's unobservedColor theme only colors backbone,
+  // not text; (b) lighten long-range Watson-Crick pairs (pseudoknots) so
+  // they don't dominate the nested cWW ladder. The minified plugin's
+  // async render() doesn't reliably wait for the DOM, so poll briefly.
+  const PDB_LOWER = STRUCTURE_ID.toLowerCase();
+  const unobserved = apiData.unobserved_label_seq_ids || [];
+  const crossingWCPairs = new Set();
+  (fr3dData.annotations || []).forEach((a) => {
+    if (a.bp === 'cWW' && a.crossing && String(a.crossing) !== '0') {
+      crossingWCPairs.add(`${a.seq_id1}_${a.seq_id2}`);
+      crossingWCPairs.add(`${a.seq_id2}_${a.seq_id1}`);
+    }
+  });
+
+  function applyFixups() {
+    let any = false;
+    unobserved.forEach((seqId) => {
+      document
+        .querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
+        .forEach((el) => { el.setAttribute('fill', '#bbbbbb'); any = true; });
+    });
+    if (crossingWCPairs.size) {
+      document
+        .querySelectorAll('path[class*="cWW_"]')
+        .forEach((el) => {
+          // Don't recolour the currently-selected BP; the click handler
+          // already painted it orange and would otherwise be overwritten.
+          if (el === lastBPSelected) return;
+          const cls = el.getAttribute('class') || '';
+          const m = cls.match(/cWW_(\d+)_(\d+)/);
+          if (!m) return;
+          if (!crossingWCPairs.has(`${m[1]}_${m[2]}`)) return;
+          el.setAttribute('stroke', '#cccccc');
+          el.setAttribute('fill', 'none');
+          // Remember the greyed-out value so the click handler's
+          // restore-on-next-click brings it back to grey, not the
+          // plugin's default colour.
+          el.dataset.r2dtOrigStroke = '#cccccc';
+          any = true;
+        });
+    }
+    return any;
+  }
+
+  // Attach the MutationObserver BEFORE the polling IIFEs below run their
+  // first synchronous tick. setupBackboneToggle inserts the overlay
+  // polyline, then tidyBPFilter clicks "All" which triggers the plugin
+  // to rebuild the inner group's innerHTML -- wiping the polyline. The
+  // observer is what restores it; if it isn't attached yet, the wipe
+  // goes unnoticed and the backbone only reappears after the next
+  // unrelated DOM mutation (e.g. a hover).
+  const container = document.getElementById('pdb-rna-viewer');
+  if (container && 'MutationObserver' in window) {
+    const mo = new MutationObserver(() => {
+      // Debounce: schedule a single pass on next tick.
+      if (mo._pending) return;
+      mo._pending = true;
+      setTimeout(() => {
+        mo._pending = false;
+        applyFixups();
+        injectBackboneOverlay();
+      }, 0);
+    });
+    mo.observe(container, { childList: true, subtree: true });
+  }
+
   (function setupBackboneToggle() {
     let attempts = 0;
     const tick = () => {
@@ -186,81 +258,55 @@
     tick();
   })();
 
-  // Rename the plugin's "Filter Base Pairings" button to "Filter Base
-  // Pairs", preserving its help icon and caret (only the text node).
-  (function renameBpFilterBtn() {
+  // Relabel the plugin's buttons: "Filter Base Pairings" -> "Filter Base
+  // Pairs" (text node only, to keep its help icon and caret) and
+  // "Base Pairings List" -> "Base Pair List".
+  (function relabelButtons() {
     let attempts = 0;
     const tick = () => {
-      const btn = document.getElementById('bpFilterBtn');
-      if (!btn) {
+      const filterBtn = document.getElementById('bpFilterBtn');
+      const listBtn = document.querySelector('.bp-list-btn');
+      if (!filterBtn || !listBtn) {
         if (attempts++ > 40) return;
         setTimeout(tick, 100);
         return;
       }
-      btn.childNodes.forEach((node) => {
+      filterBtn.childNodes.forEach((node) => {
         if (node.nodeType === 3 && node.nodeValue.includes('Filter Base Pairings')) {
           node.nodeValue = node.nodeValue.replace('Filter Base Pairings', 'Filter Base Pairs');
+        }
+      });
+      listBtn.textContent = 'Base Pair List';
+    };
+    tick();
+  })();
+
+  // Shorten the Filter Base Pairs "?" help tooltip -- the Leontis-Westhof
+  // legend below the viewer now explains the symbols, so the long
+  // description is redundant. The plugin builds one <div class="help-tooltip">
+  // per help icon at bind time; identify the filter one by its content.
+  (function shortenFilterHelp() {
+    let attempts = 0;
+    const tick = () => {
+      const tips = document.querySelectorAll('div.help-tooltip');
+      if (tips.length === 0) {
+        if (attempts++ > 40) return;
+        setTimeout(tick, 100);
+        return;
+      }
+      tips.forEach((tip) => {
+        if (/Displays checkboxes/i.test(tip.textContent)) {
+          tip.innerHTML = 'Show or hide individual base-pair families.';
         }
       });
     };
     tick();
   })();
 
-  // Declared up front so the post-render fixup pass (which skips the
-  // currently-selected BP) can reference it before the click handler
-  // block initializes -- temporal-dead-zone errors otherwise.
-  let lastBPSelected = null;
-
-  // Post-render fixups: (a) dim nucleotide letters for unobserved
-  // residues -- the plugin's unobservedColor theme only colors backbone,
-  // not text; (b) lighten long-range Watson-Crick pairs (pseudoknots) so
-  // they don't dominate the nested cWW ladder. The minified plugin's
-  // async render() doesn't reliably wait for the DOM, so poll briefly.
-  const PDB_LOWER = STRUCTURE_ID.toLowerCase();
-  const unobserved = apiData.unobserved_label_seq_ids || [];
-  const crossingWCPairs = new Set();
-  (fr3dData.annotations || []).forEach((a) => {
-    if (a.bp === 'cWW' && a.crossing && String(a.crossing) !== '0') {
-      crossingWCPairs.add(`${a.seq_id1}_${a.seq_id2}`);
-      crossingWCPairs.add(`${a.seq_id2}_${a.seq_id1}`);
-    }
-  });
-
-  function applyFixups() {
-    let any = false;
-    unobserved.forEach((seqId) => {
-      document
-        .querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
-        .forEach((el) => { el.setAttribute('fill', '#bbbbbb'); any = true; });
-    });
-    if (crossingWCPairs.size) {
-      document
-        .querySelectorAll('path[class*="cWW_"]')
-        .forEach((el) => {
-          // Don't recolour the currently-selected BP; the click handler
-          // already painted it orange and would otherwise be overwritten.
-          if (el === lastBPSelected) return;
-          const cls = el.getAttribute('class') || '';
-          const m = cls.match(/cWW_(\d+)_(\d+)/);
-          if (!m) return;
-          if (!crossingWCPairs.has(`${m[1]}_${m[2]}`)) return;
-          el.setAttribute('stroke', '#cccccc');
-          el.setAttribute('fill', 'none');
-          // Remember the greyed-out value so the click handler's
-          // restore-on-next-click brings it back to grey, not the
-          // plugin's default colour.
-          el.dataset.r2dtOrigStroke = '#cccccc';
-          any = true;
-        });
-    }
-    return any;
-  }
-  // Re-apply the dimming fixups and re-inject the backbone overlay
-  // whenever the plugin re-renders the SVG -- e.g. when the BP-family
-  // filter changes, or right after tidyBPFilter clicks "All" on load,
-  // which rewrites the inner group and wipes the overlay. Always active
-  // (not gated on there being something to dim) so the backbone is
-  // restored even for structures with no unobserved/crossing residues.
+  // Best-effort early sweep for the dim/recolour fixups in case the
+  // MutationObserver above misses the plugin's initial paint (e.g. when
+  // the inner group is populated entirely in the same task as the
+  // observer attachment).
   if (unobserved.length || crossingWCPairs.size) {
     let attempts = 0;
     const tick = () => {
@@ -268,20 +314,6 @@
       setTimeout(tick, 100);
     };
     tick();
-  }
-  const container = document.getElementById('pdb-rna-viewer');
-  if (container && 'MutationObserver' in window) {
-    const mo = new MutationObserver(() => {
-      // Debounce: schedule a single pass on next tick.
-      if (mo._pending) return;
-      mo._pending = true;
-      setTimeout(() => {
-        mo._pending = false;
-        applyFixups();
-        injectBackboneOverlay();
-      }, 0);
-    });
-    mo.observe(container, { childList: true, subtree: true });
   }
 
   // --- 3D viewer ---
@@ -338,11 +370,27 @@
   async function selectInMolstar(labels) {
     const data = labelsToAuthData(labels);
     if (data.length === 0) return;
+    // Colour the residue (chain-scoped) without molstar's "focus", which
+    // routes through the structure-focus manager: that renders the
+    // residue plus its surroundings and labels the group with a
+    // neighbouring residue -- in protein-RNA complexes a contacting amino
+    // acid (e.g. "SER 60"). Instead move only the camera onto the
+    // selection loci.
     await molstar.visual.select({
       data: data.map((d) => ({ ...d, color: { r: 255, g: 112, b: 67 }, focus: false })),
       keepRepresentations: true,
     });
-    molstar.visual.focus(data);
+    try {
+      const loci = molstar.getLociForParams(data);
+      const camera = molstar.plugin
+        && molstar.plugin.managers
+        && molstar.plugin.managers.camera;
+      if (loci && camera && camera.focusLoci) {
+        camera.focusLoci(loci);
+      }
+    } catch (err) {
+      /* camera focus is best-effort; selection colour already applied */
+    }
   }
 
   document.addEventListener('PDB.RNA.viewer.click', (e) => {

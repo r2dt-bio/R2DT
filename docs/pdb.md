@@ -42,10 +42,11 @@ Local file support is useful when working with structures not yet deposited in t
 
 ## Choosing a base pair extractor
 
-R2DT supports two tools for extracting base pairs from 3D coordinates:
+R2DT supports three sources of base pairs:
 
-- **FR3D** (default) - Works with both PDB and mmCIF files, better for complex structures
-- **RNAView** - Fast, but requires PDB format
+- **FR3D** (default) - Computes base pairs from 3D coordinates. Works with both PDB and mmCIF files, better for complex structures.
+- **RNAView** - Computes base pairs from 3D coordinates. Fast, but requires PDB format.
+- **CIF annotation** - Reads base pairs directly from the mmCIF's own annotation (`_ndb_base_pair_list` / `_ndb_base_pair_annotation`) instead of computing them, so no FR3D run is needed. Only works on mmCIF files that already carry this annotation (e.g. DNATCO/NDB-extended files); standard RCSB/PDBe downloads do not.
 
 Use the `--basepairs` option to override the default:
 
@@ -55,10 +56,17 @@ r2dt.py pdb 1S72 output/ --basepairs rnaview
 
 # Force FR3D explicitly
 r2dt.py pdb 9FN3 output/ --basepairs fr3d
+
+# Read pairs from the mmCIF's own annotation (no FR3D run)
+r2dt.py pdb structure_dnatco.cif output/ --basepairs cif
 ```
 
 :::{tip}
 RNAView only works with PDB format files. Use `--basepairs rnaview` only when you specifically need RNAView output.
+:::
+
+:::{note}
+`--basepairs cif` requires an mmCIF input that contains the `_ndb_base_pair_list` and `_ndb_base_pair_annotation` categories. R2DT reports an error if the input is not mmCIF or if these categories are missing — in that case use `--basepairs fr3d` instead.
 :::
 
 ## Specifying structure format
@@ -108,6 +116,9 @@ r2dt.py pdb 9FN3 output/ --basepairs fr3d
 
 # Extract specific chain with FR3D
 r2dt.py pdb 1EHZ output/ --basepairs fr3d --chain A
+
+# Use the base pairs annotated in a DNATCO/NDB-extended mmCIF
+r2dt.py pdb structure_dnatco.cif output/ --basepairs cif
 ```
 
 ## Missing nucleotides in PDB structures
