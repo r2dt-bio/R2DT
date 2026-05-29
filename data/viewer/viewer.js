@@ -623,13 +623,22 @@
       if (!sp) return;
       const pos     = +sp.dataset.pos;
       const partner = sp.dataset.partner ? +sp.dataset.partner : null;
-      const labels  = partner != null ? [pos, partner] : [pos];
 
-      selectInMolstar(labels);
-      document.dispatchEvent(new CustomEvent('protvista-click', {
-        detail: { start: pos, end: pos },
-      }));
-      _lbnHighlight(labels);
+      if (partner != null) {
+        // Clicking a bracket selects the whole pair: highlight its glyph/line
+        // in 2D and both partners in 3D, exactly like clicking the pair in the
+        // 2D diagram. (No protvista-click, which would re-render and wipe the
+        // path highlight.)
+        selectBasePair(pos, partner, findBPPath(pos, partner));
+        _lbnHighlight([pos, partner]);
+      } else {
+        // A lone position: highlight just that nucleotide in 2D + 3D.
+        selectInMolstar([pos]);
+        document.dispatchEvent(new CustomEvent('protvista-click', {
+          detail: { start: pos, end: pos },
+        }));
+        _lbnHighlight([pos]);
+      }
     });
 
     // 2D → LBN.
