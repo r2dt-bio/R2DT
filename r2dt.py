@@ -42,7 +42,7 @@ from utils import rnapuzzler
 from utils import rnaview as rnaview_utils
 from utils import shared
 from utils import stockholm as stockholm_utils
-from utils import viewer_export, viewer_html
+from utils import lbn_export, viewer_export, viewer_html
 from utils.rnartist import RnaArtist
 from utils.runner import runner
 from utils.scale_template import scale_coordinates
@@ -2969,6 +2969,8 @@ def pdb_2d_3d(
     viewer_dir.mkdir(exist_ok=True)
     (viewer_dir / "api.json").write_text(json.dumps(api_data))
     (viewer_dir / "fr3d.json").write_text(json.dumps(fr3d_data))
+    lbn_data = lbn_export.build_lbn_data(api_data, fr3d_data)
+    (viewer_dir / "lbn.json").write_text(json.dumps(lbn_data))
     structure_dest_name = f"{structure_id}.{actual_format}"
     shutil.copyfile(source_structure_path, viewer_dir / structure_dest_name)
 

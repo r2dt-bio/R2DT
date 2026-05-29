@@ -65,6 +65,26 @@ _TEMPLATE = """<!DOCTYPE html>
   .bp-legend tbody th {{ white-space: nowrap; font-weight: 600; }}
   .bp-legend td svg {{ vertical-align: middle; margin: 0 2px; }}
   .bp-legend .cite {{ color: #666; font-size: 12px; }}
+  /* --- LBN panel --- */
+  #lbn-panel {{ margin-top: 20px; max-width: 1232px; }}
+  #lbn-panel h2 {{ font-size: 14px; font-weight: 600; margin: 0 0 6px; }}
+  .lbn-body {{
+    overflow-x: auto; background: #fafafa;
+    border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px 12px;
+  }}
+  .lbn-block + .lbn-block {{ margin-top: 10px; border-top: 1px solid #eee; padding-top: 8px; }}
+  .lbn-block-header {{ color: #aaa; font-size: 11px; margin-bottom: 1px; }}
+  .lbn-row {{
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px; white-space: pre; line-height: 1.6;
+  }}
+  .lbn-label {{ color: #888; }}
+  .lbn-nt {{ cursor: pointer; border-radius: 2px; }}
+  .lbn-nt:hover {{ background: #d0eaf8; }}
+  .lbn-bp {{ cursor: pointer; font-weight: bold; border-radius: 2px; }}
+  .lbn-bp:hover {{ background: #d0eaf8; }}
+  .lbn-selected {{ background: #ffe066 !important; outline: 1px solid #e6b800; }}
+  .lbn-partner {{ background: #ffc0cb !important; outline: 1px solid #d0607a; }}
 </style>
 </head>
 <body>
@@ -81,6 +101,11 @@ _TEMPLATE = """<!DOCTYPE html>
 </div>
 
 {legend}
+
+<div id="lbn-panel" style="display:none">
+  <h2>Layered dot-bracket notation (Leontis–Westhof base pairs)</h2>
+  <div class="lbn-body" id="lbn-body">Loading…</div>
+</div>
 
 <script>
 window.R2DT_CONFIG = {config_json};
