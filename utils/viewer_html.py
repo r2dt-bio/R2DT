@@ -24,7 +24,7 @@ _MOLSTAR_CDN_JS = (
 )
 _MOLSTAR_CDN_CSS = (
     f"https://cdn.jsdelivr.net/npm/pdbe-molstar@{_MOLSTAR_VERSION}"
-    "/build/pdbe-molstar.css"
+    "/build/pdbe-molstar-light.css"
 )
 
 # pdb-rna-viewer's compiled bundle isn't committed to its master branch,
@@ -35,7 +35,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "46"
+_R2DT_ASSETS_VERSION = "50"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).

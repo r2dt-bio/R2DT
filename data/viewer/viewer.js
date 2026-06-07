@@ -364,7 +364,7 @@
 
   // Post-render fixups: (a) dim nucleotide letters for unobserved
   // residues -- the plugin's unobservedColor theme only colors backbone,
-  // not text; (b) lighten long-range Watson-Crick pairs (pseudoknots) so
+  // not text; (b) lighten/thin long-range non-nested pairs (crossing>0) so
   // they don't dominate the nested cWW ladder. The minified plugin's
   // async render() doesn't reliably wait for the DOM, so poll briefly.
   function computeFitTransform() {
@@ -547,13 +547,20 @@
   const unobserved = apiData.unobserved_label_seq_ids || [];
   const CWW_STROKE = '#888888';
   const CWW_CROSSING_STROKE = '#aaaaaa';
-  const crossingWCPairs = new Set();
+  const CROSSING_BP_STROKE_WIDTH = '1.4';
+  const crossingPairs = new Set();
   (fr3dData.annotations || []).forEach((a) => {
-    if (a.bp === 'cWW' && a.crossing && String(a.crossing) !== '0') {
-      crossingWCPairs.add(`${a.seq_id1}_${a.seq_id2}`);
-      crossingWCPairs.add(`${a.seq_id2}_${a.seq_id1}`);
+    if (a.crossing && String(a.crossing) !== '0') {
+      crossingPairs.add(`${a.seq_id1}_${a.seq_id2}`);
+      crossingPairs.add(`${a.seq_id2}_${a.seq_id1}`);
     }
   });
+
+  function parseBpPathClass(cls) {
+    const m = cls.match(/([a-zA-Z]{3})_(\d+)_(\d+)/);
+    if (!m) return null;
+    return { bp: m[1], a: m[2], b: m[3] };
+  }
 
   function applyFixups() {
     let any = false;
@@ -562,24 +569,23 @@
         .querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
         .forEach((el) => { el.setAttribute('fill', '#bbbbbb'); any = true; });
     });
-    document
-      .querySelectorAll('path[class*="cWW_"]')
-      .forEach((el) => {
-        // Don't recolour the currently-selected BP; the click handler
-        // already painted it orange and would otherwise be overwritten.
-        if (el === lastBPSelected) return;
-        const cls = el.getAttribute('class') || '';
-        const m = cls.match(/cWW_(\d+)_(\d+)/);
-        if (!m) return;
-        const isCrossing = crossingWCPairs.has(`${m[1]}_${m[2]}`);
+    document.querySelectorAll('path.rnaviewBP').forEach((el) => {
+      const parsed = parseBpPathClass(el.getAttribute('class') || '');
+      if (!parsed) return;
+      const isCrossing = crossingPairs.has(`${parsed.a}_${parsed.b}`);
+      if (parsed.bp === 'cWW' && el !== lastBPSelected) {
         const stroke = isCrossing ? CWW_CROSSING_STROKE : CWW_STROKE;
         el.setAttribute('stroke', stroke);
         // Remember the greyed-out value so the click handler's
         // restore-on-next-click brings it back to grey, not the
         // plugin's default black.
         el.dataset.r2dtOrigStroke = stroke;
-        any = true;
-      });
+      }
+      if (isCrossing) {
+        el.setAttribute('stroke-width', CROSSING_BP_STROKE_WIDTH);
+      }
+      any = true;
+    });
     return any;
   }
 
@@ -1165,7 +1171,7 @@
   // MutationObserver above misses the plugin's initial paint (e.g. when
   // the inner group is populated entirely in the same task as the
   // observer attachment).
-  if (unobserved.length || crossingWCPairs.size) {
+  if (unobserved.length || crossingPairs.size) {
     let attempts = 0;
     const tick = () => {
       if (applyFixups() || attempts++ > 40) return;
@@ -1184,6 +1190,7 @@
         subscribeEvents: true,
         bgColor: { r: 255, g: 255, b: 255 },
         hideControls: true,
+        hideCanvasControls: ['expand'],
         sequencePanel: false,
         loadingOverlay: true,
       }
