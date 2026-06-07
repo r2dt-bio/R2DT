@@ -11,6 +11,7 @@
   --r2dt-accent-soft-border: #a8bac9;
   --r2dt-accent-badge-bg: #dde5ec;
   --r2dt-accent-badge-text: #5c7388;
+  --r2dt-bp-glyph: #909090;
 }
 
 /* --- Toolbar ----------------------------------------------------------- */
@@ -307,15 +308,17 @@
 }
 
 #mainMenu.r2dt-toolbar #checkboxes table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
 }
 
+#mainMenu.r2dt-toolbar #checkboxes tbody,
 #mainMenu.r2dt-toolbar #checkboxes tr {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 8px;
+  display: contents;
 }
 
 #mainMenu.r2dt-toolbar #checkboxes td {
@@ -348,6 +351,21 @@
 
 .r2dt-bp-glyph {
   display: block;
+  color: var(--r2dt-bp-glyph);
+}
+
+/* Selected-residue readout (bottom-right on click) ---------------------- */
+
+#pdb-rna-viewer .pdb-rna-view-tooltip {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+#pdb-rna-viewer .pdb-rna-view-tooltip strong {
+  font-weight: 500;
+  color: #6b7280;
 }
 
 #mainMenu.r2dt-toolbar #checkboxes label:hover {
@@ -447,37 +465,115 @@
   color: #5c7388;
 }
 
-/* --- Floating panel controls (top-left / top-right) -------------------- */
+/* --- Base pair list (docked inside 2D panel) --------------------------- */
 
-.bp-list-btn {
-  background: #fff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 6px 10px;
-  min-height: 32px;
-  font-size: 13px;
-  font-family: inherit;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+.r2dt-bp-list-dropdown {
+  position: relative;
+  display: inline-flex;
 }
 
-.bp-list-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+#mainMenu.r2dt-toolbar .bp-list-btn {
+  white-space: nowrap;
 }
 
-.bp-list-dialog {
-  top: 44px;
-  left: 10px;
-  width: 200px;
-  border: 1px solid #e5e7eb;
+#pdb-rna-viewer .bp-list-dialog.r2dt-bp-list-panel {
+  position: absolute;
+  left: auto;
+  right: 8px;
+  bottom: 48px;
+  top: auto;
+  flex-direction: column;
+  width: min(248px, calc(100% - 16px));
+  height: min(220px, 38%);
+  max-height: min(220px, 38%);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(229, 231, 235, 0.95);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  font-size: 13px;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+  padding: 6px 8px;
+  z-index: 25;
+  font-size: 12px;
+  color: #374151;
+  box-sizing: border-box;
 }
 
-.bp-list-dialog ul li:hover {
+.r2dt-bp-list-panel-title {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eef0f2;
+  line-height: 1.2;
+}
+
+#pdb-rna-viewer .bp-list-dialog ul {
+  flex: 1 1 auto;
+  min-height: 0;
+  list-style: none !important;
+  margin: 0;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#pdb-rna-viewer .bp-list-dialog li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #374151;
+  transition: background 0.12s ease;
+}
+
+.r2dt-bp-list-pair {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.r2dt-bp-list-family {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+
+#pdb-rna-viewer .bp-list-dialog li:hover {
   background: #f3f4f6;
+}
+
+/* --- Floating panel controls (top-right zoom) -------------------------- */
+
+#pdb-rna-viewer .pdb-rna-view-btn-group {
+  display: flex;
+  gap: 4px;
+}
+
+#pdb-rna-viewer .pdb-rna-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+#pdb-rna-viewer .pdb-rna-view-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .pdb-rna-view-btn {
@@ -497,11 +593,24 @@
 #pdb-rna-viewer {
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  position: relative;
+  overflow: hidden;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   box-sizing: border-box;
+}
+
+#pdb-molstar {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#pdb-molstar .msp-plugin-content {
+  border: none;
 }
 
 .pdb-rna-view-container {

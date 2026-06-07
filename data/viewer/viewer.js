@@ -36,6 +36,7 @@
   const CHAIN_ID = CONFIG.chainId || '';
   const STRUCTURE_URL = CONFIG.structureUrl;
   const STRUCTURE_FORMAT = CONFIG.structureFormat;
+  const PDB_LOWER = STRUCTURE_ID.toLowerCase();
 
   const apiData = await (await fetch('api.json')).json();
   const fr3dData = await (await fetch('fr3d.json')).json();
@@ -189,6 +190,84 @@
     }
   );
 
+  // The plugin's pathOrNucleotide() rebuilds the entire SVG inner group on
+  // every filter checkbox change, which makes all base-pair lines blink.
+  // Toggle path visibility instead once the diagram is painted.
+  let bpPathsMaterialized = false;
+  let onBpFilterUpdated = () => {};
+
+  const BP_PATH_ID_RE = /\b([ct](?:WW|WH|WS|HH|HS|SS)_\d+_\d+)\b/;
+
+  function pathIdsInDisplayHtml(html) {
+    const ids = new Set();
+    if (!html) return ids;
+    let m;
+    const re = new RegExp(BP_PATH_ID_RE.source, 'g');
+    while ((m = re.exec(html))) ids.add(m[1]);
+    return ids;
+  }
+
+  function bpPathIdFromElement(el) {
+    const m = (el.getAttribute('class') || '').match(BP_PATH_ID_RE);
+    return m ? m[1] : null;
+  }
+
+  function materializeAllBpPaths() {
+    const ui = rnaPlugin.uiTemplateService;
+    if (bpPathsMaterialized || !ui?.baseStrs) return;
+    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    if (!inner) return;
+    const existing = new Set();
+    inner.querySelectorAll('path.rnaviewBP').forEach((p) => {
+      const id = bpPathIdFromElement(p);
+      if (id) existing.add(id);
+    });
+    const toAdd = [];
+    ui.baseStrs.forEach((entry) => {
+      entry[1].forEach((html) => {
+        const m = html.match(BP_PATH_ID_RE);
+        if (m && !existing.has(m[1])) toAdd.push(html);
+      });
+    });
+    if (toAdd.length) inner.insertAdjacentHTML('beforeend', toAdd.join(''));
+    bpPathsMaterialized = true;
+  }
+
+  function applyBpVisibility() {
+    const ui = rnaPlugin.uiTemplateService;
+    if (!ui) return;
+    materializeAllBpPaths();
+    const nested = document.getElementById('nestedBP')?.checked;
+    const visible = pathIdsInDisplayHtml(
+      nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs
+    );
+    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    if (!inner) return;
+    inner.querySelectorAll('path.rnaviewBP').forEach((p) => {
+      const id = bpPathIdFromElement(p);
+      if (!id) return;
+      p.style.display = visible.has(id) ? '' : 'none';
+    });
+    onBpFilterUpdated();
+  }
+
+  const uiSvc = rnaPlugin.uiTemplateService;
+  if (uiSvc?.pathOrNucleotide) {
+    const origPathOrNucleotide = uiSvc.pathOrNucleotide.bind(uiSvc);
+    uiSvc.pathOrNucleotide = function r2dtPathOrNucleotide() {
+      const menuSelect = uiSvc.containerElement?.querySelector('.menuSelectbox');
+      const mode = menuSelect ? parseInt(menuSelect.value, 10) : 0;
+      const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+      if (mode === 0 && inner && inner.querySelector('text')) {
+        applyBpVisibility();
+        uiSvc.renderBpListDialog(false);
+        return;
+      }
+      bpPathsMaterialized = false;
+      origPathOrNucleotide();
+    };
+  }
+
   // Render a faint backbone path overlay UNDER the nucleotide letters,
   // always on by default. Repurposes the plugin's "View as Path" dropdown
   // into a Show/Hide toggle for that overlay (the plugin's letter view
@@ -255,15 +334,14 @@
   // block initializes -- temporal-dead-zone errors otherwise.
   let lastBPSelected = null;
 
+  const VIEWPORT_PADDING = 0.05; // keep ~5% margin so diagrams never hug the edge
+  let userAdjustedView = false;
+
   // Post-render fixups: (a) dim nucleotide letters for unobserved
   // residues -- the plugin's unobservedColor theme only colors backbone,
   // not text; (b) lighten long-range Watson-Crick pairs (pseudoknots) so
   // they don't dominate the nested cWW ladder. The minified plugin's
   // async render() doesn't reliably wait for the DOM, so poll briefly.
-  const PDB_LOWER = STRUCTURE_ID.toLowerCase();
-  const VIEWPORT_PADDING = 0.10; // keep ~10% margin so diagrams never hug the edge
-  let userAdjustedView = false;
-
   function computeFitTransform() {
     const svg = document.querySelector('svg.rnaTopoSvg');
     if (!svg) return null;
@@ -292,9 +370,47 @@
     return { k, x: vw / 2 - k * cx, y: vh / 2 - k * cy };
   }
 
-  function applyFitTransform() {
-    const tr = computeFitTransform();
-    if (!tr) return false;
+  function parseViewTransform(str) {
+    if (!str) return null;
+    const m = str.match(
+      /translate\(([-\d.e+]+),([-\d.e+]+)\)\s*scale\(([-\d.e+]+)\)/
+    );
+    if (!m) return null;
+    return { x: parseFloat(m[1]), y: parseFloat(m[2]), k: parseFloat(m[3]) };
+  }
+
+  // Minimal d3 ZoomTransform stand-in so svg.__zoom stays compatible with
+  // the plugin's pan/zoom behaviour (d3 initially stores an accessor fn).
+  function createZoomTransform(k, x, y) {
+    const t = { k, x, y };
+    t.scale = function scaleBy(f) {
+      return f === 1 ? t : createZoomTransform(t.k * f, t.x, t.y);
+    };
+    t.translate = function translateBy(dx, dy) {
+      return dx === 0 && dy === 0
+        ? t
+        : createZoomTransform(t.k, t.x + t.k * dx, t.y + t.k * dy);
+    };
+    t.invert = function invert(point) {
+      return [(point[0] - t.x) / t.k, (point[1] - t.y) / t.k];
+    };
+    t.apply = function apply(point) {
+      return [t.k * point[0] + t.x, t.k * point[1] + t.y];
+    };
+    t.toString = function toString() {
+      return `translate(${t.x},${t.y}) scale(${t.k})`;
+    };
+    return t;
+  }
+
+  function getCurrentViewTransform() {
+    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    const parsed = parseViewTransform(inner && inner.getAttribute('transform'));
+    if (parsed) return parsed;
+    return computeFitTransform() || { k: 1, x: 0, y: 0 };
+  }
+
+  function applyViewTransform(tr) {
     const tStr = `translate(${tr.x},${tr.y}) scale(${tr.k})`;
     [
       `.rnaTopoSvg_${PDB_LOWER}`,
@@ -305,10 +421,29 @@
       if (g) g.setAttribute('transform', tStr);
     });
     const svg = document.querySelector('svg.rnaTopoSvg');
-    if (svg) svg.__zoom = tr;
+    if (svg) svg.__zoom = createZoomTransform(tr.k, tr.x, tr.y);
+  }
+
+  function scaleViewTransform(factor) {
+    const svg = document.querySelector('svg.rnaTopoSvg');
+    if (!svg) return;
+    const vb = svg.viewBox.baseVal;
+    const cx = vb.width / 2;
+    const cy = vb.height / 2;
+    const tr = getCurrentViewTransform();
+    applyViewTransform({
+      k: tr.k * factor,
+      x: cx - factor * (cx - tr.x),
+      y: cy - factor * (cy - tr.y),
+    });
+  }
+
+  function applyFitTransform() {
+    const tr = computeFitTransform();
+    if (!tr) return false;
+    applyViewTransform(tr);
     const svc = window.UiActionsService;
     if (svc) svc.zoomed = false;
-    userAdjustedView = false;
     return true;
   }
 
@@ -323,15 +458,42 @@
       svg.dataset.r2dtFitListener = '1';
       svg.addEventListener('mousedown', () => { userAdjustedView = true; });
     }
-    [`#rnaTopologyZoomIn-${PDB_LOWER}`, `#rnaTopologyZoomOut-${PDB_LOWER}`].forEach(
-      (sel) => {
-        const btn = document.querySelector(sel);
-        if (btn && !btn.dataset.r2dtFitBound) {
-          btn.dataset.r2dtFitBound = '1';
-          btn.addEventListener('click', () => { userAdjustedView = true; });
-        }
-      }
-    );
+    const zoomIn = document.querySelector(`#rnaTopologyZoomIn-${PDB_LOWER}`);
+    if (zoomIn && !zoomIn.dataset.r2dtZoomBound) {
+      zoomIn.dataset.r2dtZoomBound = '1';
+      zoomIn.addEventListener(
+        'click',
+        (ev) => {
+          ev.stopImmediatePropagation();
+          ev.preventDefault();
+          userAdjustedView = true;
+          scaleViewTransform(1.2);
+        },
+        true
+      );
+    }
+    const zoomOut = document.querySelector(`#rnaTopologyZoomOut-${PDB_LOWER}`);
+    if (zoomOut && !zoomOut.dataset.r2dtZoomBound) {
+      zoomOut.dataset.r2dtZoomBound = '1';
+      zoomOut.addEventListener(
+        'click',
+        (ev) => {
+          ev.stopImmediatePropagation();
+          ev.preventDefault();
+          const tr = getCurrentViewTransform();
+          const fit = computeFitTransform();
+          const nextK = tr.k * 0.8;
+          if (fit && (tr.k <= fit.k * 1.01 || nextK <= fit.k)) {
+            userAdjustedView = false;
+            applyFitTransform();
+          } else {
+            userAdjustedView = true;
+            scaleViewTransform(0.8);
+          }
+        },
+        true
+      );
+    }
     const resetBtn = document.querySelector(`#rnaTopologyReset-${PDB_LOWER}`);
     if (resetBtn && !resetBtn.dataset.r2dtFitBound) {
       resetBtn.dataset.r2dtFitBound = '1';
@@ -340,6 +502,7 @@
         (ev) => {
           ev.stopImmediatePropagation();
           ev.preventDefault();
+          userAdjustedView = false;
           applyFitTransform();
         },
         true
@@ -349,6 +512,7 @@
     if (svc && !svc._r2dtZoomResetPatched) {
       svc._r2dtZoomResetPatched = true;
       svc.zoomReset = function () {
+        userAdjustedView = false;
         applyFitTransform();
       };
     }
@@ -356,6 +520,8 @@
   }
 
   const unobserved = apiData.unobserved_label_seq_ids || [];
+  const CWW_STROKE = '#888888';
+  const CWW_CROSSING_STROKE = '#aaaaaa';
   const crossingWCPairs = new Set();
   (fr3dData.annotations || []).forEach((a) => {
     if (a.bp === 'cWW' && a.crossing && String(a.crossing) !== '0') {
@@ -371,26 +537,24 @@
         .querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
         .forEach((el) => { el.setAttribute('fill', '#bbbbbb'); any = true; });
     });
-    if (crossingWCPairs.size) {
-      document
-        .querySelectorAll('path[class*="cWW_"]')
-        .forEach((el) => {
-          // Don't recolour the currently-selected BP; the click handler
-          // already painted it orange and would otherwise be overwritten.
-          if (el === lastBPSelected) return;
-          const cls = el.getAttribute('class') || '';
-          const m = cls.match(/cWW_(\d+)_(\d+)/);
-          if (!m) return;
-          if (!crossingWCPairs.has(`${m[1]}_${m[2]}`)) return;
-          el.setAttribute('stroke', '#cccccc');
-          el.setAttribute('fill', 'none');
-          // Remember the greyed-out value so the click handler's
-          // restore-on-next-click brings it back to grey, not the
-          // plugin's default colour.
-          el.dataset.r2dtOrigStroke = '#cccccc';
-          any = true;
-        });
-    }
+    document
+      .querySelectorAll('path[class*="cWW_"]')
+      .forEach((el) => {
+        // Don't recolour the currently-selected BP; the click handler
+        // already painted it orange and would otherwise be overwritten.
+        if (el === lastBPSelected) return;
+        const cls = el.getAttribute('class') || '';
+        const m = cls.match(/cWW_(\d+)_(\d+)/);
+        if (!m) return;
+        const isCrossing = crossingWCPairs.has(`${m[1]}_${m[2]}`);
+        const stroke = isCrossing ? CWW_CROSSING_STROKE : CWW_STROKE;
+        el.setAttribute('stroke', stroke);
+        // Remember the greyed-out value so the click handler's
+        // restore-on-next-click brings it back to grey, not the
+        // plugin's default black.
+        el.dataset.r2dtOrigStroke = stroke;
+        any = true;
+      });
     return any;
   }
 
@@ -420,10 +584,21 @@
   }
 
   function isFilterCheckboxVisible(cb) {
+    const td = cb.closest('td');
+    if (td && td.style.display === 'none') return false;
     for (let el = cb; el && el.id !== 'checkboxes'; el = el.parentElement) {
       if (el.style.display === 'none') return false;
     }
     return true;
+  }
+
+  function hideEmptyFilterRows() {
+    document.querySelectorAll('#checkboxes tr').forEach((tr) => {
+      const anyVisible = [...tr.querySelectorAll('td')].some(
+        (td) => td.style.display !== 'none'
+      );
+      tr.style.display = anyVisible ? '' : 'none';
+    });
   }
 
   function updateFilterBadge() {
@@ -464,7 +639,7 @@
     });
   }
 
-  const BP_GLYPH_COLOR = '#ccc';
+  const BP_GLYPH_COLOR = '#909090';
   const BP_FAMILY_GLYPH = {
     cWW: { shapes: ['circle'], filled: true },
     tWW: { shapes: ['circle'], filled: false },
@@ -568,9 +743,7 @@
   }
 
   function isBasePairsPanelOpen() {
-    const dropdown = document.querySelector('#mainMenu .menu-dropdown');
     const checkboxes = document.getElementById('checkboxes');
-    if (dropdown?.classList.contains('show')) return true;
     if (!checkboxes) return false;
     return getComputedStyle(checkboxes).display !== 'none';
   }
@@ -580,18 +753,157 @@
     document.getElementById('bpFilterBtn')?.click();
   }
 
+  function isBpListPanelOpen() {
+    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    return dialog && getComputedStyle(dialog).display !== 'none';
+  }
+
+  function closeBpListPanel() {
+    if (!isBpListPanelOpen()) return;
+    document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`)?.click();
+  }
+
+  function ensureBpListPanelTitle() {
+    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    if (!dialog || !dialog.querySelector('ul')) return;
+    if (dialog.querySelector('.r2dt-bp-list-panel-title')) return;
+    const title = document.createElement('div');
+    title.className = 'r2dt-bp-list-panel-title';
+    title.textContent = 'Base Pair List';
+    dialog.insertBefore(title, dialog.firstChild);
+  }
+
+  function applyBpListItemLabels() {
+    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    if (!dialog) return;
+    dialog.querySelectorAll('ul > li').forEach((li) => {
+      if (li.querySelector('.r2dt-bp-list-pair')) return;
+      const raw = (li.textContent || '').trim();
+      const m = raw.match(/^(.+?)\s*;\s*(\S+)\s*$/);
+      if (!m) return;
+      li.textContent = '';
+      const pair = document.createElement('span');
+      pair.className = 'r2dt-bp-list-pair';
+      pair.textContent = m[1].trim();
+      const family = document.createElement('span');
+      family.className = 'r2dt-bp-list-family';
+      family.textContent = m[2];
+      li.append(pair, family);
+    });
+  }
+
+  function normalizeBpListScroll() {
+    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const ul = dialog?.querySelector('ul');
+    if (!dialog || !ul) return;
+    // Plugin toggles display:block, which breaks flex and prevents ul scroll.
+    if (dialog.style.display !== 'none') {
+      dialog.style.display = 'flex';
+    }
+    ul.style.maxHeight = '';
+    ul.style.overflowY = '';
+    ul.style.padding = '';
+    ul.style.listStyle = '';
+    if (!dialog.dataset.r2dtWheelBound) {
+      dialog.dataset.r2dtWheelBound = '1';
+      dialog.addEventListener('wheel', (ev) => { ev.stopPropagation(); }, { passive: true });
+    }
+  }
+
+  function setupBpListToolbar() {
+    const btn = document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`);
+    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const pairsGroup = document.querySelector('.r2dt-toolbar-group--pairs');
+    const viewer = document.getElementById('pdb-rna-viewer');
+    if (!btn || !dialog || !pairsGroup || !viewer || dialog.dataset.r2dtToolbarMoved) {
+      return !!dialog?.dataset.r2dtToolbarMoved;
+    }
+
+    btn.textContent = 'List';
+    btn.classList.add('r2dt-btn');
+    btn.setAttribute('aria-label', 'Base pair list');
+    btn.setAttribute('aria-haspopup', 'true');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'r2dt-bp-list-dropdown';
+    pairsGroup.append(wrap);
+    wrap.append(btn);
+    // Dock the list inside the 2D panel (not over the 3D viewer).
+    viewer.appendChild(dialog);
+    dialog.classList.add('r2dt-bp-list-panel');
+    dialog.dataset.r2dtToolbarMoved = '1';
+
+    const btnGroup = document.querySelector('.pdb-rna-view-btn-group.left');
+    if (btnGroup && !btnGroup.querySelector('button, .pdb-rna-view-btn')) {
+      btnGroup.remove();
+    }
+
+    if (!btn.dataset.r2dtListBound) {
+      btn.dataset.r2dtListBound = '1';
+      btn.addEventListener(
+        'click',
+        () => {
+          setTimeout(() => {
+            closeBasePairsPanel();
+            btn.setAttribute('aria-expanded', String(isBpListPanelOpen()));
+          }, 0);
+        },
+        true
+      );
+    }
+
+    if (!document.getElementById('bpFilterBtn')?.dataset.r2dtListBound) {
+      const filterBtn = document.getElementById('bpFilterBtn');
+      if (filterBtn) {
+        filterBtn.dataset.r2dtListBound = '1';
+        filterBtn.addEventListener(
+          'click',
+          () => { setTimeout(closeBpListPanel, 0); },
+          true
+        );
+      }
+    }
+
+    const ui = rnaPlugin.uiTemplateService;
+    if (ui?.renderBpListDialog && !ui._r2dtBpListPatched) {
+      ui._r2dtBpListPatched = true;
+      const orig = ui.renderBpListDialog.bind(ui);
+      ui.renderBpListDialog = function r2dtRenderBpListDialog(toggle) {
+        orig(toggle);
+        ensureBpListPanelTitle();
+        applyBpListItemLabels();
+        normalizeBpListScroll();
+        const listBtn = document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`);
+        if (listBtn) {
+          listBtn.setAttribute('aria-expanded', String(isBpListPanelOpen()));
+        }
+      };
+    }
+
+    return true;
+  }
+
   function bindToolbarDropdowns() {
     if (document.body.dataset.r2dtDropdownBound) return;
     document.body.dataset.r2dtDropdownBound = '1';
 
     // Capture phase: the plugin stops propagation on diagram clicks, so a
     // bubble-phase listener on document never runs for clicks on the 2D canvas.
+    // Defer closing so we do not run a synthetic filter click before other
+    // capture handlers (e.g. zoom buttons) on the same event.
     document.addEventListener(
       'click',
       (ev) => {
-        if (!isBasePairsPanelOpen()) return;
-        if (ev.target.closest('#mainMenu .menu-dropdown')) return;
-        closeBasePairsPanel();
+        if (isBasePairsPanelOpen()) {
+          if (!ev.target.closest('#mainMenu .menu-dropdown')) {
+            setTimeout(closeBasePairsPanel, 0);
+          }
+        }
+        if (isBpListPanelOpen()) {
+          if (!ev.target.closest('.r2dt-bp-list-dropdown, .r2dt-bp-list-panel')) {
+            setTimeout(closeBpListPanel, 0);
+          }
+        }
       },
       true
     );
@@ -637,6 +949,7 @@
       ensureFilterPanelTitle();
       injectFilterGlyphs();
       mountFilterLegend();
+      setupBpListToolbar();
       bindToolbarDropdowns();
       return true;
     }
@@ -728,6 +1041,7 @@
       mountFilterLegend();
     }
 
+    setupBpListToolbar();
     bindToolbarDropdowns();
     injectBackboneOverlay();
     return true;
@@ -775,11 +1089,14 @@
       boxes.forEach((cb) => {
         if (cb.id === 'Checkbox_All') return;
         const family = cb.id.slice('Checkbox_'.length);
+        const td = cb.closest('td');
         if (!presentBPs.has(family)) {
-          const row = cb.parentElement;
-          if (row) row.style.display = 'none';
+          if (td) td.style.display = 'none';
+        } else if (td) {
+          td.style.display = '';
         }
       });
+      hideEmptyFilterRows();
       const all = document.getElementById('Checkbox_All');
       if (all && !all.checked) all.click();
       ensureFilterPanelTitle();
@@ -790,21 +1107,7 @@
     tick();
   })();
 
-  // Relabel the plugin's "Base Pairings List" -> "Base Pair List".
-  // (Filter button label is handled in setupToolbar.)
-  (function relabelButtons() {
-    let attempts = 0;
-    const tick = () => {
-      const listBtn = document.querySelector('.bp-list-btn');
-      if (!listBtn) {
-        if (attempts++ > 40) return;
-        setTimeout(tick, 100);
-        return;
-      }
-      listBtn.textContent = 'Base Pair List';
-    };
-    tick();
-  })();
+  // Relabel handled in setupBpListToolbar (short "List" label in toolbar).
 
   // The plugin injects a "?" help icon and floating tooltip on the filter
   // button; remove them once the base-pairs panel is wired up.
@@ -980,6 +1283,10 @@
     });
   }
   attachBPClicks();
+  onBpFilterUpdated = () => {
+    attachBPClicks();
+    applyFixups();
+  };
 
   // Base Pairings List rows: the plugin handles a row click by dispatching
   // a click onto the matching SVG path, which silently does nothing when
@@ -989,8 +1296,9 @@
   document.addEventListener('click', (ev) => {
     const li = ev.target.closest && ev.target.closest('#' + bpListId + ' li');
     if (!li) return;
-    // Row text looks like "G5 - C27; cWW" -- pull out the two seq ids.
-    const m = (li.textContent || '').match(/(\d+)\D*?-\D*?(\d+)/);
+    const pairText =
+      li.querySelector('.r2dt-bp-list-pair')?.textContent || li.textContent || '';
+    const m = pairText.match(/(\d+)\D*?-\D*?(\d+)/);
     if (!m) return;
     const a = parseInt(m[1]);
     const b = parseInt(m[2]);

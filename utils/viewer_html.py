@@ -35,7 +35,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "20"
+_R2DT_ASSETS_VERSION = "42"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).
@@ -43,7 +43,7 @@ VIEWER_JS_FILENAME = "viewer.js"
 
 # Colour of the base-pair symbols, matching how pdb-rna-viewer draws them
 # in the 2D diagram (light grey rather than stark black).
-_BP_SYMBOL_COLOR = "#ccc"
+_BP_SYMBOL_COLOR = "#909090"
 
 # Credit shown in the header for where the base-pair annotations came from.
 # Keyed by the --basepairs source; defaults to FR3D.
