@@ -278,10 +278,12 @@
   const BACKBONE_STROKE = '#8fa3b3';
   const BACKBONE_OPACITY_SMALL = 0.55;
   const BACKBONE_OPACITY_LARGE = 0.4;
+  // Low tension keeps the curve close to the residue centres — just softens corners.
+  const BACKBONE_SMOOTH_TENSION = 0.18;
   // Derive nucleotide centre coordinates from apiData.svg_paths.
   // Each entry past the two dummy heads encodes prevX,prevY,x,y after
   // splitting on "M" and ","; the "current" point sits at tokens[2..3].
-  function buildBackbonePoints() {
+  function buildBackbonePointList() {
     const pts = [];
     const paths = apiData.svg_paths || [];
     for (let i = 2; i < paths.length; i++) {
@@ -289,10 +291,31 @@
       if (tokens.length < 4) continue;
       const x = parseFloat(tokens[2]);
       const y = parseFloat(tokens[3]);
-      if (!isNaN(x) && !isNaN(y)) pts.push(x + ',' + y);
+      if (!isNaN(x) && !isNaN(y)) pts.push({ x, y });
     }
-    return pts.join(' ');
+    return pts;
   }
+
+  function backboneSmoothPath(pts, tension) {
+    if (pts.length < 2) return '';
+    if (pts.length === 2) {
+      return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
+    }
+    let d = `M ${pts[0].x},${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+      d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+    }
+    return d;
+  }
+
   function injectBackboneOverlay() {
     const svg = document.querySelector('svg.rnaTopoSvg');
     if (!svg) return false;
@@ -303,30 +326,32 @@
     }
     // Idempotent: if the overlay is already present, do nothing. This
     // matters because the re-inject runs from a MutationObserver -- adding
-    // the polyline is itself a mutation, so without this guard we'd loop.
+    // the path is itself a mutation, so without this guard we'd loop.
     if (existing) return true;
-    const points = buildBackbonePoints();
-    if (!points) return false;
+    const ptList = buildBackbonePointList();
+    if (!ptList.length) return false;
+    const pathD = backboneSmoothPath(ptList, BACKBONE_SMOOTH_TENSION);
+    if (!pathD) return false;
     const inner = svg.querySelector('[class^="rnaTopoSvg_"]');
     if (!inner) return false;
-    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    polyline.setAttribute('class', 'r2dt-backbone-overlay');
-    polyline.setAttribute('points', points);
-    polyline.setAttribute('fill', 'none');
+    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathEl.setAttribute('class', 'r2dt-backbone-overlay');
+    pathEl.setAttribute('d', pathD);
+    pathEl.setAttribute('fill', 'none');
     // Scale the overlay with structure size: small RNAs (~100 nt) need a
     // thicker, less transparent line to be legible against the letters;
     // large rRNAs (1000+ nt) look noisy at the same settings.
-    const nPts = points.split(' ').length;
+    const nPts = ptList.length;
     const isSmall = nPts < 500;
-    polyline.setAttribute('stroke', BACKBONE_STROKE);
-    polyline.setAttribute('stroke-width', isSmall ? '2' : '1.2');
-    polyline.setAttribute('stroke-linecap', 'round');
-    polyline.setAttribute('stroke-linejoin', 'round');
-    polyline.setAttribute('opacity', isSmall ? String(BACKBONE_OPACITY_SMALL) : String(BACKBONE_OPACITY_LARGE));
-    polyline.style.pointerEvents = 'none';
+    pathEl.setAttribute('stroke', BACKBONE_STROKE);
+    pathEl.setAttribute('stroke-width', isSmall ? '2' : '1.2');
+    pathEl.setAttribute('stroke-linecap', 'round');
+    pathEl.setAttribute('stroke-linejoin', 'round');
+    pathEl.setAttribute('opacity', isSmall ? String(BACKBONE_OPACITY_SMALL) : String(BACKBONE_OPACITY_LARGE));
+    pathEl.style.pointerEvents = 'none';
     // Insert as the first child of the plugin's inner group so the same
     // zoom/pan transform applies to the overlay as to the nucleotides.
-    inner.insertBefore(polyline, inner.firstChild);
+    inner.insertBefore(pathEl, inner.firstChild);
     return true;
   }
   // Declared up front so the post-render fixup pass (which skips the
