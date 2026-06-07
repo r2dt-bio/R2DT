@@ -254,6 +254,100 @@
   // they don't dominate the nested cWW ladder. The minified plugin's
   // async render() doesn't reliably wait for the DOM, so poll briefly.
   const PDB_LOWER = STRUCTURE_ID.toLowerCase();
+  const VIEWPORT_PADDING = 0.10; // keep ~10% margin so diagrams never hug the edge
+  let userAdjustedView = false;
+
+  function computeFitTransform() {
+    const svg = document.querySelector('svg.rnaTopoSvg');
+    if (!svg) return null;
+    const inner = svg.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    if (!inner) return null;
+    let bbox;
+    try {
+      bbox = inner.getBBox();
+    } catch (_) {
+      return null;
+    }
+    if (!(bbox.width > 0 && bbox.height > 0)) return null;
+
+    const vb = svg.viewBox.baseVal;
+    const vw = vb.width || svg.clientWidth;
+    const vh = vb.height || svg.clientHeight;
+    if (!(vw > 0 && vh > 0)) return null;
+
+    const pad = VIEWPORT_PADDING;
+    const k = Math.min(
+      (vw * (1 - 2 * pad)) / bbox.width,
+      (vh * (1 - 2 * pad)) / bbox.height
+    );
+    const cx = bbox.x + bbox.width / 2;
+    const cy = bbox.y + bbox.height / 2;
+    return { k, x: vw / 2 - k * cx, y: vh / 2 - k * cy };
+  }
+
+  function applyFitTransform() {
+    const tr = computeFitTransform();
+    if (!tr) return false;
+    const tStr = `translate(${tr.x},${tr.y}) scale(${tr.k})`;
+    [
+      `.rnaTopoSvg_${PDB_LOWER}`,
+      `.rnaTopoSvgHighlight_${PDB_LOWER}`,
+      `.rnaTopoSvgSelection_${PDB_LOWER}`,
+    ].forEach((sel) => {
+      const g = document.querySelector(sel);
+      if (g) g.setAttribute('transform', tStr);
+    });
+    const svg = document.querySelector('svg.rnaTopoSvg');
+    if (svg) svg.__zoom = tr;
+    const svc = window.UiActionsService;
+    if (svc) svc.zoomed = false;
+    userAdjustedView = false;
+    return true;
+  }
+
+  function maybeRefit2D() {
+    if (userAdjustedView) return;
+    applyFitTransform();
+  }
+
+  function bindFitControls() {
+    const svg = document.querySelector('svg.rnaTopoSvg');
+    if (svg && !svg.dataset.r2dtFitListener) {
+      svg.dataset.r2dtFitListener = '1';
+      svg.addEventListener('mousedown', () => { userAdjustedView = true; });
+    }
+    [`#rnaTopologyZoomIn-${PDB_LOWER}`, `#rnaTopologyZoomOut-${PDB_LOWER}`].forEach(
+      (sel) => {
+        const btn = document.querySelector(sel);
+        if (btn && !btn.dataset.r2dtFitBound) {
+          btn.dataset.r2dtFitBound = '1';
+          btn.addEventListener('click', () => { userAdjustedView = true; });
+        }
+      }
+    );
+    const resetBtn = document.querySelector(`#rnaTopologyReset-${PDB_LOWER}`);
+    if (resetBtn && !resetBtn.dataset.r2dtFitBound) {
+      resetBtn.dataset.r2dtFitBound = '1';
+      resetBtn.addEventListener(
+        'click',
+        (ev) => {
+          ev.stopImmediatePropagation();
+          ev.preventDefault();
+          applyFitTransform();
+        },
+        true
+      );
+    }
+    const svc = window.UiActionsService;
+    if (svc && !svc._r2dtZoomResetPatched) {
+      svc._r2dtZoomResetPatched = true;
+      svc.zoomReset = function () {
+        applyFitTransform();
+      };
+    }
+    return !!resetBtn;
+  }
+
   const unobserved = apiData.unobserved_label_seq_ids || [];
   const crossingWCPairs = new Set();
   (fr3dData.annotations || []).forEach((a) => {
@@ -310,6 +404,8 @@
         mo._pending = false;
         applyFixups();
         injectBackboneOverlay();
+        maybeRefit2D();
+        bindFitControls();
       }, 0);
     });
     mo.observe(container, { childList: true, subtree: true });
@@ -339,6 +435,20 @@
         injectBackboneOverlay();
       });
       injectBackboneOverlay();
+    };
+    tick();
+  })();
+
+  // Centre the 2D diagram with a comfortable margin. The plugin's default
+  // viewBox starts at (0,0) and often places residues flush against an
+  // edge; re-fit once content (and the backbone overlay) is in the DOM.
+  (function setup2DFit() {
+    let attempts = 0;
+    const tick = () => {
+      bindFitControls();
+      if (applyFitTransform()) return;
+      if (attempts++ > 40) return;
+      setTimeout(tick, 100);
     };
     tick();
   })();
