@@ -34,6 +34,10 @@ _MOLSTAR_CDN_CSS = (
 # them next to ``index.html`` at viewer-generation time.
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
+# Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
+_R2DT_ASSETS_VERSION = "20"
+# R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
+R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).
 VIEWER_JS_FILENAME = "viewer.js"
 
@@ -63,6 +67,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <meta charset="utf-8">
 <title>R2DT viewer — {structure_id}</title>
 <link rel="stylesheet" type="text/css" href="{viewer_css}">
+<link rel="stylesheet" type="text/css" href="{r2dt_css}?v={assets_version}">
 <link rel="stylesheet" type="text/css" href="{molstar_css}">
 <style>
   body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 16px; }}
@@ -71,15 +76,6 @@ _TEMPLATE = """<!DOCTYPE html>
   .vis {{ display: flex; gap: 16px; align-items: flex-start; }}
   #pdb-rna-viewer {{ width: 600px; height: 600px; flex: none; }}
   #pdb-molstar {{ width: 600px; height: 600px; position: relative; flex: none; }}
-  .bp-legend {{ margin-top: 20px; max-width: 660px; font-size: 13px; color: #222; }}
-  .bp-legend summary {{ cursor: pointer; font-weight: 600; }}
-  .bp-legend table {{ border-collapse: collapse; margin: 12px 0; }}
-  .bp-legend th, .bp-legend td {{
-    border: 1px solid #ddd; padding: 4px 12px; text-align: center;
-  }}
-  .bp-legend tbody th {{ white-space: nowrap; font-weight: 600; }}
-  .bp-legend td svg {{ vertical-align: middle; margin: 0 2px; }}
-  .bp-legend .cite {{ color: #666; font-size: 12px; }}
   /* --- LBN panel --- */
   #lbn-panel {{ margin-top: 20px; max-width: 1232px; }}
   #lbn-panel h2 {{ font-size: 14px; font-weight: 600; margin: 0 0 6px; }}
@@ -127,7 +123,7 @@ window.R2DT_CONFIG = {config_json};
 </script>
 <script src="{viewer_plugin_js}"></script>
 <script src="{molstar_js}"></script>
-<script src="{viewer_js}"></script>
+<script src="{viewer_js}?v={assets_version}"></script>
 </body>
 </html>
 """
@@ -141,43 +137,50 @@ def _bp_symbol(shapes, filled: bool) -> str:
     ``tri-l`` (Sugar edge, pointing right / left). ``filled`` selects the
     orientation: solid (cis) vs open (trans).
     """
-    width, cy, r = 70, 12, 7
+    # Match compact in-panel glyph proportions (viewer.js buildBpSymbolSvg).
+    width = 28 if len(shapes) == 1 else 40
+    height, cy, r, stroke_w = 16, 8, 4, 1.2
     color = _BP_SYMBOL_COLOR
     fill = color if filled else "#fff"
     parts = [
         f'<line x1="2" y1="{cy}" x2="{width - 2}" y2="{cy}" '
-        f'stroke="{color}" stroke-width="1.5"/>'
+        f'stroke="{color}" stroke-width="{stroke_w}"/>'
     ]
-    positions = [width // 2] if len(shapes) == 1 else [25, 45]
+    positions = [width / 2] if len(shapes) == 1 else [14, 26]
     for kind, cx in zip(shapes, positions):
         if kind == "circle":
             parts.append(
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{fill}" '
-                f'stroke="{color}" stroke-width="1.5"/>'
+                f'stroke="{color}" stroke-width="{stroke_w}"/>'
             )
         elif kind == "square":
             parts.append(
                 f'<rect x="{cx - r}" y="{cy - r}" width="{2 * r}" height="{2 * r}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="1.5"/>'
+                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
             )
         elif kind == "tri-r":
             parts.append(
                 f'<polygon points="{cx - r},{cy - r} {cx - r},{cy + r} {cx + r},{cy}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="1.5"/>'
+                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
             )
         elif kind == "tri-l":
             parts.append(
                 f'<polygon points="{cx + r},{cy - r} {cx + r},{cy + r} {cx - r},{cy}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="1.5"/>'
+                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
             )
-    return f'<svg width="{width}" height="24" viewBox="0 0 {width} 24">{"".join(parts)}</svg>'
+    return (
+        f'<svg class="r2dt-bp-glyph" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}">{"".join(parts)}</svg>'
+    )
 
 
 def _bp_legend_html() -> str:
-    """Build the collapsible Leontis-Westhof base-pair symbol legend."""
+    """Build the Leontis-Westhof legend (mounted in-panel by viewer.js)."""
     # Each row: cis label, cis glyph specs, trans label, trans glyph specs.
-    # A spec is a list of one or two edge symbols; asymmetric families show
-    # both orderings, matching Leontis & Westhof (2001).
+    # A spec is a list of one or two edge symbols drawn on a short line:
+    # ``circle`` (Watson-Crick edge), ``square`` (Hoogsteen), ``tri-r`` /
+    # ``tri-l`` (Sugar edge, pointing right / left). ``filled`` selects the
+    # orientation: solid (cis) vs open (trans).
     rows = [
         ("cWW", [["circle"]], "tWW", [["circle"]]),
         (
@@ -210,21 +213,22 @@ def _bp_legend_html() -> str:
             f"<th>{trans_label}</th><td>{trans_svg}</td></tr>"
         )
     rows_html = "\n".join(body)
-    return f"""<details class="bp-legend">
-<summary>Base-pair symbols (Leontis–Westhof nomenclature)</summary>
-<p>Each base-pair glyph encodes the two interacting edges and the
-glycosidic-bond orientation. Edge shape: circle = Watson–Crick,
+    return f"""<div id="r2dt-bp-legend-source" hidden>
+<div class="r2dt-bp-legend-panel">
+<p class="r2dt-bp-legend-intro">Each glyph encodes the two interacting edges
+and glycosidic-bond orientation. Edge shape: circle = Watson–Crick,
 square = Hoogsteen, triangle = Sugar. Fill: solid = <em>cis</em>,
-open = <em>trans</em>. For asymmetric pairs both symbol orders are shown.</p>
-<table>
+open = <em>trans</em>.</p>
+<table class="r2dt-bp-legend-table">
 <thead><tr><th colspan="2">cis</th><th colspan="2">trans</th></tr></thead>
 <tbody>
 {rows_html}
 </tbody>
 </table>
-<p class="cite">Symbols follow
+<p class="r2dt-bp-legend-cite">Symbols follow
 <a href="https://pubmed.ncbi.nlm.nih.gov/11345429/" target="_blank" rel="noopener">Leontis &amp; Westhof, 2001</a>.</p>
-</details>"""
+</div>
+</div>"""
 
 
 _LEGEND_HTML = _bp_legend_html()
@@ -263,7 +267,9 @@ def render(
         annotation_source=annotation_source or _DEFAULT_ANNOTATION_SOURCE,
         viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
         viewer_css=VIEWER_CSS_FILENAME,
+        r2dt_css=R2DT_CSS_FILENAME,
         viewer_js=VIEWER_JS_FILENAME,
+        assets_version=_R2DT_ASSETS_VERSION,
         molstar_js=_MOLSTAR_CDN_JS,
         molstar_css=_MOLSTAR_CDN_CSS,
     )

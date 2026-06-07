@@ -194,6 +194,11 @@
   // into a Show/Hide toggle for that overlay (the plugin's letter view
   // remains the only main view -- we no longer expose path-only mode).
   let backboneVisible = true;
+  // Cool blue-gray — distinct from letter fill (#000 / #bbb) and from
+  // lightened base-pair strokes (#ccc for crossing cWW, coloured families).
+  const BACKBONE_STROKE = '#8fa3b3';
+  const BACKBONE_OPACITY_SMALL = 0.55;
+  const BACKBONE_OPACITY_LARGE = 0.4;
   // Derive nucleotide centre coordinates from apiData.svg_paths.
   // Each entry past the two dummy heads encodes prevX,prevY,x,y after
   // splitting on "M" and ","; the "current" point sits at tokens[2..3].
@@ -234,9 +239,11 @@
     // large rRNAs (1000+ nt) look noisy at the same settings.
     const nPts = points.split(' ').length;
     const isSmall = nPts < 500;
-    polyline.setAttribute('stroke', '#666');
+    polyline.setAttribute('stroke', BACKBONE_STROKE);
     polyline.setAttribute('stroke-width', isSmall ? '2' : '1.2');
-    polyline.setAttribute('opacity', isSmall ? '0.45' : '0.25');
+    polyline.setAttribute('stroke-linecap', 'round');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    polyline.setAttribute('opacity', isSmall ? String(BACKBONE_OPACITY_SMALL) : String(BACKBONE_OPACITY_LARGE));
     polyline.style.pointerEvents = 'none';
     // Insert as the first child of the plugin's inner group so the same
     // zoom/pan transform applies to the overlay as to the nucleotides.
@@ -406,35 +413,332 @@
         injectBackboneOverlay();
         maybeRefit2D();
         bindFitControls();
+        setupToolbar();
       }, 0);
     });
     mo.observe(container, { childList: true, subtree: true });
   }
 
-  (function setupBackboneToggle() {
+  function isFilterCheckboxVisible(cb) {
+    for (let el = cb; el && el.id !== 'checkboxes'; el = el.parentElement) {
+      if (el.style.display === 'none') return false;
+    }
+    return true;
+  }
+
+  function updateFilterBadge() {
+    const badge = document.getElementById('r2dt-filter-badge');
+    if (!badge) return;
+    const boxes = document.querySelectorAll('input[id^="Checkbox_"]:not(#Checkbox_All)');
+    let total = 0;
+    let checked = 0;
+    boxes.forEach((cb) => {
+      if (!isFilterCheckboxVisible(cb)) return;
+      total += 1;
+      if (cb.checked) checked += 1;
+    });
+    badge.textContent = total > 0 ? `${checked}/${total}` : '';
+  }
+
+  function ensureFilterPanelTitle() {
+    const checkboxes = document.getElementById('checkboxes');
+    if (!checkboxes || checkboxes.querySelector('.r2dt-filter-panel-title')) {
+      return;
+    }
+    const title = document.createElement('div');
+    title.className = 'r2dt-filter-panel-title';
+    title.textContent = 'Leontis-Westhof Base Pairs';
+    checkboxes.insertBefore(title, checkboxes.firstChild);
+  }
+
+  function removeFilterHelp() {
+    const filterBtn = document.getElementById('bpFilterBtn');
+    if (filterBtn) {
+      filterBtn.querySelector('#bpFilterBtnHelp, .help-icon')?.remove();
+      filterBtn.setAttribute('aria-label', 'Base pairs filter and symbol legend');
+    }
+    document.querySelectorAll('div.help-tooltip').forEach((tip) => {
+      if (/Displays checkboxes|base-pair famil/i.test(tip.textContent)) {
+        tip.remove();
+      }
+    });
+  }
+
+  const BP_GLYPH_COLOR = '#ccc';
+  const BP_FAMILY_GLYPH = {
+    cWW: { shapes: ['circle'], filled: true },
+    tWW: { shapes: ['circle'], filled: false },
+    cWH: { shapes: ['circle', 'square'], filled: true },
+    tWH: { shapes: ['circle', 'square'], filled: false },
+    cWS: { shapes: ['circle', 'tri-r'], filled: true },
+    tWS: { shapes: ['circle', 'tri-r'], filled: false },
+    cHH: { shapes: ['square'], filled: true },
+    tHH: { shapes: ['square'], filled: false },
+    cHS: { shapes: ['square', 'tri-r'], filled: true },
+    tHS: { shapes: ['square', 'tri-r'], filled: false },
+    cSS: { shapes: ['tri-r'], filled: true },
+    tSS: { shapes: ['tri-r'], filled: false },
+  };
+
+  function buildBpSymbolSvg(shapes, filled) {
+    const width = shapes.length === 1 ? 28 : 40;
+    const cy = 8;
+    const r = 4;
+    const color = BP_GLYPH_COLOR;
+    const fill = filled ? color : '#fff';
+    const positions = shapes.length === 1 ? [width / 2] : [14, 26];
+    let markup =
+      `<line x1="2" y1="${cy}" x2="${width - 2}" y2="${cy}" ` +
+      `stroke="${color}" stroke-width="1.2"/>`;
+    shapes.forEach((kind, idx) => {
+      const cx = positions[idx];
+      if (kind === 'circle') {
+        markup +=
+          `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" ` +
+          `stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'square') {
+        markup +=
+          `<rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'tri-r') {
+        markup +=
+          `<polygon points="${cx - r},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'tri-l') {
+        markup +=
+          `<polygon points="${cx + r},${cy - r} ${cx + r},${cy + r} ${cx - r},${cy}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      }
+    });
+    return (
+      `<svg class="r2dt-bp-glyph" width="${width}" height="16" ` +
+      `viewBox="0 0 ${width} 16" aria-hidden="true">${markup}</svg>`
+    );
+  }
+
+  function wrapFilterLabelText(cb, fallbackText) {
+    const label = cb.closest('label');
+    if (!label) return null;
+    let textEl = label.querySelector('.r2dt-bp-family-label');
+    if (textEl) return textEl;
+    for (const node of [...label.childNodes]) {
+      if (node.nodeType === 3 && node.textContent.trim()) {
+        textEl = document.createElement('span');
+        textEl.className = 'r2dt-bp-family-label';
+        textEl.textContent = node.textContent.trim();
+        node.replaceWith(textEl);
+        return textEl;
+      }
+    }
+    if (!fallbackText) return null;
+    textEl = document.createElement('span');
+    textEl.className = 'r2dt-bp-family-label';
+    textEl.textContent = fallbackText;
+    cb.insertAdjacentElement('afterend', textEl);
+    return textEl;
+  }
+
+  function injectFilterGlyphs() {
+    document.querySelectorAll('#checkboxes .r2dt-bp-glyph-wrap').forEach((wrap) => {
+      const cb = wrap.closest('label')?.querySelector('input[id^="Checkbox_"]');
+      if (!cb || !isFilterCheckboxVisible(cb)) wrap.remove();
+    });
+    document
+      .querySelectorAll('input[id^="Checkbox_"]:not(#Checkbox_All)')
+      .forEach((cb) => {
+        const label = cb.closest('label');
+        if (!label || !isFilterCheckboxVisible(cb)) return;
+        const family = cb.id.slice('Checkbox_'.length);
+        const spec = BP_FAMILY_GLYPH[family];
+        if (!spec) return;
+        const textEl = wrapFilterLabelText(cb, family);
+        let glyphWrap = label.querySelector('.r2dt-bp-glyph-wrap');
+        if (!glyphWrap) {
+          glyphWrap = document.createElement('span');
+          glyphWrap.className = 'r2dt-bp-glyph-wrap';
+        }
+        glyphWrap.innerHTML = buildBpSymbolSvg(spec.shapes, spec.filled);
+        if (textEl) {
+          textEl.insertAdjacentElement('afterend', glyphWrap);
+        }
+      });
+    document.querySelectorAll('input[id^="Checkbox_"]').forEach((cb) => {
+      if (cb.id === 'Checkbox_All') wrapFilterLabelText(cb, 'All');
+    });
+  }
+
+  function isBasePairsPanelOpen() {
+    const dropdown = document.querySelector('#mainMenu .menu-dropdown');
+    const checkboxes = document.getElementById('checkboxes');
+    if (dropdown?.classList.contains('show')) return true;
+    if (!checkboxes) return false;
+    return getComputedStyle(checkboxes).display !== 'none';
+  }
+
+  function closeBasePairsPanel() {
+    if (!isBasePairsPanelOpen()) return;
+    document.getElementById('bpFilterBtn')?.click();
+  }
+
+  function bindToolbarDropdowns() {
+    if (document.body.dataset.r2dtDropdownBound) return;
+    document.body.dataset.r2dtDropdownBound = '1';
+
+    // Capture phase: the plugin stops propagation on diagram clicks, so a
+    // bubble-phase listener on document never runs for clicks on the 2D canvas.
+    document.addEventListener(
+      'click',
+      (ev) => {
+        if (!isBasePairsPanelOpen()) return;
+        if (ev.target.closest('#mainMenu .menu-dropdown')) return;
+        closeBasePairsPanel();
+      },
+      true
+    );
+  }
+
+  function mountFilterLegend() {
+    document.querySelector('.r2dt-symbols-dropdown')?.remove();
+
+    const checkboxes = document.getElementById('checkboxes');
+    if (!checkboxes || checkboxes.querySelector('.r2dt-bp-legend-more')) return true;
+
+    const source = document.getElementById('r2dt-bp-legend-source');
+    let panelContent = source?.querySelector('.r2dt-bp-legend-panel');
+    if (!panelContent) {
+      panelContent = document.querySelector('.r2dt-bp-legend-panel');
+    }
+    if (!panelContent) return false;
+
+    const details = document.createElement('details');
+    details.className = 'r2dt-bp-legend-more';
+    const summary = document.createElement('summary');
+    summary.textContent = 'More info';
+    details.append(summary, panelContent);
+    checkboxes.appendChild(details);
+    source?.remove();
+    return true;
+  }
+
+  function bindFilterBadgeListener() {
+    const checkboxes = document.getElementById('checkboxes');
+    if (!checkboxes || checkboxes.dataset.r2dtBadgeBound) return;
+    checkboxes.dataset.r2dtBadgeBound = '1';
+    checkboxes.addEventListener('change', updateFilterBadge);
+  }
+
+  function setupToolbar() {
+    const mainMenu = document.getElementById('mainMenu');
+    if (!mainMenu) return false;
+    if (mainMenu.dataset.r2dtToolbarBound) {
+      bindFilterBadgeListener();
+      updateFilterBadge();
+      removeFilterHelp();
+      ensureFilterPanelTitle();
+      injectFilterGlyphs();
+      mountFilterLegend();
+      bindToolbarDropdowns();
+      return true;
+    }
+
+    const form = mainMenu.querySelector('form');
+    if (!form) return false;
+
+    const menuSelect = form.querySelector('.menuSelectbox');
+    const filterDropdown = form.querySelector('.menu-dropdown');
+    const nestedWrap = document.getElementById('nestedBP')?.parentElement;
+    if (!menuSelect || !filterDropdown) return false;
+
+    mainMenu.classList.add('r2dt-toolbar');
+    mainMenu.dataset.r2dtToolbarBound = '1';
+    menuSelect.style.display = 'none';
+
+    const titleOverlay = document.querySelector('.pdb-rna-view-title');
+    if (titleOverlay) titleOverlay.style.display = 'none';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'r2dt-toolbar-title';
+    titleEl.textContent = CHAIN_ID
+      ? `${STRUCTURE_ID} · chain ${CHAIN_ID}`
+      : STRUCTURE_ID;
+
+    const viewGroup = document.createElement('div');
+    viewGroup.className = 'r2dt-toolbar-group r2dt-toolbar-group--view';
+    const viewLabel = document.createElement('span');
+    viewLabel.className = 'r2dt-toolbar-group-label';
+    viewLabel.textContent = 'View';
+
+    const backboneLabel = document.createElement('label');
+    backboneLabel.className = 'r2dt-toggle';
+    backboneLabel.htmlFor = 'r2dt-backbone-toggle';
+    backboneLabel.innerHTML =
+      '<input type="checkbox" id="r2dt-backbone-toggle" checked ' +
+      'aria-label="Show backbone path">' +
+      '<span class="r2dt-toggle-track" aria-hidden="true"></span>' +
+      '<span class="r2dt-toggle-label">Backbone</span>';
+    backboneLabel.querySelector('input').addEventListener('change', (ev) => {
+      backboneVisible = ev.target.checked;
+      injectBackboneOverlay();
+    });
+
+    viewGroup.append(viewLabel, backboneLabel);
+
+    const pairsGroup = document.createElement('div');
+    pairsGroup.className = 'r2dt-toolbar-group r2dt-toolbar-group--pairs';
+    const pairsLabel = document.createElement('span');
+    pairsLabel.className = 'r2dt-toolbar-group-label';
+    pairsLabel.textContent = 'Base pairs';
+
+    pairsGroup.append(pairsLabel, filterDropdown);
+    if (nestedWrap) {
+      const nestedText = nestedWrap.querySelector('label[for="nestedBP"] span');
+      if (nestedText) nestedText.textContent = 'Nested only';
+      const nestedInput = nestedWrap.querySelector('#nestedBP');
+      if (nestedInput) {
+        nestedInput.setAttribute('aria-label', 'Only nested base pairs');
+      }
+      pairsGroup.append(nestedWrap);
+    }
+
+    form.insertBefore(titleEl, form.firstChild);
+    form.insertBefore(viewGroup, menuSelect);
+    form.insertBefore(pairsGroup, menuSelect);
+
+    const filterBtn = document.getElementById('bpFilterBtn');
+    if (filterBtn) {
+      filterBtn.childNodes.forEach((node) => {
+        if (node.nodeType === 3 && /Filter/i.test(node.nodeValue)) {
+          node.nodeValue = 'Base Pairs';
+        }
+      });
+      if (!document.getElementById('r2dt-filter-badge')) {
+        const badge = document.createElement('span');
+        badge.id = 'r2dt-filter-badge';
+        badge.className = 'r2dt-filter-badge';
+        badge.setAttribute('aria-hidden', 'true');
+        const icon = document.getElementById('bpFilterBtnIcon');
+        if (icon) filterBtn.insertBefore(badge, icon);
+        else filterBtn.appendChild(badge);
+      }
+      bindFilterBadgeListener();
+      updateFilterBadge();
+      removeFilterHelp();
+      ensureFilterPanelTitle();
+      injectFilterGlyphs();
+      mountFilterLegend();
+    }
+
+    bindToolbarDropdowns();
+    injectBackboneOverlay();
+    return true;
+  }
+
+  (function initToolbar() {
     let attempts = 0;
     const tick = () => {
-      const sel = document.querySelector('.menuSelectbox');
-      if (!sel) {
-        if (attempts++ > 40) return;
-        setTimeout(tick, 100);
-        return;
-      }
-      // Hide the plugin's "View as Path" dropdown entirely. Touching its
-      // value/listeners breaks the BP filter (pathOrNucleotide reads the
-      // dropdown value as an int when redrawing BP lines). Replace it
-      // with our own checkbox that only governs the backbone overlay.
-      sel.style.display = 'none';
-      const toggle = document.createElement('label');
-      toggle.style.cssText = 'font-size: 12px; cursor: pointer; user-select: none;';
-      toggle.innerHTML =
-        '<input type="checkbox" id="r2dt-backbone-toggle" checked> Show backbone path';
-      sel.parentNode.insertBefore(toggle, sel.nextSibling);
-      toggle.querySelector('input').addEventListener('change', (ev) => {
-        backboneVisible = ev.target.checked;
-        injectBackboneOverlay();
-      });
-      injectBackboneOverlay();
+      if (setupToolbar()) return;
+      if (attempts++ > 40) return;
+      setTimeout(tick, 100);
     };
     tick();
   })();
@@ -478,51 +782,53 @@
       });
       const all = document.getElementById('Checkbox_All');
       if (all && !all.checked) all.click();
+      ensureFilterPanelTitle();
+      injectFilterGlyphs();
+      mountFilterLegend();
+      updateFilterBadge();
     };
     tick();
   })();
 
-  // Relabel the plugin's buttons: "Filter Base Pairings" -> "Filter Base
-  // Pairs" (text node only, to keep its help icon and caret) and
-  // "Base Pairings List" -> "Base Pair List".
+  // Relabel the plugin's "Base Pairings List" -> "Base Pair List".
+  // (Filter button label is handled in setupToolbar.)
   (function relabelButtons() {
     let attempts = 0;
     const tick = () => {
-      const filterBtn = document.getElementById('bpFilterBtn');
       const listBtn = document.querySelector('.bp-list-btn');
-      if (!filterBtn || !listBtn) {
+      if (!listBtn) {
         if (attempts++ > 40) return;
         setTimeout(tick, 100);
         return;
       }
-      filterBtn.childNodes.forEach((node) => {
-        if (node.nodeType === 3 && node.nodeValue.includes('Filter Base Pairings')) {
-          node.nodeValue = node.nodeValue.replace('Filter Base Pairings', 'Filter Base Pairs');
-        }
-      });
       listBtn.textContent = 'Base Pair List';
     };
     tick();
   })();
 
-  // Shorten the Filter Base Pairs "?" help tooltip -- the Leontis-Westhof
-  // legend below the viewer now explains the symbols, so the long
-  // description is redundant. The plugin builds one <div class="help-tooltip">
-  // per help icon at bind time; identify the filter one by its content.
-  (function shortenFilterHelp() {
+  // The plugin injects a "?" help icon and floating tooltip on the filter
+  // button; remove them once the base-pairs panel is wired up.
+  (function stripFilterHelp() {
     let attempts = 0;
     const tick = () => {
-      const tips = document.querySelectorAll('div.help-tooltip');
-      if (tips.length === 0) {
-        if (attempts++ > 40) return;
-        setTimeout(tick, 100);
-        return;
-      }
-      tips.forEach((tip) => {
-        if (/Displays checkboxes/i.test(tip.textContent)) {
-          tip.innerHTML = 'Show or hide individual base-pair families.';
-        }
-      });
+      removeFilterHelp();
+      const helpLeft = document.getElementById('bpFilterBtnHelp');
+      const tipLeft = [...document.querySelectorAll('div.help-tooltip')].some(
+        (tip) => /Displays checkboxes|base-pair famil/i.test(tip.textContent)
+      );
+      if (!helpLeft && !tipLeft) return;
+      if (attempts++ > 40) return;
+      setTimeout(tick, 100);
+    };
+    tick();
+  })();
+
+  (function initFilterLegend() {
+    let attempts = 0;
+    const tick = () => {
+      if (mountFilterLegend()) return;
+      if (attempts++ > 40) return;
+      setTimeout(tick, 100);
     };
     tick();
   })();

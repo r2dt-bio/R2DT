@@ -3054,6 +3054,7 @@ def _copy_viewer_assets(viewer_dir: Path) -> None:
     wanted = (
         viewer_html.VIEWER_PLUGIN_FILENAME,
         viewer_html.VIEWER_CSS_FILENAME,
+        viewer_html.R2DT_CSS_FILENAME,
         viewer_html.VIEWER_JS_FILENAME,
     )
     missing = [name for name in wanted if not (src / name).is_file()]
