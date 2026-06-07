@@ -35,7 +35,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "55"
+_R2DT_ASSETS_VERSION = "57"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).
@@ -70,7 +70,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <link rel="stylesheet" type="text/css" href="{r2dt_css}?v={assets_version}">
 <link rel="stylesheet" type="text/css" href="{molstar_css}">
 <style>
-  body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 16px; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; }}
   h1 {{ font-size: 16px; margin: 0 0 12px; }}
   .meta {{ color: #666; font-size: 12px; margin-bottom: 12px; }}
   .vis {{ display: flex; gap: 16px; align-items: flex-start; }}

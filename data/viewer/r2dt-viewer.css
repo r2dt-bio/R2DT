@@ -12,6 +12,21 @@
   --r2dt-accent-badge-bg: #dde5ec;
   --r2dt-accent-badge-text: #5c7388;
   --r2dt-bp-glyph: #909090;
+  --r2dt-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --r2dt-font-diagram: Helvetica, Arial, sans-serif;
+}
+
+/* --- 2D panel fonts ---------------------------------------------------- */
+
+#pdb-rna-viewer,
+#mainMenu.r2dt-toolbar {
+  font-family: var(--r2dt-font-ui);
+}
+
+#pdb-rna-viewer svg.rnaTopoSvg text {
+  font-family: var(--r2dt-font-diagram);
+  font-weight: 700;
 }
 
 /* --- Toolbar ----------------------------------------------------------- */
@@ -324,6 +339,10 @@
 #mainMenu.r2dt-toolbar #checkboxes td {
   display: block;
   padding: 0;
+}
+
+#mainMenu.r2dt-toolbar #checkboxes td:has(#Checkbox_All) {
+  grid-column: 1 / -1;
 }
 
 #mainMenu.r2dt-toolbar #checkboxes label {
