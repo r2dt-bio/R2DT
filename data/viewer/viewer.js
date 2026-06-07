@@ -47,6 +47,120 @@
     window.UiActionsService.zoomToNucleotides = function () {};
   }
 
+  // Make selected 2D nucleotide labels easier to spot: the plugin only
+  // recolours them orange, which is easy to miss on busy diagrams.
+  (function enhanceSelectedNucleotideStyle() {
+    const svc = window.UiActionsService;
+    if (!svc || !svc.colorNucleotide) return;
+
+    const FONT_BUMP_PX = 1.33; // ~1 pt
+    const HALO_STROKE = '#ffffff';
+    const HALO_WIDTH = '2';
+    const BG_FILL = '#fff3b0'; // soft yellow pill behind selected letters
+    const BG_PAD = 2;
+    const origStyle = new Map(); // label -> saved SVG text attrs
+    const selectionBgs = new Map(); // label -> background <rect>
+
+    function nucleotideEl(pdbId, label) {
+      return document
+        .querySelector('svg.rnaTopoSvg')
+        .getElementsByClassName(
+          `rnaviewEle rnaviewEle_${pdbId} rnaview_${pdbId}_${label}`
+        )[0];
+    }
+
+    function setOrRemove(el, attr, val) {
+      if (val != null) el.setAttribute(attr, val);
+      else el.removeAttribute(attr);
+    }
+
+    function removeSelectionBg(label) {
+      const existing = selectionBgs.get(label);
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      selectionBgs.delete(label);
+    }
+
+    function applySelectionBg(el, label) {
+      if (!el || el.nodeName !== 'text' || !el.parentNode) return;
+      removeSelectionBg(label);
+      let bbox;
+      try {
+        bbox = el.getBBox();
+      } catch (_) {
+        return;
+      }
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', 'r2dt-nt-selection-bg');
+      rect.setAttribute('x', String(bbox.x - BG_PAD));
+      rect.setAttribute('y', String(bbox.y - BG_PAD));
+      rect.setAttribute('width', String(bbox.width + 2 * BG_PAD));
+      rect.setAttribute('height', String(bbox.height + 2 * BG_PAD));
+      rect.setAttribute('rx', '3');
+      rect.setAttribute('fill', BG_FILL);
+      rect.setAttribute('stroke', 'none');
+      rect.style.pointerEvents = 'none';
+      el.parentNode.insertBefore(rect, el);
+      selectionBgs.set(label, rect);
+    }
+
+    function applySelectionTypography(el, label) {
+      if (!el || el.nodeName !== 'text') return;
+      if (!origStyle.has(label)) {
+        origStyle.set(label, {
+          fw: el.getAttribute('font-weight'),
+          fs: el.getAttribute('font-size'),
+          stroke: el.getAttribute('stroke'),
+          sw: el.getAttribute('stroke-width'),
+          slj: el.getAttribute('stroke-linejoin'),
+          po: el.getAttribute('paint-order'),
+        });
+      }
+      el.setAttribute('font-weight', 'bold');
+      const fs = parseFloat(el.getAttribute('font-size'));
+      if (!isNaN(fs)) {
+        el.setAttribute('font-size', (fs + FONT_BUMP_PX) + 'px');
+      }
+      el.setAttribute('stroke', HALO_STROKE);
+      el.setAttribute('stroke-width', HALO_WIDTH);
+      el.setAttribute('stroke-linejoin', 'round');
+      el.setAttribute('paint-order', 'stroke fill');
+      applySelectionBg(el, label);
+    }
+
+    function restoreTypography(pdbId, label) {
+      const stored = origStyle.get(label);
+      removeSelectionBg(label);
+      if (!stored) return;
+      const el = nucleotideEl(pdbId, label);
+      if (el && el.nodeName === 'text') {
+        setOrRemove(el, 'font-weight', stored.fw);
+        setOrRemove(el, 'font-size', stored.fs);
+        setOrRemove(el, 'stroke', stored.stroke);
+        setOrRemove(el, 'stroke-width', stored.sw);
+        setOrRemove(el, 'stroke-linejoin', stored.slj);
+        setOrRemove(el, 'paint-order', stored.po);
+      }
+      origStyle.delete(label);
+    }
+
+    const origColor = svc.colorNucleotide.bind(svc);
+    svc.colorNucleotide = function (pdbId, label, color, mode) {
+      origColor(pdbId, label, color, mode);
+      if (mode === 'selection') {
+        applySelectionTypography(nucleotideEl(pdbId, label), label);
+      }
+    };
+
+    const origClear = svc.clearNucleotides.bind(svc);
+    svc.clearNucleotides = function (pdbId, mode, labels) {
+      if (mode === 'selection') {
+        const keys = labels != null ? labels : Array.from(svc.selected.keys());
+        keys.forEach((label) => restoreTypography(pdbId, label));
+      }
+      origClear(pdbId, mode, labels);
+    };
+  })();
+
   // 1..N label  ->  PDB author residue number
   const labelToAuth = {};
   apiData.label_seq_ids.forEach((label, i) => {
