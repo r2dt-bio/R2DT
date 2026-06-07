@@ -35,7 +35,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "50"
+_R2DT_ASSETS_VERSION = "55"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).
@@ -83,13 +83,21 @@ _TEMPLATE = """<!DOCTYPE html>
     overflow-x: auto; background: #fafafa;
     border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px 12px;
   }}
-  .lbn-block + .lbn-block {{ margin-top: 10px; border-top: 1px solid #eee; padding-top: 8px; }}
-  .lbn-block-header {{ color: #aaa; font-size: 11px; margin-bottom: 1px; }}
   .lbn-row {{
     font-family: 'Courier New', Courier, monospace;
     font-size: 12px; white-space: pre; line-height: 1.6;
   }}
-  .lbn-label {{ color: #888; }}
+  .lbn-label {{
+    display: inline-block;
+    width: 7ch;
+    color: #888;
+  }}
+  .lbn-nt, .lbn-bp, .lbn-dot {{
+    display: inline-block;
+    width: 1ch;
+    text-align: center;
+    vertical-align: bottom;
+  }}
   .lbn-nt {{ cursor: pointer; border-radius: 2px; }}
   .lbn-nt:hover {{ background: #d0eaf8; }}
   .lbn-bp {{ cursor: pointer; font-weight: bold; border-radius: 2px; }}
