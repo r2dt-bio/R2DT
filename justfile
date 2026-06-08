@@ -45,7 +45,10 @@ download data_version="2.1":
     curl -O -L https://github.com/r2dt-bio/R2DT/releases/download/v{{ data_version }}/cms.tar.gz
     tar -xzf cms.tar.gz
 
-# Refresh the vendored layered-bp-notation script from the hackathon repo
+# Refresh the vendored layered-bp-notation script from upstream.
+# The full project lives in the na-hackathon repo (not pip-installable yet);
+# R2DT only vendors the two files needed for --basepairs cif.
+# See utils/layered_bp_notation/README.md.
 sync-lbn:
     #!/usr/bin/env bash
     set -euo pipefail

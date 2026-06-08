@@ -3,8 +3,9 @@
 FR3D ``_basepair.txt`` format the rest of the pipeline already consumes -- so no
 FR3D run is needed.
 
-The CIF reading itself is done by the vendored layered-bp-notation script
-(``utils/layered_bp_notation/``), refreshed with ``just sync-lbn``. This module
+The CIF reading itself is done by the vendored layered-bp-notation scripts
+in ``utils/layered_bp_notation/`` (upstream project, not pip-installable yet;
+refreshed with ``just sync-lbn`` — see that directory's README). This module
 is the thin adapter: it filters to one chain, derives a pseudoknot ``crossing``
 level for each cWW pair from the same nesting logic the script's notation uses,
 and emits the tab-delimited file keyed by FR3D-style unit ids.
