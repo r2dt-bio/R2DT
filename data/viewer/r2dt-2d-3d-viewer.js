@@ -533,7 +533,15 @@
   let bpPathsMaterialized = false;
   let onBpFilterUpdated = () => {};
 
-  const BP_PATH_ID_RE = /\b([ct](?:WW|WH|WS|HH|HS|SS)_\d+_\d+)\b/;
+  // All 12 LW families, including SH/HW/SW (plugin stores some pairs under
+  // canonical swapped codes like tHS while the SVG class stays tSH_…).
+  const BP_PATH_ID_RE =
+    /\b([ct](?:WW|WH|HW|WS|SW|HH|HS|SH|SS)_\d+_\d+)\b/;
+
+  function nestedBpInput() {
+    return root.querySelector(`#nestedBP-${PDB_LOWER}`)
+      || root.querySelector('#nestedBP');
+  }
 
   function pathIdsInDisplayHtml(html) {
     const ids = new Set();
@@ -547,6 +555,183 @@
   function bpPathIdFromElement(el) {
     const m = (el.getAttribute('class') || '').match(BP_PATH_ID_RE);
     return m ? m[1] : null;
+  }
+
+  function isCanonicalWatsonCrick(family, nt1, nt2) {
+    if (family !== 'cWW') return false;
+    const a = nt1.toUpperCase();
+    const b = nt2.toUpperCase();
+    return (a === 'A' && (b === 'U' || b === 'T'))
+      || (b === 'A' && (a === 'U' || a === 'T'))
+      || (a === 'G' && b === 'C')
+      || (a === 'C' && b === 'G');
+  }
+
+  let fr3dPairLookup = null;
+  function getFr3dPairLookup() {
+    if (!fr3dPairLookup) {
+      fr3dPairLookup = new Map();
+      (fr3dData.annotations || []).forEach((a) => {
+        fr3dPairLookup.set(`${a.seq_id1}_${a.seq_id2}`, a);
+        fr3dPairLookup.set(`${a.seq_id2}_${a.seq_id1}`, a);
+      });
+    }
+    return fr3dPairLookup;
+  }
+
+  function buildCwwNonCanonicalD(m, _, b, w, i) {
+    const cx = (m + b) / 2;
+    const cy = (_ + w) / 2;
+    const halfLen = Math.hypot(b - m, w - _) / 2 || 1;
+    const frac = Math.min(i / 4 / halfLen, 0.45);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const bx = lerp(m, cx, 1 - frac);
+    const by = lerp(_, cy, 1 - frac);
+    const nx = lerp(cx, b, frac);
+    const ny = lerp(cy, w, frac);
+    return (
+      `M ${m} ${_} ${bx} ${by} ` +
+      `M ${cx - i / 4} ${cy} ` +
+      `a ${i / 4},${i / 4} 0 1,0 ${i / 2},0 ` +
+      `a ${i / 4},${i / 4} 0 1,0 ${-i / 2},0 ` +
+      `M ${nx} ${ny} ${b} ${w}`
+    );
+  }
+
+  const CWW_LINE_D_RE =
+    /M\s*([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)/;
+
+  let labelPositionMap = null;
+  function getLabelPositionMap() {
+    if (labelPositionMap) return labelPositionMap;
+    labelPositionMap = new Map();
+    const paths = apiData.svg_paths || [];
+    const labels = apiData.label_seq_ids || [];
+    for (let n = 2; n < paths.length; n++) {
+      const label = labels[n - 1];
+      if (label == null) continue;
+      const tokens = paths[n].split(/[M,]/).filter((s) => s !== '');
+      if (tokens.length < 4) continue;
+      const x = parseFloat(tokens[2]);
+      const y = parseFloat(tokens[3]);
+      if (!isNaN(x) && !isNaN(y)) labelPositionMap.set(+label, [x, y]);
+    }
+    return labelPositionMap;
+  }
+
+  function getResidueLocation(seqId) {
+    const ui = rnaPlugin.uiTemplateService;
+    const id = +seqId;
+    if (ui?.locations?.get(id)) return ui.locations.get(id);
+    return getLabelPositionMap().get(id) || null;
+  }
+
+  function getCwwBpEndpoints(seq1, seq2, strokeWidth) {
+    const p1 = getResidueLocation(seq1);
+    const p2 = getResidueLocation(seq2);
+    if (!p1 || !p2) return null;
+    const i = parseFloat(strokeWidth || '2') * 6;
+    const x1 = p1[0] + i / 2.5;
+    const x2 = p2[0] + i / 2.5;
+    const y1 = p1[1] - i / 2.5;
+    const y2 = p2[1] - i / 2.5;
+    const len = Math.hypot(x1 - x2, y1 - y2) || 1;
+    const frac = i / len;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    return {
+      m: lerp(x1, x2, frac),
+      _: lerp(y1, y2, frac),
+      b: lerp(x1, x2, 1 - frac),
+      w: lerp(y1, y2, 1 - frac),
+    };
+  }
+
+  function parseCwwLineCoords(text) {
+    const coords = (text || '').match(CWW_LINE_D_RE);
+    if (!coords) return null;
+    return {
+      m: parseFloat(coords[1]),
+      _: parseFloat(coords[2]),
+      b: parseFloat(coords[3]),
+      w: parseFloat(coords[4]),
+    };
+  }
+
+  function getCwwLineCoords(pathId) {
+    const ui = rnaPlugin.uiTemplateService;
+    if (!ui?.baseStrs) return null;
+    let found = null;
+    ui.baseStrs.forEach((entry) => {
+      if (found || !Array.isArray(entry?.[1])) return;
+      entry[1].forEach((html) => {
+        if (found || typeof html !== 'string' || !html.includes(pathId)) return;
+        found = parseCwwLineCoords(html);
+      });
+    });
+    return found;
+  }
+
+  function resolveCwwEndpoints(pathId, seq1, seq2, strokeWidth, dText) {
+    return (
+      parseCwwLineCoords(dText)
+      || getCwwLineCoords(pathId)
+      || getCwwBpEndpoints(seq1, seq2, strokeWidth)
+    );
+  }
+
+  function isCwwLineGlyphD(d) {
+    return (d.match(/M/g) || []).length >= 3 && /\ba\s/i.test(d);
+  }
+
+  function repairCwwPathHtml(html) {
+    if (typeof html !== 'string') return html;
+    const idMatch = html.match(BP_PATH_ID_RE);
+    if (!idMatch || !idMatch[1].startsWith('cWW_')) return html;
+    const nums = idMatch[1].match(/cWW_(\d+)_(\d+)/);
+    if (!nums) return html;
+    const ann = getFr3dPairLookup().get(`${nums[1]}_${nums[2]}`);
+    if (!ann || isCanonicalWatsonCrick('cWW', ann.nt1, ann.nt2)) return html;
+    const swMatch = html.match(/stroke-width="([^"]+)"/);
+    const strokeWidth = swMatch?.[1] || '2';
+    const dMatch = html.match(/d="([^"]*)"/);
+    const ends = resolveCwwEndpoints(
+      idMatch[1], nums[1], nums[2], strokeWidth, dMatch?.[1]
+    );
+    if (!ends) return html;
+    const i = parseFloat(strokeWidth) * 6;
+    const glyphD = buildCwwNonCanonicalD(ends.m, ends._, ends.b, ends.w, i);
+    return html
+      .replace(/d="[^"]*"/, `d="${glyphD}"`)
+      .replace(/\s*data-stroke-color="[^"]*"/, '')
+      .replace(/stroke="#000"/, 'stroke="#ccc" fill="#ccc"');
+  }
+
+  function repairNonCanonicalCwwGlyphs() {
+    const lookup = getFr3dPairLookup();
+    root.querySelectorAll('path.rnaviewBP').forEach((p) => {
+      const id = bpPathIdFromElement(p);
+      if (!id || !id.startsWith('cWW_')) return;
+      const d = p.getAttribute('d') || '';
+      if (p.dataset.r2dtCwwGlyphFixed === '2' || isCwwLineGlyphD(d)) {
+        p.dataset.r2dtCwwGlyphFixed = '2';
+        return;
+      }
+      const nums = id.match(/cWW_(\d+)_(\d+)/);
+      if (!nums) return;
+      const ann = lookup.get(`${nums[1]}_${nums[2]}`);
+      if (!ann || isCanonicalWatsonCrick('cWW', ann.nt1, ann.nt2)) return;
+      const strokeWidth = p.getAttribute('stroke-width') || '2';
+      const ends = resolveCwwEndpoints(
+        id, nums[1], nums[2], strokeWidth, d
+      );
+      if (!ends) return;
+      const i = parseFloat(strokeWidth) * 6;
+      p.setAttribute('d', buildCwwNonCanonicalD(ends.m, ends._, ends.b, ends.w, i));
+      p.setAttribute('stroke', '#ccc');
+      p.setAttribute('fill', '#ccc');
+      p.removeAttribute('data-stroke-color');
+      p.dataset.r2dtCwwGlyphFixed = '2';
+    });
   }
 
   function materializeAllBpPaths() {
@@ -563,10 +748,13 @@
     ui.baseStrs.forEach((entry) => {
       entry[1].forEach((html) => {
         const m = html.match(BP_PATH_ID_RE);
-        if (m && !existing.has(m[1])) toAdd.push(html);
+        if (m && !existing.has(m[1])) {
+          toAdd.push(repairCwwPathHtml(html));
+        }
       });
     });
     if (toAdd.length) inner.insertAdjacentHTML('beforeend', toAdd.join(''));
+    repairNonCanonicalCwwGlyphs();
     bpPathsMaterialized = true;
   }
 
@@ -574,7 +762,7 @@
     const ui = rnaPlugin.uiTemplateService;
     if (!ui) return;
     materializeAllBpPaths();
-    const nested = root.querySelector('#nestedBP')?.checked;
+    const nested = nestedBpInput()?.checked;
     const visible = pathIdsInDisplayHtml(
       nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs
     );
@@ -585,6 +773,7 @@
       if (!id) return;
       p.style.display = visible.has(id) ? '' : 'none';
     });
+    repairNonCanonicalCwwGlyphs();
     onBpFilterUpdated();
   }
 
@@ -1058,6 +1247,8 @@
   }
 
   function isBasePairsPanelOpen() {
+    const dropdown = root.querySelector('#mainMenu .menu-dropdown');
+    if (dropdown?.classList.contains('show')) return true;
     const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes) return false;
     return getComputedStyle(checkboxes).display !== 'none';
@@ -1066,6 +1257,43 @@
   function closeBasePairsPanel() {
     if (!isBasePairsPanelOpen()) return;
     root.querySelector('#bpFilterBtn')?.click();
+  }
+
+  function mountFilterPanel() {
+    const checkboxes = root.querySelector('#checkboxes');
+    if (!checkboxes || !panel2d || checkboxes.dataset.r2dtFilterMoved) {
+      return !!checkboxes?.dataset.r2dtFilterMoved;
+    }
+    panel2d.appendChild(checkboxes);
+    checkboxes.classList.add('r2dt-bp-filter-panel');
+    checkboxes.dataset.r2dtFilterMoved = '1';
+    return true;
+  }
+
+  function installBpFilterPatch() {
+    const ui = rnaPlugin.uiTemplateService;
+    const filterBtn = root.querySelector('#bpFilterBtn');
+    const dropdown = root.querySelector('#mainMenu .menu-dropdown');
+    const checkboxes = root.querySelector('#checkboxes');
+    if (!ui || !filterBtn || !dropdown || !checkboxes || filterBtn.dataset.r2dtFilterBound) {
+      return;
+    }
+    const fresh = filterBtn.cloneNode(true);
+    fresh.setAttribute('aria-haspopup', 'true');
+    fresh.setAttribute('aria-expanded', 'false');
+    filterBtn.replaceWith(fresh);
+    fresh.dataset.r2dtFilterBound = '1';
+    fresh.addEventListener('click', () => {
+      ui.checkboxesExpanded = !ui.checkboxesExpanded;
+      dropdown.classList.toggle('show', ui.checkboxesExpanded);
+      root.querySelector('#bpFilterBtnIcon')
+        ?.classList.toggle('active', ui.checkboxesExpanded);
+      checkboxes.style.display = ui.checkboxesExpanded ? 'block' : 'none';
+      fresh.setAttribute('aria-expanded', String(ui.checkboxesExpanded));
+      if (ui.checkboxesExpanded) {
+        setTimeout(closeBpListPanel, 0);
+      }
+    });
   }
 
   function isBpListPanelOpen() {
@@ -1096,14 +1324,30 @@
       const raw = (li.textContent || '').trim();
       const m = raw.match(/^(.+?)\s*;\s*(\S+)\s*$/);
       if (!m) return;
+      const pairText = m[1].trim();
+      const familyText = m[2];
+      const ntMatch = pairText.match(/([AUGCT])(\d+)\s*-\s*([AUGCT])(\d+)/i);
+      const canonical = ntMatch
+        ? isCanonicalWatsonCrick(familyText, ntMatch[1], ntMatch[3])
+        : familyText === 'cWW';
+
       li.textContent = '';
       const pair = document.createElement('span');
       pair.className = 'r2dt-bp-list-pair';
-      pair.textContent = m[1].trim();
+      pair.textContent = pairText;
       const family = document.createElement('span');
       family.className = 'r2dt-bp-list-family';
-      family.textContent = m[2];
-      li.append(pair, family);
+      family.textContent = familyText;
+      if (!canonical) {
+        li.classList.add('r2dt-bp-list-item--nonwc');
+        const tag = document.createElement('span');
+        tag.className = 'r2dt-bp-list-tag';
+        tag.textContent = 'non-WC';
+        tag.setAttribute('aria-label', 'Non-Watson–Crick base pair');
+        li.append(pair, tag, family);
+      } else {
+        li.append(pair, family);
+      }
     });
   }
 
@@ -1125,7 +1369,68 @@
     }
   }
 
+  function findBpPathByPathId(pathID) {
+    const m = (pathID || '').match(BP_PATH_ID_RE);
+    if (!m) return null;
+    return root.querySelector(`.rnaviewBP[class*="${m[1]}"]`);
+  }
+
+  function installBpListDialogPatch() {
+    const ui = rnaPlugin.uiTemplateService;
+    if (!ui?.renderBpListDialog || ui._r2dtBpListPatched) return;
+    ui._r2dtBpListPatched = true;
+    ui.renderBpListDialog = function r2dtRenderBpListDialog(toggle) {
+      const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
+      const nestedInput = nestedBpInput();
+      if (!dialog || !nestedInput) return;
+      if (toggle) {
+        const open = getComputedStyle(dialog).display !== 'none';
+        dialog.style.display = open ? 'none' : 'flex';
+      }
+      dialog.innerHTML = '';
+      const displayHtml = nestedInput.checked
+        ? ui.displayNestedBaseStrs
+        : ui.displayBaseStrs;
+      const ul = document.createElement('ul');
+      (ui.bpLabels || [])
+        .filter((item) => displayHtml.includes(item.pathID))
+        .forEach((item) => {
+          const li = document.createElement('li');
+          li.textContent = item.label;
+          li.style.cursor = 'pointer';
+          const pathID = item.pathID;
+          li.addEventListener('mouseenter', () => {
+            findBpPathByPathId(pathID)?.dispatchEvent(
+              new Event('mouseover', { bubbles: true })
+            );
+            const tip = document.getElementById('tooltip');
+            if (tip) tip.style.display = 'none';
+          });
+          li.addEventListener('mouseleave', () => {
+            findBpPathByPathId(pathID)?.dispatchEvent(
+              new Event('mouseout', { bubbles: true })
+            );
+          });
+          li.addEventListener('click', () => {
+            findBpPathByPathId(pathID)?.dispatchEvent(
+              new Event('click', { bubbles: true })
+            );
+          });
+          ul.appendChild(li);
+        });
+      dialog.appendChild(ul);
+      ensureBpListPanelTitle();
+      applyBpListItemLabels();
+      normalizeBpListScroll();
+      const listBtn = root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`);
+      if (listBtn) {
+        listBtn.setAttribute('aria-expanded', String(isBpListPanelOpen()));
+      }
+    };
+  }
+
   function setupBpListToolbar() {
+    installBpListDialogPatch();
     const btn = root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`);
     const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     const pairsGroup = root.querySelector('.r2dt-toolbar-group--pairs');
@@ -1179,22 +1484,6 @@
       }
     }
 
-    const ui = rnaPlugin.uiTemplateService;
-    if (ui?.renderBpListDialog && !ui._r2dtBpListPatched) {
-      ui._r2dtBpListPatched = true;
-      const orig = ui.renderBpListDialog.bind(ui);
-      ui.renderBpListDialog = function r2dtRenderBpListDialog(toggle) {
-        orig(toggle);
-        ensureBpListPanelTitle();
-        applyBpListItemLabels();
-        normalizeBpListScroll();
-        const listBtn = root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`);
-        if (listBtn) {
-          listBtn.setAttribute('aria-expanded', String(isBpListPanelOpen()));
-        }
-      };
-    }
-
     return true;
   }
 
@@ -1210,7 +1499,9 @@
       'click',
       (ev) => {
         if (isBasePairsPanelOpen()) {
-          if (!ev.target.closest('#mainMenu .menu-dropdown')) {
+          if (!ev.target.closest(
+            '#mainMenu .menu-dropdown, #checkboxes, .r2dt-bp-filter-panel'
+          )) {
             setTimeout(closeBasePairsPanel, 0);
           }
         }
@@ -1253,6 +1544,8 @@
     const mainMenu = root.querySelector('#mainMenu');
     if (!mainMenu) return false;
     if (mainMenu.dataset.r2dtToolbarBound) {
+      mountFilterPanel();
+      installBpFilterPatch();
       bindFilterBadgeListener();
       updateFilterBadge();
       removeFilterHelp();
@@ -1269,7 +1562,7 @@
 
     const menuSelect = form.querySelector('.menuSelectbox');
     const filterDropdown = form.querySelector('.menu-dropdown');
-    const nestedWrap = root.querySelector('#nestedBP')?.parentElement;
+    const nestedWrap = nestedBpInput()?.parentElement;
     if (!menuSelect || !filterDropdown) return false;
 
     mainMenu.classList.add('r2dt-toolbar');
@@ -1320,23 +1613,33 @@
       nestedWrap.classList.add('r2dt-nested-wrap');
       const nestedText = nestedWrap.querySelector('label span');
       if (nestedText) nestedText.textContent = 'Nested only';
-      const nestedInput = nestedWrap.querySelector('#nestedBP');
+      let nestedInput = nestedWrap.querySelector(
+        `#nestedBP-${PDB_LOWER}, #nestedBP`
+      );
       const nestedLabel = nestedWrap.querySelector('label');
+      const nestedId = `nestedBP-${PDB_LOWER}`;
       if (nestedInput) {
         nestedInput.setAttribute('aria-label', 'Only nested base pairs');
       }
       if (nestedLabel) {
         nestedLabel.classList.add('r2dt-nested-toggle');
       }
-      // Duplicate #nestedBP ids on compare pages break label[for] (browser
-      // toggles the first checkbox in the document). Scope clicks locally.
-      if (nestedLabel && nestedInput) {
-        nestedLabel.removeAttribute('for');
-        nestedLabel.addEventListener('click', (ev) => {
-          if (ev.target === nestedInput) return;
-          ev.preventDefault();
-          nestedInput.click();
+      // Plugin binds #nestedBP to the original pathOrNucleotide (full SVG
+      // rebuild). Rebind to our patched version so non-canonical cWW glyphs
+      // stay repaired after toggling nested view.
+      if (nestedInput && !nestedInput.dataset.r2dtNestedBound) {
+        const nestedFresh = nestedInput.cloneNode(true);
+        nestedFresh.checked = nestedInput.checked;
+        nestedFresh.id = nestedId;
+        nestedInput.replaceWith(nestedFresh);
+        nestedFresh.dataset.r2dtNestedBound = '1';
+        nestedInput = nestedFresh;
+        nestedInput.addEventListener('change', () => {
+          if (uiSvc?.pathOrNucleotide) uiSvc.pathOrNucleotide();
         });
+      }
+      if (nestedLabel && nestedInput) {
+        nestedLabel.setAttribute('for', nestedId);
       }
       pairsGroup.append(nestedWrap);
     }
@@ -1369,6 +1672,8 @@
       mountFilterLegend();
     }
 
+    mountFilterPanel();
+    installBpFilterPatch();
     setupBpListToolbar();
     bindToolbarDropdowns();
     injectBackboneOverlay();
@@ -1427,6 +1732,7 @@
       hideEmptyFilterRows();
       const all = root.querySelector('#Checkbox_All');
       if (all && !all.checked) all.click();
+      applyBpVisibility();
       ensureFilterPanelTitle();
       injectFilterGlyphs();
       mountFilterLegend();
