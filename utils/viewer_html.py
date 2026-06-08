@@ -2,13 +2,10 @@
 Emit the ``index.html`` shell that pairs ``pdb-rna-viewer`` (2D) with
 ``pdbe-molstar`` (3D).
 
-The page is intentionally thin: it loads the vendored plugin + CSS, the
-pinned pdbe-molstar bundle, and ``viewer.js`` (the interaction glue, also
-vendored under ``data/viewer/`` and copied alongside). Per-structure
-configuration is injected as ``window.R2DT_CONFIG``; the data files
-``api.json`` / ``fr3d.json`` and the structure file are fetched from the
-same folder, so the viewer works under any same-origin HTTP server
-(Python ``http.server``, GitHub Pages, Cloudflare Pages, etc.).
+The page loads the vendored plugin + CSS, the pinned pdbe-molstar bundle,
+and ``r2dt-2d-3d-viewer.js``, then bootstraps the viewer with ``R2DTViewer.create()``.
+Data files (``api.json``, ``fr3d.json``, structure, ``manifest.json``) live
+in the same folder so the viewer works under any same-origin HTTP server.
 """
 
 import json
@@ -34,12 +31,12 @@ _MOLSTAR_CDN_CSS = (
 # them next to ``index.html`` at viewer-generation time.
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
-# Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "59"
+# Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
+_R2DT_ASSETS_VERSION = "62"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
-R2DT_CSS_FILENAME = "r2dt-viewer.css"
-# The interaction glue (plain JS, reads window.R2DT_CONFIG).
-VIEWER_JS_FILENAME = "viewer.js"
+R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
+# The interaction glue (``R2DTViewer.create`` API).
+VIEWER_JS_FILENAME = "r2dt-2d-3d-viewer.js"
 
 # Colour of the base-pair symbols, matching how pdb-rna-viewer draws them
 # in the 2D diagram (light grey rather than stark black).
@@ -84,48 +81,12 @@ _TEMPLATE = """<!DOCTYPE html>
   Unresolved residues are dimmed.
 </div>
 <div id="r2dt-viewer-mount"></div>
-
-{legend}
-
-<script>
-window.R2DT_CONFIG = {config_json};
-</script>
-<script src="{viewer_plugin_js}"></script>
-<script src="{molstar_js}"></script>
-<script src="{viewer_js}?v={assets_version}"></script>
-</body>
-</html>
-"""
-
-_EMBED_TEMPLATE = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>R2DT embed demo — {structure_id}</title>
-<link rel="stylesheet" type="text/css" href="{viewer_css}">
-<link rel="stylesheet" type="text/css" href="{r2dt_css}?v={assets_version}">
-<link rel="stylesheet" type="text/css" href="{molstar_css}">
-<style>
-  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; max-width: 1280px; }}
-  h1 {{ font-size: 18px; margin: 0 0 8px; }}
-  p {{ color: #444; font-size: 14px; line-height: 1.5; margin: 0 0 16px; }}
-  code {{ font-size: 13px; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }}
-</style>
-</head>
-<body>
-<h1>Embed demo — {structure_id}</h1>
-<p>
-  This page loads the viewer via <code>R2DTViewer.create()</code> instead of
-  <code>index.html</code>. Host the whole artifact folder on HTTPS and point
-  <code>baseUrl</code> at it.
-</p>
-<div id="rna-viewer"></div>
 <script src="{viewer_plugin_js}"></script>
 <script src="{molstar_js}"></script>
 <script src="{viewer_js}?v={assets_version}"></script>
 <script>
 R2DTViewer.create({{
-  mount: '#rna-viewer',
+  mount: '#r2dt-viewer-mount',
   baseUrl: '.',
   structureId: {structure_id_json},
   chainId: {chain_id_json},
@@ -134,7 +95,8 @@ R2DTViewer.create({{
   legendHtml: {legend_json},
 }}).catch(function (err) {{
   console.error(err);
-  document.getElementById('rna-viewer').textContent = 'Failed to load viewer: ' + err.message;
+  var mount = document.getElementById('r2dt-viewer-mount');
+  if (mount) mount.textContent = 'Failed to load viewer: ' + err.message;
 }});
 </script>
 </body>
@@ -150,7 +112,7 @@ def _bp_symbol(shapes, filled: bool) -> str:
     ``tri-l`` (Sugar edge, pointing right / left). ``filled`` selects the
     orientation: solid (cis) vs open (trans).
     """
-    # Match compact in-panel glyph proportions (viewer.js buildBpSymbolSvg).
+    # Match compact in-panel glyph proportions (r2dt-2d-3d-viewer.js buildBpSymbolSvg).
     width = 28 if len(shapes) == 1 else 40
     height, cy, r, stroke_w = 16, 8, 4, 1.2
     color = _BP_SYMBOL_COLOR
@@ -188,7 +150,7 @@ def _bp_symbol(shapes, filled: bool) -> str:
 
 
 def _bp_legend_panel_html() -> str:
-    """Build the Leontis-Westhof legend panel (no hidden wrapper)."""
+    """Build the Leontis-Westhof legend panel markup for ``legendHtml``."""
     rows = [
         ("cWW", [["circle"]], "tWW", [["circle"]]),
         (
@@ -237,18 +199,6 @@ open = <em>trans</em>.</p>
 </div>"""
 
 
-def _bp_legend_html() -> str:
-    """Build the Leontis-Westhof legend (mounted in-panel by viewer.js)."""
-    return (
-        f'<div id="r2dt-bp-legend-source" hidden>\n'
-        f"{_bp_legend_panel_html()}\n"
-        f"</div>"
-    )
-
-
-_LEGEND_HTML = _bp_legend_html()
-
-
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def render(
     out_dir: Path,
@@ -262,24 +212,19 @@ def render(
 
     The caller is responsible for placing ``api.json``, ``fr3d.json``,
     the structure file, and the vendored viewer assets (plugin JS/CSS and
-    ``viewer.js``) next to it. The viewer fetches the data via relative
+    ``r2dt-2d-3d-viewer.js``) next to it. The viewer fetches the data via relative
     URLs so it works under any same-origin HTTP server without
     configuration.
     """
-    config = {
-        "structureId": structure_id,
-        "chainId": chain_id or "",
-        "structureUrl": f"./{structure_filename}",
-        "structureFormat": structure_format,
-        "baseUrl": ".",
-    }
-    # Escape "</" so the JSON can't prematurely close the <script> block.
-    config_json = json.dumps(config).replace("</", "<\\/")
+    structure_url = f"./{structure_filename}"
     html = _TEMPLATE.format(
         structure_id=structure_id,
         chain_id=chain_id or "",
-        config_json=config_json,
-        legend=_LEGEND_HTML,
+        structure_id_json=json.dumps(structure_id),
+        chain_id_json=json.dumps(chain_id or ""),
+        structure_url_json=json.dumps(structure_url),
+        structure_format_json=json.dumps(structure_format),
+        legend_json=json.dumps(_bp_legend_panel_html()),
         annotation_source=annotation_source or _DEFAULT_ANNOTATION_SOURCE,
         viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
         viewer_css=VIEWER_CSS_FILENAME,
@@ -291,14 +236,16 @@ def render(
     )
     target = out_dir / "index.html"
     target.write_text(html)
+    stale_embed = out_dir / "embed-example.html"
+    if stale_embed.is_file():
+        stale_embed.unlink()
+    stale_viewer_js = out_dir / "viewer.js"
+    if stale_viewer_js.is_file():
+        stale_viewer_js.unlink()
+    stale_viewer_css = out_dir / "r2dt-viewer.css"
+    if stale_viewer_css.is_file():
+        stale_viewer_css.unlink()
     write_manifest(
-        out_dir,
-        structure_id=structure_id,
-        chain_id=chain_id,
-        structure_filename=structure_filename,
-        structure_format=structure_format,
-    )
-    render_embed(
         out_dir,
         structure_id=structure_id,
         chain_id=chain_id,
@@ -325,33 +272,4 @@ def write_manifest(
     }
     target = out_dir / "manifest.json"
     target.write_text(json.dumps(manifest, indent=2) + "\n")
-    return target
-
-
-def render_embed(
-    out_dir: Path,
-    structure_id: str,
-    chain_id: Optional[str],
-    structure_filename: str,
-    structure_format: str,
-) -> Path:
-    """Write ``embed-example.html`` demonstrating ``R2DTViewer.create()``."""
-    structure_url = f"./{structure_filename}"
-    html = _EMBED_TEMPLATE.format(
-        structure_id=structure_id,
-        structure_id_json=json.dumps(structure_id),
-        chain_id_json=json.dumps(chain_id or ""),
-        structure_url_json=json.dumps(structure_url),
-        structure_format_json=json.dumps(structure_format),
-        legend_json=json.dumps(_bp_legend_panel_html()),
-        viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
-        viewer_css=VIEWER_CSS_FILENAME,
-        r2dt_css=R2DT_CSS_FILENAME,
-        viewer_js=VIEWER_JS_FILENAME,
-        assets_version=_R2DT_ASSETS_VERSION,
-        molstar_js=_MOLSTAR_CDN_JS,
-        molstar_css=_MOLSTAR_CDN_CSS,
-    )
-    target = out_dir / "embed-example.html"
-    target.write_text(html)
     return target

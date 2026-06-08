@@ -3047,7 +3047,7 @@ def _copy_viewer_assets(viewer_dir: Path) -> None:
     The pdb-rna-viewer compiled bundle isn't on a CDN, isn't on npm, and
     the GitHub release downloads are served with ``application/octet-stream``
     which browsers refuse to load as a stylesheet. So we vendor it (plus
-    the ``viewer.js`` interaction glue) under ``data/viewer/`` in the R2DT
+    the ``r2dt-2d-3d-viewer.js`` interaction glue) under ``data/viewer/`` in the R2DT
     repo (Apache-2.0) and copy it into each output folder.
     """
     src = Path(__file__).resolve().parent / "data" / "viewer"

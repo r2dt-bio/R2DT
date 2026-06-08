@@ -57,7 +57,7 @@ def _annotation_source(index_html: str) -> Optional[str]:
 
 
 def upgrade_viewer_folder(folder: Path) -> bool:
-    """Write ``lbn.json``, copy ``viewer.js``, and re-render ``index.html``."""
+    """Write ``lbn.json``, copy viewer assets, and re-render ``index.html``."""
     api_path = folder / "api.json"
     fr3d_path = folder / "fr3d.json"
     if not api_path.is_file() or not fr3d_path.is_file():

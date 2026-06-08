@@ -8,11 +8,13 @@ artefacts are not published on a CDN or npm.
 | --- | --- | --- |
 | `pdb-rna-viewer-plugin-0.3.0.js` | [PDBeurope/pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.3.0 release | Apache-2.0 (see `*.LICENSE.txt`) |
 | `pdb-rna-viewer-0.3.0.css` | same | Apache-2.0 |
-| `viewer.js` | R2DT (this repository) | Apache-2.0 |
+| `r2dt-2d-3d-viewer.js` | R2DT (this repository) | Apache-2.0 |
+| `r2dt-2d-3d-viewer.css` | R2DT (this repository) | Apache-2.0 |
 
-`viewer.js` is the glue that wires pdb-rna-viewer (2D) to pdbe-molstar
-(3D); it is plain JavaScript and reads per-structure configuration from
-`window.R2DT_CONFIG`, injected by the generated `index.html`.
+`r2dt-2d-3d-viewer.js` exposes `R2DTViewer.create()` — the glue that wires
+pdb-rna-viewer (2D) to pdbe-molstar (3D). Generated `index.html` calls it
+inline; third-party pages can load the same scripts and call it with a
+`baseUrl` pointing at a published artifact folder.
 
 `pdbe-molstar` itself is loaded at runtime from a pinned jsDelivr URL (see
 `utils/viewer_html.py`), not vendored here.

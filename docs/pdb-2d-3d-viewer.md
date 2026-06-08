@@ -49,10 +49,13 @@ In addition to everything the `pdb` command writes, the output folder gets a `vi
 
 ```
 <output_folder>/viewer/
-├── index.html                          # the viewer page
-├── viewer.js                           # interaction glue (vendored in R2DT)
+├── index.html                          # viewer page (calls R2DTViewer.create)
+├── manifest.json                       # structure id, chain, file URL (for embeds)
+├── r2dt-2d-3d-viewer.js                # R2DTViewer.create() glue (vendored in R2DT)
+├── r2dt-2d-3d-viewer.css               # toolbar / panel chrome (vendored in R2DT)
 ├── api.json                            # nucleotide positions, sequence, seq-id maps
 ├── fr3d.json                           # base-pair annotations
+├── lbn.json                            # layered dot-bracket notation rows
 ├── <structure_id>.cif (or .pdb)        # local copy of the structure
 ├── pdb-rna-viewer-plugin-0.3.0.js      # 2D viewer plugin (vendored in R2DT)
 └── pdb-rna-viewer-0.3.0.css            # 2D viewer stylesheet (vendored in R2DT)
@@ -60,7 +63,7 @@ In addition to everything the `pdb` command writes, the output folder gets a `vi
 
 `api.json` and `fr3d.json` are derived from R2DT's `*.colored.json`, `*.colored.svg`, and `*_basepair.txt` outputs and use 1-based positions aligned to the full (mask-expanded) deposited sequence, so unresolved residues are preserved.
 
-R2DT ships the [pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.3.0 build files (plus the `viewer.js` glue) under `data/viewer/` and copies them into each output folder automatically — no separate setup is needed. The 3D pane loads a pinned `pdbe-molstar` build from jsDelivr, so opening the viewer requires a network connection for that script.
+R2DT ships the [pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.3.0 build files (plus the `r2dt-2d-3d-viewer.js` glue) under `data/viewer/` and copies them into each output folder automatically — no separate setup is needed. The 3D pane loads a pinned `pdbe-molstar` build from jsDelivr, so opening the viewer requires a network connection for that script.
 
 The folder is self-contained relative to its own location: every data file is fetched via a relative URL, so it works under any same-origin static host — a local `http.server`, GitHub Pages, or Cloudflare Pages — with no configuration.
 
@@ -93,6 +96,108 @@ python3 -m http.server -d <output_folder>/viewer 8000
 
 To publish it, upload the `viewer/` folder to any static host (GitHub Pages, Cloudflare Pages, an S3 bucket, etc.) — no server-side configuration is required.
 
+## Embedding on your own site
+
+Generated `index.html` is itself an embed page: it loads the vendored scripts and calls `R2DTViewer.create()` to mount the viewer into a `<div>`. To put the same viewer on **your** website, host the whole `viewer/` folder on HTTPS and replicate that bootstrap on your page.
+
+### 1. Host the artifact folder
+
+Upload every file from `viewer/` to a static URL, for example:
+
+```
+https://cdn.example.com/rna/9SFQ/
+├── index.html
+├── manifest.json
+├── r2dt-2d-3d-viewer.js
+├── r2dt-2d-3d-viewer.css
+├── api.json
+├── fr3d.json
+├── lbn.json
+├── 9SFQ.cif
+├── pdb-rna-viewer-plugin-0.3.0.js
+└── pdb-rna-viewer-0.3.0.css
+```
+
+All paths are relative, so the folder can live at any prefix as long as the files stay together. Visitors' browsers also need network access to the pinned **pdbe-molstar** script on jsDelivr (same as the standalone page).
+
+### 2. Add a mount point and load the scripts
+
+On your page, include the same stylesheets and scripts as `index.html`, then call the API:
+
+```html
+<link rel="stylesheet" href="https://cdn.example.com/rna/9SFQ/pdb-rna-viewer-0.3.0.css">
+<link rel="stylesheet" href="https://cdn.example.com/rna/9SFQ/r2dt-2d-3d-viewer.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdbe-molstar@3.12.0/build/pdbe-molstar-light.css">
+
+<div id="my-rna-viewer"></div>
+
+<script src="https://cdn.example.com/rna/9SFQ/pdb-rna-viewer-plugin-0.3.0.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdbe-molstar@3.12.0/build/pdbe-molstar-plugin.js"></script>
+<script src="https://cdn.example.com/rna/9SFQ/r2dt-2d-3d-viewer.js"></script>
+<script>
+R2DTViewer.create({
+  mount: '#my-rna-viewer',
+  baseUrl: 'https://cdn.example.com/rna/9SFQ/',
+  structureId: '9SFQ',
+  chainId: 'T',
+  structureUrl: './9SFQ.cif',
+  structureFormat: 'cif',
+}).catch(function (err) {
+  console.error(err);
+});
+</script>
+```
+
+Copy the `<script>` block verbatim from a generated `index.html` if you prefer — it already contains the correct `structureId`, `chainId`, and `legendHtml` for that structure.
+
+When `baseUrl` points at a hosted artifact folder, `structureId` / `chainId` / `structureUrl` can be omitted if `manifest.json` is present; the API reads them from there.
+
+### API reference
+
+`R2DTViewer.create(options)` returns a Promise that resolves to a handle:
+
+| Option | Required | Description |
+| --- | --- | --- |
+| `mount` | yes | CSS selector or DOM element to mount into |
+| `baseUrl` | yes | URL of the artifact folder (trailing slash optional) |
+| `structureId` | if no manifest | PDB / mmCIF identifier |
+| `chainId` | no | Author chain id (default: from manifest or `""`) |
+| `structureUrl` | no | Relative path to structure file (default: from manifest or `<id>.cif`) |
+| `structureFormat` | no | `"cif"` or `"pdb"` (default: from manifest or `"cif"`) |
+| `layout` | no | `"side-by-side"` (default), `"stacked"`, `"2d-only"`, `"3d-only"` |
+| `height` | no | Panel height, e.g. `640` or `"100%"` |
+| `panelWidth` | no | Width of each pane in px (default `600`) |
+| `showLbn` | no | Show layered dot-bracket panel (default `true`) |
+| `showLegend` | no | Mount Leontis–Westhof legend in the base-pairs filter (default `true`) |
+| `legendHtml` | no | HTML string for the legend panel (generated pages pass this inline) |
+| `onReady` | no | Callback `(handle) => {}` when init completes |
+
+Handle methods:
+
+- `handle.selectResidue(label)` — highlight a 1-based sequence position in 2D and 3D
+- `handle.selectBasePair(a, b)` — highlight a base pair
+- `handle.destroy()` — tear down the viewer and clear the mount point
+
+:::{note}
+**v1 limitation:** only one `R2DTViewer.create()` call per page. To show multiple structures on a dashboard, link to separate viewer pages or use `<iframe src="…/index.html">` for each structure.
+:::
+
+### iframe fallback
+
+If you do not want to load the scripts on your own page, embed the hosted viewer page directly:
+
+```html
+<iframe
+  src="https://cdn.example.com/rna/9SFQ/index.html"
+  width="1232"
+  height="700"
+  style="border:0"
+  allow="fullscreen"
+></iframe>
+```
+
+This works without JavaScript integration but gives you a fixed-size page-in-a-page rather than a native widget.
+
 ## Galleries
 
 Several `viewer/` folders can be combined into a browsable gallery with `utils/build_viewers.py`, which writes an `index.html` of 2D-diagram thumbnails linking to each interactive viewer. Two galleries are wired up as `just` recipes:
@@ -100,7 +205,7 @@ Several `viewer/` folders can be combined into a browsable gallery with `utils/b
 - **Main gallery** — `just viewers` regenerates a gallery of curated PDB structures (FR3D base pairs) under `output/site/`.
 - **Workstream 1 dashboard** — `just ws1-viewers` regenerates a gallery that uses [`--basepairs cif`](./pdb.md#choosing-a-base-pair-extractor) on the FR3D-converted mmCIF inputs from the [na-hackathon](https://github.com/na-hackathon/na-hackathon-2026) repo. It downloads the inputs, runs `pdb_2d_3d --basepairs cif` on each, and publishes under `output/site/workstream1/` — beside, but separate from, the main gallery.
 
-`just viewers-deploy` publishes all of `output/site/` (both galleries) to Cloudflare Pages, so the workstream1 dashboard lands at `/workstream1/`. Run `just viewers` and/or `just ws1-viewers` first to refresh the contents. Set `CLOUDFLARE_PROJECT` in a gitignored `.env`.
+`just viewers-deploy` publishes all of `output/site/` (both galleries) to Cloudflare Pages — for example [https://2d-3d-viewer.na-hackathon-2026.pages.dev](https://2d-3d-viewer.na-hackathon-2026.pages.dev) — so the workstream1 dashboard lands at `/workstream1/`. Run `just viewers` and/or `just ws1-viewers` first to refresh the contents. Set `CLOUDFLARE_PROJECT` in a gitignored `.env`.
 
 ## Interaction model
 
@@ -108,8 +213,9 @@ Several `viewer/` folders can be combined into a browsable gallery with `utils/b
 - **2D → 3D (base pairs).** Clicking a base-pair line selects both partner residues in 3D and highlights the line in orange (the same colour the plugin uses for a clicked nucleotide). Only one base pair stays highlighted at a time.
 - **3D → 2D.** Clicking or hovering a residue in molstar highlights the matching nucleotide in the 2D diagram.
 - **Hover does nothing in 2D.** Hovering nucleotides or base pairs in the 2D diagram has no effect — only clicks drive a 3D response.
-- **Backbone path overlay.** A faint line tracing the backbone is drawn under the nucleotide letters, on by default. A "Show backbone path" checkbox (in place of the plugin's "View as Path" dropdown) toggles it.
+- **Backbone path overlay.** A faint line tracing the backbone is drawn under the nucleotide letters, on by default. A "Backbone" toggle in the toolbar shows or hides it.
 - **Base-pair family filter.** Only families actually present in this structure are listed in the filter, and they are all enabled by default.
+- **Layered dot-bracket notation (LBN).** Below the 2D+3D panes, a scrollable panel shows the sequence and per-family dot-bracket rows; clicks highlight the corresponding residues in 2D and 3D.
 - **Unresolved residues are dimmed.** Nucleotides missing from the 3D coordinates are shown in grey, consistent with the `pdb` command's behaviour (see [missing nucleotides in PDB structures](./pdb.md#missing-nucleotides-in-pdb-structures)).
 - **Pseudoknot Watson–Crick pairs are lightened** so they don't dominate the nested cWW ladder.
 

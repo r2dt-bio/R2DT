@@ -1,5 +1,5 @@
 /*
- * R2DT 2D+3D viewer glue — standalone page and embed API (R2DTViewer.create).
+ * R2DT 2D+3D viewer glue (r2dt-2d-3d-viewer.js) — standalone page and embed API.
  */
 
 (function (global) {
@@ -1647,33 +1647,4 @@
   }
 
   global.R2DTViewer = { create };
-
-  function autoInit() {
-    const cfg = global.R2DT_CONFIG;
-    if (!cfg || global.R2DT_AUTO_INIT === false) return;
-    const mount = document.getElementById('r2dt-viewer-mount');
-    if (!mount) return;
-    create({
-      mount,
-      baseUrl: cfg.baseUrl || '.',
-      structureId: cfg.structureId,
-      chainId: cfg.chainId,
-      structureUrl: cfg.structureUrl,
-      structureFormat: cfg.structureFormat,
-      legendHtml: document.getElementById('r2dt-bp-legend-source')?.outerHTML,
-      showLegend: cfg.showLegend !== false,
-      showLbn: cfg.showLbn !== false,
-      layout: cfg.layout || 'side-by-side',
-      height: cfg.height,
-      panelWidth: cfg.panelWidth,
-    }).catch((err) => {
-      console.error('R2DTViewer auto-init failed:', err);
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoInit);
-  } else {
-    autoInit();
-  }
 })(typeof window !== 'undefined' ? window : global);
