@@ -157,12 +157,14 @@
 }
 
 /* Nested-BP row injected by the plugin — restyle in place */
-.r2dt-toolbar-group--pairs > div:has(#nestedBP) {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap {
   display: inline-flex;
   align-items: center;
+  flex: none;
+  position: relative;
 }
 
-.r2dt-toolbar-group--pairs #nestedBP {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input {
   position: absolute;
   opacity: 0;
   width: 0;
@@ -170,7 +172,7 @@
   pointer-events: none;
 }
 
-.r2dt-toolbar-group--pairs label[for="nestedBP"] {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -180,15 +182,16 @@
   color: #374151;
   min-height: 32px;
   margin: 0;
+  white-space: nowrap;
 }
 
-.r2dt-toolbar-group--pairs label[for="nestedBP"] span {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle span {
   position: relative;
   padding-left: 42px;
   line-height: 20px;
 }
 
-.r2dt-toolbar-group--pairs label[for="nestedBP"] span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle span::before {
   content: "";
   position: absolute;
   left: 0;
@@ -200,7 +203,7 @@
   transition: background 0.15s ease;
 }
 
-.r2dt-toolbar-group--pairs label[for="nestedBP"] span::after {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle span::after {
   content: "";
   position: absolute;
   left: 2px;
@@ -213,15 +216,15 @@
   transition: transform 0.15s ease;
 }
 
-.r2dt-toolbar-group--pairs #nestedBP:checked ~ label span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle span::before {
   background: var(--r2dt-accent);
 }
 
-.r2dt-toolbar-group--pairs #nestedBP:checked ~ label span::after {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle span::after {
   transform: translateX(14px);
 }
 
-.r2dt-toolbar-group--pairs #nestedBP:focus-visible ~ label span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:focus-visible + .r2dt-nested-toggle span::before {
   outline: 2px solid #b8c9d9;
   outline-offset: 2px;
 }

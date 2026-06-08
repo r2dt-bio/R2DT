@@ -1317,12 +1317,16 @@
 
     pairsGroup.append(pairsLabel, filterDropdown);
     if (nestedWrap) {
-      const nestedText = nestedWrap.querySelector('label[for="nestedBP"] span, label span');
+      nestedWrap.classList.add('r2dt-nested-wrap');
+      const nestedText = nestedWrap.querySelector('label span');
       if (nestedText) nestedText.textContent = 'Nested only';
       const nestedInput = nestedWrap.querySelector('#nestedBP');
-      const nestedLabel = nestedWrap.querySelector('label[for="nestedBP"], label');
+      const nestedLabel = nestedWrap.querySelector('label');
       if (nestedInput) {
         nestedInput.setAttribute('aria-label', 'Only nested base pairs');
+      }
+      if (nestedLabel) {
+        nestedLabel.classList.add('r2dt-nested-toggle');
       }
       // Duplicate #nestedBP ids on compare pages break label[for] (browser
       // toggles the first checkbox in the document). Scope clicks locally.
@@ -1498,6 +1502,10 @@
     });
   }
 
+  // Set by _renderLBN when the panel is shown; keeps LBN in sync with every
+  // base-pair selection path (list, 2D line click, API).
+  let lbnHighlightFn = null;
+
   // Select a base pair: colour its 2D line orange (if its path is in the
   // DOM) and select both partner residues in 3D. `pathEl` may be null --
   // e.g. when triggered from the base-pair list while that pair's line
@@ -1518,6 +1526,7 @@
       lastBPSelected = pathEl;
     }
     selectInMolstar([a, b]);
+    if (lbnHighlightFn) lbnHighlightFn([a, b]);
   }
 
   // Find a rendered base-pair path by its two seq ids (either order).
@@ -1562,8 +1571,8 @@
   // view). Handle row clicks directly so every listed pair updates 3D.
   const bpListId = 'bpListDialog-' + STRUCTURE_ID.toLowerCase();
   document.addEventListener('click', (ev) => {
-    const li = ev.target.closest && ev.target.closest('#' + bpListId + ' li') && root.contains(ev.target);
-    if (!li) return;
+    const li = ev.target.closest?.('#' + bpListId + ' li');
+    if (!li || !root.contains(li)) return;
     const pairText =
       li.querySelector('.r2dt-bp-list-pair')?.textContent || li.textContent || '';
     const m = pairText.match(/(\d+)\D*?-\D*?(\d+)/);
@@ -1723,6 +1732,8 @@
       const lbl = authToLabel[ev.eventData.auth_seq_id];
       if (lbl) _lbnHighlight([lbl]);
     });
+
+    lbnHighlightFn = _lbnHighlight;
 
     // Expose for console debugging.
     window.__r2dt.lbnData      = data;
