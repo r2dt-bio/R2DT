@@ -20,6 +20,18 @@ _VIEWER_SRC = _REPO / "data" / "viewer"
 _CONFIG_RE = re.compile(r"window\.R2DT_CONFIG\s*=\s*(\{.*?\});", re.DOTALL)
 
 
+def _manifest_field(folder: Path, key: str) -> Optional[str]:
+    manifest_path = folder / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        data = json.loads(manifest_path.read_text())
+        val = data.get(key)
+        return val if val is not None else None
+    except (ValueError, OSError):
+        return None
+
+
 def _parse_config(index_html: str) -> Optional[dict]:
     match = _CONFIG_RE.search(index_html)
     if not match:
@@ -61,10 +73,16 @@ def upgrade_viewer_folder(folder: Path) -> bool:
 
     structure_id = (
         (config or {}).get("structureId")
+        or _manifest_field(folder, "structureId")
         or meta.get("structure_id")
         or folder.name.upper()
     )
-    chain_id = (config or {}).get("chainId") or meta.get("chain_id") or ""
+    chain_id = (
+        (config or {}).get("chainId")
+        or _manifest_field(folder, "chainId")
+        or meta.get("chain_id")
+        or ""
+    )
 
     if config and config.get("structureUrl"):
         structure_filename = config["structureUrl"].lstrip("./")

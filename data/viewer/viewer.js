@@ -1,45 +1,112 @@
 /*
- * R2DT 2D+3D viewer glue.
- *
- * Pairs pdb-rna-viewer (2D) with pdbe-molstar (3D) and bridges
- * click selection between them. Configuration (structure id, chain,
- * structure file URL/format) is injected by the generated index.html as
- * ``window.R2DT_CONFIG``; the data files ``api.json`` and ``fr3d.json``
- * plus the structure file are fetched from the same folder.
- *
- * This file is vendored under ``data/viewer/`` and copied next to each
- * generated ``index.html`` by the ``pdb_2d_3d`` command.
+ * R2DT 2D+3D viewer glue — standalone page and embed API (R2DTViewer.create).
  */
 
-// pdb-rna-viewer 0.3.0 ignores options.apiData / options.FR3DData and
-// always issues fetches for these EBI URLs. Redirect them to the local
-// files written alongside this page so the viewer works same-origin
-// (HTTP server, GitHub Pages, Cloudflare Pages, etc.). Installed before
-// rnaPlugin.render() runs below.
-(function () {
-  const origFetch = window.fetch.bind(window);
-  window.fetch = function (input, init) {
-    const url = typeof input === 'string' ? input : (input && input.url) || '';
-    if (url.includes('ebi.ac.uk/pdbe/static/entry/') && url.endsWith('_basepair.json')) {
-      return origFetch('fr3d.json', init);
-    }
-    if (url.includes('ebi.ac.uk/pdbe/static/entry/') && url.endsWith('.json')) {
-      return origFetch('api.json', init);
-    }
-    return origFetch(input, init);
-  };
-})();
+(function (global) {
+  'use strict';
 
-(async function () {
-  const CONFIG = window.R2DT_CONFIG || {};
-  const STRUCTURE_ID = CONFIG.structureId;
-  const CHAIN_ID = CONFIG.chainId || '';
-  const STRUCTURE_URL = CONFIG.structureUrl;
-  const STRUCTURE_FORMAT = CONFIG.structureFormat;
-  const PDB_LOWER = STRUCTURE_ID.toLowerCase();
+  let activeViewer = null;
 
-  const apiData = await (await fetch('api.json')).json();
-  const fr3dData = await (await fetch('fr3d.json')).json();
+  function normalizeBaseUrl(url) {
+    if (!url) return './';
+    return url.endsWith('/') ? url : url + '/';
+  }
+
+  function resolveUrl(baseUrl, path) {
+    const base = normalizeBaseUrl(baseUrl);
+    if (/^https?:\/\//i.test(base)) {
+      return new URL(path.replace(/^\.\//, ''), base).href;
+    }
+    return base + path.replace(/^\.\//, '');
+  }
+
+  async function fetchJson(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status}`);
+    return resp.json();
+  }
+
+  async function loadManifest(baseUrl) {
+    try {
+      const resp = await fetch(resolveUrl(baseUrl, 'manifest.json'));
+      if (resp.ok) return resp.json();
+    } catch (_) { /* optional */ }
+    return null;
+  }
+
+  function resolveMount(mount) {
+    if (!mount) throw new Error('R2DTViewer.create: mount is required');
+    if (typeof mount === 'string') {
+      const el = document.querySelector(mount);
+      if (!el) throw new Error(`R2DTViewer.create: mount not found: ${mount}`);
+      return el;
+    }
+    if (mount.nodeType === 1) return mount;
+    throw new Error('R2DTViewer.create: mount must be a selector or Element');
+  }
+
+  function buildViewerDom(mountEl, opts) {
+    mountEl.innerHTML = '';
+    const root = document.createElement('div');
+    root.className = 'r2dt-viewer-root';
+    root.dataset.structure = opts.structureId || '';
+    if (opts.layout) root.dataset.layout = opts.layout;
+    if (opts.height != null) {
+      root.style.setProperty('--r2dt-viewer-height', typeof opts.height === 'number' ? `${opts.height}px` : String(opts.height));
+    }
+    if (opts.panelWidth != null) {
+      root.style.setProperty('--r2dt-panel-size', typeof opts.panelWidth === 'number' ? `${opts.panelWidth}px` : String(opts.panelWidth));
+    }
+
+    const vis = document.createElement('div');
+    vis.className = 'r2dt-viewer-vis';
+
+    const panel2d = document.createElement('div');
+    panel2d.id = 'pdb-rna-viewer';
+    panel2d.className = 'r2dt-panel r2dt-panel--2d';
+
+    const panel3d = document.createElement('div');
+    panel3d.id = 'pdb-molstar';
+    panel3d.className = 'r2dt-panel r2dt-panel--3d';
+    if (opts.layout === '2d-only') panel3d.hidden = true;
+    if (opts.layout === '3d-only') panel2d.hidden = true;
+
+    vis.append(panel2d, panel3d);
+    root.appendChild(vis);
+
+    if (opts.showLbn !== false) {
+      const lbnPanel = document.createElement('div');
+      lbnPanel.id = 'lbn-panel';
+      lbnPanel.className = 'r2dt-viewer-lbn';
+      lbnPanel.hidden = true;
+      const lbnTitle = document.createElement('h2');
+      lbnTitle.className = 'r2dt-viewer-lbn-title';
+      lbnTitle.textContent = 'Layered dot-bracket notation (Leontis–Westhof base pairs)';
+      const lbnBody = document.createElement('div');
+      lbnBody.id = 'lbn-body';
+      lbnBody.className = 'lbn-body';
+      lbnBody.textContent = 'Loading…';
+      lbnPanel.append(lbnTitle, lbnBody);
+      root.appendChild(lbnPanel);
+    }
+
+    if (opts.legendHtml) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = opts.legendHtml;
+      const legend = wrap.firstElementChild;
+      if (legend) root.appendChild(legend);
+    }
+
+    mountEl.appendChild(root);
+    return { root, panel2d, panel3d };
+  }
+
+  async function initViewer(ctx) {
+    const {
+      root, panel2d, panel3d, baseUrl, resolveUrl,
+      STRUCTURE_ID, CHAIN_ID, STRUCTURE_URL, STRUCTURE_FORMAT, PDB_LOWER,
+      apiData, fr3dData, showLbn,
+    } = ctx;
 
   // The plugin auto-zooms the 2D view to the clicked nucleotide. That
   // creates a jarring "zoom out + zoom back in" jolt because the focus
@@ -63,11 +130,11 @@
     const selectionBgs = new Map(); // label -> background <rect>
 
     function nucleotideEl(pdbId, label) {
-      return document
-        .querySelector('svg.rnaTopoSvg')
-        .getElementsByClassName(
-          `rnaviewEle rnaviewEle_${pdbId} rnaview_${pdbId}_${label}`
-        )[0];
+      const svg = root.querySelector('svg.rnaTopoSvg');
+      if (!svg) return null;
+      return svg.getElementsByClassName(
+        `rnaviewEle rnaviewEle_${pdbId} rnaview_${pdbId}_${label}`
+      )[0];
     }
 
     function setOrRemove(el, attr, val) {
@@ -178,7 +245,7 @@
   // --- 2D viewer ---
   const rnaPlugin = new PdbRnaViewerPlugin();
   await rnaPlugin.render(
-    document.getElementById('pdb-rna-viewer'),
+    panel2d,
     {
       pdbId: STRUCTURE_ID.toLowerCase(),
       entityId: '1',
@@ -215,7 +282,7 @@
   function materializeAllBpPaths() {
     const ui = rnaPlugin.uiTemplateService;
     if (bpPathsMaterialized || !ui?.baseStrs) return;
-    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
     if (!inner) return;
     const existing = new Set();
     inner.querySelectorAll('path.rnaviewBP').forEach((p) => {
@@ -237,11 +304,11 @@
     const ui = rnaPlugin.uiTemplateService;
     if (!ui) return;
     materializeAllBpPaths();
-    const nested = document.getElementById('nestedBP')?.checked;
+    const nested = root.querySelector('#nestedBP')?.checked;
     const visible = pathIdsInDisplayHtml(
       nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs
     );
-    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
     if (!inner) return;
     inner.querySelectorAll('path.rnaviewBP').forEach((p) => {
       const id = bpPathIdFromElement(p);
@@ -257,7 +324,7 @@
     uiSvc.pathOrNucleotide = function r2dtPathOrNucleotide() {
       const menuSelect = uiSvc.containerElement?.querySelector('.menuSelectbox');
       const mode = menuSelect ? parseInt(menuSelect.value, 10) : 0;
-      const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+      const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
       if (mode === 0 && inner && inner.querySelector('text')) {
         applyBpVisibility();
         uiSvc.renderBpListDialog(false);
@@ -317,7 +384,7 @@
   }
 
   function injectBackboneOverlay() {
-    const svg = document.querySelector('svg.rnaTopoSvg');
+    const svg = root.querySelector('svg.rnaTopoSvg');
     if (!svg) return false;
     const existing = svg.querySelector('.r2dt-backbone-overlay');
     if (!backboneVisible) {
@@ -368,7 +435,7 @@
   // they don't dominate the nested cWW ladder. The minified plugin's
   // async render() doesn't reliably wait for the DOM, so poll briefly.
   function computeFitTransform() {
-    const svg = document.querySelector('svg.rnaTopoSvg');
+    const svg = root.querySelector('svg.rnaTopoSvg');
     if (!svg) return null;
     const inner = svg.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
     if (!inner) return null;
@@ -429,7 +496,7 @@
   }
 
   function getCurrentViewTransform() {
-    const inner = document.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
     const parsed = parseViewTransform(inner && inner.getAttribute('transform'));
     if (parsed) return parsed;
     return computeFitTransform() || { k: 1, x: 0, y: 0 };
@@ -442,15 +509,15 @@
       `.rnaTopoSvgHighlight_${PDB_LOWER}`,
       `.rnaTopoSvgSelection_${PDB_LOWER}`,
     ].forEach((sel) => {
-      const g = document.querySelector(sel);
+      const g = root.querySelector(sel);
       if (g) g.setAttribute('transform', tStr);
     });
-    const svg = document.querySelector('svg.rnaTopoSvg');
+    const svg = root.querySelector('svg.rnaTopoSvg');
     if (svg) svg.__zoom = createZoomTransform(tr.k, tr.x, tr.y);
   }
 
   function scaleViewTransform(factor) {
-    const svg = document.querySelector('svg.rnaTopoSvg');
+    const svg = root.querySelector('svg.rnaTopoSvg');
     if (!svg) return;
     const vb = svg.viewBox.baseVal;
     const cx = vb.width / 2;
@@ -478,12 +545,12 @@
   }
 
   function bindFitControls() {
-    const svg = document.querySelector('svg.rnaTopoSvg');
+    const svg = root.querySelector('svg.rnaTopoSvg');
     if (svg && !svg.dataset.r2dtFitListener) {
       svg.dataset.r2dtFitListener = '1';
       svg.addEventListener('mousedown', () => { userAdjustedView = true; });
     }
-    const zoomIn = document.querySelector(`#rnaTopologyZoomIn-${PDB_LOWER}`);
+    const zoomIn = root.querySelector(`#rnaTopologyZoomIn-${PDB_LOWER}`);
     if (zoomIn && !zoomIn.dataset.r2dtZoomBound) {
       zoomIn.dataset.r2dtZoomBound = '1';
       zoomIn.addEventListener(
@@ -497,7 +564,7 @@
         true
       );
     }
-    const zoomOut = document.querySelector(`#rnaTopologyZoomOut-${PDB_LOWER}`);
+    const zoomOut = root.querySelector(`#rnaTopologyZoomOut-${PDB_LOWER}`);
     if (zoomOut && !zoomOut.dataset.r2dtZoomBound) {
       zoomOut.dataset.r2dtZoomBound = '1';
       zoomOut.addEventListener(
@@ -519,7 +586,7 @@
         true
       );
     }
-    const resetBtn = document.querySelector(`#rnaTopologyReset-${PDB_LOWER}`);
+    const resetBtn = root.querySelector(`#rnaTopologyReset-${PDB_LOWER}`);
     if (resetBtn && !resetBtn.dataset.r2dtFitBound) {
       resetBtn.dataset.r2dtFitBound = '1';
       resetBtn.addEventListener(
@@ -565,11 +632,10 @@
   function applyFixups() {
     let any = false;
     unobserved.forEach((seqId) => {
-      document
-        .querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
+      root.querySelectorAll(`text.rnaview_${PDB_LOWER}_${seqId}`)
         .forEach((el) => { el.setAttribute('fill', '#bbbbbb'); any = true; });
     });
-    document.querySelectorAll('path.rnaviewBP').forEach((el) => {
+    root.querySelectorAll('path.rnaviewBP').forEach((el) => {
       const parsed = parseBpPathClass(el.getAttribute('class') || '');
       if (!parsed) return;
       const isCrossing = crossingPairs.has(`${parsed.a}_${parsed.b}`);
@@ -596,7 +662,7 @@
   // observer is what restores it; if it isn't attached yet, the wipe
   // goes unnoticed and the backbone only reappears after the next
   // unrelated DOM mutation (e.g. a hover).
-  const container = document.getElementById('pdb-rna-viewer');
+  const container = panel2d;
   if (container && 'MutationObserver' in window) {
     const mo = new MutationObserver(() => {
       // Debounce: schedule a single pass on next tick.
@@ -624,7 +690,7 @@
   }
 
   function hideEmptyFilterRows() {
-    document.querySelectorAll('#checkboxes tr').forEach((tr) => {
+    root.querySelectorAll('#checkboxes tr').forEach((tr) => {
       const anyVisible = [...tr.querySelectorAll('td')].some(
         (td) => td.style.display !== 'none'
       );
@@ -633,9 +699,9 @@
   }
 
   function updateFilterBadge() {
-    const badge = document.getElementById('r2dt-filter-badge');
+    const badge = root.querySelector('#r2dt-filter-badge');
     if (!badge) return;
-    const boxes = document.querySelectorAll('input[id^="Checkbox_"]:not(#Checkbox_All)');
+    const boxes = root.querySelectorAll('input[id^="Checkbox_"]:not(#Checkbox_All)');
     let total = 0;
     let checked = 0;
     boxes.forEach((cb) => {
@@ -647,7 +713,7 @@
   }
 
   function ensureFilterPanelTitle() {
-    const checkboxes = document.getElementById('checkboxes');
+    const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes || checkboxes.querySelector('.r2dt-filter-panel-title')) {
       return;
     }
@@ -658,12 +724,12 @@
   }
 
   function removeFilterHelp() {
-    const filterBtn = document.getElementById('bpFilterBtn');
+    const filterBtn = root.querySelector('#bpFilterBtn');
     if (filterBtn) {
       filterBtn.querySelector('#bpFilterBtnHelp, .help-icon')?.remove();
       filterBtn.setAttribute('aria-label', 'Base pairs filter and symbol legend');
     }
-    document.querySelectorAll('div.help-tooltip').forEach((tip) => {
+    root.querySelectorAll('div.help-tooltip').forEach((tip) => {
       if (/Displays checkboxes|base-pair famil/i.test(tip.textContent)) {
         tip.remove();
       }
@@ -745,11 +811,11 @@
   }
 
   function injectFilterGlyphs() {
-    document.querySelectorAll('#checkboxes .r2dt-bp-glyph-wrap').forEach((wrap) => {
+    root.querySelectorAll('#checkboxes .r2dt-bp-glyph-wrap').forEach((wrap) => {
       const cb = wrap.closest('label')?.querySelector('input[id^="Checkbox_"]');
       if (!cb || !isFilterCheckboxVisible(cb)) wrap.remove();
     });
-    document
+    root
       .querySelectorAll('input[id^="Checkbox_"]:not(#Checkbox_All)')
       .forEach((cb) => {
         const label = cb.closest('label');
@@ -768,34 +834,34 @@
           textEl.insertAdjacentElement('afterend', glyphWrap);
         }
       });
-    document.querySelectorAll('input[id^="Checkbox_"]').forEach((cb) => {
+    root.querySelectorAll('input[id^="Checkbox_"]').forEach((cb) => {
       if (cb.id === 'Checkbox_All') wrapFilterLabelText(cb, 'All');
     });
   }
 
   function isBasePairsPanelOpen() {
-    const checkboxes = document.getElementById('checkboxes');
+    const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes) return false;
     return getComputedStyle(checkboxes).display !== 'none';
   }
 
   function closeBasePairsPanel() {
     if (!isBasePairsPanelOpen()) return;
-    document.getElementById('bpFilterBtn')?.click();
+    root.querySelector('#bpFilterBtn')?.click();
   }
 
   function isBpListPanelOpen() {
-    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     return dialog && getComputedStyle(dialog).display !== 'none';
   }
 
   function closeBpListPanel() {
     if (!isBpListPanelOpen()) return;
-    document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`)?.click();
+    root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`)?.click();
   }
 
   function ensureBpListPanelTitle() {
-    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     if (!dialog || !dialog.querySelector('ul')) return;
     if (dialog.querySelector('.r2dt-bp-list-panel-title')) return;
     const title = document.createElement('div');
@@ -805,7 +871,7 @@
   }
 
   function applyBpListItemLabels() {
-    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     if (!dialog) return;
     dialog.querySelectorAll('ul > li').forEach((li) => {
       if (li.querySelector('.r2dt-bp-list-pair')) return;
@@ -824,7 +890,7 @@
   }
 
   function normalizeBpListScroll() {
-    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     const ul = dialog?.querySelector('ul');
     if (!dialog || !ul) return;
     // Plugin toggles display:block, which breaks flex and prevents ul scroll.
@@ -842,10 +908,10 @@
   }
 
   function setupBpListToolbar() {
-    const btn = document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`);
-    const dialog = document.getElementById(`bpListDialog-${PDB_LOWER}`);
-    const pairsGroup = document.querySelector('.r2dt-toolbar-group--pairs');
-    const viewer = document.getElementById('pdb-rna-viewer');
+    const btn = root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`);
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
+    const pairsGroup = root.querySelector('.r2dt-toolbar-group--pairs');
+    const viewer = panel2d;
     if (!btn || !dialog || !pairsGroup || !viewer || dialog.dataset.r2dtToolbarMoved) {
       return !!dialog?.dataset.r2dtToolbarMoved;
     }
@@ -864,7 +930,7 @@
     dialog.classList.add('r2dt-bp-list-panel');
     dialog.dataset.r2dtToolbarMoved = '1';
 
-    const btnGroup = document.querySelector('.pdb-rna-view-btn-group.left');
+    const btnGroup = root.querySelector('.pdb-rna-view-btn-group.left');
     if (btnGroup && !btnGroup.querySelector('button, .pdb-rna-view-btn')) {
       btnGroup.remove();
     }
@@ -883,8 +949,8 @@
       );
     }
 
-    if (!document.getElementById('bpFilterBtn')?.dataset.r2dtListBound) {
-      const filterBtn = document.getElementById('bpFilterBtn');
+    if (!root.querySelector('#bpFilterBtn')?.dataset.r2dtListBound) {
+      const filterBtn = root.querySelector('#bpFilterBtn');
       if (filterBtn) {
         filterBtn.dataset.r2dtListBound = '1';
         filterBtn.addEventListener(
@@ -904,7 +970,7 @@
         ensureBpListPanelTitle();
         applyBpListItemLabels();
         normalizeBpListScroll();
-        const listBtn = document.getElementById(`rnaTopologyBPList-${PDB_LOWER}`);
+        const listBtn = root.querySelector(`#rnaTopologyBPList-${PDB_LOWER}`);
         if (listBtn) {
           listBtn.setAttribute('aria-expanded', String(isBpListPanelOpen()));
         }
@@ -915,8 +981,8 @@
   }
 
   function bindToolbarDropdowns() {
-    if (document.body.dataset.r2dtDropdownBound) return;
-    document.body.dataset.r2dtDropdownBound = '1';
+    if (root.dataset.r2dtDropdownBound) return;
+    root.dataset.r2dtDropdownBound = '1';
 
     // Capture phase: the plugin stops propagation on diagram clicks, so a
     // bubble-phase listener on document never runs for clicks on the 2D canvas.
@@ -941,15 +1007,15 @@
   }
 
   function mountFilterLegend() {
-    document.querySelector('.r2dt-symbols-dropdown')?.remove();
+    root.querySelector('.r2dt-symbols-dropdown')?.remove();
 
-    const checkboxes = document.getElementById('checkboxes');
+    const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes || checkboxes.querySelector('.r2dt-bp-legend-more')) return true;
 
-    const source = document.getElementById('r2dt-bp-legend-source');
+    const source = root.querySelector('#r2dt-bp-legend-source');
     let panelContent = source?.querySelector('.r2dt-bp-legend-panel');
     if (!panelContent) {
-      panelContent = document.querySelector('.r2dt-bp-legend-panel');
+      panelContent = root.querySelector('.r2dt-bp-legend-panel');
     }
     if (!panelContent) return false;
 
@@ -964,14 +1030,14 @@
   }
 
   function bindFilterBadgeListener() {
-    const checkboxes = document.getElementById('checkboxes');
+    const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes || checkboxes.dataset.r2dtBadgeBound) return;
     checkboxes.dataset.r2dtBadgeBound = '1';
     checkboxes.addEventListener('change', updateFilterBadge);
   }
 
   function setupToolbar() {
-    const mainMenu = document.getElementById('mainMenu');
+    const mainMenu = root.querySelector('#mainMenu');
     if (!mainMenu) return false;
     if (mainMenu.dataset.r2dtToolbarBound) {
       bindFilterBadgeListener();
@@ -990,14 +1056,14 @@
 
     const menuSelect = form.querySelector('.menuSelectbox');
     const filterDropdown = form.querySelector('.menu-dropdown');
-    const nestedWrap = document.getElementById('nestedBP')?.parentElement;
+    const nestedWrap = root.querySelector('#nestedBP')?.parentElement;
     if (!menuSelect || !filterDropdown) return false;
 
     mainMenu.classList.add('r2dt-toolbar');
     mainMenu.dataset.r2dtToolbarBound = '1';
     menuSelect.style.display = 'none';
 
-    const titleOverlay = document.querySelector('.pdb-rna-view-title');
+    const titleOverlay = root.querySelector('.pdb-rna-view-title');
     if (titleOverlay) titleOverlay.style.display = 'none';
 
     const titleEl = document.createElement('span');
@@ -1048,19 +1114,19 @@
     form.insertBefore(viewGroup, menuSelect);
     form.insertBefore(pairsGroup, menuSelect);
 
-    const filterBtn = document.getElementById('bpFilterBtn');
+    const filterBtn = root.querySelector('#bpFilterBtn');
     if (filterBtn) {
       filterBtn.childNodes.forEach((node) => {
         if (node.nodeType === 3 && /Filter/i.test(node.nodeValue)) {
           node.nodeValue = 'Base Pairs';
         }
       });
-      if (!document.getElementById('r2dt-filter-badge')) {
+      if (!root.querySelector('#r2dt-filter-badge')) {
         const badge = document.createElement('span');
         badge.id = 'r2dt-filter-badge';
         badge.className = 'r2dt-filter-badge';
         badge.setAttribute('aria-hidden', 'true');
-        const icon = document.getElementById('bpFilterBtnIcon');
+        const icon = root.querySelector('#bpFilterBtnIcon');
         if (icon) filterBtn.insertBefore(badge, icon);
         else filterBtn.appendChild(badge);
       }
@@ -1111,7 +1177,7 @@
     );
     let attempts = 0;
     const tick = () => {
-      const boxes = document.querySelectorAll('input[id^="Checkbox_"]');
+      const boxes = root.querySelectorAll('input[id^="Checkbox_"]');
       if (boxes.length === 0) {
         if (attempts++ > 40) return;
         setTimeout(tick, 100);
@@ -1128,7 +1194,7 @@
         }
       });
       hideEmptyFilterRows();
-      const all = document.getElementById('Checkbox_All');
+      const all = root.querySelector('#Checkbox_All');
       if (all && !all.checked) all.click();
       ensureFilterPanelTitle();
       injectFilterGlyphs();
@@ -1146,8 +1212,8 @@
     let attempts = 0;
     const tick = () => {
       removeFilterHelp();
-      const helpLeft = document.getElementById('bpFilterBtnHelp');
-      const tipLeft = [...document.querySelectorAll('div.help-tooltip')].some(
+      const helpLeft = root.querySelector('#bpFilterBtnHelp');
+      const tipLeft = [...root.querySelectorAll('div.help-tooltip')].some(
         (tip) => /Displays checkboxes|base-pair famil/i.test(tip.textContent)
       );
       if (!helpLeft && !tipLeft) return;
@@ -1184,7 +1250,7 @@
   const molstar = new PDBeMolstarPlugin();
   await new Promise((resolve) => {
     molstar.render(
-      document.getElementById('pdb-molstar'),
+      panel3d,
       {
         customData: { url: STRUCTURE_URL, format: STRUCTURE_FORMAT, binary: false },
         subscribeEvents: true,
@@ -1205,8 +1271,16 @@
     }
   });
 
-  // Expose handles for debugging in the browser console.
-  window.__r2dt = { molstar, rnaPlugin, apiData, fr3dData, labelToAuth, authToLabel };
+  ctx.handles = {
+    molstar,
+    rnaPlugin,
+    apiData,
+    fr3dData,
+    labelToAuth,
+    authToLabel,
+    root,
+  };
+  window.__r2dt = ctx.handles;
 
   function labelsToAuthData(labels) {
     // pdbe-molstar's visual.select / visual.highlight expect a residue
@@ -1288,7 +1362,7 @@
   // The bp class is the last token, "<bp>_<a>_<b>", so an attribute
   // "ends-with" match avoids false hits like _5_27 inside _5_271.
   function findBPPath(a, b) {
-    return document.querySelector(
+    return root.querySelector(
       `.rnaviewBP[class$="_${a}_${b}"], .rnaviewBP[class$="_${b}_${a}"]`
     );
   }
@@ -1297,7 +1371,7 @@
   // click handler that picks both partners out of the class name
   // (e.g. "cWW_5_27" -> labels [5, 27]).
   function attachBPClicks() {
-    document.querySelectorAll('path[class*="rnaviewBP"]').forEach((el) => {
+    root.querySelectorAll('path[class*="rnaviewBP"]').forEach((el) => {
       // Strip the plugin's inline tooltip handlers so hovering a base pair
       // does nothing -- only clicks should fire any UI response.
       el.removeAttribute('onmouseover');
@@ -1326,7 +1400,7 @@
   // view). Handle row clicks directly so every listed pair updates 3D.
   const bpListId = 'bpListDialog-' + STRUCTURE_ID.toLowerCase();
   document.addEventListener('click', (ev) => {
-    const li = ev.target.closest && ev.target.closest('#' + bpListId + ' li');
+    const li = ev.target.closest && ev.target.closest('#' + bpListId + ' li') && root.contains(ev.target);
     if (!li) return;
     const pairText =
       li.querySelector('.r2dt-bp-list-pair')?.textContent || li.textContent || '';
@@ -1342,7 +1416,7 @@
     bpObserver._pending = true;
     setTimeout(() => { bpObserver._pending = false; attachBPClicks(); }, 0);
   });
-  const bpContainer = document.getElementById('pdb-rna-viewer');
+  const bpContainer = panel2d;
   if (bpContainer) bpObserver.observe(bpContainer, { childList: true, subtree: true });
   // 2D hover intentionally does not update the 3D view -- only clicks
   // on nucleotides or base-pair lines cause a 3D selection/focus.
@@ -1370,20 +1444,20 @@
   });
 
   // ── LBN (layered dot-bracket notation) panel ────────────────────────────
-  // Load lbn.json (generated alongside api.json / fr3d.json).  The file may
-  // be absent for viewers built before this feature; skip gracefully.
-  let lbnData = null;
-  try {
-    const resp = await fetch('lbn.json');
-    if (resp.ok) lbnData = await resp.json();
-  } catch (_) { /* ignore */ }
+  if (showLbn) {
+    let lbnData = null;
+    try {
+      const resp = await fetch(resolveUrl(baseUrl, 'lbn.json'));
+      if (resp.ok) lbnData = await resp.json();
+    } catch (_) { /* ignore */ }
 
-  if (lbnData && lbnData.rows && lbnData.rows.length > 0) {
-    const lbnPanel = document.getElementById('lbn-panel');
-    const lbnBody  = document.getElementById('lbn-body');
-    if (lbnPanel && lbnBody) {
-      lbnPanel.style.display = '';
-      _renderLBN(lbnData, lbnBody);
+    if (lbnData && lbnData.rows && lbnData.rows.length > 0) {
+      const lbnPanel = root.querySelector('#lbn-panel');
+      const lbnBody = root.querySelector('#lbn-body');
+      if (lbnPanel && lbnBody) {
+        lbnPanel.hidden = false;
+        _renderLBN(lbnData, lbnBody);
+      }
     }
   }
 
@@ -1491,4 +1565,115 @@
     window.__r2dt.lbnHighlight = _lbnHighlight;
   }
   // ── end LBN ─────────────────────────────────────────────────────────────
-})();
+
+  ctx.handles.selectResidue = (l) => selectInMolstar([l]);
+  ctx.handles.selectBasePair = (a, b) => selectBasePair(a, b, findBPPath(a, b));
+
+  }
+
+  async function create(userOptions) {
+    if (activeViewer) {
+      throw new Error('R2DTViewer.create: only one viewer instance per page (v1)');
+    }
+
+    const opts = userOptions || {};
+    const mountEl = resolveMount(opts.mount);
+    const baseUrl = normalizeBaseUrl(opts.baseUrl || '.');
+    const manifest = await loadManifest(baseUrl);
+
+    const structureId = opts.structureId || manifest?.structureId;
+    const chainId = opts.chainId ?? manifest?.chainId ?? '';
+    const structureFormat = opts.structureFormat || manifest?.structureFormat || 'cif';
+    let structureUrl = opts.structureUrl || manifest?.structureUrl;
+    if (!structureId) {
+      throw new Error('R2DTViewer.create: structureId required (or manifest.json)');
+    }
+    if (!structureUrl) {
+      const ext = structureFormat === 'pdb' ? 'pdb' : 'cif';
+      structureUrl = `${structureId}.${ext}`;
+    }
+    const resolvedStructureUrl = resolveUrl(baseUrl, structureUrl);
+
+    const apiData = opts.apiData || await fetchJson(resolveUrl(baseUrl, 'api.json'));
+    const fr3dData = opts.fr3dData || await fetchJson(resolveUrl(baseUrl, 'fr3d.json'));
+
+    const dom = buildViewerDom(mountEl, {
+      structureId,
+      layout: opts.layout || 'side-by-side',
+      height: opts.height,
+      panelWidth: opts.panelWidth,
+      showLbn: opts.showLbn !== false,
+      legendHtml: opts.showLegend === false ? '' : opts.legendHtml,
+    });
+
+    const ctx = {
+      root: dom.root,
+      panel2d: dom.panel2d,
+      panel3d: dom.panel3d,
+      baseUrl,
+      resolveUrl,
+      STRUCTURE_ID: structureId,
+      CHAIN_ID: chainId,
+      STRUCTURE_URL: resolvedStructureUrl,
+      STRUCTURE_FORMAT: structureFormat,
+      PDB_LOWER: structureId.toLowerCase(),
+      apiData,
+      fr3dData,
+      showLbn: opts.showLbn !== false,
+      cleanup: [],
+      handles: null,
+    };
+
+    await initViewer(ctx);
+
+    const handle = {
+      root: ctx.root,
+      destroy() {
+        ctx.cleanup.forEach((fn) => { try { fn(); } catch (_) {} });
+        mountEl.innerHTML = '';
+        if (activeViewer === handle) activeViewer = null;
+        if (window.__r2dt === ctx.handles) window.__r2dt = undefined;
+      },
+      selectResidue(label) {
+        return ctx.handles?.selectResidue?.(label);
+      },
+      selectBasePair(a, b) {
+        return ctx.handles?.selectBasePair?.(a, b);
+      },
+    };
+    activeViewer = handle;
+    if (typeof opts.onReady === 'function') opts.onReady(handle);
+    return handle;
+  }
+
+  global.R2DTViewer = { create };
+
+  function autoInit() {
+    const cfg = global.R2DT_CONFIG;
+    if (!cfg || global.R2DT_AUTO_INIT === false) return;
+    const mount = document.getElementById('r2dt-viewer-mount');
+    if (!mount) return;
+    create({
+      mount,
+      baseUrl: cfg.baseUrl || '.',
+      structureId: cfg.structureId,
+      chainId: cfg.chainId,
+      structureUrl: cfg.structureUrl,
+      structureFormat: cfg.structureFormat,
+      legendHtml: document.getElementById('r2dt-bp-legend-source')?.outerHTML,
+      showLegend: cfg.showLegend !== false,
+      showLbn: cfg.showLbn !== false,
+      layout: cfg.layout || 'side-by-side',
+      height: cfg.height,
+      panelWidth: cfg.panelWidth,
+    }).catch((err) => {
+      console.error('R2DTViewer auto-init failed:', err);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+})(typeof window !== 'undefined' ? window : global);

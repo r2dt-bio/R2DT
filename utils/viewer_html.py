@@ -35,7 +35,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-viewer.css / viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "57"
+_R2DT_ASSETS_VERSION = "59"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-viewer.css"
 # The interaction glue (plain JS, reads window.R2DT_CONFIG).
@@ -73,37 +73,6 @@ _TEMPLATE = """<!DOCTYPE html>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; }}
   h1 {{ font-size: 16px; margin: 0 0 12px; }}
   .meta {{ color: #666; font-size: 12px; margin-bottom: 12px; }}
-  .vis {{ display: flex; gap: 16px; align-items: flex-start; }}
-  #pdb-rna-viewer {{ width: 600px; height: 600px; flex: none; }}
-  #pdb-molstar {{ width: 600px; height: 600px; position: relative; flex: none; }}
-  /* --- LBN panel --- */
-  #lbn-panel {{ margin-top: 20px; max-width: 1232px; }}
-  #lbn-panel h2 {{ font-size: 14px; font-weight: 600; margin: 0 0 6px; }}
-  .lbn-body {{
-    overflow-x: auto; background: #fafafa;
-    border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px 12px;
-  }}
-  .lbn-row {{
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px; white-space: pre; line-height: 1.6;
-  }}
-  .lbn-label {{
-    display: inline-block;
-    width: 7ch;
-    color: #888;
-  }}
-  .lbn-nt, .lbn-bp, .lbn-dot {{
-    display: inline-block;
-    width: 1ch;
-    text-align: center;
-    vertical-align: bottom;
-  }}
-  .lbn-nt {{ cursor: pointer; border-radius: 2px; }}
-  .lbn-nt:hover {{ background: #d0eaf8; }}
-  .lbn-bp {{ cursor: pointer; font-weight: bold; border-radius: 2px; }}
-  .lbn-bp:hover {{ background: #d0eaf8; }}
-  .lbn-selected {{ background: #ffe066 !important; outline: 1px solid #e6b800; }}
-  .lbn-partner {{ background: #ffc0cb !important; outline: 1px solid #d0607a; }}
 </style>
 </head>
 <body>
@@ -114,17 +83,9 @@ _TEMPLATE = """<!DOCTYPE html>
   base-pair annotations from {annotation_source}.
   Unresolved residues are dimmed.
 </div>
-<div class="vis">
-  <div id="pdb-rna-viewer"></div>
-  <div id="pdb-molstar"></div>
-</div>
+<div id="r2dt-viewer-mount"></div>
 
 {legend}
-
-<div id="lbn-panel" style="display:none">
-  <h2>Layered dot-bracket notation (Leontis–Westhof base pairs)</h2>
-  <div class="lbn-body" id="lbn-body">Loading…</div>
-</div>
 
 <script>
 window.R2DT_CONFIG = {config_json};
@@ -132,6 +93,50 @@ window.R2DT_CONFIG = {config_json};
 <script src="{viewer_plugin_js}"></script>
 <script src="{molstar_js}"></script>
 <script src="{viewer_js}?v={assets_version}"></script>
+</body>
+</html>
+"""
+
+_EMBED_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>R2DT embed demo — {structure_id}</title>
+<link rel="stylesheet" type="text/css" href="{viewer_css}">
+<link rel="stylesheet" type="text/css" href="{r2dt_css}?v={assets_version}">
+<link rel="stylesheet" type="text/css" href="{molstar_css}">
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; max-width: 1280px; }}
+  h1 {{ font-size: 18px; margin: 0 0 8px; }}
+  p {{ color: #444; font-size: 14px; line-height: 1.5; margin: 0 0 16px; }}
+  code {{ font-size: 13px; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }}
+</style>
+</head>
+<body>
+<h1>Embed demo — {structure_id}</h1>
+<p>
+  This page loads the viewer via <code>R2DTViewer.create()</code> instead of
+  <code>index.html</code>. Host the whole artifact folder on HTTPS and point
+  <code>baseUrl</code> at it.
+</p>
+<div id="rna-viewer"></div>
+<script src="{viewer_plugin_js}"></script>
+<script src="{molstar_js}"></script>
+<script src="{viewer_js}?v={assets_version}"></script>
+<script>
+R2DTViewer.create({{
+  mount: '#rna-viewer',
+  baseUrl: '.',
+  structureId: {structure_id_json},
+  chainId: {chain_id_json},
+  structureUrl: {structure_url_json},
+  structureFormat: {structure_format_json},
+  legendHtml: {legend_json},
+}}).catch(function (err) {{
+  console.error(err);
+  document.getElementById('rna-viewer').textContent = 'Failed to load viewer: ' + err.message;
+}});
+</script>
 </body>
 </html>
 """
@@ -182,13 +187,8 @@ def _bp_symbol(shapes, filled: bool) -> str:
     )
 
 
-def _bp_legend_html() -> str:
-    """Build the Leontis-Westhof legend (mounted in-panel by viewer.js)."""
-    # Each row: cis label, cis glyph specs, trans label, trans glyph specs.
-    # A spec is a list of one or two edge symbols drawn on a short line:
-    # ``circle`` (Watson-Crick edge), ``square`` (Hoogsteen), ``tri-r`` /
-    # ``tri-l`` (Sugar edge, pointing right / left). ``filled`` selects the
-    # orientation: solid (cis) vs open (trans).
+def _bp_legend_panel_html() -> str:
+    """Build the Leontis-Westhof legend panel (no hidden wrapper)."""
     rows = [
         ("cWW", [["circle"]], "tWW", [["circle"]]),
         (
@@ -221,8 +221,7 @@ def _bp_legend_html() -> str:
             f"<th>{trans_label}</th><td>{trans_svg}</td></tr>"
         )
     rows_html = "\n".join(body)
-    return f"""<div id="r2dt-bp-legend-source" hidden>
-<div class="r2dt-bp-legend-panel">
+    return f"""<div class="r2dt-bp-legend-panel">
 <p class="r2dt-bp-legend-intro">Each glyph encodes the two interacting edges
 and glycosidic-bond orientation. Edge shape: circle = Watson–Crick,
 square = Hoogsteen, triangle = Sugar. Fill: solid = <em>cis</em>,
@@ -235,8 +234,16 @@ open = <em>trans</em>.</p>
 </table>
 <p class="r2dt-bp-legend-cite">Symbols follow
 <a href="https://pubmed.ncbi.nlm.nih.gov/11345429/" target="_blank" rel="noopener">Leontis &amp; Westhof, 2001</a>.</p>
-</div>
 </div>"""
+
+
+def _bp_legend_html() -> str:
+    """Build the Leontis-Westhof legend (mounted in-panel by viewer.js)."""
+    return (
+        f'<div id="r2dt-bp-legend-source" hidden>\n'
+        f"{_bp_legend_panel_html()}\n"
+        f"</div>"
+    )
 
 
 _LEGEND_HTML = _bp_legend_html()
@@ -264,6 +271,7 @@ def render(
         "chainId": chain_id or "",
         "structureUrl": f"./{structure_filename}",
         "structureFormat": structure_format,
+        "baseUrl": ".",
     }
     # Escape "</" so the JSON can't prematurely close the <script> block.
     config_json = json.dumps(config).replace("</", "<\\/")
@@ -282,5 +290,68 @@ def render(
         molstar_css=_MOLSTAR_CDN_CSS,
     )
     target = out_dir / "index.html"
+    target.write_text(html)
+    write_manifest(
+        out_dir,
+        structure_id=structure_id,
+        chain_id=chain_id,
+        structure_filename=structure_filename,
+        structure_format=structure_format,
+    )
+    render_embed(
+        out_dir,
+        structure_id=structure_id,
+        chain_id=chain_id,
+        structure_filename=structure_filename,
+        structure_format=structure_format,
+    )
+    return target
+
+
+def write_manifest(
+    out_dir: Path,
+    structure_id: str,
+    chain_id: Optional[str],
+    structure_filename: str,
+    structure_format: str,
+) -> Path:
+    """Write ``manifest.json`` for ``R2DTViewer.create({ baseUrl })`` embeds."""
+    manifest = {
+        "structureId": structure_id,
+        "chainId": chain_id or "",
+        "structureUrl": f"./{structure_filename}",
+        "structureFormat": structure_format,
+        "assetsVersion": _R2DT_ASSETS_VERSION,
+    }
+    target = out_dir / "manifest.json"
+    target.write_text(json.dumps(manifest, indent=2) + "\n")
+    return target
+
+
+def render_embed(
+    out_dir: Path,
+    structure_id: str,
+    chain_id: Optional[str],
+    structure_filename: str,
+    structure_format: str,
+) -> Path:
+    """Write ``embed-example.html`` demonstrating ``R2DTViewer.create()``."""
+    structure_url = f"./{structure_filename}"
+    html = _EMBED_TEMPLATE.format(
+        structure_id=structure_id,
+        structure_id_json=json.dumps(structure_id),
+        chain_id_json=json.dumps(chain_id or ""),
+        structure_url_json=json.dumps(structure_url),
+        structure_format_json=json.dumps(structure_format),
+        legend_json=json.dumps(_bp_legend_panel_html()),
+        viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
+        viewer_css=VIEWER_CSS_FILENAME,
+        r2dt_css=R2DT_CSS_FILENAME,
+        viewer_js=VIEWER_JS_FILENAME,
+        assets_version=_R2DT_ASSETS_VERSION,
+        molstar_js=_MOLSTAR_CDN_JS,
+        molstar_css=_MOLSTAR_CDN_CSS,
+    )
+    target = out_dir / "embed-example.html"
     target.write_text(html)
     return target
