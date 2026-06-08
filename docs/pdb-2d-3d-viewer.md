@@ -178,8 +178,64 @@ Handle methods:
 - `handle.destroy()` — tear down the viewer and clear the mount point
 
 :::{note}
-**v1 limitation:** only one `R2DTViewer.create()` call per page. To show multiple structures on a dashboard, link to separate viewer pages or use `<iframe src="…/index.html">` for each structure.
+**v1 limitation:** only one `R2DTViewer.create()` or `R2DTViewer.createCompare()` call per page. To show multiple independent structures on a dashboard, link to separate viewer pages or use `<iframe src="…/index.html">` for each structure.
 :::
+
+### Comparing two 2D diagrams with one 3D view
+
+`R2DTViewer.createCompare()` mounts two (or more) 2D panels side by side plus a shared molstar pane. Clicks in one designated 2D panel are linked to the 3D view — useful when comparing two layouts of related RNAs while keeping a single 3D structure in frame.
+
+Host one folder per structure (each with `api.json`, `fr3d.json`, and the structure file), then bootstrap from the parent page:
+
+```html
+<div id="rna-compare"></div>
+<script>
+R2DTViewer.createCompare({
+  mount: '#rna-compare',
+  panels: [
+    {
+      title: '8SH5',
+      subtitle: '— 2D (chain R)',
+      baseUrl: './8sh5/',
+      structureId: '8SH5',
+      chainId: 'R',
+      structureUrl: './8SH5.pdb',
+      structureFormat: 'pdb',
+    },
+    {
+      title: 'RNApolis_R1293_m2',
+      subtitle: '— 2D (chain 1)',
+      baseUrl: './rnapolis/',
+      structureId: 'RNApolis_R1293_m2',
+      chainId: '1',
+      structureUrl: './RNApolis_R1293_m2.pdb',
+      structureFormat: 'pdb',
+    },
+  ],
+  molstar: {
+    panelIndex: 0,
+    title: '8SH5',
+    subtitle: '— 3D (molstar)',
+    baseUrl: './8sh5/',
+    structureId: '8SH5',
+    chainId: 'R',
+    structureUrl: './8SH5.pdb',
+    structureFormat: 'pdb',
+  },
+});
+</script>
+```
+
+| Option | Required | Description |
+| --- | --- | --- |
+| `mount` | yes | CSS selector or DOM element |
+| `panels` | yes | Array of panel configs (`title`, `subtitle`, `baseUrl`, `structureId`, `chainId`, …) |
+| `molstar` | no | Shared 3D pane; `panelIndex` (default `0`) selects which 2D panel links to 3D |
+| `panelHeight` | no | Height of each pane, e.g. `480` or `"50vh"` |
+| `fetchShim` | no | Route pdb-rna-viewer's EBI fetches to local `api.json` / `fr3d.json` (default `true`) |
+| `onReady` | no | Callback `(handle) => {}` when init completes |
+
+`utils/viewer_html.render_compare()` writes an `index.html` that calls `createCompare()` — see `output/compare/` for a working example.
 
 ### iframe fallback
 

@@ -45,6 +45,286 @@
     throw new Error('R2DTViewer.create: mount must be a selector or Element');
   }
 
+  function disableAutoZoomOnce() {
+    if (global.__r2dtZoomDisabled) return;
+    global.__r2dtZoomDisabled = true;
+    if (window.UiActionsService && window.UiActionsService.zoomToNucleotides) {
+      window.UiActionsService.zoomToNucleotides = function () {};
+    }
+  }
+
+  function enhanceSelectedNucleotideStyleOnce() {
+    const svc = window.UiActionsService;
+    if (!svc || !svc.colorNucleotide || svc.__r2dtStyleEnhanced) return;
+    svc.__r2dtStyleEnhanced = true;
+
+    const FONT_BUMP_PX = 1.33;
+    const HALO_STROKE = '#ffffff';
+    const HALO_WIDTH = '2';
+    const BG_FILL = '#fff3b0';
+    const BG_PAD = 2;
+    const origStyle = new Map();
+    const selectionBgs = new Map();
+
+    function nucleotideEl(pdbId, label) {
+      return document.getElementsByClassName(
+        `rnaviewEle rnaviewEle_${pdbId} rnaview_${pdbId}_${label}`
+      )[0];
+    }
+
+    function setOrRemove(el, attr, val) {
+      if (val != null) el.setAttribute(attr, val);
+      else el.removeAttribute(attr);
+    }
+
+    function removeSelectionBg(label) {
+      const existing = selectionBgs.get(label);
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      selectionBgs.delete(label);
+    }
+
+    function applySelectionBg(el, label) {
+      if (!el || el.nodeName !== 'text' || !el.parentNode) return;
+      removeSelectionBg(label);
+      let bbox;
+      try {
+        bbox = el.getBBox();
+      } catch (_) {
+        return;
+      }
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', 'r2dt-nt-selection-bg');
+      rect.setAttribute('x', String(bbox.x - BG_PAD));
+      rect.setAttribute('y', String(bbox.y - BG_PAD));
+      rect.setAttribute('width', String(bbox.width + 2 * BG_PAD));
+      rect.setAttribute('height', String(bbox.height + 2 * BG_PAD));
+      rect.setAttribute('rx', '3');
+      rect.setAttribute('fill', BG_FILL);
+      rect.setAttribute('stroke', 'none');
+      rect.style.pointerEvents = 'none';
+      el.parentNode.insertBefore(rect, el);
+      selectionBgs.set(label, rect);
+    }
+
+    function applySelectionTypography(el, label) {
+      if (!el || el.nodeName !== 'text') return;
+      if (!origStyle.has(label)) {
+        origStyle.set(label, {
+          fw: el.getAttribute('font-weight'),
+          fs: el.getAttribute('font-size'),
+          stroke: el.getAttribute('stroke'),
+          sw: el.getAttribute('stroke-width'),
+          slj: el.getAttribute('stroke-linejoin'),
+          po: el.getAttribute('paint-order'),
+        });
+      }
+      el.setAttribute('font-weight', 'bold');
+      const fs = parseFloat(el.getAttribute('font-size'));
+      if (!isNaN(fs)) {
+        el.setAttribute('font-size', (fs + FONT_BUMP_PX) + 'px');
+      }
+      el.setAttribute('stroke', HALO_STROKE);
+      el.setAttribute('stroke-width', HALO_WIDTH);
+      el.setAttribute('stroke-linejoin', 'round');
+      el.setAttribute('paint-order', 'stroke fill');
+      applySelectionBg(el, label);
+    }
+
+    function restoreTypography(pdbId, label) {
+      const stored = origStyle.get(label);
+      removeSelectionBg(label);
+      if (!stored) return;
+      const el = nucleotideEl(pdbId, label);
+      if (el && el.nodeName === 'text') {
+        setOrRemove(el, 'font-weight', stored.fw);
+        setOrRemove(el, 'font-size', stored.fs);
+        setOrRemove(el, 'stroke', stored.stroke);
+        setOrRemove(el, 'stroke-width', stored.sw);
+        setOrRemove(el, 'stroke-linejoin', stored.slj);
+        setOrRemove(el, 'paint-order', stored.po);
+      }
+      origStyle.delete(label);
+    }
+
+    const origColor = svc.colorNucleotide.bind(svc);
+    svc.colorNucleotide = function (pdbId, label, color, mode) {
+      origColor(pdbId, label, color, mode);
+      if (mode === 'selection') {
+        applySelectionTypography(nucleotideEl(pdbId, label), label);
+      }
+    };
+
+    const origClear = svc.clearNucleotides.bind(svc);
+    svc.clearNucleotides = function (pdbId, mode, labels) {
+      if (mode === 'selection') {
+        const keys = labels != null ? labels : Array.from(svc.selected.keys());
+        keys.forEach((label) => restoreTypography(pdbId, label));
+      }
+      origClear(pdbId, mode, labels);
+    };
+  }
+
+  function labelsFromEvent(e) {
+    const d = e.eventData || e.detail || {};
+    if (Array.isArray(d.label_seq_ids)) return d.label_seq_ids;
+    if (d.label_seq_id !== undefined && d.label_seq_id !== null) return [d.label_seq_id];
+    return [];
+  }
+
+  function buildLabelMaps(apiData) {
+    const labelToAuth = {};
+    apiData.label_seq_ids.forEach((label, i) => {
+      if (label !== null && label !== undefined) {
+        labelToAuth[label] = apiData.auth_seq_ids[i];
+      }
+    });
+    const authToLabel = {};
+    Object.entries(labelToAuth).forEach(([label, auth]) => {
+      authToLabel[auth] = parseInt(label);
+    });
+    return { labelToAuth, authToLabel };
+  }
+
+  async function resolvePanelData(baseUrl, opts) {
+    const normalized = normalizeBaseUrl(baseUrl);
+    const manifest = await loadManifest(normalized);
+    const structureId = opts.structureId || manifest?.structureId;
+    const chainId = opts.chainId ?? manifest?.chainId ?? '';
+    const structureFormat = opts.structureFormat || manifest?.structureFormat || 'cif';
+    let structureUrl = opts.structureUrl || manifest?.structureUrl;
+    if (!structureId) {
+      throw new Error('structureId required (or manifest.json)');
+    }
+    if (!structureUrl) {
+      const ext = structureFormat === 'pdb' ? 'pdb' : 'cif';
+      structureUrl = `${structureId}.${ext}`;
+    }
+    const resolvedStructureUrl = resolveUrl(normalized, structureUrl);
+    const apiData = opts.apiData || await fetchJson(resolveUrl(normalized, 'api.json'));
+    const fr3dData = opts.fr3dData || await fetchJson(resolveUrl(normalized, 'fr3d.json'));
+    return {
+      baseUrl: normalized,
+      resolveUrl,
+      structureId,
+      chainId,
+      structureUrl: resolvedStructureUrl,
+      structureFormat,
+      apiData,
+      fr3dData,
+      PDB_LOWER: structureId.toLowerCase(),
+    };
+  }
+
+  function installMultiPanelDomShim() {
+    if (global.__r2dtMultiPanelShim) return;
+    global.__r2dtMultiPanelShim = true;
+
+    let activeRoot = null;
+    document.addEventListener(
+      'pointerdown',
+      (ev) => {
+        const root = ev.target.closest('.r2dt-viewer-root');
+        if (root) activeRoot = root;
+      },
+      true
+    );
+
+    const origGetById = document.getElementById.bind(document);
+    document.getElementById = function (id) {
+      if (/-rnaTopology/.test(id)) return origGetById(id);
+      if (activeRoot) {
+        const inRoot = activeRoot.querySelector('#' + CSS.escape(id));
+        if (inRoot) return inRoot;
+      }
+      return origGetById(id);
+    };
+
+    const origQuery = document.querySelector.bind(document);
+    document.querySelector = function (selector) {
+      if (activeRoot && selector !== 'svg.rnaTopoSvg') {
+        const inRoot = activeRoot.querySelector(selector);
+        if (inRoot) return inRoot;
+      }
+      return origQuery(selector);
+    };
+  }
+
+  function installFetchShim(routes) {
+    if (global.__r2dtFetchShim || !routes || routes.length === 0) return;
+    global.__r2dtFetchShim = true;
+    const orig = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.includes('ebi.ac.uk/pdbe/static/entry/')) {
+        const isBp = url.endsWith('_basepair.json');
+        const file = isBp ? 'fr3d.json' : 'api.json';
+        const lower = url.toLowerCase();
+        for (let i = 0; i < routes.length; i++) {
+          const route = routes[i];
+          if (lower.includes(String(route.pdbIdMatch).toLowerCase())) {
+            return orig(resolveUrl(route.baseUrl, file), init);
+          }
+        }
+      }
+      return orig(input, init);
+    };
+  }
+
+  async function renderMolstarPlugin(panel3d, structureUrl, structureFormat) {
+    const molstar = new PDBeMolstarPlugin();
+    await new Promise((resolve) => {
+      molstar.render(
+        panel3d,
+        {
+          customData: { url: structureUrl, format: structureFormat, binary: false },
+          subscribeEvents: true,
+          bgColor: { r: 255, g: 255, b: 255 },
+          hideControls: true,
+          hideCanvasControls: ['expand'],
+          sequencePanel: false,
+          loadingOverlay: true,
+        }
+      );
+      if (molstar.events && molstar.events.loadComplete) {
+        const sub = molstar.events.loadComplete.subscribe((loaded) => {
+          if (loaded) { sub.unsubscribe(); resolve(); }
+        });
+      } else {
+        setTimeout(resolve, 1500);
+      }
+    });
+    return molstar;
+  }
+
+  function createMolstarSelector(molstar, labelToAuth, chainId) {
+    return async function selectInMolstar(labels) {
+      if (!molstar) return;
+      const data = labels.map((l) => {
+        const auth = labelToAuth[l];
+        if (auth === undefined || auth === null) return null;
+        return {
+          auth_asym_id: chainId,
+          start_auth_residue_number: auth,
+          end_auth_residue_number: auth,
+        };
+      }).filter((d) => d !== null);
+      if (data.length === 0) return;
+      await molstar.visual.select({
+        data: data.map((d) => ({ ...d, color: { r: 255, g: 112, b: 67 }, focus: false })),
+        keepRepresentations: true,
+      });
+      try {
+        const loci = molstar.getLociForParams(data);
+        const camera = molstar.plugin
+          && molstar.plugin.managers
+          && molstar.plugin.managers.camera;
+        if (loci && camera && camera.focusLoci) {
+          camera.focusLoci(loci);
+        }
+      } catch (_) { /* best-effort */ }
+    };
+  }
+
   const BP_GLYPH_COLOR = '#909090';
   const BP_FAMILY_GLYPH = {
     cWW: { shapes: ['circle'], filled: true },
@@ -225,140 +505,12 @@
       STRUCTURE_ID, CHAIN_ID, STRUCTURE_URL, STRUCTURE_FORMAT, PDB_LOWER,
       apiData, fr3dData, showLbn,
     } = ctx;
+    const link3d = ctx.link3d !== false;
 
-  // The plugin auto-zooms the 2D view to the clicked nucleotide. That
-  // creates a jarring "zoom out + zoom back in" jolt because the focus
-  // change is animated -- disable it so clicks just highlight.
-  if (window.UiActionsService && window.UiActionsService.zoomToNucleotides) {
-    window.UiActionsService.zoomToNucleotides = function () {};
-  }
+    disableAutoZoomOnce();
+    enhanceSelectedNucleotideStyleOnce();
 
-  // Make selected 2D nucleotide labels easier to spot: the plugin only
-  // recolours them orange, which is easy to miss on busy diagrams.
-  (function enhanceSelectedNucleotideStyle() {
-    const svc = window.UiActionsService;
-    if (!svc || !svc.colorNucleotide) return;
-
-    const FONT_BUMP_PX = 1.33; // ~1 pt
-    const HALO_STROKE = '#ffffff';
-    const HALO_WIDTH = '2';
-    const BG_FILL = '#fff3b0'; // soft yellow pill behind selected letters
-    const BG_PAD = 2;
-    const origStyle = new Map(); // label -> saved SVG text attrs
-    const selectionBgs = new Map(); // label -> background <rect>
-
-    function nucleotideEl(pdbId, label) {
-      const svg = root.querySelector('svg.rnaTopoSvg');
-      if (!svg) return null;
-      return svg.getElementsByClassName(
-        `rnaviewEle rnaviewEle_${pdbId} rnaview_${pdbId}_${label}`
-      )[0];
-    }
-
-    function setOrRemove(el, attr, val) {
-      if (val != null) el.setAttribute(attr, val);
-      else el.removeAttribute(attr);
-    }
-
-    function removeSelectionBg(label) {
-      const existing = selectionBgs.get(label);
-      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-      selectionBgs.delete(label);
-    }
-
-    function applySelectionBg(el, label) {
-      if (!el || el.nodeName !== 'text' || !el.parentNode) return;
-      removeSelectionBg(label);
-      let bbox;
-      try {
-        bbox = el.getBBox();
-      } catch (_) {
-        return;
-      }
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('class', 'r2dt-nt-selection-bg');
-      rect.setAttribute('x', String(bbox.x - BG_PAD));
-      rect.setAttribute('y', String(bbox.y - BG_PAD));
-      rect.setAttribute('width', String(bbox.width + 2 * BG_PAD));
-      rect.setAttribute('height', String(bbox.height + 2 * BG_PAD));
-      rect.setAttribute('rx', '3');
-      rect.setAttribute('fill', BG_FILL);
-      rect.setAttribute('stroke', 'none');
-      rect.style.pointerEvents = 'none';
-      el.parentNode.insertBefore(rect, el);
-      selectionBgs.set(label, rect);
-    }
-
-    function applySelectionTypography(el, label) {
-      if (!el || el.nodeName !== 'text') return;
-      if (!origStyle.has(label)) {
-        origStyle.set(label, {
-          fw: el.getAttribute('font-weight'),
-          fs: el.getAttribute('font-size'),
-          stroke: el.getAttribute('stroke'),
-          sw: el.getAttribute('stroke-width'),
-          slj: el.getAttribute('stroke-linejoin'),
-          po: el.getAttribute('paint-order'),
-        });
-      }
-      el.setAttribute('font-weight', 'bold');
-      const fs = parseFloat(el.getAttribute('font-size'));
-      if (!isNaN(fs)) {
-        el.setAttribute('font-size', (fs + FONT_BUMP_PX) + 'px');
-      }
-      el.setAttribute('stroke', HALO_STROKE);
-      el.setAttribute('stroke-width', HALO_WIDTH);
-      el.setAttribute('stroke-linejoin', 'round');
-      el.setAttribute('paint-order', 'stroke fill');
-      applySelectionBg(el, label);
-    }
-
-    function restoreTypography(pdbId, label) {
-      const stored = origStyle.get(label);
-      removeSelectionBg(label);
-      if (!stored) return;
-      const el = nucleotideEl(pdbId, label);
-      if (el && el.nodeName === 'text') {
-        setOrRemove(el, 'font-weight', stored.fw);
-        setOrRemove(el, 'font-size', stored.fs);
-        setOrRemove(el, 'stroke', stored.stroke);
-        setOrRemove(el, 'stroke-width', stored.sw);
-        setOrRemove(el, 'stroke-linejoin', stored.slj);
-        setOrRemove(el, 'paint-order', stored.po);
-      }
-      origStyle.delete(label);
-    }
-
-    const origColor = svc.colorNucleotide.bind(svc);
-    svc.colorNucleotide = function (pdbId, label, color, mode) {
-      origColor(pdbId, label, color, mode);
-      if (mode === 'selection') {
-        applySelectionTypography(nucleotideEl(pdbId, label), label);
-      }
-    };
-
-    const origClear = svc.clearNucleotides.bind(svc);
-    svc.clearNucleotides = function (pdbId, mode, labels) {
-      if (mode === 'selection') {
-        const keys = labels != null ? labels : Array.from(svc.selected.keys());
-        keys.forEach((label) => restoreTypography(pdbId, label));
-      }
-      origClear(pdbId, mode, labels);
-    };
-  })();
-
-  // 1..N label  ->  PDB author residue number
-  const labelToAuth = {};
-  apiData.label_seq_ids.forEach((label, i) => {
-    if (label !== null && label !== undefined) {
-      labelToAuth[label] = apiData.auth_seq_ids[i];
-    }
-  });
-  // PDB author residue number  ->  1..N label
-  const authToLabel = {};
-  Object.entries(labelToAuth).forEach(([label, auth]) => {
-    authToLabel[auth] = parseInt(label);
-  });
+    const { labelToAuth, authToLabel } = buildLabelMaps(apiData);
 
   // --- 2D viewer ---
   const rnaPlugin = new PdbRnaViewerPlugin();
@@ -1127,11 +1279,13 @@
     const titleOverlay = root.querySelector('.pdb-rna-view-title');
     if (titleOverlay) titleOverlay.style.display = 'none';
 
-    const titleEl = document.createElement('span');
-    titleEl.className = 'r2dt-toolbar-title';
-    titleEl.textContent = CHAIN_ID
+    const titleText = CHAIN_ID
       ? `${STRUCTURE_ID} · chain ${CHAIN_ID}`
       : STRUCTURE_ID;
+    const titleEl = document.createElement('span');
+    titleEl.className = 'r2dt-toolbar-title';
+    titleEl.textContent = titleText;
+    titleEl.title = titleText;
 
     const viewGroup = document.createElement('div');
     viewGroup.className = 'r2dt-toolbar-group r2dt-toolbar-group--view';
@@ -1141,9 +1295,10 @@
 
     const backboneLabel = document.createElement('label');
     backboneLabel.className = 'r2dt-toggle';
-    backboneLabel.htmlFor = 'r2dt-backbone-toggle';
+    const backboneId = `r2dt-backbone-toggle-${PDB_LOWER}`;
+    backboneLabel.htmlFor = backboneId;
     backboneLabel.innerHTML =
-      '<input type="checkbox" id="r2dt-backbone-toggle" checked ' +
+      `<input type="checkbox" id="${backboneId}" checked ` +
       'aria-label="Show backbone path">' +
       '<span class="r2dt-toggle-track" aria-hidden="true"></span>' +
       '<span class="r2dt-toggle-label">Backbone</span>';
@@ -1162,11 +1317,22 @@
 
     pairsGroup.append(pairsLabel, filterDropdown);
     if (nestedWrap) {
-      const nestedText = nestedWrap.querySelector('label[for="nestedBP"] span');
+      const nestedText = nestedWrap.querySelector('label[for="nestedBP"] span, label span');
       if (nestedText) nestedText.textContent = 'Nested only';
       const nestedInput = nestedWrap.querySelector('#nestedBP');
+      const nestedLabel = nestedWrap.querySelector('label[for="nestedBP"], label');
       if (nestedInput) {
         nestedInput.setAttribute('aria-label', 'Only nested base pairs');
+      }
+      // Duplicate #nestedBP ids on compare pages break label[for] (browser
+      // toggles the first checkbox in the document). Scope clicks locally.
+      if (nestedLabel && nestedInput) {
+        nestedLabel.removeAttribute('for');
+        nestedLabel.addEventListener('click', (ev) => {
+          if (ev.target === nestedInput) return;
+          ev.preventDefault();
+          nestedInput.click();
+        });
       }
       pairsGroup.append(nestedWrap);
     }
@@ -1307,30 +1473,11 @@
     tick();
   }
 
-  // --- 3D viewer ---
-  const molstar = new PDBeMolstarPlugin();
-  await new Promise((resolve) => {
-    molstar.render(
-      panel3d,
-      {
-        customData: { url: STRUCTURE_URL, format: STRUCTURE_FORMAT, binary: false },
-        subscribeEvents: true,
-        bgColor: { r: 255, g: 255, b: 255 },
-        hideControls: true,
-        hideCanvasControls: ['expand'],
-        sequencePanel: false,
-        loadingOverlay: true,
-      }
-    );
-    // pdbe-molstar fires loadComplete via events; fall back to a short delay.
-    if (molstar.events && molstar.events.loadComplete) {
-      const sub = molstar.events.loadComplete.subscribe((loaded) => {
-        if (loaded) { sub.unsubscribe(); resolve(); }
-      });
-    } else {
-      setTimeout(resolve, 1500);
-    }
-  });
+  // --- 3D viewer (optional; compare pages use a shared molstar pane) ---
+  let molstar = null;
+  if (link3d && panel3d && !panel3d.hidden) {
+    molstar = await renderMolstarPlugin(panel3d, STRUCTURE_URL, STRUCTURE_FORMAT);
+  }
 
   ctx.handles = {
     molstar,
@@ -1341,61 +1488,15 @@
     authToLabel,
     root,
   };
-  window.__r2dt = ctx.handles;
+  if (link3d) window.__r2dt = ctx.handles;
 
-  function labelsToAuthData(labels) {
-    // pdbe-molstar's visual.select / visual.highlight expect a residue
-    // range via start_auth_residue_number / end_auth_residue_number.
-    // Passing auth_seq_id alone is silently ignored, which selects the
-    // whole chain and makes focus() zoom to nothing.
-    return labels.map((l) => {
-      const auth = labelToAuth[l];
-      if (auth === undefined || auth === null) return null;
-      return {
-        auth_asym_id: CHAIN_ID,
-        start_auth_residue_number: auth,
-        end_auth_residue_number: auth,
-      };
-    }).filter((d) => d !== null);
-  }
+  const selectInMolstar = createMolstarSelector(molstar, labelToAuth, CHAIN_ID);
 
-  // 2D -> 3D. pdb-rna-viewer emits {label_seq_id} for single clicks and
-  // {label_seq_ids: [...]} for range selections; accept both.
-  function labelsFromEvent(e) {
-    const d = e.eventData || e.detail || {};
-    if (Array.isArray(d.label_seq_ids)) return d.label_seq_ids;
-    if (d.label_seq_id !== undefined && d.label_seq_id !== null) return [d.label_seq_id];
-    return [];
-  }
-  async function selectInMolstar(labels) {
-    const data = labelsToAuthData(labels);
-    if (data.length === 0) return;
-    // Colour the residue (chain-scoped) without molstar's "focus", which
-    // routes through the structure-focus manager: that renders the
-    // residue plus its surroundings and labels the group with a
-    // neighbouring residue -- in protein-RNA complexes a contacting amino
-    // acid (e.g. "SER 60"). Instead move only the camera onto the
-    // selection loci.
-    await molstar.visual.select({
-      data: data.map((d) => ({ ...d, color: { r: 255, g: 112, b: 67 }, focus: false })),
-      keepRepresentations: true,
+  if (link3d && molstar) {
+    document.addEventListener('PDB.RNA.viewer.click', (e) => {
+      selectInMolstar(labelsFromEvent(e));
     });
-    try {
-      const loci = molstar.getLociForParams(data);
-      const camera = molstar.plugin
-        && molstar.plugin.managers
-        && molstar.plugin.managers.camera;
-      if (loci && camera && camera.focusLoci) {
-        camera.focusLoci(loci);
-      }
-    } catch (err) {
-      /* camera focus is best-effort; selection colour already applied */
-    }
   }
-
-  document.addEventListener('PDB.RNA.viewer.click', (e) => {
-    selectInMolstar(labelsFromEvent(e));
-  });
 
   // Select a base pair: colour its 2D line orange (if its path is in the
   // DOM) and select both partner residues in 3D. `pathEl` may be null --
@@ -1482,27 +1583,29 @@
   // 2D hover intentionally does not update the 3D view -- only clicks
   // on nucleotides or base-pair lines cause a 3D selection/focus.
 
-  // 3D -> 2D (already wired inside pdb-rna-viewer when subscribeEvents).
-  // We just translate auth -> label in the listener that fires here.
-  document.addEventListener('PDB.molstar.click', (ev) => {
-    if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
-    const label = authToLabel[ev.eventData.auth_seq_id];
-    if (!label) return;
-    document.dispatchEvent(new CustomEvent('protvista-click', {
-      detail: { start: label, end: label },
-    }));
-  });
-  document.addEventListener('PDB.molstar.mouseover', (ev) => {
-    if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
-    const label = authToLabel[ev.eventData.auth_seq_id];
-    if (!label) return;
-    document.dispatchEvent(new CustomEvent('protvista-mouseover', {
-      detail: { start: label, end: label },
-    }));
-  });
-  document.addEventListener('PDB.molstar.mouseout', () => {
-    document.dispatchEvent(new CustomEvent('protvista-mouseout', { detail: {} }));
-  });
+  if (link3d && molstar) {
+    // 3D -> 2D (already wired inside pdb-rna-viewer when subscribeEvents).
+    // We just translate auth -> label in the listener that fires here.
+    document.addEventListener('PDB.molstar.click', (ev) => {
+      if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
+      const label = authToLabel[ev.eventData.auth_seq_id];
+      if (!label) return;
+      document.dispatchEvent(new CustomEvent('protvista-click', {
+        detail: { start: label, end: label },
+      }));
+    });
+    document.addEventListener('PDB.molstar.mouseover', (ev) => {
+      if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
+      const label = authToLabel[ev.eventData.auth_seq_id];
+      if (!label) return;
+      document.dispatchEvent(new CustomEvent('protvista-mouseover', {
+        detail: { start: label, end: label },
+      }));
+    });
+    document.addEventListener('PDB.molstar.mouseout', () => {
+      document.dispatchEvent(new CustomEvent('protvista-mouseout', { detail: {} }));
+    });
+  }
 
   // ── LBN (layered dot-bracket notation) panel ────────────────────────────
   if (showLbn) {
@@ -1632,34 +1735,54 @@
 
   }
 
+  function buildCompare2dDom(slotEl, panelOpts) {
+    const root = document.createElement('div');
+    root.className = 'r2dt-viewer-root';
+    root.dataset.layout = '2d-only';
+    if (panelOpts.height != null) {
+      root.style.setProperty(
+        '--r2dt-viewer-height',
+        typeof panelOpts.height === 'number' ? `${panelOpts.height}px` : String(panelOpts.height)
+      );
+    }
+    const vis = document.createElement('div');
+    vis.className = 'r2dt-viewer-vis';
+    const panel2d = document.createElement('div');
+    panel2d.className = 'r2dt-panel r2dt-panel--2d';
+    vis.append(panel2d);
+    root.append(vis);
+    slotEl.appendChild(root);
+    return { root, panel2d, panel3d: null };
+  }
+
+  function buildCompareSlot(title, subtitle) {
+    const slot = document.createElement('div');
+    slot.className = 'r2dt-compare-slot';
+    const heading = document.createElement('h2');
+    heading.className = 'r2dt-compare-slot-title';
+    heading.textContent = title;
+    if (subtitle) {
+      const tag = document.createElement('span');
+      tag.className = 'r2dt-compare-tag';
+      tag.textContent = subtitle;
+      heading.appendChild(document.createTextNode(' '));
+      heading.appendChild(tag);
+    }
+    slot.appendChild(heading);
+    return slot;
+  }
+
   async function create(userOptions) {
     if (activeViewer) {
-      throw new Error('R2DTViewer.create: only one viewer instance per page (v1)');
+      throw new Error('R2DTViewer.create: only one viewer or compare widget per page (v1)');
     }
 
     const opts = userOptions || {};
     const mountEl = resolveMount(opts.mount);
-    const baseUrl = normalizeBaseUrl(opts.baseUrl || '.');
-    const manifest = await loadManifest(baseUrl);
-
-    const structureId = opts.structureId || manifest?.structureId;
-    const chainId = opts.chainId ?? manifest?.chainId ?? '';
-    const structureFormat = opts.structureFormat || manifest?.structureFormat || 'cif';
-    let structureUrl = opts.structureUrl || manifest?.structureUrl;
-    if (!structureId) {
-      throw new Error('R2DTViewer.create: structureId required (or manifest.json)');
-    }
-    if (!structureUrl) {
-      const ext = structureFormat === 'pdb' ? 'pdb' : 'cif';
-      structureUrl = `${structureId}.${ext}`;
-    }
-    const resolvedStructureUrl = resolveUrl(baseUrl, structureUrl);
-
-    const apiData = opts.apiData || await fetchJson(resolveUrl(baseUrl, 'api.json'));
-    const fr3dData = opts.fr3dData || await fetchJson(resolveUrl(baseUrl, 'fr3d.json'));
+    const panelData = await resolvePanelData(opts.baseUrl || '.', opts);
 
     const dom = buildViewerDom(mountEl, {
-      structureId,
+      structureId: panelData.structureId,
       layout: opts.layout || 'side-by-side',
       height: opts.height,
       panelWidth: opts.panelWidth,
@@ -1671,16 +1794,17 @@
       root: dom.root,
       panel2d: dom.panel2d,
       panel3d: dom.panel3d,
-      baseUrl,
-      resolveUrl,
-      STRUCTURE_ID: structureId,
-      CHAIN_ID: chainId,
-      STRUCTURE_URL: resolvedStructureUrl,
-      STRUCTURE_FORMAT: structureFormat,
-      PDB_LOWER: structureId.toLowerCase(),
-      apiData,
-      fr3dData,
+      baseUrl: panelData.baseUrl,
+      resolveUrl: panelData.resolveUrl,
+      STRUCTURE_ID: panelData.structureId,
+      CHAIN_ID: panelData.chainId,
+      STRUCTURE_URL: panelData.structureUrl,
+      STRUCTURE_FORMAT: panelData.structureFormat,
+      PDB_LOWER: panelData.PDB_LOWER,
+      apiData: panelData.apiData,
+      fr3dData: panelData.fr3dData,
       showLbn: opts.showLbn !== false,
+      link3d: true,
       cleanup: [],
       handles: null,
     };
@@ -1707,5 +1831,157 @@
     return handle;
   }
 
-  global.R2DTViewer = { create };
+  async function createCompare(userOptions) {
+    if (activeViewer) {
+      throw new Error('R2DTViewer.createCompare: only one viewer or compare widget per page (v1)');
+    }
+
+    const opts = userOptions || {};
+    const mountEl = resolveMount(opts.mount);
+    const panels = opts.panels;
+    if (!Array.isArray(panels) || panels.length < 2) {
+      throw new Error('R2DTViewer.createCompare: panels array required (min 2 entries)');
+    }
+
+    const molstarOpts = opts.molstar || {};
+    const linkIndex = molstarOpts.panelIndex != null ? molstarOpts.panelIndex : 0;
+    if (linkIndex < 0 || linkIndex >= panels.length) {
+      throw new Error('R2DTViewer.createCompare: molstar.panelIndex out of range');
+    }
+
+    installMultiPanelDomShim();
+
+    if (opts.fetchShim !== false) {
+      const routes = [];
+      for (let i = 0; i < panels.length; i++) {
+        const cfg = await resolvePanelData(panels[i].baseUrl || '.', panels[i]);
+        routes.push({ pdbIdMatch: cfg.PDB_LOWER, baseUrl: cfg.baseUrl });
+      }
+      installFetchShim(routes);
+    }
+
+    mountEl.innerHTML = '';
+    const compareRoot = document.createElement('div');
+    compareRoot.className = 'r2dt-compare-root';
+    if (opts.panelHeight != null) {
+      compareRoot.style.setProperty(
+        '--r2dt-compare-panel-height',
+        typeof opts.panelHeight === 'number' ? `${opts.panelHeight}px` : String(opts.panelHeight)
+      );
+    }
+    const grid = document.createElement('div');
+    grid.className = 'r2dt-compare-grid';
+    compareRoot.appendChild(grid);
+    mountEl.appendChild(compareRoot);
+
+    const cleanup = [];
+    const panelCtxs = [];
+    const panelHandles = [];
+
+    for (let i = 0; i < panels.length; i++) {
+      const pOpts = panels[i];
+      const panelData = await resolvePanelData(pOpts.baseUrl || '.', pOpts);
+      const slot = buildCompareSlot(pOpts.title || panelData.structureId, pOpts.subtitle || '');
+      grid.appendChild(slot);
+      const dom = buildCompare2dDom(slot, { height: opts.panelHeight });
+      const ctx = {
+        root: dom.root,
+        panel2d: dom.panel2d,
+        panel3d: dom.panel3d,
+        baseUrl: panelData.baseUrl,
+        resolveUrl: panelData.resolveUrl,
+        STRUCTURE_ID: panelData.structureId,
+        CHAIN_ID: panelData.chainId,
+        STRUCTURE_URL: panelData.structureUrl,
+        STRUCTURE_FORMAT: panelData.structureFormat,
+        PDB_LOWER: panelData.PDB_LOWER,
+        apiData: panelData.apiData,
+        fr3dData: panelData.fr3dData,
+        showLbn: false,
+        link3d: false,
+        cleanup: [],
+        handles: null,
+      };
+      await initViewer(ctx);
+      panelCtxs.push(ctx);
+      panelHandles.push({
+        root: ctx.root,
+        structureId: panelData.structureId,
+        selectResidue(label) {
+          return ctx.handles?.selectResidue?.(label);
+        },
+        selectBasePair(a, b) {
+          return ctx.handles?.selectBasePair?.(a, b);
+        },
+      });
+    }
+
+    const linkedCtx = panelCtxs[linkIndex];
+    const linkedPanel = panels[linkIndex];
+    const molBaseUrl = molstarOpts.baseUrl || linkedPanel.baseUrl || '.';
+    const molData = await resolvePanelData(molBaseUrl, {
+      ...linkedPanel,
+      ...molstarOpts,
+      structureId: molstarOpts.structureId || linkedPanel.structureId,
+      chainId: molstarOpts.chainId ?? linkedPanel.chainId,
+    });
+
+    const molSlot = buildCompareSlot(
+      molstarOpts.title || molData.structureId,
+      molstarOpts.subtitle || '— 3D'
+    );
+    grid.appendChild(molSlot);
+    const molRoot = document.createElement('div');
+    molRoot.className = 'r2dt-viewer-root r2dt-compare-molstar-root';
+    molRoot.dataset.layout = '3d-only';
+    const molVis = document.createElement('div');
+    molVis.className = 'r2dt-viewer-vis';
+    const panel3d = document.createElement('div');
+    panel3d.className = 'r2dt-panel r2dt-panel--3d';
+    molVis.append(panel3d);
+    molRoot.append(molVis);
+    molSlot.appendChild(molRoot);
+
+    const molstar = await renderMolstarPlugin(
+      panel3d,
+      molData.structureUrl,
+      molData.structureFormat
+    );
+    const selectInMolstar = createMolstarSelector(
+      molstar,
+      linkedCtx.handles.labelToAuth,
+      molData.chainId
+    );
+    const linkedPdbLower = linkedCtx.PDB_LOWER;
+
+    function onLinked2dClick(e) {
+      const d = e.eventData || e.detail || {};
+      if ((d.pdbId || '').toLowerCase() !== linkedPdbLower) return;
+      selectInMolstar(labelsFromEvent(e));
+    }
+    document.addEventListener('PDB.RNA.viewer.click', onLinked2dClick);
+    cleanup.push(() => document.removeEventListener('PDB.RNA.viewer.click', onLinked2dClick));
+
+    const handle = {
+      root: compareRoot,
+      panels: panelHandles,
+      molstar,
+      destroy() {
+        cleanup.forEach((fn) => { try { fn(); } catch (_) {} });
+        mountEl.innerHTML = '';
+        if (activeViewer === handle) activeViewer = null;
+      },
+      selectResidue(label) {
+        return selectInMolstar([label]);
+      },
+      selectBasePair(a, b) {
+        return linkedCtx.handles?.selectBasePair?.(a, b);
+      },
+    };
+    activeViewer = handle;
+    if (typeof opts.onReady === 'function') opts.onReady(handle);
+    return handle;
+  }
+
+  global.R2DTViewer = { create, createCompare };
 })(typeof window !== 'undefined' ? window : global);

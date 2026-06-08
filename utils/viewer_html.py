@@ -10,7 +10,7 @@ in the same folder so the viewer works under any same-origin HTTP server.
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 # Pin pdbe-molstar to a known-good version so an upstream release can't
 # silently break the viewer. Bump intentionally after testing.
@@ -32,7 +32,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "63"
+_R2DT_ASSETS_VERSION = "66"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
 # The interaction glue (``R2DTViewer.create`` API).
@@ -151,6 +151,76 @@ def render(
         structure_filename=structure_filename,
         structure_format=structure_format,
     )
+    return target
+
+
+_COMPARE_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{page_title}</title>
+<link rel="stylesheet" type="text/css" href="{viewer_css}">
+<link rel="stylesheet" type="text/css" href="{r2dt_css}?v={assets_version}">
+<link rel="stylesheet" type="text/css" href="{molstar_css}">
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 16px; color: #222; }}
+  h1 {{ font-size: 18px; margin: 0 0 4px; }}
+  .meta {{ color: #666; font-size: 12px; margin: 0 0 16px; }}
+</style>
+</head>
+<body>
+<h1>{heading}</h1>
+<div class="meta">{subtitle}</div>
+<div id="r2dt-compare-mount"></div>
+<script src="{viewer_plugin_js}"></script>
+<script src="{molstar_js}"></script>
+<script src="{viewer_js}?v={assets_version}"></script>
+<script>
+R2DTViewer.createCompare({{
+  mount: '#r2dt-compare-mount',
+  panels: {panels_json},
+  molstar: {molstar_json},
+}}).catch(function (err) {{
+  console.error(err);
+  var mount = document.getElementById('r2dt-compare-mount');
+  if (mount) mount.textContent = 'Failed to load comparison viewer: ' + err.message;
+}});
+</script>
+</body>
+</html>
+"""
+
+
+def render_compare(
+    out_dir: Path,
+    *,
+    page_title: str,
+    heading: str,
+    subtitle: str,
+    panels: List[Dict[str, Any]],
+    molstar: Optional[Dict[str, Any]] = None,
+) -> Path:
+    """Write a multi-panel ``index.html`` that calls ``R2DTViewer.createCompare()``."""
+    html = _COMPARE_TEMPLATE.format(
+        page_title=page_title,
+        heading=heading,
+        subtitle=subtitle,
+        panels_json=json.dumps(panels, indent=2),
+        molstar_json=json.dumps(molstar or {}, indent=2),
+        viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
+        viewer_css=VIEWER_CSS_FILENAME,
+        r2dt_css=R2DT_CSS_FILENAME,
+        viewer_js=VIEWER_JS_FILENAME,
+        assets_version=_R2DT_ASSETS_VERSION,
+        molstar_js=_MOLSTAR_CDN_JS,
+        molstar_css=_MOLSTAR_CDN_CSS,
+    )
+    target = out_dir / "index.html"
+    target.write_text(html)
+    stale_compare = out_dir / "compare.js"
+    if stale_compare.is_file():
+        stale_compare.unlink()
     return target
 
 

@@ -20,11 +20,13 @@
 /* --- 2D panel fonts ---------------------------------------------------- */
 
 #pdb-rna-viewer,
+.r2dt-panel--2d,
 #mainMenu.r2dt-toolbar {
   font-family: var(--r2dt-font-ui);
 }
 
-#pdb-rna-viewer svg.rnaTopoSvg text {
+#pdb-rna-viewer svg.rnaTopoSvg text,
+.r2dt-panel--2d svg.rnaTopoSvg text {
   font-family: var(--r2dt-font-diagram);
   font-weight: 700;
 }
@@ -52,7 +54,9 @@
   gap: 10px 12px;
   flex-wrap: nowrap;
   align-items: center;
-  overflow: visible;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
 }
 
 #mainMenu.r2dt-toolbar .menu-dropdown {
@@ -65,7 +69,11 @@
   color: #6b7280;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
   margin-right: 2px;
 }
 
@@ -73,7 +81,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex: none;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
 }
 
@@ -611,7 +619,8 @@
   border-color: #9ca3af;
 }
 
-#pdb-rna-viewer {
+#pdb-rna-viewer,
+.r2dt-panel--2d {
   display: flex;
   flex-direction: column;
   position: relative;
@@ -622,7 +631,8 @@
   box-sizing: border-box;
 }
 
-#pdb-molstar {
+#pdb-molstar,
+.r2dt-panel--3d {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
@@ -706,6 +716,49 @@
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 6px;
+}
+
+/* --- Compare layout (R2DTViewer.createCompare) --------------------------- */
+
+.r2dt-compare-root {
+  --r2dt-compare-panel-height: 480px;
+}
+
+.r2dt-compare-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.r2dt-compare-slot {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.r2dt-compare-slot-title {
+  font-size: 13px;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.r2dt-compare-tag {
+  color: #888;
+  font-weight: 400;
+}
+
+.r2dt-compare-root .r2dt-viewer-root {
+  max-width: none;
+}
+
+.r2dt-compare-root .r2dt-panel--2d,
+.r2dt-compare-root .r2dt-panel--3d {
+  width: 100%;
+  height: var(--r2dt-compare-panel-height);
+  flex: none;
+}
+
+.r2dt-compare-molstar-root .r2dt-panel--3d {
+  position: relative;
 }
 
 .r2dt-viewer-lbn .lbn-body {
