@@ -45,6 +45,127 @@
     throw new Error('R2DTViewer.create: mount must be a selector or Element');
   }
 
+  const BP_GLYPH_COLOR = '#909090';
+  const BP_FAMILY_GLYPH = {
+    cWW: { shapes: ['circle'], filled: true },
+    tWW: { shapes: ['circle'], filled: false },
+    cWH: { shapes: ['circle', 'square'], filled: true },
+    tWH: { shapes: ['circle', 'square'], filled: false },
+    cWS: { shapes: ['circle', 'tri-r'], filled: true },
+    tWS: { shapes: ['circle', 'tri-r'], filled: false },
+    cHH: { shapes: ['square'], filled: true },
+    tHH: { shapes: ['square'], filled: false },
+    cHS: { shapes: ['square', 'tri-r'], filled: true },
+    tHS: { shapes: ['square', 'tri-r'], filled: false },
+    cSS: { shapes: ['tri-r'], filled: true },
+    tSS: { shapes: ['tri-r'], filled: false },
+  };
+
+  const BP_LEGEND_ROWS = [
+    { cisLabel: 'cWW', cisGlyphs: [['circle']], transLabel: 'tWW', transGlyphs: [['circle']] },
+    {
+      cisLabel: 'cWH, cHW',
+      cisGlyphs: [['circle', 'square'], ['square', 'circle']],
+      transLabel: 'tWH, tHW',
+      transGlyphs: [['circle', 'square'], ['square', 'circle']],
+    },
+    {
+      cisLabel: 'cWS, cSW',
+      cisGlyphs: [['circle', 'tri-r'], ['tri-l', 'circle']],
+      transLabel: 'tWS, tSW',
+      transGlyphs: [['circle', 'tri-r'], ['tri-l', 'circle']],
+    },
+    { cisLabel: 'cHH', cisGlyphs: [['square']], transLabel: 'tHH', transGlyphs: [['square']] },
+    {
+      cisLabel: 'cHS, cSH',
+      cisGlyphs: [['square', 'tri-r'], ['tri-l', 'square']],
+      transLabel: 'tHS, tSH',
+      transGlyphs: [['square', 'tri-r'], ['tri-l', 'square']],
+    },
+    { cisLabel: 'cSS', cisGlyphs: [['tri-r']], transLabel: 'tSS', transGlyphs: [['tri-r']] },
+  ];
+
+  function buildBpSymbolSvg(shapes, filled) {
+    const width = shapes.length === 1 ? 28 : 40;
+    const cy = 8;
+    const r = 4;
+    const color = BP_GLYPH_COLOR;
+    const fill = filled ? color : '#fff';
+    const positions = shapes.length === 1 ? [width / 2] : [14, 26];
+    let markup =
+      `<line x1="2" y1="${cy}" x2="${width - 2}" y2="${cy}" ` +
+      `stroke="${color}" stroke-width="1.2"/>`;
+    shapes.forEach((kind, idx) => {
+      const cx = positions[idx];
+      if (kind === 'circle') {
+        markup +=
+          `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" ` +
+          `stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'square') {
+        markup +=
+          `<rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'tri-r') {
+        markup +=
+          `<polygon points="${cx - r},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      } else if (kind === 'tri-l') {
+        markup +=
+          `<polygon points="${cx + r},${cy - r} ${cx + r},${cy + r} ${cx - r},${cy}" ` +
+          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
+      }
+    });
+    return (
+      `<svg class="r2dt-bp-glyph" width="${width}" height="16" ` +
+      `viewBox="0 0 ${width} 16" aria-hidden="true">${markup}</svg>`
+    );
+  }
+
+  function createBpLegendPanel() {
+    const panel = document.createElement('div');
+    panel.className = 'r2dt-bp-legend-panel';
+
+    const intro = document.createElement('p');
+    intro.className = 'r2dt-bp-legend-intro';
+    intro.innerHTML =
+      'Each glyph encodes the two interacting edges and glycosidic-bond orientation. ' +
+      'Edge shape: circle = Watson–Crick, square = Hoogsteen, triangle = Sugar. ' +
+      'Fill: solid = <em>cis</em>, open = <em>trans</em>.';
+
+    const table = document.createElement('table');
+    table.className = 'r2dt-bp-legend-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th colspan="2">cis</th><th colspan="2">trans</th></tr>';
+    const tbody = document.createElement('tbody');
+    BP_LEGEND_ROWS.forEach((row) => {
+      const tr = document.createElement('tr');
+      const cisTh = document.createElement('th');
+      cisTh.textContent = row.cisLabel;
+      const cisTd = document.createElement('td');
+      cisTd.innerHTML = row.cisGlyphs
+        .map((shapes) => buildBpSymbolSvg(shapes, true))
+        .join('');
+      const transTh = document.createElement('th');
+      transTh.textContent = row.transLabel;
+      const transTd = document.createElement('td');
+      transTd.innerHTML = row.transGlyphs
+        .map((shapes) => buildBpSymbolSvg(shapes, false))
+        .join('');
+      tr.append(cisTh, cisTd, transTh, transTd);
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+
+    const cite = document.createElement('p');
+    cite.className = 'r2dt-bp-legend-cite';
+    cite.innerHTML =
+      'Symbols follow <a href="https://pubmed.ncbi.nlm.nih.gov/11345429/" ' +
+      'target="_blank" rel="noopener">Leontis &amp; Westhof, 2001</a>.';
+
+    panel.append(intro, table, cite);
+    return panel;
+  }
+
   function buildViewerDom(mountEl, opts) {
     mountEl.innerHTML = '';
     const root = document.createElement('div');
@@ -90,11 +211,8 @@
       root.appendChild(lbnPanel);
     }
 
-    if (opts.legendHtml) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = opts.legendHtml;
-      const legend = wrap.firstElementChild;
-      if (legend) root.appendChild(legend);
+    if (opts.showLegend !== false) {
+      root.appendChild(createBpLegendPanel());
     }
 
     mountEl.appendChild(root);
@@ -736,58 +854,6 @@
     });
   }
 
-  const BP_GLYPH_COLOR = '#909090';
-  const BP_FAMILY_GLYPH = {
-    cWW: { shapes: ['circle'], filled: true },
-    tWW: { shapes: ['circle'], filled: false },
-    cWH: { shapes: ['circle', 'square'], filled: true },
-    tWH: { shapes: ['circle', 'square'], filled: false },
-    cWS: { shapes: ['circle', 'tri-r'], filled: true },
-    tWS: { shapes: ['circle', 'tri-r'], filled: false },
-    cHH: { shapes: ['square'], filled: true },
-    tHH: { shapes: ['square'], filled: false },
-    cHS: { shapes: ['square', 'tri-r'], filled: true },
-    tHS: { shapes: ['square', 'tri-r'], filled: false },
-    cSS: { shapes: ['tri-r'], filled: true },
-    tSS: { shapes: ['tri-r'], filled: false },
-  };
-
-  function buildBpSymbolSvg(shapes, filled) {
-    const width = shapes.length === 1 ? 28 : 40;
-    const cy = 8;
-    const r = 4;
-    const color = BP_GLYPH_COLOR;
-    const fill = filled ? color : '#fff';
-    const positions = shapes.length === 1 ? [width / 2] : [14, 26];
-    let markup =
-      `<line x1="2" y1="${cy}" x2="${width - 2}" y2="${cy}" ` +
-      `stroke="${color}" stroke-width="1.2"/>`;
-    shapes.forEach((kind, idx) => {
-      const cx = positions[idx];
-      if (kind === 'circle') {
-        markup +=
-          `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" ` +
-          `stroke="${color}" stroke-width="1.2"/>`;
-      } else if (kind === 'square') {
-        markup +=
-          `<rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" ` +
-          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
-      } else if (kind === 'tri-r') {
-        markup +=
-          `<polygon points="${cx - r},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy}" ` +
-          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
-      } else if (kind === 'tri-l') {
-        markup +=
-          `<polygon points="${cx + r},${cy - r} ${cx + r},${cy + r} ${cx - r},${cy}" ` +
-          `fill="${fill}" stroke="${color}" stroke-width="1.2"/>`;
-      }
-    });
-    return (
-      `<svg class="r2dt-bp-glyph" width="${width}" height="16" ` +
-      `viewBox="0 0 ${width} 16" aria-hidden="true">${markup}</svg>`
-    );
-  }
-
   function wrapFilterLabelText(cb, fallbackText) {
     const label = cb.closest('label');
     if (!label) return null;
@@ -1012,11 +1078,7 @@
     const checkboxes = root.querySelector('#checkboxes');
     if (!checkboxes || checkboxes.querySelector('.r2dt-bp-legend-more')) return true;
 
-    const source = root.querySelector('#r2dt-bp-legend-source');
-    let panelContent = source?.querySelector('.r2dt-bp-legend-panel');
-    if (!panelContent) {
-      panelContent = root.querySelector('.r2dt-bp-legend-panel');
-    }
+    const panelContent = root.querySelector('.r2dt-bp-legend-panel');
     if (!panelContent) return false;
 
     const details = document.createElement('details');
@@ -1025,7 +1087,6 @@
     summary.textContent = 'More info';
     details.append(summary, panelContent);
     checkboxes.appendChild(details);
-    source?.remove();
     return true;
   }
 
@@ -1603,7 +1664,7 @@
       height: opts.height,
       panelWidth: opts.panelWidth,
       showLbn: opts.showLbn !== false,
-      legendHtml: opts.showLegend === false ? '' : opts.legendHtml,
+      showLegend: opts.showLegend !== false,
     });
 
     const ctx = {

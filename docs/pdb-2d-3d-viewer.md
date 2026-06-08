@@ -148,7 +148,7 @@ R2DTViewer.create({
 </script>
 ```
 
-Copy the `<script>` block verbatim from a generated `index.html` if you prefer — it already contains the correct `structureId`, `chainId`, and `legendHtml` for that structure.
+Copy the `<script>` block verbatim from a generated `index.html` if you prefer — it already contains the correct `structureId`, `chainId`, and file URLs for that structure.
 
 When `baseUrl` points at a hosted artifact folder, `structureId` / `chainId` / `structureUrl` can be omitted if `manifest.json` is present; the API reads them from there.
 
@@ -168,8 +168,7 @@ When `baseUrl` points at a hosted artifact folder, `structureId` / `chainId` / `
 | `height` | no | Panel height, e.g. `640` or `"100%"` |
 | `panelWidth` | no | Width of each pane in px (default `600`) |
 | `showLbn` | no | Show layered dot-bracket panel (default `true`) |
-| `showLegend` | no | Mount Leontis–Westhof legend in the base-pairs filter (default `true`) |
-| `legendHtml` | no | HTML string for the legend panel (generated pages pass this inline) |
+| `showLegend` | no | Show Leontis–Westhof legend in the base-pairs filter (default `true`) |
 | `onReady` | no | Callback `(handle) => {}` when init completes |
 
 Handle methods:

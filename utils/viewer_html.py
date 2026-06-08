@@ -32,15 +32,11 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "62"
+_R2DT_ASSETS_VERSION = "63"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
 # The interaction glue (``R2DTViewer.create`` API).
 VIEWER_JS_FILENAME = "r2dt-2d-3d-viewer.js"
-
-# Colour of the base-pair symbols, matching how pdb-rna-viewer draws them
-# in the 2D diagram (light grey rather than stark black).
-_BP_SYMBOL_COLOR = "#909090"
 
 # Credit shown in the header for where the base-pair annotations came from.
 # Keyed by the --basepairs source; defaults to FR3D.
@@ -92,7 +88,6 @@ R2DTViewer.create({{
   chainId: {chain_id_json},
   structureUrl: {structure_url_json},
   structureFormat: {structure_format_json},
-  legendHtml: {legend_json},
 }}).catch(function (err) {{
   console.error(err);
   var mount = document.getElementById('r2dt-viewer-mount');
@@ -102,101 +97,6 @@ R2DTViewer.create({{
 </body>
 </html>
 """
-
-
-def _bp_symbol(shapes, filled: bool) -> str:
-    """Return an inline SVG glyph for a Leontis-Westhof base-pair symbol.
-
-    ``shapes`` is a list of one or two edge symbols drawn on a short line:
-    ``circle`` (Watson-Crick edge), ``square`` (Hoogsteen), ``tri-r`` /
-    ``tri-l`` (Sugar edge, pointing right / left). ``filled`` selects the
-    orientation: solid (cis) vs open (trans).
-    """
-    # Match compact in-panel glyph proportions (r2dt-2d-3d-viewer.js buildBpSymbolSvg).
-    width = 28 if len(shapes) == 1 else 40
-    height, cy, r, stroke_w = 16, 8, 4, 1.2
-    color = _BP_SYMBOL_COLOR
-    fill = color if filled else "#fff"
-    parts = [
-        f'<line x1="2" y1="{cy}" x2="{width - 2}" y2="{cy}" '
-        f'stroke="{color}" stroke-width="{stroke_w}"/>'
-    ]
-    positions = [width / 2] if len(shapes) == 1 else [14, 26]
-    for kind, cx in zip(shapes, positions):
-        if kind == "circle":
-            parts.append(
-                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{fill}" '
-                f'stroke="{color}" stroke-width="{stroke_w}"/>'
-            )
-        elif kind == "square":
-            parts.append(
-                f'<rect x="{cx - r}" y="{cy - r}" width="{2 * r}" height="{2 * r}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
-            )
-        elif kind == "tri-r":
-            parts.append(
-                f'<polygon points="{cx - r},{cy - r} {cx - r},{cy + r} {cx + r},{cy}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
-            )
-        elif kind == "tri-l":
-            parts.append(
-                f'<polygon points="{cx + r},{cy - r} {cx + r},{cy + r} {cx - r},{cy}" '
-                f'fill="{fill}" stroke="{color}" stroke-width="{stroke_w}"/>'
-            )
-    return (
-        f'<svg class="r2dt-bp-glyph" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}">{"".join(parts)}</svg>'
-    )
-
-
-def _bp_legend_panel_html() -> str:
-    """Build the Leontis-Westhof legend panel markup for ``legendHtml``."""
-    rows = [
-        ("cWW", [["circle"]], "tWW", [["circle"]]),
-        (
-            "cWH, cHW",
-            [["circle", "square"], ["square", "circle"]],
-            "tWH, tHW",
-            [["circle", "square"], ["square", "circle"]],
-        ),
-        (
-            "cWS, cSW",
-            [["circle", "tri-r"], ["tri-l", "circle"]],
-            "tWS, tSW",
-            [["circle", "tri-r"], ["tri-l", "circle"]],
-        ),
-        ("cHH", [["square"]], "tHH", [["square"]]),
-        (
-            "cHS, cSH",
-            [["square", "tri-r"], ["tri-l", "square"]],
-            "tHS, tSH",
-            [["square", "tri-r"], ["tri-l", "square"]],
-        ),
-        ("cSS", [["tri-r"]], "tSS", [["tri-r"]]),
-    ]
-    body = []
-    for cis_label, cis_glyphs, trans_label, trans_glyphs in rows:
-        cis_svg = "".join(_bp_symbol(s, True) for s in cis_glyphs)
-        trans_svg = "".join(_bp_symbol(s, False) for s in trans_glyphs)
-        body.append(
-            f"<tr><th>{cis_label}</th><td>{cis_svg}</td>"
-            f"<th>{trans_label}</th><td>{trans_svg}</td></tr>"
-        )
-    rows_html = "\n".join(body)
-    return f"""<div class="r2dt-bp-legend-panel">
-<p class="r2dt-bp-legend-intro">Each glyph encodes the two interacting edges
-and glycosidic-bond orientation. Edge shape: circle = Watson–Crick,
-square = Hoogsteen, triangle = Sugar. Fill: solid = <em>cis</em>,
-open = <em>trans</em>.</p>
-<table class="r2dt-bp-legend-table">
-<thead><tr><th colspan="2">cis</th><th colspan="2">trans</th></tr></thead>
-<tbody>
-{rows_html}
-</tbody>
-</table>
-<p class="r2dt-bp-legend-cite">Symbols follow
-<a href="https://pubmed.ncbi.nlm.nih.gov/11345429/" target="_blank" rel="noopener">Leontis &amp; Westhof, 2001</a>.</p>
-</div>"""
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -224,7 +124,6 @@ def render(
         chain_id_json=json.dumps(chain_id or ""),
         structure_url_json=json.dumps(structure_url),
         structure_format_json=json.dumps(structure_format),
-        legend_json=json.dumps(_bp_legend_panel_html()),
         annotation_source=annotation_source or _DEFAULT_ANNOTATION_SOURCE,
         viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
         viewer_css=VIEWER_CSS_FILENAME,
