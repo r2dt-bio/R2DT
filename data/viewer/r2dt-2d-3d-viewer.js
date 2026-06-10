@@ -45,12 +45,11 @@
     throw new Error('R2DTViewer.create: mount must be a selector or Element');
   }
 
-  function disableAutoZoomOnce() {
-    if (global.__r2dtZoomDisabled) return;
-    global.__r2dtZoomDisabled = true;
-    if (window.UiActionsService && window.UiActionsService.zoomToNucleotides) {
-      window.UiActionsService.zoomToNucleotides = function () {};
-    }
+  function patchAutoZoomOnSelect() {
+    const svc = window.UiActionsService;
+    if (!svc) return;
+    // Selection must not pan/zoom the diagram (plugin default zooms to nt).
+    svc.zoomToNucleotides = function () {};
   }
 
   function enhanceSelectedNucleotideStyleOnce() {
@@ -59,12 +58,17 @@
     svc.__r2dtStyleEnhanced = true;
 
     const FONT_BUMP_PX = 1.33;
+    const PARTNER_FONT_BUMP_PX = 0.67;
     const HALO_STROKE = '#ffffff';
     const HALO_WIDTH = '2';
+    const PARTNER_HALO_WIDTH = '1.25';
     const BG_FILL = '#fff3b0';
+    const PARTNER_BG_FILL = '#ffe8c2';
     const BG_PAD = 2;
+    const PARTNER_BG_PAD = 1.5;
     const origStyle = new Map();
     const selectionBgs = new Map();
+    svc.__r2dtPartnerLabels = svc.__r2dtPartnerLabels || new Set();
 
     function nucleotideEl(pdbId, label) {
       return document.getElementsByClassName(
@@ -83,7 +87,7 @@
       selectionBgs.delete(label);
     }
 
-    function applySelectionBg(el, label) {
+    function applySelectionBg(el, label, fill, pad) {
       if (!el || el.nodeName !== 'text' || !el.parentNode) return;
       removeSelectionBg(label);
       let bbox;
@@ -94,12 +98,12 @@
       }
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('class', 'r2dt-nt-selection-bg');
-      rect.setAttribute('x', String(bbox.x - BG_PAD));
-      rect.setAttribute('y', String(bbox.y - BG_PAD));
-      rect.setAttribute('width', String(bbox.width + 2 * BG_PAD));
-      rect.setAttribute('height', String(bbox.height + 2 * BG_PAD));
+      rect.setAttribute('x', String(bbox.x - pad));
+      rect.setAttribute('y', String(bbox.y - pad));
+      rect.setAttribute('width', String(bbox.width + 2 * pad));
+      rect.setAttribute('height', String(bbox.height + 2 * pad));
       rect.setAttribute('rx', '3');
-      rect.setAttribute('fill', BG_FILL);
+      rect.setAttribute('fill', fill);
       rect.setAttribute('stroke', 'none');
       rect.style.pointerEvents = 'none';
       el.parentNode.insertBefore(rect, el);
@@ -108,6 +112,7 @@
 
     function applySelectionTypography(el, label) {
       if (!el || el.nodeName !== 'text') return;
+      const isPartner = svc.__r2dtPartnerLabels && svc.__r2dtPartnerLabels.has(label);
       if (!origStyle.has(label)) {
         origStyle.set(label, {
           fw: el.getAttribute('font-weight'),
@@ -121,13 +126,21 @@
       el.setAttribute('font-weight', 'bold');
       const fs = parseFloat(el.getAttribute('font-size'));
       if (!isNaN(fs)) {
-        el.setAttribute('font-size', (fs + FONT_BUMP_PX) + 'px');
+        el.setAttribute(
+          'font-size',
+          (fs + (isPartner ? PARTNER_FONT_BUMP_PX : FONT_BUMP_PX)) + 'px'
+        );
       }
       el.setAttribute('stroke', HALO_STROKE);
-      el.setAttribute('stroke-width', HALO_WIDTH);
+      el.setAttribute('stroke-width', isPartner ? PARTNER_HALO_WIDTH : HALO_WIDTH);
       el.setAttribute('stroke-linejoin', 'round');
       el.setAttribute('paint-order', 'stroke fill');
-      applySelectionBg(el, label);
+      applySelectionBg(
+        el,
+        label,
+        isPartner ? PARTNER_BG_FILL : BG_FILL,
+        isPartner ? PARTNER_BG_PAD : BG_PAD
+      );
     }
 
     function restoreTypography(pdbId, label) {
@@ -299,6 +312,12 @@
   function createMolstarSelector(molstar, labelToAuth, chainId) {
     return async function selectInMolstar(labels) {
       if (!molstar) return;
+      if (!labels || labels.length === 0) {
+        try {
+          await molstar.visual.select({ data: [], keepRepresentations: true });
+        } catch (_) { /* best-effort */ }
+        return;
+      }
       const data = labels.map((l) => {
         const auth = labelToAuth[l];
         if (auth === undefined || auth === null) return null;
@@ -507,7 +526,6 @@
     } = ctx;
     const link3d = ctx.link3d !== false;
 
-    disableAutoZoomOnce();
     enhanceSelectedNucleotideStyleOnce();
 
     const { labelToAuth, authToLabel } = buildLabelMaps(apiData);
@@ -526,6 +544,7 @@
       theme: { unobservedColor: '#bbbbbb' },
     }
   );
+  patchAutoZoomOnSelect();
 
   // The plugin's pathOrNucleotide() rebuilds the entire SVG inner group on
   // every filter checkbox change, which makes all base-pair lines blink.
@@ -880,10 +899,10 @@
     inner.insertBefore(pathEl, inner.firstChild);
     return true;
   }
-  // Declared up front so the post-render fixup pass (which skips the
-  // currently-selected BP) can reference it before the click handler
+  // Declared up front so the post-render fixup pass (which skips
+  // currently-selected BPs) can reference them before the click handler
   // block initializes -- temporal-dead-zone errors otherwise.
-  let lastBPSelected = null;
+  const bpHighlightedPaths = new Set();
 
   const VIEWPORT_PADDING = 0.05; // keep ~5% margin so diagrams never hug the edge
   let userAdjustedView = false;
@@ -1062,7 +1081,10 @@
     const svc = window.UiActionsService;
     if (svc && !svc._r2dtZoomResetPatched) {
       svc._r2dtZoomResetPatched = true;
+      patchAutoZoomOnSelect();
       svc.zoomReset = function () {
+        // Plugin calls zoomReset on deselect; keep the user's zoom if they panned.
+        if (userAdjustedView) return;
         userAdjustedView = false;
         applyFitTransform();
       };
@@ -1073,7 +1095,47 @@
   const unobserved = apiData.unobserved_label_seq_ids || [];
   const CWW_STROKE = '#888888';
   const CWW_CROSSING_STROKE = '#aaaaaa';
-  const CROSSING_BP_STROKE_WIDTH = '1.4';
+  // Crossing pairs are drawn thinner than nested cWW; width scales with the
+  // same layout metric the plugin uses (calculateFontSize / 6), not a fixed px.
+  const CROSSING_BP_WIDTH_RATIO = 0.5;
+  const CROSSING_BP_STROKE_WIDTH_MIN = 0.25;
+  const CROSSING_BP_STROKE_WIDTH_MAX = 1.15;
+  let crossingBpStrokeWidth = null;
+
+  function calculateLayoutScale(paths) {
+    const cx = [];
+    const cy = [];
+    const dist = [];
+    const last = paths.length - 1;
+    paths.forEach((path, o) => {
+      if (o === 0 || o === last) return;
+      const s = path.split('M').join(',').split(',');
+      cx[o] = (Number(s[1]) + Number(s[3])) / 2;
+      cy[o] = (Number(s[2]) + Number(s[4])) / 2;
+      if (o > 1) {
+        dist[o] = Math.hypot(cx[o] - cx[o - 1], cy[o] - cy[o - 1]);
+      }
+    });
+    const sorted = dist.filter((d) => d > 0).sort((a, b) => a - b);
+    if (sorted.length === 0) return 12;
+    return 0.9 * sorted[Math.floor(0.05 * sorted.length)];
+  }
+
+  function getBaseBpStrokeWidth() {
+    return calculateLayoutScale(apiData.svg_paths || []) / 6;
+  }
+
+  function getCrossingBpStrokeWidth() {
+    if (crossingBpStrokeWidth === null) {
+      const scaled = getBaseBpStrokeWidth() * CROSSING_BP_WIDTH_RATIO;
+      crossingBpStrokeWidth = String(Math.max(
+        CROSSING_BP_STROKE_WIDTH_MIN,
+        Math.min(CROSSING_BP_STROKE_WIDTH_MAX, scaled)
+      ));
+    }
+    return crossingBpStrokeWidth;
+  }
+
   const crossingPairs = new Set();
   (fr3dData.annotations || []).forEach((a) => {
     if (a.crossing && String(a.crossing) !== '0') {
@@ -1098,7 +1160,7 @@
       const parsed = parseBpPathClass(el.getAttribute('class') || '');
       if (!parsed) return;
       const isCrossing = crossingPairs.has(`${parsed.a}_${parsed.b}`);
-      if (parsed.bp === 'cWW' && el !== lastBPSelected) {
+      if (parsed.bp === 'cWW' && !bpHighlightedPaths.has(el)) {
         const stroke = isCrossing ? CWW_CROSSING_STROKE : CWW_STROKE;
         el.setAttribute('stroke', stroke);
         // Remember the greyed-out value so the click handler's
@@ -1107,7 +1169,7 @@
         el.dataset.r2dtOrigStroke = stroke;
       }
       if (isCrossing) {
-        el.setAttribute('stroke-width', CROSSING_BP_STROKE_WIDTH);
+        el.setAttribute('stroke-width', getCrossingBpStrokeWidth());
       }
       any = true;
     });
@@ -1802,36 +1864,194 @@
 
   const selectInMolstar = createMolstarSelector(molstar, labelToAuth, CHAIN_ID);
 
-  if (link3d && molstar) {
-    document.addEventListener('PDB.RNA.viewer.click', (e) => {
-      selectInMolstar(labelsFromEvent(e));
-    });
-  }
-
   // Set by _renderLBN when the panel is shown; keeps LBN in sync with every
   // base-pair selection path (list, 2D line click, API).
   let lbnHighlightFn = null;
+
+  const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
+  const RESIDUE_PARTNER_COLOR = '#ffab40';
+  const RNA_ENTITY_ID = rnaPlugin.options?.entityId || '1';
+  let lastResidueSelection = null;
+
+  function getPartnersForResidue(label) {
+    const partners = new Set();
+    const id = +label;
+    (fr3dData.annotations || []).forEach((a) => {
+      const s1 = +a.seq_id1;
+      const s2 = +a.seq_id2;
+      if (s1 === id) partners.add(s2);
+      else if (s2 === id) partners.add(s1);
+    });
+    return Array.from(partners);
+  }
+
+  function clearBasePairHighlights() {
+    bpHighlightedPaths.forEach((el) => {
+      const prevOrig = el.dataset.r2dtOrigStroke;
+      if (prevOrig !== undefined) el.setAttribute('stroke', prevOrig);
+    });
+    bpHighlightedPaths.clear();
+  }
+
+  function highlightBPPath(pathEl) {
+    if (!pathEl) return;
+    if (pathEl.dataset.r2dtOrigStroke === undefined) {
+      pathEl.dataset.r2dtOrigStroke = pathEl.getAttribute('stroke') || '';
+    }
+    pathEl.setAttribute('stroke', BP_SELECTED_COLOR);
+    bpHighlightedPaths.add(pathEl);
+  }
+
+  function setPartnerLabels(partners) {
+    const svc = window.UiActionsService;
+    if (!svc) return;
+    svc.__r2dtPartnerLabels = new Set(partners);
+  }
+
+  // selectResidueRange's 3rd argument is a sequence letter for the tooltip,
+  // not a colour — pass colours via UiActionsService.selectNucleotide instead.
+  function updateSelectionTooltip(labels) {
+    const svc = window.UiActionsService;
+    const tip = document.getElementById(`${PDB_LOWER}-rnaTopologyTooltip`);
+    if (!tip || !svc?.buildResidueLabel) return;
+    if (!labels || labels.length === 0) {
+      tip.style.display = 'none';
+      return;
+    }
+    tip.style.display = 'inline';
+    tip.innerHTML = `<strong>Selected ${svc.buildResidueLabel(labels, undefined)}</strong>`;
+  }
+
+  function selectNucleotidesIn2d(primary, partnerList) {
+    const svc = window.UiActionsService;
+    if (!svc) return;
+    setPartnerLabels(partnerList);
+    rnaPlugin.clearSelection(undefined, true);
+    rnaPlugin.clearHighlight(true);
+    svc.selectNucleotide(
+      PDB_LOWER, RNA_ENTITY_ID, [primary], 'click', false,
+      undefined, undefined, BP_SELECTED_COLOR, false, true
+    );
+    partnerList.forEach((p) => {
+      svc.selectNucleotide(
+        PDB_LOWER, RNA_ENTITY_ID, [p], 'click', false,
+        undefined, undefined, RESIDUE_PARTNER_COLOR, true, true
+      );
+    });
+    updateSelectionTooltip([primary, ...partnerList]);
+  }
+
+  function emitResidueSelectEvent(detail) {
+    document.dispatchEvent(new CustomEvent('r2dt-residue-select', { detail }));
+  }
+
+  function nucleotideLabelFromClickTarget(target) {
+    const el = target.nodeName === 'text'
+      ? target
+      : target.closest?.('text.rnaviewEle');
+    if (!el) return null;
+    const m = (el.getAttribute('class') || '').match(
+      new RegExp(`rnaview_${PDB_LOWER}_(\\d+)\\b`)
+    );
+    return m ? +m[1] : null;
+  }
+
+  function bindNucleotideCaptureClicks(container) {
+    if (!container || container.dataset.r2dtNtCaptureBound) return;
+    container.dataset.r2dtNtCaptureBound = '1';
+    // Capture before the plugin's inline onclick toggles a single nt in 2D only.
+    container.addEventListener('click', (ev) => {
+      const label = nucleotideLabelFromClickTarget(ev.target);
+      if (label == null) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      selectResidue(label);
+    }, true);
+  }
+
+  function hasActiveSelection() {
+    if (lastResidueSelection || bpHighlightedPaths.size > 0) return true;
+    const svc = window.UiActionsService;
+    return !!(svc?.selected && svc.selected.size > 0);
+  }
+
+  function isDiagramChromeClick(target) {
+    return !!target.closest?.(
+      'button, input, select, label, a, .help-tooltip, .pdb-rna-view-btn, ' +
+      '[id^="bpListDialog"], [id^="rnaTopologyZoom"], [id^="rnaTopologyReset"], ' +
+      '[id$="-rnaTopologyTooltip"]'
+    );
+  }
+
+  function bindDiagramBackgroundClick(container) {
+    if (!container || container.dataset.r2dtBgClickBound) return;
+    container.dataset.r2dtBgClickBound = '1';
+    // Capture phase: the plugin's container handler calls stopPropagation(),
+    // so a bubble listener on panel2d would never run.
+    container.addEventListener('click', (ev) => {
+      if (nucleotideLabelFromClickTarget(ev.target) != null) return;
+      if (ev.target.closest?.('path[class*="rnaviewBP"]')) return;
+      if (isDiagramChromeClick(ev.target)) return;
+      if (!hasActiveSelection()) return;
+      clearResidueSelection();
+    }, true);
+  }
+
+  function clearResidueSelection() {
+    lastResidueSelection = null;
+    clearBasePairHighlights();
+    setPartnerLabels([]);
+    rnaPlugin.clearSelection(undefined, true);
+    rnaPlugin.clearHighlight(true);
+    updateSelectionTooltip([]);
+    if (link3d && molstar) selectInMolstar([]);
+    if (lbnHighlightFn) lbnHighlightFn([]);
+    emitResidueSelectEvent({ pdbId: PDB_LOWER, cleared: true });
+  }
+
+  function selectResidue(label) {
+    const id = +label;
+    if (lastResidueSelection && lastResidueSelection.label === id) {
+      clearResidueSelection();
+      return;
+    }
+    const partners = getPartnersForResidue(id);
+    lastResidueSelection = { label: id, partners };
+    clearBasePairHighlights();
+    partners.forEach((p) => highlightBPPath(findBPPath(id, p)));
+    selectNucleotidesIn2d(id, partners);
+    if (link3d && molstar) selectInMolstar([id, ...partners]);
+    if (lbnHighlightFn) lbnHighlightFn([id, ...partners]);
+    emitResidueSelectEvent({ pdbId: PDB_LOWER, label: id, partners, cleared: false });
+  }
+
+  bindNucleotideCaptureClicks(panel2d);
+  bindDiagramBackgroundClick(panel2d);
 
   // Select a base pair: colour its 2D line orange (if its path is in the
   // DOM) and select both partner residues in 3D. `pathEl` may be null --
   // e.g. when triggered from the base-pair list while that pair's line
   // isn't currently rendered.
-  const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
   function selectBasePair(a, b, pathEl) {
-    if (pathEl) {
-      // Restore the previously selected BP's stroke, then mark this one so
-      // only one base pair appears highlighted at a time.
-      if (lastBPSelected && lastBPSelected !== pathEl) {
-        const prevOrig = lastBPSelected.dataset.r2dtOrigStroke;
-        if (prevOrig !== undefined) lastBPSelected.setAttribute('stroke', prevOrig);
-      }
-      if (pathEl.dataset.r2dtOrigStroke === undefined) {
-        pathEl.dataset.r2dtOrigStroke = pathEl.getAttribute('stroke') || '';
-      }
-      pathEl.setAttribute('stroke', BP_SELECTED_COLOR);
-      lastBPSelected = pathEl;
+    lastResidueSelection = null;
+    clearBasePairHighlights();
+    highlightBPPath(pathEl);
+    const svc = window.UiActionsService;
+    setPartnerLabels([]);
+    rnaPlugin.clearSelection(undefined, true);
+    rnaPlugin.clearHighlight(true);
+    if (svc) {
+      svc.selectNucleotide(
+        PDB_LOWER, RNA_ENTITY_ID, [a], 'click', false,
+        undefined, undefined, BP_SELECTED_COLOR, false, true
+      );
+      svc.selectNucleotide(
+        PDB_LOWER, RNA_ENTITY_ID, [b], 'click', false,
+        undefined, undefined, BP_SELECTED_COLOR, true, true
+      );
     }
-    selectInMolstar([a, b]);
+    updateSelectionTooltip([a, b]);
+    if (link3d && molstar) selectInMolstar([a, b]);
     if (lbnHighlightFn) lbnHighlightFn([a, b]);
   }
 
@@ -1905,9 +2125,7 @@
       if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
       const label = authToLabel[ev.eventData.auth_seq_id];
       if (!label) return;
-      document.dispatchEvent(new CustomEvent('protvista-click', {
-        detail: { start: label, end: label },
-      }));
+      selectResidue(label);
     });
     document.addEventListener('PDB.molstar.mouseover', (ev) => {
       if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
@@ -2017,27 +2235,12 @@
         selectBasePair(pos, partner, findBPPath(pos, partner));
         _lbnHighlight([pos, partner]);
       } else {
-        // A lone position: highlight just that nucleotide in 2D + 3D.
-        selectInMolstar([pos]);
-        document.dispatchEvent(new CustomEvent('protvista-click', {
-          detail: { start: pos, end: pos },
-        }));
-        _lbnHighlight([pos]);
+        selectResidue(pos);
       }
     });
 
-    // 2D → LBN.
-    document.addEventListener('PDB.RNA.viewer.click', (e) => {
-      const labels = labelsFromEvent(e);
-      if (labels.length > 0) _lbnHighlight([labels[0]]);
-    });
-
-    // 3D → LBN.
-    document.addEventListener('PDB.molstar.click', (ev) => {
-      if (!ev.eventData || ev.eventData.auth_asym_id !== CHAIN_ID) return;
-      const lbl = authToLabel[ev.eventData.auth_seq_id];
-      if (lbl) _lbnHighlight([lbl]);
-    });
+    // 2D/3D → LBN sync is handled by selectResidue / selectBasePair via
+    // lbnHighlightFn; no separate listeners needed here.
 
     lbnHighlightFn = _lbnHighlight;
 
@@ -2047,7 +2250,7 @@
   }
   // ── end LBN ─────────────────────────────────────────────────────────────
 
-  ctx.handles.selectResidue = (l) => selectInMolstar([l]);
+  ctx.handles.selectResidue = selectResidue;
   ctx.handles.selectBasePair = (a, b) => selectBasePair(a, b, findBPPath(a, b));
 
   }
@@ -2271,13 +2474,16 @@
     );
     const linkedPdbLower = linkedCtx.PDB_LOWER;
 
-    function onLinked2dClick(e) {
-      const d = e.eventData || e.detail || {};
+    function onLinkedResidueSelect(e) {
+      const d = e.detail || {};
       if ((d.pdbId || '').toLowerCase() !== linkedPdbLower) return;
-      selectInMolstar(labelsFromEvent(e));
+      if (d.cleared) selectInMolstar([]);
+      else selectInMolstar([d.label, ...(d.partners || [])]);
     }
-    document.addEventListener('PDB.RNA.viewer.click', onLinked2dClick);
-    cleanup.push(() => document.removeEventListener('PDB.RNA.viewer.click', onLinked2dClick));
+    document.addEventListener('r2dt-residue-select', onLinkedResidueSelect);
+    cleanup.push(() => {
+      document.removeEventListener('r2dt-residue-select', onLinkedResidueSelect);
+    });
 
     const handle = {
       root: compareRoot,
@@ -2289,7 +2495,7 @@
         if (activeViewer === handle) activeViewer = null;
       },
       selectResidue(label) {
-        return selectInMolstar([label]);
+        return linkedCtx.handles?.selectResidue?.(label);
       },
       selectBasePair(a, b) {
         return linkedCtx.handles?.selectBasePair?.(a, b);
