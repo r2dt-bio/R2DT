@@ -1322,6 +1322,41 @@ class TestPdbPostProcessing(unittest.TestCase):
         self.assertIsNone(_get_nucleotide_position("abc"))
 
 
+class TestViewerExport(unittest.TestCase):
+    """Tests for viewer JSON export helpers."""
+
+    def test_build_fr3d_data_dedups_flip_lw_pairs(self):
+        """Direction-reversed FR3D rows with flipped LW codes collapse to one."""
+        import tempfile
+
+        from utils.viewer_export import build_fr3d_data
+
+        unit_map = {
+            "8EYW|1|B|G|18": 17,
+            "8EYW|1|B|G|35": 34,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            bp_file = Path(tmp) / "8EYW_basepair.txt"
+            bp_file.write_text(
+                "8EYW|1|B|G|18\tcHW\t8EYW|1|B|G|35\t1\n"
+                "8EYW|1|B|G|35\tcWH\t8EYW|1|B|G|18\t1\n"
+            )
+            data = build_fr3d_data(
+                bp_file,
+                structure_id="8EYW",
+                chain_id="B",
+                unit_id_to_position=unit_map,
+                resolved_mask=None,
+                n_full=49,
+            )
+        pairs = {
+            frozenset((int(a["seq_id1"]), int(a["seq_id2"]))): a["bp"]
+            for a in data["annotations"]
+        }
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[frozenset((18, 35))], "cHW")
+
+
 class TestPdbCommand(unittest.TestCase):
     """End-to-end tests for r2dt.py pdb command."""
 

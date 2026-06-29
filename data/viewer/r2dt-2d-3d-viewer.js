@@ -175,6 +175,24 @@
       }
       origClear(pdbId, mode, labels);
     };
+
+    // Hover tooltip reads "Residue N" by default; relabel it to
+    // "Highlighted Residue N" so it reads clearly next to the persistent
+    // "Selected Residue N" selection tooltip.
+    if (svc.highlightNucleotide && !svc.__r2dtHighlightLabelPatched) {
+      svc.__r2dtHighlightLabelPatched = true;
+      const origHighlight = svc.highlightNucleotide.bind(svc);
+      svc.highlightNucleotide = function (pdbId) {
+        origHighlight.apply(svc, arguments);
+        const tip = document.getElementById(`${pdbId}-rnaTopologyTooltipHighlight`);
+        const strong = tip && tip.querySelector('strong');
+        if (strong && !/Highlighted/.test(strong.textContent)) {
+          strong.textContent = strong.textContent.replace(
+            /\bResidue/, 'Highlighted Residue'
+          );
+        }
+      };
+    }
   }
 
   function labelsFromEvent(e) {
@@ -345,6 +363,41 @@
   }
 
   const BP_GLYPH_COLOR = '#909090';
+
+  // pdb-rna-viewer stores these families under the flipped LW code (cHW -> cWH
+  // bucket, tSW -> tWS, …). Filter checkboxes and path visibility use the
+  // flipped name; fr3d.json keeps FR3D's original direction.
+  const FLIP_LW_FAMILIES = new Set(['cSH', 'tSH', 'cSW', 'tSW', 'cHW', 'tHW']);
+
+  function flipLw(lw) {
+    if (lw && lw.length === 3 && (lw[0] === 'c' || lw[0] === 't')) {
+      return lw[0] + lw[2] + lw[1];
+    }
+    return lw;
+  }
+
+  function pluginLwFamily(lw) {
+    return FLIP_LW_FAMILIES.has(lw) ? flipLw(lw) : lw;
+  }
+
+  function presentLwFamilies(annotations) {
+    const families = new Set();
+    (annotations || []).forEach((a) => {
+      if (!a.bp) return;
+      families.add(a.bp);
+      families.add(pluginLwFamily(a.bp));
+    });
+    return families;
+  }
+
+  function bpPairKeyFromPathId(pathId) {
+    const m = (pathId || '').match(/([a-zA-Z]{3})_(\d+)_(\d+)/);
+    if (!m) return pathId || '';
+    const a = +m[2];
+    const b = +m[3];
+    return `${Math.min(a, b)}_${Math.max(a, b)}`;
+  }
+
   const BP_FAMILY_GLYPH = {
     cWW: { shapes: ['circle'], filled: true },
     tWW: { shapes: ['circle'], filled: false },
@@ -502,11 +555,16 @@
       const lbnTitle = document.createElement('h2');
       lbnTitle.className = 'r2dt-viewer-lbn-title';
       lbnTitle.textContent = 'Layered dot-bracket notation (Leontis–Westhof base pairs)';
+      const lbnCaption = document.createElement('p');
+      lbnCaption.className = 'r2dt-viewer-lbn-caption';
+      lbnCaption.textContent =
+        'Greyed-out pairs are hidden in the current 2D view '
+        + '(via "Nested only" or the base-pair family filters).';
       const lbnBody = document.createElement('div');
       lbnBody.id = 'lbn-body';
       lbnBody.className = 'lbn-body';
       lbnBody.textContent = 'Loading…';
-      lbnPanel.append(lbnTitle, lbnBody);
+      lbnPanel.append(lbnTitle, lbnCaption, lbnBody);
       root.appendChild(lbnPanel);
     }
 
@@ -794,6 +852,20 @@
     });
     repairNonCanonicalCwwGlyphs();
     onBpFilterUpdated();
+  }
+
+  // Pair keys ("min_max") for the base pairs currently shown in the 2D
+  // diagram. Reads the rendered paths directly so it reflects whatever the
+  // "Nested only" toggle and family checkboxes produced, without
+  // re-deriving the plugin's filter logic.
+  function getVisible2dPairKeys() {
+    const keys = new Set();
+    root.querySelectorAll('path.rnaviewBP').forEach((p) => {
+      if (p.style.display === 'none') return;
+      const id = bpPathIdFromElement(p);
+      if (id) keys.add(bpPairKeyFromPathId(id));
+    });
+    return keys;
   }
 
   const uiSvc = rnaPlugin.uiTemplateService;
@@ -1290,7 +1362,7 @@
         const label = cb.closest('label');
         if (!label || !isFilterCheckboxVisible(cb)) return;
         const family = cb.id.slice('Checkbox_'.length);
-        const spec = BP_FAMILY_GLYPH[family];
+        const spec = BP_FAMILY_GLYPH[family] || BP_FAMILY_GLYPH[flipLw(family)];
         if (!spec) return;
         const textEl = wrapFilterLabelText(cb, family);
         let glyphWrap = label.querySelector('.r2dt-bp-glyph-wrap');
@@ -1387,7 +1459,7 @@
       const m = raw.match(/^(.+?)\s*;\s*(\S+)\s*$/);
       if (!m) return;
       const pairText = m[1].trim();
-      const familyText = m[2];
+      const familyText = pluginLwFamily(m[2]);
       const ntMatch = pairText.match(/([AUGCT])(\d+)\s*-\s*([AUGCT])(\d+)/i);
       const canonical = ntMatch
         ? isCanonicalWatsonCrick(familyText, ntMatch[1], ntMatch[3])
@@ -1454,8 +1526,15 @@
         ? ui.displayNestedBaseStrs
         : ui.displayBaseStrs;
       const ul = document.createElement('ul');
+      const seenPairKeys = new Set();
       (ui.bpLabels || [])
         .filter((item) => displayHtml.includes(item.pathID))
+        .filter((item) => {
+          const key = bpPairKeyFromPathId(item.pathID);
+          if (seenPairKeys.has(key)) return false;
+          seenPairKeys.add(key);
+          return true;
+        })
         .forEach((item) => {
           const li = document.createElement('li');
           li.textContent = item.label;
@@ -1770,9 +1849,7 @@
   // structure's fr3d.json, so the dropdown only lists families the user
   // can actually toggle. Then enable the remaining families ("All").
   (function tidyBPFilter() {
-    const presentBPs = new Set(
-      (fr3dData.annotations || []).map((a) => a.bp).filter(Boolean)
-    );
+    const presentBPs = presentLwFamilies(fr3dData.annotations);
     let attempts = 0;
     const tick = () => {
       const boxes = root.querySelectorAll('input[id^="Checkbox_"]');
@@ -1867,6 +1944,9 @@
   // Set by _renderLBN when the panel is shown; keeps LBN in sync with every
   // base-pair selection path (list, 2D line click, API).
   let lbnHighlightFn = null;
+  // Set by _renderLBN; greys out LBN pairs that are currently hidden in the
+  // 2D diagram (via the "Nested only" toggle or the family checkboxes).
+  let lbnVisibilityFn = null;
 
   const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
   const RESIDUE_PARTNER_COLOR = '#ffab40';
@@ -1919,7 +1999,18 @@
       return;
     }
     tip.style.display = 'inline';
-    tip.innerHTML = `<strong>Selected ${svc.buildResidueLabel(labels, undefined)}</strong>`;
+    tip.innerHTML =
+      `<strong>Selected ${svc.buildResidueLabel(labels, undefined)}</strong>`
+      + ' <button type="button" class="r2dt-deselect-btn"'
+      + ' aria-label="Clear selection" title="Clear selection (Esc)">&#10005;</button>';
+    const clearBtn = tip.querySelector('.r2dt-deselect-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        clearResidueSelection();
+      });
+    }
   }
 
   function selectNucleotidesIn2d(primary, partnerList) {
@@ -2005,7 +2096,7 @@
     rnaPlugin.clearHighlight(true);
     updateSelectionTooltip([]);
     if (link3d && molstar) selectInMolstar([]);
-    if (lbnHighlightFn) lbnHighlightFn([]);
+    if (lbnHighlightFn) lbnHighlightFn(null, []);
     emitResidueSelectEvent({ pdbId: PDB_LOWER, cleared: true });
   }
 
@@ -2021,12 +2112,22 @@
     partners.forEach((p) => highlightBPPath(findBPPath(id, p)));
     selectNucleotidesIn2d(id, partners);
     if (link3d && molstar) selectInMolstar([id, ...partners]);
-    if (lbnHighlightFn) lbnHighlightFn([id, ...partners]);
+    if (lbnHighlightFn) lbnHighlightFn(id, partners.map((p) => [id, p]));
     emitResidueSelectEvent({ pdbId: PDB_LOWER, label: id, partners, cleared: false });
   }
 
   bindNucleotideCaptureClicks(panel2d);
   bindDiagramBackgroundClick(panel2d);
+
+  // Pressing Escape clears the current selection (in addition to clicking
+  // the same residue again or clicking empty diagram space).
+  function onDeselectKey(ev) {
+    if (ev.key !== 'Escape' && ev.key !== 'Esc') return;
+    if (!hasActiveSelection()) return;
+    clearResidueSelection();
+  }
+  document.addEventListener('keydown', onDeselectKey);
+  ctx.cleanup.push(() => document.removeEventListener('keydown', onDeselectKey));
 
   // Select a base pair: colour its 2D line orange (if its path is in the
   // DOM) and select both partner residues in 3D. `pathEl` may be null --
@@ -2052,7 +2153,7 @@
     }
     updateSelectionTooltip([a, b]);
     if (link3d && molstar) selectInMolstar([a, b]);
-    if (lbnHighlightFn) lbnHighlightFn([a, b]);
+    if (lbnHighlightFn) lbnHighlightFn(a, [[a, b]]);
   }
 
   // Find a rendered base-pair path by its two seq ids (either order).
@@ -2089,6 +2190,7 @@
   onBpFilterUpdated = () => {
     attachBPClicks();
     applyFixups();
+    if (lbnVisibilityFn) lbnVisibilityFn(getVisible2dPairKeys());
   };
 
   // Base Pairings List rows: the plugin handles a row click by dispatching
@@ -2197,22 +2299,56 @@
     // Track what is currently highlighted so we can clear it quickly.
     let highlighted = [];
 
-    function _lbnHighlight(positions) {
+    // Highlight by base pair (edge), not by column. `primary` is the
+    // clicked residue (or null); `pairs` is the list of selected [a, b]
+    // edges. The clicked residue's nucleotide and its bracket(s) get the
+    // "selected" colour; partner nucleotides and the partner side of each
+    // selected pair get the "partner" colour. Brackets are highlighted
+    // only when their own {pos, partner} edge is selected, so a partner's
+    // unrelated pairs in other layers are never partially lit.
+    function _lbnHighlight(primary, pairs) {
       highlighted.forEach((sp) => sp.classList.remove('lbn-selected', 'lbn-partner'));
       highlighted = [];
-      if (!positions || positions.length === 0) return;
+      const prim = primary == null ? null : +primary;
+      const edges = pairs || [];
+      if (prim == null && edges.length === 0) return;
 
-      // First position is the "clicked" one; rest are partners.
-      positions.forEach((pos, idx) => {
-        const cls = idx === 0 ? 'lbn-selected' : 'lbn-partner';
-        (posSpans[pos] || []).forEach((sp) => {
-          sp.classList.add(cls);
-          highlighted.push(sp);
-        });
+      const pairKeys = new Set(
+        edges.map(([a, b]) => `${Math.min(a, b)}_${Math.max(a, b)}`)
+      );
+      const partnerPositions = new Set();
+      edges.forEach(([a, b]) => {
+        if (a !== prim) partnerPositions.add(a);
+        if (b !== prim) partnerPositions.add(b);
       });
 
-      if (highlighted.length > 0) {
-        highlighted[0].scrollIntoView({
+      // Sequence-row nucleotides: show every residue involved.
+      container.querySelectorAll('.lbn-nt').forEach((sp) => {
+        const p = +sp.dataset.pos;
+        let cls = null;
+        if (p === prim) cls = 'lbn-selected';
+        else if (partnerPositions.has(p)) cls = 'lbn-partner';
+        if (cls) {
+          sp.classList.add(cls);
+          highlighted.push(sp);
+        }
+      });
+
+      // Bracket spans: only light the two brackets of a selected pair.
+      container.querySelectorAll('.lbn-bp').forEach((sp) => {
+        const p = +sp.dataset.pos;
+        const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+        if (partner == null) return;
+        const key = `${Math.min(p, partner)}_${Math.max(p, partner)}`;
+        if (!pairKeys.has(key)) return;
+        sp.classList.add(p === prim ? 'lbn-selected' : 'lbn-partner');
+        highlighted.push(sp);
+      });
+
+      const focusSpan = (prim != null && posSpans[prim] && posSpans[prim][0])
+        || highlighted[0];
+      if (focusSpan) {
+        focusSpan.scrollIntoView({
           behavior: 'smooth',
           block: 'nearest',
           inline: 'nearest',
@@ -2233,16 +2369,41 @@
         // 2D diagram. (No protvista-click, which would re-render and wipe the
         // path highlight.)
         selectBasePair(pos, partner, findBPPath(pos, partner));
-        _lbnHighlight([pos, partner]);
       } else {
         selectResidue(pos);
       }
     });
 
+    // Grey out the pairs that are hidden in the 2D diagram so the list
+    // mirrors what the "Nested only" toggle / family checkboxes show.
+    // `visibleKeys` is a Set of "min_max" pair keys (null => show all).
+    function _lbnVisibility(visibleKeys) {
+      container.querySelectorAll('.lbn-bp').forEach((sp) => {
+        const pos     = +sp.dataset.pos;
+        const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+        if (partner == null) return;
+        const key    = `${Math.min(pos, partner)}_${Math.max(pos, partner)}`;
+        const hidden = visibleKeys ? !visibleKeys.has(key) : false;
+        sp.classList.toggle('lbn-bp-hidden', hidden);
+      });
+      // Dim a layer's label when none of its pairs are visible in 2D.
+      container.querySelectorAll('.lbn-row').forEach((rowEl) => {
+        const bps = rowEl.querySelectorAll('.lbn-bp');
+        if (bps.length === 0) return;
+        const anyVisible = Array.from(bps).some(
+          (sp) => !sp.classList.contains('lbn-bp-hidden')
+        );
+        rowEl.classList.toggle('lbn-row--hidden', !anyVisible);
+      });
+    }
+
     // 2D/3D → LBN sync is handled by selectResidue / selectBasePair via
     // lbnHighlightFn; no separate listeners needed here.
 
     lbnHighlightFn = _lbnHighlight;
+    lbnVisibilityFn = _lbnVisibility;
+    // Reflect the current 2D filter state immediately on first render.
+    _lbnVisibility(getVisible2dPairKeys());
 
     // Expose for console debugging.
     window.__r2dt.lbnData      = data;

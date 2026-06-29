@@ -403,6 +403,38 @@
   color: #6b7280;
 }
 
+/* Clear-selection (×) button inside the selection tooltip. */
+.r2dt-deselect-btn {
+  appearance: none;
+  margin-left: 6px;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  background: #fff;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.r2dt-deselect-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.r2dt-deselect-btn:focus-visible {
+  outline: 2px solid #b8c9d9;
+  outline-offset: 1px;
+}
+
 #checkboxes.r2dt-bp-filter-panel label:hover {
   background: #f3f4f6;
 }
@@ -850,4 +882,22 @@
 .lbn-partner {
   background: #ffc0cb !important;
   outline: 1px solid #d0607a;
+}
+
+/* Pairs hidden in the current 2D view are dimmed (kept in place so the
+   columns stay aligned). Selection highlight still overrides this. */
+.lbn-bp.lbn-bp-hidden {
+  color: #c9ced6;
+  font-weight: normal;
+}
+
+.lbn-row--hidden .lbn-label {
+  color: #c9ced6;
+}
+
+.r2dt-viewer-lbn-caption {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
 }

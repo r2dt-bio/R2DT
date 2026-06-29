@@ -239,13 +239,14 @@ def build_fr3d_data(
         }
 
     # FR3D reports every pair twice -- once in each direction (e.g. both
-    # "19 cSS 22" and "22 cSS 19"). The viewer draws one glyph per
-    # annotation, so a second, direction-reversed copy renders on top of
-    # the first. For symmetric symbols (cWW circle, cHH square) the copies
-    # coincide and it's invisible, but the Sugar-edge triangle is oriented
-    # along the pair axis, so the reversed copy points the opposite way and
-    # the two triangles visibly overlap. Keep only the first occurrence of
-    # each unordered pair.
+    # "19 cSS 22" and "22 cSS 19", or "18 cHW 35" and "35 cWH 18"). The
+    # viewer draws one glyph per annotation, so a second, direction-reversed
+    # copy renders on top of the first. For symmetric symbols (cWW circle,
+    # cHH square) the copies coincide and it's invisible, but the Sugar-edge
+    # triangle is oriented along the pair axis, so the reversed copy points
+    # the opposite way and the two triangles visibly overlap. Keep only the
+    # first occurrence of each unordered residue pair (LW flip duplicates
+    # included).
     seen_pairs = set()
 
     for raw in basepair_txt_path.read_text().splitlines():
