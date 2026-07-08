@@ -2449,6 +2449,130 @@ def generate_template(json_file, quiet):
         rprint(f"Created a new {template}")
 
 
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+def _run_multichain_pdb(
+    ctx,
+    file_path,
+    actual_format,
+    structure_id,
+    output_path,
+    chains,
+    rnapuzzler_flag,
+    quiet,
+):
+    """Build a single combined 2D diagram from multiple RNA chains.
+
+    Extracts the selected chains, concatenates them into one label space
+    (auto-ordering unless an explicit order is given), lays out the nested pairs
+    via the templatefree pipeline, then post-processes the SVG to break the
+    phantom backbone bond at each chain junction, label per-chain 5'/3' termini,
+    and draw crossing inter-chain pairs as an overlay.  The concatenation
+    metadata is also written to ``<id>.multichain.json`` for the
+    model-comparison draw.
+    """
+    # pylint: disable=import-outside-toplevel
+    from utils import multichain
+
+    if actual_format != "cif":
+        rprint(
+            "[red]Multi-chain mode requires an mmCIF structure "
+            "(use --format cif or provide a .cif file).[/red]"
+        )
+        return
+
+    if chains:
+        chain_list = [c.strip() for c in chains.split(",") if c.strip()]
+        auto_order = False  # explicit order provided
+    else:  # --all-chains
+        chain_list = None
+        auto_order = True
+
+    extraction_dir = output_path / "extraction"
+    result = multichain.assemble(
+        str(file_path),
+        str(extraction_dir),
+        chains=chain_list,
+        auto_order=auto_order,
+        quiet=quiet,
+    )
+    if result is None:
+        rprint("[red]Error: multi-chain extraction failed[/red]")
+        return
+
+    counts = result.counts()
+    if not quiet:
+        rprint(
+            f"Chains: {'+'.join(result.order)}  "
+            f"({counts['length']} nt, {counts['nested']} nested pairs, "
+            f"{counts['crossing']} crossing)"
+        )
+
+    # Record the concatenation metadata for later phases.
+    meta_path = output_path / f"{structure_id}.multichain.json"
+    with open(meta_path, "w") as meta_file:
+        json.dump(
+            {
+                "structure_id": structure_id,
+                "order": result.order,
+                "boundaries": [
+                    {"chain": c, "start": s, "end": e} for c, s, e in result.boundaries
+                ],
+                "sequence": result.sequence,
+                "dot_bracket": result.dot_bracket,
+                "nested_pairs": result.nested_pairs,
+                "crossing_pairs": result.crossing_pairs,
+                "counts": counts,
+            },
+            meta_file,
+            indent=2,
+        )
+
+    # Write the combined FASTA (sequence + nested dot-bracket) and lay it out.
+    fasta_path = output_path / f"{structure_id}.fasta"
+    with open(fasta_path, "w") as fasta_file:
+        fasta_file.write(f">{structure_id}\n{result.sequence}\n{result.dot_bracket}\n")
+
+    results_folder = output_path / "results"
+    if not quiet:
+        rprint("Generating combined 2D diagram (templatefree)...")
+    ctx.invoke(
+        templatefree,
+        fasta_input=str(fasta_path),
+        output_folder=str(results_folder),
+        rnartist=False,
+        rscape=not rnapuzzler_flag,
+        rnapuzzler_flag=rnapuzzler_flag,
+        quiet=quiet,
+    )
+
+    svg_dir = results_folder / "results" / "svg"
+    svg_path = next(
+        (
+            p
+            for p in (
+                svg_dir / f"{structure_id}.colored.svg",
+                svg_dir / f"{structure_id}.svg",
+            )
+            if p.exists()
+        ),
+        None,
+    )
+    if svg_path is not None:
+        # Break phantom junctions, add per-chain 5'/3' termini, draw the
+        # crossing-pair overlay.
+        multichain.postprocess_combined_svg(
+            str(svg_path),
+            result.boundaries,
+            result.nested_pairs,
+            result.crossing_pairs,
+            quiet=quiet,
+        )
+        if not quiet:
+            rprint(f"[green]Success! Combined SVG created: {svg_path}[/green]")
+    elif not quiet:
+        rprint("[yellow]Diagram generation completed. Check output folder.[/yellow]")
+
+
 @cli.command()
 @click.argument("pdb-input", type=click.STRING)
 @click.argument("output-folder", type=click.Path())
@@ -2499,6 +2623,27 @@ def generate_template(json_file, quiet):
         "FR3D-derived dot-bracket with R2R/RNApuzzler/RNArtist."
     ),
 )
+@click.option(
+    "--all-chains",
+    "all_chains",
+    is_flag=True,
+    default=False,
+    help=(
+        "Combine every RNA chain into one diagram, auto-ordering the "
+        "concatenation to minimise crossing inter-chain pairs (mmCIF only, "
+        "templatefree)."
+    ),
+)
+@click.option(
+    "--chains",
+    "chains",
+    type=str,
+    default=None,
+    help=(
+        "Combine the listed RNA chains into one diagram, in the given "
+        "concatenation order (e.g. 'A,B'). Implies multi-chain templatefree."
+    ),
+)
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
@@ -2513,6 +2658,8 @@ def pdb(
     pseudoknots,
     rnapuzzler_flag,
     mode,
+    all_chains,
+    chains,
     quiet,
 ):
     """
@@ -2610,6 +2757,20 @@ def pdb(
 
         if not quiet:
             rprint(f"Downloaded: {file_path} (format: {actual_format})")
+
+    # --- Multi-chain combined diagram (experimental) ---
+    if all_chains or chains:
+        _run_multichain_pdb(
+            ctx,
+            file_path=file_path,
+            actual_format=actual_format,
+            structure_id=structure_id,
+            output_path=output_path,
+            chains=chains,
+            rnapuzzler_flag=rnapuzzler_flag,
+            quiet=quiet,
+        )
+        return
 
     # Determine which basepairs tool to use
     if basepairs == "auto":
