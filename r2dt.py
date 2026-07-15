@@ -2535,12 +2535,16 @@ def _run_multichain_pdb(
     results_folder = output_path / "results"
     if not quiet:
         rprint("Generating combined 2D diagram (templatefree)...")
+    # Use auto mode (R2R + RNApuzzler + RNArtist, keep the fewest-overlap layout)
+    # unless the caller forced RNApuzzler. Passing rscape=True would set chosen==1
+    # and bypass the auto overlap-minimising selection, forcing R2R (which is not
+    # overlap-free) -- so leave rscape False here.
     ctx.invoke(
         templatefree,
         fasta_input=str(fasta_path),
         output_folder=str(results_folder),
         rnartist=False,
-        rscape=not rnapuzzler_flag,
+        rscape=False,
         rnapuzzler_flag=rnapuzzler_flag,
         quiet=quiet,
     )
