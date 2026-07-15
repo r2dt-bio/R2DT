@@ -23,8 +23,20 @@ RUN python3 -m venv $VENV && pip3 install --upgrade pip
 ADD requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt --no-cache-dir
 
-# Install FR3D-python
-RUN pip3 install --no-cache-dir https://github.com/BGSU-RNA/fr3d-python/archive/3c7dc20.tar.gz
+# Install FR3D-python, pinned to the tip of the actively-developed `latest`
+# branch (bump the commit deliberately). That branch ships an fr3d/modified/
+# subpackage but omits its __init__.py, so setup.py's find_packages() drops it
+# and `import fr3d.cif.reader` fails (it pulls in fr3d.modified.mapping). Add the
+# missing __init__.py before installing. The final import is a build-time guard.
+ARG FR3D_COMMIT=ed850c00df01616e58c643b0f84bdc69662b5d55
+RUN set -eux; \
+    cd /tmp; \
+    python3 -c "import urllib.request; urllib.request.urlretrieve('https://github.com/BGSU-RNA/fr3d-python/archive/${FR3D_COMMIT}.tar.gz', 'fr3d.tar.gz')"; \
+    tar xzf fr3d.tar.gz; \
+    touch "fr3d-python-${FR3D_COMMIT}/fr3d/modified/__init__.py"; \
+    pip3 install --no-cache-dir "./fr3d-python-${FR3D_COMMIT}"; \
+    rm -rf /tmp/fr3d.tar.gz "/tmp/fr3d-python-${FR3D_COMMIT}"; \
+    python3 -c "from fr3d.cif.reader import Cif"
 
 ADD . /rna/r2dt
 
