@@ -32,7 +32,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "89"
+_R2DT_ASSETS_VERSION = "114"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
 # The interaction glue (``R2DTViewer.create`` API).
@@ -166,12 +166,24 @@ _COMPARE_TEMPLATE = """<!DOCTYPE html>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          margin: 0; padding: 16px; color: #222; }}
   h1 {{ font-size: 18px; margin: 0 0 4px; }}
-  .meta {{ color: #666; font-size: 12px; margin: 0 0 16px; }}
+  .meta {{ color: #666; font-size: 12px; margin: 0 0 12px; }}
+  .mc-inf {{ display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+             margin: 0 0 16px; padding: 8px 14px; background: #f8fafc;
+             border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; }}
+  .mc-inf-title {{ color: #374151; font-weight: 600; }}
+  .mc-inf-item {{ display: inline-flex; align-items: baseline; gap: 6px; cursor: help; }}
+  .mc-inf-key {{ color: #6b7280; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }}
+  .mc-inf-val {{ font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }}
+  @media (prefers-color-scheme: dark) {{
+    .mc-inf {{ background: #1f2937; border-color: #374151; }}
+    .mc-inf-title {{ color: #d1d5db; }}
+  }}
 </style>
 </head>
 <body>
 <h1>{heading}</h1>
 <div class="meta">{subtitle}</div>
+{metrics_html}
 <div id="r2dt-compare-mount"></div>
 <script src="{viewer_plugin_js}"></script>
 <script src="{molstar_js}"></script>
@@ -181,6 +193,7 @@ R2DTViewer.createCompare({{
   mount: '#r2dt-compare-mount',
   panels: {panels_json},
   molstar: {molstar_json},
+  fetchShim: {fetch_shim_json},
 }}).catch(function (err) {{
   console.error(err);
   var mount = document.getElementById('r2dt-compare-mount');
@@ -192,6 +205,51 @@ R2DTViewer.createCompare({{
 """
 
 
+def _inf_colour(value: Optional[float]) -> str:
+    """Traffic-light colour for an INF value (green good → red poor)."""
+    if value is None:
+        return "#9ca3af"
+    if value >= 0.95:
+        return "#16a34a"
+    if value >= 0.85:
+        return "#65a30d"
+    if value >= 0.60:
+        return "#d97706"
+    return "#dc2626"
+
+
+def _format_inf_metrics(metrics: Optional[Dict[str, Any]]) -> str:
+    """Render the INF (Interaction Network Fidelity) bar, or '' if no metrics."""
+    if not metrics:
+        return ""
+    rows = [
+        ("wc", "INF WC", "canonical (cis Watson–Crick) base pairs"),
+        ("nwc", "INF non-WC", "non-canonical base pairs"),
+        ("all", "INF all", "all base pairs (canonical + non-canonical)"),
+    ]
+    items = []
+    for key, label, desc in rows:
+        m = metrics.get(key) or {}
+        value = m.get("inf")
+        text = "n/a" if value is None else f"{value:.3f}"
+        colour = _inf_colour(value)
+        title = (
+            f"{desc} — TP {m.get('tp', 0)}, "
+            f"FP {m.get('fp', 0)} (model-only), "
+            f"FN {m.get('fn', 0)} (missing in model)"
+        )
+        items.append(
+            f'<span class="mc-inf-item" title="{title}">'
+            f'<span class="mc-inf-key">{label}</span>'
+            f'<span class="mc-inf-val" style="color:{colour}">{text}</span></span>'
+        )
+    return (
+        '<div class="mc-inf">'
+        '<span class="mc-inf-title">Interaction Network Fidelity '
+        "(base pairs, model vs reference)</span>" + "".join(items) + "</div>"
+    )
+
+
 def render_compare(
     out_dir: Path,
     *,
@@ -200,14 +258,24 @@ def render_compare(
     subtitle: str,
     panels: List[Dict[str, Any]],
     molstar: Optional[Dict[str, Any]] = None,
+    fetch_shim: bool = True,
+    metrics: Optional[Dict[str, Any]] = None,
 ) -> Path:
-    """Write a multi-panel ``index.html`` that calls ``R2DTViewer.createCompare()``."""
+    """Write a multi-panel ``index.html`` that calls ``R2DTViewer.createCompare()``.
+
+    ``fetch_shim=False`` when each panel carries its data inline (``apiData`` /
+    ``fr3dData``): there is nothing to fetch, so the PDB-id fetch router — which
+    cannot tell apart panels that share a structure id — is disabled.
+    ``metrics`` is the INF dict from ``utils.multichain.compute_inf``.
+    """
     html = _COMPARE_TEMPLATE.format(
         page_title=page_title,
         heading=heading,
         subtitle=subtitle,
+        metrics_html=_format_inf_metrics(metrics),
         panels_json=json.dumps(panels, indent=2),
         molstar_json=json.dumps(molstar or {}, indent=2),
+        fetch_shim_json=json.dumps(fetch_shim),
         viewer_plugin_js=VIEWER_PLUGIN_FILENAME,
         viewer_css=VIEWER_CSS_FILENAME,
         r2dt_css=R2DT_CSS_FILENAME,

@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """
 Multi-chain RNA extraction and concatenation for combined 2D diagrams.
 
@@ -31,6 +32,7 @@ limitations under the License.
 
 import itertools
 import math
+import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,12 +45,23 @@ _CHAIN_PALETTE = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab0
 # Overlay style for crossing (pseudoknot / inter-chain kissing) pairs.
 _OVERLAY_STROKE = "#e6194b"
 
+# Reference/model base-pair diff colours (approach B: draw the model's pairs on
+# the reference layout).  Matched pairs are de-emphasised so the eye lands on
+# the differences.
+_DIFF_MATCHED = "#999999"  # agreement
+_DIFF_LOST = "#4363d8"  # in reference, missing from model (false negative)
+_DIFF_ADDED = "#e6194b"  # in model only (false positive)
+
 # Above this many chains the N! order search is skipped in favour of a greedy
 # adjacency ordering (see _greedy_order).  Real RNA complexes sit well below
 # this; the cap only guards against pathological inputs.
 _MAX_BRUTEFORCE_CHAINS = 6
 
 _CWW_INTERACTIONS = ("cWW", "cWw", "cwW")
+
+# A Leontis–Westhof base-pair family: cis/trans + two edges from {W,H,S}.
+# Excludes FR3D "near" pairs (n-prefixed), stacking (s33/s55…), bifurcated, etc.
+_LW_FAMILY_RE = re.compile(r"^[ct][whs][whs]$", re.IGNORECASE)
 
 
 @dataclass
@@ -71,7 +84,10 @@ class MultiChainStructure:  # pylint: disable=too-many-instance-attributes
     crossing_pairs: List[Tuple[int, int]]  # 0-based, i < j — for the overlay
     chain_of: List[str]  # per-position chain id, len == len(sequence)
     boundaries: List[Tuple[str, int, int]]  # (chain_id, start, end_exclusive)
+    auth_of: List[Optional[int]] = field(default_factory=list)  # author resnum
     inter_pairs: List[Tuple[int, int]] = field(default_factory=list)
+    # Every base pair (all Leontis–Westhof families) as (i, j, family), for INF.
+    all_pairs: List[Tuple[int, int, str]] = field(default_factory=list)
 
     def counts(self) -> Dict[str, int]:
         """Small summary useful for logging and the order scorer."""
@@ -160,6 +176,12 @@ def read_cww_pairs(
             unit1, interaction, unit2 = parts[0], parts[1], parts[2]
             if interaction not in _CWW_INTERACTIONS:
                 continue
+            # Skip crystal-symmetry contacts (a real residue paired with a
+            # symmetry mate): they are inter-copy packing, not intramolecular
+            # pairs, and would otherwise render as spurious lines once the
+            # symmetry endpoint resolves back to its asymmetric-unit position.
+            if fr3d_utils.is_symmetry_mate(unit1) or fr3d_utils.is_symmetry_mate(unit2):
+                continue
             if target_model is not None:
                 m1 = unit1.split("|")[1] if len(unit1.split("|")) > 1 else None
                 m2 = unit2.split("|")[1] if len(unit2.split("|")) > 1 else None
@@ -173,26 +195,101 @@ def read_cww_pairs(
     return pairs
 
 
-def _combined_map(
-    chain_data: List[ChainSeq], order: List[str]
-) -> Tuple[Dict[str, int], List[str], List[Tuple[str, int, int]], str]:
+def read_all_bp(
+    basepair_file: str, target_model: Optional[str] = None
+) -> List[Tuple[str, str, str]]:
+    """Read every base pair (all LW families) as (unit_id1, family, unit_id2).
+
+    Unlike :func:`read_cww_pairs` this keeps non-canonical families too, which
+    the INF metric needs.  Near/stacking/other annotations are skipped, and
+    pairs are deduplicated by unordered unit pair (keeping the first family).
+    """
+    seen = set()
+    pairs: List[Tuple[str, str, str]] = []
+    with open(basepair_file, "r") as handle:
+        for line in handle:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 4:
+                continue
+            unit1, family, unit2 = parts[0], parts[1].strip(), parts[2]
+            if not _LW_FAMILY_RE.match(family):
+                continue
+            # Skip crystal-symmetry contacts (see read_cww_pairs).
+            if fr3d_utils.is_symmetry_mate(unit1) or fr3d_utils.is_symmetry_mate(unit2):
+                continue
+            if target_model is not None:
+                m1 = unit1.split("|")[1] if len(unit1.split("|")) > 1 else None
+                m2 = unit2.split("|")[1] if len(unit2.split("|")) > 1 else None
+                if m1 != target_model or m2 != target_model:
+                    continue
+            key = frozenset((unit1, unit2))
+            if key in seen:
+                continue
+            seen.add(key)
+            pairs.append((unit1, family, unit2))
+    return pairs
+
+
+def _map_all_bp(
+    all_bp: List[Tuple[str, str, str]], combined: Dict[str, int]
+) -> List[Tuple[int, int, str]]:
+    """Map (unit1, family, unit2) triples to 0-based (i, j, family) positions."""
+    out: List[Tuple[int, int, str]] = []
+    used = set()
+    for unit1, family, unit2 in all_bp:
+        pos1 = (
+            fr3d_utils._get_position_from_unit_id(  # pylint: disable=protected-access
+                unit1, combined
+            )
+        )
+        pos2 = (
+            fr3d_utils._get_position_from_unit_id(  # pylint: disable=protected-access
+                unit2, combined
+            )
+        )
+        if pos1 is None or pos2 is None or pos1 == pos2:
+            continue
+        key = (min(pos1, pos2), max(pos1, pos2))
+        if key in used:
+            continue
+        used.add(key)
+        out.append((key[0], key[1], family))
+    return out
+
+
+def _combined_map(chain_data: List[ChainSeq], order: List[str]) -> Tuple[
+    Dict[str, int],
+    List[str],
+    List[Tuple[str, int, int]],
+    str,
+    List[Optional[int]],
+]:
     """Build the concatenated sequence, unit-id → global-position map,
-    per-position chain list, and chain boundaries for a given order."""
+    per-position chain list, chain boundaries, and per-position author residue
+    number (parsed from the unit id) for a given order."""
     by_id = {c.chain_id: c for c in chain_data}
     combined: Dict[str, int] = {}
     chain_of: List[str] = []
     boundaries: List[Tuple[str, int, int]] = []
     sequence_parts: List[str] = []
+    auth_of: List[Optional[int]] = []
     offset = 0
     for chain_id in order:
         chain = by_id[chain_id]
+        local_to_auth: Dict[int, Optional[int]] = {}
         for unit_id, local in chain.unit_id_to_local.items():
             combined[unit_id] = offset + local
+            parts = unit_id.split("|")
+            try:
+                local_to_auth[local] = int(parts[4]) if len(parts) > 4 else None
+            except ValueError:
+                local_to_auth[local] = None
         chain_of.extend([chain_id] * len(chain.sequence))
+        auth_of.extend(local_to_auth.get(i) for i in range(len(chain.sequence)))
         boundaries.append((chain_id, offset, offset + len(chain.sequence)))
         sequence_parts.append(chain.sequence)
         offset += len(chain.sequence)
-    return combined, chain_of, boundaries, "".join(sequence_parts)
+    return combined, chain_of, boundaries, "".join(sequence_parts), auth_of
 
 
 def _map_pairs(
@@ -322,7 +419,7 @@ def _build_for_order(
     order: List[str],
     cww_pairs: List[Tuple[str, str]],
 ) -> MultiChainStructure:
-    combined, chain_of, boundaries, sequence = _combined_map(chain_data, order)
+    combined, chain_of, boundaries, sequence, auth_of = _combined_map(chain_data, order)
     mapped = _map_pairs(cww_pairs, combined)
     nested, crossing = max_noncrossing(mapped, len(sequence))
     inter = [p for p in mapped if _is_inter(p, boundaries)]
@@ -334,6 +431,7 @@ def _build_for_order(
         crossing_pairs=crossing,
         chain_of=chain_of,
         boundaries=boundaries,
+        auth_of=auth_of,
         inter_pairs=inter,
     )
 
@@ -452,9 +550,72 @@ def assemble(  # pylint: disable=too-many-arguments,too-many-positional-argument
         order = [c.chain_id for c in chain_data]  # preserve requested order
         result = _build_for_order(chain_data, order, cww_pairs)
 
+    # Map the full base-pair set (all LW families) onto the chosen order's
+    # label space so the INF metric can compare canonical vs non-canonical.
+    combined, _, _, _, _ = _combined_map(chain_data, result.order)
+    all_bp = read_all_bp(basepair_file, target_model=target_model)
+    result.all_pairs = _map_all_bp(all_bp, combined)
+
     if not quiet:
         print(f"[multichain] order={'+'.join(result.order)} {result.counts()}")
     return result
+
+
+# ---------------------------------------------------------------------------
+# INF (Interaction Network Fidelity, Parisien et al. 2009)
+# ---------------------------------------------------------------------------
+
+
+def _is_canonical(family: str) -> bool:
+    """Canonical = cis Watson-Crick (cWW).  Everything else is non-canonical."""
+    return family.upper() == "CWW"
+
+
+def _inf_score(ref: set, model: set) -> Dict[str, Optional[float]]:
+    """INF for one interaction set: sqrt(PPV * STY).
+
+    TP = ref ∩ model, FP = model \\ ref, FN = ref \\ model.  ``inf`` is None
+    when neither structure has any interaction of this type.
+    """
+    tp = len(ref & model)
+    fp = len(model - ref)
+    fn = len(ref - model)
+    if tp == 0:
+        inf: Optional[float] = None if (not ref and not model) else 0.0
+        ppv = sty = None if (not ref and not model) else 0.0
+    else:
+        ppv = tp / (tp + fp)
+        sty = tp / (tp + fn)
+        inf = math.sqrt(ppv * sty)
+    return {"inf": inf, "ppv": ppv, "sty": sty, "tp": tp, "fp": fp, "fn": fn}
+
+
+def _split_families(pairs: List[Tuple[int, int, str]]) -> Tuple[set, set, set]:
+    """Return (canonical, non_canonical, all) sets of (i, j) position pairs."""
+    canonical, non_canonical, everything = set(), set(), set()
+    for i, j, family in pairs:
+        key = (i, j)
+        everything.add(key)
+        (canonical if _is_canonical(family) else non_canonical).add(key)
+    return canonical, non_canonical, everything
+
+
+def compute_inf(
+    ref_pairs: List[Tuple[int, int, str]],
+    model_pairs: List[Tuple[int, int, str]],
+) -> Dict[str, Dict[str, Optional[float]]]:
+    """Interaction Network Fidelity of ``model`` against ``ref``.
+
+    Returns INF for three interaction subsets:
+    ``wc`` (canonical/cWW), ``nwc`` (non-canonical), and ``all`` (both).
+    """
+    r_wc, r_nwc, r_all = _split_families(ref_pairs)
+    m_wc, m_nwc, m_all = _split_families(model_pairs)
+    return {
+        "wc": _inf_score(r_wc, m_wc),
+        "nwc": _inf_score(r_nwc, m_nwc),
+        "all": _inf_score(r_all, m_all),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -512,10 +673,13 @@ def _terminus_label(  # pylint: disable=too-many-arguments,too-many-positional-a
     length = math.hypot(dx, dy) or 1.0
     ox = x + dx / length * 14.0
     oy = y + dy / length * 14.0
+    # Use an inline ``style`` (not a ``fill`` attribute): R2DT's SVG carries a
+    # bare ``text { fill: black; ... }`` CSS rule that overrides presentation
+    # attributes, so only ``style`` wins.
     return (
-        f'<text x="{ox:.2f}" y="{oy:.2f}" class="mc-terminus" fill="{colour}" '
-        f'font-size="10" font-weight="bold" text-anchor="middle">'
-        f"{chain_id}{tag}</text>"
+        f'<text x="{ox:.2f}" y="{oy:.2f}" class="mc-terminus" '
+        f'style="fill:{colour};font-size:10px;font-weight:bold;'
+        f'text-anchor:middle">{chain_id}{tag}</text>'
     )
 
 
@@ -615,4 +779,342 @@ def postprocess_combined_svg(  # pylint: disable=too-many-arguments,too-many-pos
             f"[multichain] post-processed {path.name}: "
             f"{removed} junction bond(s) broken, {len(labels)} termini, "
             f"{len(arcs)} overlay arc(s)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Reference/model base-pair comparison (approach B: model pairs on ref layout)
+# ---------------------------------------------------------------------------
+
+_CROSSING_PATH_RE = re.compile(r'<path[^>]*class="mc-crossing-bp"[^>]*/>')
+
+
+def diff_pairs(
+    ref_pairs: List[Tuple[int, int]], model_pairs: List[Tuple[int, int]]
+) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]:
+    """Compare two pair sets over the same coordinates.
+
+    Returns ``(matched, lost, added)``: pairs in both, pairs only in the
+    reference (missed by the model), and pairs only in the model (spurious).
+    """
+    ref = {tuple(p) for p in ref_pairs}
+    model = {tuple(p) for p in model_pairs}
+    return sorted(ref & model), sorted(ref - model), sorted(model - ref)
+
+
+# ---------------------------------------------------------------------------
+# 3D superposition (approach C: pre-align the predicted model onto the
+# reference so the viewer can overlay both structures without an in-browser
+# transform — the pinned pdbe-molstar CDN bundle exposes no transform API).
+# ---------------------------------------------------------------------------
+
+
+def _load_structure(path: str):
+    """Parse a ``.cif``/``.pdb`` file into a BioPython structure.
+
+    Uses author chain ids and residue numbers (MMCIFParser ``auth_*`` defaults,
+    which PDBParser already does) so ``(chain, auth)`` lookups line up with the
+    FR3D unit ids that produced ``chain_of``/``auth_of``.
+    """
+    # pylint: disable=import-outside-toplevel
+    import warnings
+
+    from Bio.PDB import MMCIFParser, PDBParser
+
+    stem = Path(path).stem
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if Path(path).suffix.lower() == ".cif":
+            parser = MMCIFParser(QUIET=True)
+        else:
+            parser = PDBParser(QUIET=True)
+        return parser.get_structure(stem, path)
+
+
+def _atom_coords_by_residue(structure, atom_names=("C1'", "P")):
+    """Map ``(chain_id, auth_seq_id) -> coord`` for the first model.
+
+    Picks the first present atom in ``atom_names`` per residue (C1' for RNA,
+    falling back to the phosphate). Heteroatoms/waters are skipped.
+    """
+    # pylint: disable=import-outside-toplevel
+    import numpy as np
+
+    model = next(iter(structure))
+    out: Dict[Tuple[str, int], "np.ndarray"] = {}
+    for chain in model:
+        for residue in chain:
+            if residue.id[0] != " ":  # HETATM / water
+                continue
+            key = (chain.id, residue.id[1])
+            if key in out:
+                continue
+            for name in atom_names:
+                if residue.has_id(name):
+                    out[key] = np.asarray(residue[name].coord, dtype=float)
+                    break
+    return out
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+def superpose_model_onto_reference(
+    ref_file: str,
+    model_file: str,
+    ref_index: List[Optional[Tuple[str, int]]],
+    model_index: List[Optional[Tuple[str, int]]],
+    out_path: str,
+    *,
+    atom_names: Tuple[str, ...] = ("C1'", "P"),
+    min_atoms: int = 3,
+    quiet: bool = False,
+) -> Optional[Tuple[float, int]]:
+    """Rigid-superpose the model onto the reference and write the aligned model.
+
+    ``ref_index[i]`` / ``model_index[i]`` give ``(chain, auth)`` for label
+    position *i* in each structure (``None`` where unresolved). Both are
+    co-indexed (approach B: same sequence, same chain order), so the fit runs on
+    the positions resolved in *both* — an exact atom correspondence, no alignment.
+    The resulting rotation+translation is applied to **every** model atom and the
+    structure is written to ``out_path``.
+
+    Returns ``(rmsd, n_atoms_used)``, or ``None`` if fewer than ``min_atoms``
+    correspondences exist (caller should load the model unaligned instead).
+    """
+    # pylint: disable=import-outside-toplevel
+    import numpy as np
+    from Bio.PDB import MMCIFIO, PDBIO
+    from Bio.SVDSuperimposer import SVDSuperimposer
+
+    model_struct = _load_structure(model_file)
+    ref_coords = _atom_coords_by_residue(_load_structure(ref_file), atom_names)
+    model_coords = _atom_coords_by_residue(model_struct, atom_names)
+
+    fixed, moving = [], []
+    for rk, mk in zip(ref_index, model_index):
+        if rk is None or mk is None:
+            continue
+        rc = ref_coords.get(rk)
+        mc = model_coords.get(mk)
+        if rc is None or mc is None:
+            continue
+        fixed.append(rc)
+        moving.append(mc)
+
+    if len(fixed) < min_atoms:
+        if not quiet:
+            print(
+                f"[multichain] superpose: only {len(fixed)} matched atoms "
+                f"(< {min_atoms}); loading model unaligned"
+            )
+        return None
+
+    sup = SVDSuperimposer()
+    sup.set(np.asarray(fixed), np.asarray(moving))
+    sup.run()
+    rot, tran = sup.get_rotran()
+    rms = sup.get_rms()
+
+    for atom in model_struct.get_atoms():
+        atom.coord = np.dot(atom.coord, rot) + tran
+
+    io = MMCIFIO() if str(out_path).lower().endswith(".cif") else PDBIO()
+    io.set_structure(model_struct)
+    io.save(str(out_path))
+    if not quiet:
+        print(
+            f"[multichain] superposed model onto reference: {len(fixed)} atoms, "
+            f"RMSD {rms:.2f} Å -> {Path(out_path).name}"
+        )
+    return rms, len(fixed)
+
+
+def write_structure_chains(
+    src_path: str,
+    chains: List[str],
+    out_path: str,
+    *,
+    quiet: bool = False,
+) -> bool:
+    """Write a copy of ``src_path`` keeping only the given author chains.
+
+    A deposited reference entry often carries more than the RNA under analysis
+    (extra RNA copies, ligands, whole protein chains). The 3D pane colours every
+    non-selected atom with the reference base colour, so those extras render as
+    additional structures beside the one the model is superimposed on. Keeping
+    only the analysed chain(s) leaves a single reference structure in the view.
+
+    Returns ``True`` if a filtered file was written, ``False`` on failure
+    (caller should fall back to copying the original).
+    """
+    # pylint: disable=import-outside-toplevel
+    from Bio.PDB import MMCIFIO, PDBIO, Select
+
+    keep = {str(c) for c in chains}
+    if not keep:
+        return False
+    try:
+        structure = _load_structure(src_path)
+    except Exception:  # pylint: disable=broad-except
+        return False
+
+    class _ChainSelect(Select):  # type: ignore[misc]
+        def accept_chain(self, chain):  # noqa: N802
+            """Keep only chains in ``keep``."""
+            return 1 if chain.id in keep else 0
+
+    io = MMCIFIO() if str(out_path).lower().endswith(".cif") else PDBIO()
+    io.set_structure(structure)
+    try:
+        io.save(str(out_path), _ChainSelect())
+    except Exception:  # pylint: disable=broad-except
+        return False
+    if not quiet:
+        print(
+            f"[multichain] wrote reference with chains {sorted(keep)} "
+            f"-> {Path(out_path).name}"
+        )
+    return True
+
+
+def simulate_model_pairs(
+    ref_pairs: List[Tuple[int, int]],
+    n_positions: int,
+    *,
+    seed: int = 0,
+    remove_frac: float = 0.2,
+    n_add: int = 2,
+) -> List[Tuple[int, int]]:
+    """Perturb a reference pair set into a synthetic "model" pair set.
+
+    TEMPORARY testing aid for when no real predicted structure is available:
+    drops a fraction of the reference pairs (simulated false negatives) and
+    invents a few pairs between currently-unpaired positions (false positives).
+    Deterministic for a given seed.
+    """
+    rng = random.Random(seed)
+    kept = [tuple(p) for p in ref_pairs if rng.random() > remove_frac]
+    used = {x for pair in kept for x in pair}
+    free = [i for i in range(n_positions) if i not in used]
+    rng.shuffle(free)
+    added: List[Tuple[int, int]] = []
+    while len(free) >= 2 and len(added) < n_add:
+        a, b = free.pop(), free.pop()
+        added.append((min(a, b), max(a, b)))
+    return sorted(kept + added)
+
+
+def _pair_glyph(
+    centres: Dict[int, Tuple[float, float]],
+    idx1: int,
+    idx2: int,
+    colour: str,
+    *,
+    dashed: bool,
+    width: float,
+) -> str:
+    """A base-pair glyph (gentle Bézier arc) between two 1-based nucleotides."""
+    if idx1 not in centres or idx2 not in centres:
+        return ""
+    x0, y0 = centres[idx1]
+    x1, y1 = centres[idx2]
+    chord = math.hypot(x1 - x0, y1 - y0) or 1.0
+    bulge = chord * 0.15  # near-straight for helical pairs, arced for long ones
+    cx = (x0 + x1) / 2 - (y1 - y0) / chord * bulge
+    cy = (y0 + y1) / 2 + (x1 - x0) / chord * bulge
+    dash = ' stroke-dasharray="4,3"' if dashed else ""
+    return (
+        f'<path d="M {x0:.1f},{y0:.1f} Q {cx:.1f},{cy:.1f} {x1:.1f},{y1:.1f}" '
+        f'fill="none" stroke="{colour}" stroke-width="{width:.1f}"{dash} '
+        f'opacity="0.9" class="mc-diff-bp"/>'
+    )
+
+
+def _remove_ref_pair_line(
+    content: str, centres: Dict[int, Tuple[float, float]], idx1: int, idx2: int
+) -> str:
+    """Remove the engine-drawn base-pair line between two nucleotides.
+
+    Guards against touching backbone lines by only removing lines whose
+    endpoints join non-consecutive nucleotides.
+    """
+    if abs(idx1 - idx2) <= 1:
+        return content  # adjacent: could be backbone — leave it
+    target = frozenset((idx1, idx2))
+    for m in _LINE_RE.finditer(content):
+        x1, y1, x2, y2 = map(float, m.groups()[:4])
+        i = _nearest_index(x1, y1, centres)
+        j = _nearest_index(x2, y2, centres)
+        if frozenset((i, j)) == target:
+            return content.replace(m.group(0), "", 1)
+    return content
+
+
+def _diff_legend(n_matched: int, n_lost: int, n_added: int) -> str:
+    rows = [
+        (_DIFF_MATCHED, f"matched: {n_matched}"),
+        (_DIFF_LOST, f"missing in model: {n_lost}"),
+        (_DIFF_ADDED, f"model-only: {n_added}"),
+    ]
+    # Inline ``style`` beats R2DT's bare ``text { ... text-anchor: middle }``
+    # rule; without it the labels centre on x and spill off the left edge.
+    texts = "".join(
+        f'<text x="6" y="{10 + i * 10}" style="fill:{colour};font-size:7px;'
+        f'font-weight:bold;text-anchor:start">{label}</text>'
+        for i, (colour, label) in enumerate(rows)
+    )
+    return f'<g class="mc-diff-legend">{texts}</g>'
+
+
+def render_model_panel(
+    ref_svg_path: str,
+    out_svg_path: str,
+    ref_pairs: List[Tuple[int, int]],
+    model_pairs: List[Tuple[int, int]],
+    quiet: bool = False,
+) -> None:
+    """Render a model panel on the reference layout, coloured by pair diff.
+
+    Reuses the reference SVG's coordinates, backbone, nucleotides and termini
+    verbatim (approach B), strips the reference's own base-pair rendering, and
+    redraws every pair by diff category: matched (grey), missing-in-model
+    (blue, dashed), model-only (red).
+    """
+    content = Path(ref_svg_path).read_text()
+    centres = _parse_nt_centres(content)
+    if not centres:
+        if not quiet:
+            print(f"[multichain] no nucleotides in {ref_svg_path}; skipping model")
+        return
+
+    matched, lost, added = diff_pairs(ref_pairs, model_pairs)
+
+    # Strip the reference's base-pair rendering (crossing arcs + nested lines).
+    content = _CROSSING_PATH_RE.sub("", content)
+    for i, j in ref_pairs:
+        content = _remove_ref_pair_line(content, centres, i + 1, j + 1)
+
+    glyphs = [
+        _pair_glyph(centres, i + 1, j + 1, _DIFF_MATCHED, dashed=False, width=1.0)
+        for i, j in matched
+    ]
+    glyphs += [
+        _pair_glyph(centres, i + 1, j + 1, _DIFF_LOST, dashed=True, width=1.2)
+        for i, j in lost
+    ]
+    glyphs += [
+        _pair_glyph(centres, i + 1, j + 1, _DIFF_ADDED, dashed=False, width=1.6)
+        for i, j in added
+    ]
+
+    inject = (
+        f'<g class="mc-diff">{"".join(glyphs)}</g>'
+        f"{_diff_legend(len(matched), len(lost), len(added))}"
+    )
+    content = content.replace("</svg>", inject + "</svg>", 1)
+    Path(out_svg_path).write_text(content)
+
+    if not quiet:
+        print(
+            f"[multichain] model panel {Path(out_svg_path).name}: "
+            f"{len(matched)} matched, {len(lost)} missing, {len(added)} model-only"
         )

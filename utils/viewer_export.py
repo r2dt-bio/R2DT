@@ -295,3 +295,123 @@ def build_fr3d_data(
         "modified": [],
         "annotations": annotations,
     }
+
+
+# ---------------------------------------------------------------------------
+# Multi-chain viewer data (combined layout shared across reference/model)
+# ---------------------------------------------------------------------------
+
+
+def build_multichain_api_data(
+    colored_json_path: Path,
+    chain_of: List[str],
+    auth_of: List[Optional[int]],
+    structure_id: str,
+    colored_svg_path: Optional[Path] = None,
+) -> dict:
+    """Build ``apiData`` for a combined multi-chain diagram.
+
+    Like :func:`build_api_data` but sources author residue numbers and a new
+    per-nucleotide ``chain_ids`` array from the concatenation metadata
+    (``utils.multichain``) rather than a single-chain unit-id map.  ``chain_ids``
+    lets the viewer map a clicked nucleotide to the correct chain in 3D.
+    """
+    colored = json.loads(colored_json_path.read_text())
+    nucs = _real_nucleotides(colored)
+    n = len(nucs)
+    sequence = "".join(n_["residueName"] for n_ in nucs)
+    positions = [(n_["x"], n_["y"]) for n_ in nucs]
+
+    dim = _svg_dimensions(colored_svg_path) if colored_svg_path else None
+    if dim is None:
+        xs = [p[0] for p in positions]
+        ys = [p[1] for p in positions]
+        dim = (max(xs) + 20, max(ys) + 20)
+
+    label_seq_ids: List[Optional[int]] = [None] + list(range(1, n + 1)) + [None]
+    auth_seq_ids = (
+        [None]
+        + [
+            (auth_of[i] if i < len(auth_of) and auth_of[i] is not None else i + 1)
+            for i in range(n)
+        ]
+        + [None]
+    )
+    chain_ids: List[Optional[str]] = (
+        [None] + [chain_of[i] if i < len(chain_of) else "" for i in range(n)] + [None]
+    )
+
+    return {
+        "svg_paths": _build_svg_paths(positions),
+        "dimensions": {"width": dim[0], "height": dim[1]},
+        "sequence": sequence,
+        "label_seq_ids": label_seq_ids,
+        "auth_seq_ids": auth_seq_ids,
+        "chain_ids": chain_ids,
+        "unobserved_label_seq_ids": [],
+        "pdb_ins_codes": [""] * n,
+        "_meta": {"structure_id": structure_id, "multichain": True},
+    }
+
+
+def build_pairs_fr3d_data(
+    nested_pairs: List,
+    crossing_pairs: List,
+    sequence: str,
+    auth_of: List[Optional[int]],
+    structure_id: str,
+    all_pairs: Optional[List] = None,
+) -> dict:
+    """Build ``FR3DData`` from an explicit (0-based) pair set.
+
+    Used for the multi-chain reference and simulated-model panels, where the
+    pairs already live in the concatenated label space (so no unit-id remap is
+    needed).
+
+    When ``all_pairs`` (a list of ``(i, j, family)`` triples spanning every
+    Leontis-Westhof family, e.g. from ``MultiChainStructure.all_pairs``) is
+    given, each pair is emitted with its real family so non-canonical pairs
+    (tSH, tSS, …) render in 2D — not just cWW. Otherwise every pair is treated
+    as ``cWW``. A pair is tagged ``crossing="0"`` only when it belongs to the
+    nested cWW backbone (``nested_pairs``); everything else — crossing cWW and
+    all non-canonical tertiary contacts — is ``crossing="1"`` so the viewer's
+    "Nested only" filter still isolates the backbone.
+    """
+
+    def auth(i: int) -> str:
+        v = auth_of[i] if i < len(auth_of) and auth_of[i] is not None else i + 1
+        return str(v)
+
+    nested_set = {(min(i, j), max(i, j)) for i, j in nested_pairs}
+
+    if all_pairs is not None:
+        pair_iter = list(all_pairs)
+    else:
+        pair_iter = [(i, j, "cWW") for i, j in nested_pairs] + [
+            (i, j, "cWW") for i, j in crossing_pairs
+        ]
+
+    annotations = []
+    for i, j, family in pair_iter:
+        a, b = (i, j) if i < j else (j, i)
+        crossing = "0" if (a, b) in nested_set else "1"
+        annotations.append(
+            {
+                "seq_id1": str(a + 1),
+                "3d_id1": auth(a),
+                "nt1": sequence[a],
+                "unit1": sequence[a],
+                "bp": family,
+                "seq_id2": str(b + 1),
+                "nt2": sequence[b],
+                "unit2": sequence[b],
+                "3d_id2": auth(b),
+                "crossing": crossing,
+            }
+        )
+    return {
+        "pdb_id": structure_id,
+        "chain_id": "",
+        "modified": [],
+        "annotations": annotations,
+    }

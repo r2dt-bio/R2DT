@@ -259,7 +259,7 @@ def extract_sequence_from_cif(
         # them doubles the chain and interleaves the copy's residues by FR3D index,
         # which scrambles the residue->position mapping and turns nested helices
         # into spurious pseudoknots. Keep only the deposited asymmetric unit.
-        bases = [b for b in bases if not _is_symmetry_mate(b.unit_id())]
+        bases = [b for b in bases if not is_symmetry_mate(b.unit_id())]
 
         # Sort by index
         bases = sorted(bases, key=lambda b: (b.model, b.chain, b.index))
@@ -951,7 +951,7 @@ def parse_fr3d_basepairs(
     return result
 
 
-def _is_symmetry_mate(unit_id: str) -> bool:
+def is_symmetry_mate(unit_id: str) -> bool:
     """True if a FR3D unit id carries a non-identity crystal-symmetry operator.
 
     FR3D unit ids are '|'-delimited; the 9th field (index 8) is the symmetry

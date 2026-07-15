@@ -29,7 +29,10 @@
   async function loadManifest(baseUrl) {
     try {
       const resp = await fetch(resolveUrl(baseUrl, 'manifest.json'));
-      if (resp.ok) return resp.json();
+      if (!resp.ok) return null;
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('json')) return null;
+      return await resp.json();
     } catch (_) { /* optional */ }
     return null;
   }
@@ -204,21 +207,24 @@
 
   function buildLabelMaps(apiData) {
     const labelToAuth = {};
+    const labelToChain = {};
+    const chainIds = apiData.chain_ids;
     apiData.label_seq_ids.forEach((label, i) => {
       if (label !== null && label !== undefined) {
         labelToAuth[label] = apiData.auth_seq_ids[i];
+        if (chainIds && chainIds[i] != null) labelToChain[label] = chainIds[i];
       }
     });
     const authToLabel = {};
     Object.entries(labelToAuth).forEach(([label, auth]) => {
       authToLabel[auth] = parseInt(label);
     });
-    return { labelToAuth, authToLabel };
+    return { labelToAuth, authToLabel, labelToChain };
   }
 
   async function resolvePanelData(baseUrl, opts) {
     const normalized = normalizeBaseUrl(baseUrl);
-    const manifest = await loadManifest(normalized);
+    const manifest = opts.structureId ? null : await loadManifest(normalized);
     const structureId = opts.structureId || manifest?.structureId;
     const chainId = opts.chainId ?? manifest?.chainId ?? '';
     const structureFormat = opts.structureFormat || manifest?.structureFormat || 'cif';
@@ -242,6 +248,8 @@
       structureFormat,
       apiData,
       fr3dData,
+      lbnData: opts.lbnData || null,
+      bpCompare: opts.bpCompare || null,
       PDB_LOWER: structureId.toLowerCase(),
     };
   }
@@ -260,6 +268,15 @@
       true
     );
 
+    // Init and programmatic cross-panel ops (mirroring) happen without a
+    // pointer event, so let callers pin the active panel explicitly.  Returns
+    // the previous root so callers can restore it.
+    global.__r2dtSetActiveRoot = (root) => {
+      const prev = activeRoot;
+      activeRoot = root || null;
+      return prev;
+    };
+
     const origGetById = document.getElementById.bind(document);
     document.getElementById = function (id) {
       if (/-rnaTopology/.test(id)) return origGetById(id);
@@ -272,7 +289,9 @@
 
     const origQuery = document.querySelector.bind(document);
     document.querySelector = function (selector) {
-      if (activeRoot && selector !== 'svg.rnaTopoSvg') {
+      // Scope every selector (including svg.rnaTopoSvg) to the active panel so
+      // two panels' identically-classed SVGs don't collide on the first match.
+      if (activeRoot) {
         const inRoot = activeRoot.querySelector(selector);
         if (inRoot) return inRoot;
       }
@@ -324,10 +343,16 @@
         setTimeout(resolve, 1500);
       }
     });
+    // Mol*'s auto camera-clipping ties fog density to the current view radius,
+    // so it reads as "fog turning on" whenever focusLoci zooms tight on a
+    // single nucleotide. Disable it outright rather than fighting the radius math.
+    if (molstar.plugin && molstar.plugin.canvas3d) {
+      molstar.plugin.canvas3d.setProps({ cameraFog: { name: 'off', params: {} } });
+    }
     return molstar;
   }
 
-  function createMolstarSelector(molstar, labelToAuth, chainId) {
+  function createMolstarSelector(molstar, labelToAuth, chainId, labelToChain) {
     return async function selectInMolstar(labels) {
       if (!molstar) return;
       if (!labels || labels.length === 0) {
@@ -339,8 +364,10 @@
       const data = labels.map((l) => {
         const auth = labelToAuth[l];
         if (auth === undefined || auth === null) return null;
+        // Per-nucleotide chain (multi-chain): fall back to the single chainId.
+        const chain = (labelToChain && labelToChain[l]) || chainId;
         return {
-          auth_asym_id: chainId,
+          auth_asym_id: chain,
           start_auth_residue_number: auth,
           end_auth_residue_number: auth,
         };
@@ -360,6 +387,157 @@
         }
       } catch (_) { /* best-effort */ }
     };
+  }
+
+  // Fallback highlight (deep pink) for any structure without its own base colour.
+  const SELECTION_COLOR = { r: 233, g: 30, b: 99 };
+
+  // Per-structure highlight colour: a vivid, brightened version of the
+  // structure's own base colour, so a highlighted reference nt reads as bright
+  // green (base is CASP green) and a highlighted model nt as bright blue (base
+  // is CASP navy). Same hue as the structure it belongs to → the colour itself
+  // says "this is the reference" vs "this is the model", while staying clearly
+  // distinct from the (darker, less saturated) base colour around it.
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0, s = 0;
+    const d = max - min;
+    if (d !== 0) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    return { h, s, l };
+  }
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0];
+    else if (h < 120) [r, g, b] = [x, c, 0];
+    else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c];
+    else if (h < 300) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    return {
+      r: Math.round((r + m) * 255),
+      g: Math.round((g + m) * 255),
+      b: Math.round((b + m) * 255),
+    };
+  }
+  function highlightColorFor(base) {
+    if (!base) return SELECTION_COLOR;
+    let { h } = rgbToHsl(base.r, base.g, base.b);
+    // The reference base is a spring-green (~150°); a same-hue highlight reads
+    // too close to it, so nudge green-family hues toward lime (~90°) — clearly
+    // brighter and more yellow, unmistakable against the base green.
+    if (h > 100 && h < 175) h = 90;
+    return hslToRgb(h, 0.95, 0.6); // vivid + bright
+  }
+
+  // Selection fan-out for the compare view's shared Mol*, which holds two
+  // superimposed structures (reference + predicted model). Each target scopes to
+  // one loaded structure via `structureNumber` and carries that structure's own
+  // label→(auth, chain) map, so one 2D click highlights the matching residue in
+  // both. `nonSelectedColor` restores each structure's base colour on every call,
+  // so the same call both highlights the click and clears the previous one.
+  function createMultiMolstarSelector(molstar, targets) {
+    function residueData(target, labels) {
+      return labels.map((l) => {
+        const auth = target.labelToAuth ? target.labelToAuth[l] : undefined;
+        if (auth === undefined || auth === null) return null;
+        const chain = (target.labelToChain && target.labelToChain[l]) || target.chainId;
+        return {
+          auth_asym_id: chain,
+          start_auth_residue_number: auth,
+          end_auth_residue_number: auth,
+        };
+      }).filter((d) => d !== null);
+    }
+    // Highlight the clicked residue in EVERY structure at once, each in its own
+    // structure-coloured highlight (bright green on the reference, bright blue on
+    // the model), so you can see both where the residue sits and which strand is
+    // which. `focusStructureNumber` (optional): which structure's residue the
+    // camera frames — the clicked panel's own, so the view never drifts to (or,
+    // for a reference-only residue, gets stuck on) the wrong structure.
+    return async function selectInMolstar(labels, focusStructureNumber) {
+      if (!molstar) return;
+      const cleared = !labels || labels.length === 0;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        const data = cleared ? [] : residueData(t, labels);
+        const hi = t.highlightColor || SELECTION_COLOR;
+        const params = {
+          data: data.map((d) => ({ ...d, color: hi, focus: false })),
+          structureNumber: t.structureNumber,
+          keepRepresentations: true,
+        };
+        if (t.baseColor) params.nonSelectedColor = t.baseColor;
+        try {
+          await molstar.visual.select(params);
+        } catch (_) { /* best-effort per structure */ }
+      }
+      // Zoom into the clicked residue. getLociForParams resolves auth params
+      // against a *specific* structure; without the structureNumber it falls
+      // back to the last-loaded one (the model), so a reference-only residue
+      // (its chain/number don't exist in the model) yields an empty loci and
+      // the camera flies to blank space. Frame the clicked structure's own
+      // residue; superimposition keeps the partner highlight nearby in view.
+      if (!cleared) {
+        try {
+          const fnum = focusStructureNumber != null
+            ? focusStructureNumber : targets[0] && targets[0].structureNumber;
+          const ft = targets.find((t) => t.structureNumber === fnum) || targets[0];
+          const focusData = ft ? residueData(ft, labels) : [];
+          const loci = fnum == null
+            ? molstar.getLociForParams(focusData)
+            : molstar.getLociForParams(focusData, fnum);
+          const camera = molstar.plugin
+            && molstar.plugin.managers
+            && molstar.plugin.managers.camera;
+          if (loci && camera && camera.focusLoci) camera.focusLoci(loci);
+        } catch (_) { /* best-effort */ }
+      }
+    };
+  }
+
+  // Reference/model visibility toggles for the shared 3D pane. Each checkbox
+  // drives `structureVisibility(structureNumber, on)`; a colour swatch matches
+  // the structure's base colour so the control doubles as a legend.
+  function addStructureToggles(slotEl, molstar, entries) {
+    const bar = document.createElement('div');
+    bar.className = 'r2dt-3d-toggles';
+    entries.forEach((entry) => {
+      const label = document.createElement('label');
+      label.className = 'r2dt-3d-toggle';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.addEventListener('change', () => {
+        try { molstar.visual.structureVisibility(entry.structureNumber, cb.checked); } catch (_) {}
+      });
+      const swatch = document.createElement('span');
+      swatch.className = 'r2dt-3d-swatch';
+      if (entry.color) {
+        swatch.style.background = `rgb(${entry.color.r},${entry.color.g},${entry.color.b})`;
+      }
+      const text = document.createElement('span');
+      text.className = 'r2dt-3d-toggle-label';
+      text.textContent = entry.label;
+      label.append(cb, swatch, text);
+      bar.appendChild(label);
+    });
+    // Placed at the end of the slot so the legend/toggles sit *below* the 3D
+    // pane (the 3D root has already been appended when this runs).
+    bar.classList.add('r2dt-3d-toggles--below');
+    slotEl.appendChild(bar);
+    return bar;
   }
 
   const BP_GLYPH_COLOR = '#909090';
@@ -584,9 +762,20 @@
     } = ctx;
     const link3d = ctx.link3d !== false;
 
+    // Compare mode: classify each listed base pair against the other structure's
+    // pairs. Reference list → TP (matched) / FN (missed); model list → TP / FP.
+    const bpCompare = ctx.bpCompare || null;
+    const bpCompareKeys = bpCompare ? new Set(bpCompare.otherKeys || []) : null;
+    function classifyBpPair(a, b) {
+      if (!bpCompareKeys) return null;
+      const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+      if (bpCompareKeys.has(key)) return 'TP';
+      return bpCompare.role === 'reference' ? 'FN' : 'FP';
+    }
+
     enhanceSelectedNucleotideStyleOnce();
 
-    const { labelToAuth, authToLabel } = buildLabelMaps(apiData);
+    const { labelToAuth, authToLabel, labelToChain } = buildLabelMaps(apiData);
 
   // --- 2D viewer ---
   const rnaPlugin = new PdbRnaViewerPlugin();
@@ -1167,6 +1356,13 @@
   const unobserved = apiData.unobserved_label_seq_ids || [];
   const CWW_STROKE = '#888888';
   const CWW_CROSSING_STROKE = '#aaaaaa';
+  // Compare-mode diff highlight: recolour base pairs that disagree with the
+  // other structure so they stand out at a glance. In the reference panel that
+  // means FN (blue) — pairs the model missed; in the model panel FP (red) —
+  // pairs the model added that aren't in the reference. TP pairs keep their
+  // neutral colour. Same palette as the LBN rows / base-pair-list badges.
+  const DIFF_FN_COLOR = '#4363d8';
+  const DIFF_FP_COLOR = '#e6194b';
   // Crossing pairs are drawn thinner than nested cWW; width scales with the
   // same layout metric the plugin uses (calculateFontSize / 6), not a fixed px.
   const CROSSING_BP_WIDTH_RATIO = 0.5;
@@ -1222,6 +1418,39 @@
     return { bp: m[1], a: m[2], b: m[3] };
   }
 
+  // The plugin draws each cWW base-pair line between the two nucleotide
+  // centres, inset from each end by the layout scale `i` (= one nucleotide
+  // radius, so the line clears the letters). Line length is therefore
+  // `y - 2i`, where `y` is the distance between the paired bases. When a
+  // helix is laid out narrow (paired strands only ~2i apart, common in
+  // tightly-wound R2DT templates like 9bz1), the two insets nearly meet and
+  // the line collapses to a dot at the midpoint — the base pair looks
+  // unmarked. Cap the inset fraction so a legible portion of the line always
+  // survives; a no-op for helices wide enough that the plugin's own line is
+  // already fine.
+  const MAX_BP_INSET_FRAC = 0.32; // keep >=36% of each base-pair line visible
+
+  function fixCollapsedCwwLine(el, aId, bId) {
+    const d = el.getAttribute('d') || '';
+    if (isCwwLineGlyphD(d)) return;         // non-canonical special glyph
+    const nums = d.match(/-?\d[\d.eE+-]*/g);
+    if (!nums || nums.length !== 4) return; // only simple 2-point lines
+    const p1 = getResidueLocation(aId);
+    const p2 = getResidueLocation(bId);
+    if (!p1 || !p2) return;
+    const i = getBaseBpStrokeWidth() * 6;
+    // Same endpoint offsets the plugin uses (see pathOrNucleotide).
+    const x1 = p1[0] + i / 2.5, y1 = p1[1] - i / 2.5;
+    const x2 = p2[0] + i / 2.5, y2 = p2[1] - i / 2.5;
+    const len = Math.hypot(x1 - x2, y1 - y2) || 1;
+    if (i / len <= MAX_BP_INSET_FRAC) return; // plugin's line is already fine
+    const frac = MAX_BP_INSET_FRAC;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const mx = lerp(x1, x2, frac), my = lerp(y1, y2, frac);
+    const bx = lerp(x1, x2, 1 - frac), by = lerp(y1, y2, 1 - frac);
+    el.setAttribute('d', `M${mx} ${my} ${bx} ${by}`);
+  }
+
   function applyFixups() {
     let any = false;
     unobserved.forEach((seqId) => {
@@ -1239,9 +1468,26 @@
         // restore-on-next-click brings it back to grey, not the
         // plugin's default black.
         el.dataset.r2dtOrigStroke = stroke;
+        // Rescue base-pair lines the narrow-helix layout collapsed to a dot.
+        fixCollapsedCwwLine(el, parsed.a, parsed.b);
       }
       if (isCrossing) {
         el.setAttribute('stroke-width', getCrossingBpStrokeWidth());
+      }
+      // Compare-mode: recolour disagreements (FN in the reference panel, FP in
+      // the model panel). Runs after the cWW/glyph default colouring above, for
+      // every family. Preserve open (fill:none) vs filled glyphs — only recolour
+      // a fill that was actually painted. Skip selected pairs so the orange
+      // selection wins; store the diff colour as the restore value.
+      if (!bpHighlightedPaths.has(el)) {
+        const kind = classifyBpPair(+parsed.a, +parsed.b);
+        if (kind === 'FN' || kind === 'FP') {
+          const color = kind === 'FN' ? DIFF_FN_COLOR : DIFF_FP_COLOR;
+          el.setAttribute('stroke', color);
+          const fill = el.getAttribute('fill');
+          if (fill && fill !== 'none') el.setAttribute('fill', color);
+          el.dataset.r2dtOrigStroke = color;
+        }
       }
       any = true;
     });
@@ -1472,16 +1718,39 @@
       const family = document.createElement('span');
       family.className = 'r2dt-bp-list-family';
       family.textContent = familyText;
+
+      // TP/FP/FN badge (compare mode): does this pair exist in the other structure?
+      let cmp = null;
+      if (bpCompareKeys && ntMatch) {
+        const kind = classifyBpPair(+ntMatch[2], +ntMatch[4]);
+        if (kind) {
+          cmp = document.createElement('span');
+          cmp.className = `r2dt-bp-list-cmp r2dt-bp-list-cmp--${kind.toLowerCase()}`;
+          cmp.textContent = kind;
+          cmp.title = {
+            TP: 'True positive — this pair is in both structures',
+            FP: 'False positive — this pair is only in the model',
+            FN: 'False negative — this pair is in the reference but missing from the model',
+          }[kind];
+          li.classList.add(`r2dt-bp-list-item--${kind.toLowerCase()}`);
+        }
+      }
+
+      // non-WC marker as a fixed-width slot (empty but still reserving width on
+      // canonical rows) so the family column stays aligned down the list.
+      const tag = document.createElement('span');
+      tag.className = 'r2dt-bp-list-tag';
       if (!canonical) {
         li.classList.add('r2dt-bp-list-item--nonwc');
-        const tag = document.createElement('span');
-        tag.className = 'r2dt-bp-list-tag';
         tag.textContent = 'non-WC';
         tag.setAttribute('aria-label', 'Non-Watson–Crick base pair');
-        li.append(pair, tag, family);
       } else {
-        li.append(pair, family);
+        tag.classList.add('r2dt-bp-list-tag--empty');
       }
+      // Order: nt1-nt2 pair | non-WC (if any) | base-pair family | TP/FP/FN.
+      // pair flex-grows so non-WC, family and the TP/FP/FN badge pin to the
+      // right edge and line up in their own aligned columns.
+      li.append(pair, tag, family, ...(cmp ? [cmp] : []));
     });
   }
 
@@ -1753,7 +2022,12 @@
     if (nestedWrap) {
       nestedWrap.classList.add('r2dt-nested-wrap');
       const nestedText = nestedWrap.querySelector('label span');
-      if (nestedText) nestedText.textContent = 'Nested only';
+      if (nestedText) {
+        // Full + short variants; CSS shows one based on toolbar width.
+        nestedText.innerHTML =
+          '<span class="r2dt-lbl-full">Nested only</span>'
+          + '<span class="r2dt-lbl-short">Nested</span>';
+      }
       let nestedInput = nestedWrap.querySelector(
         `#nestedBP-${PDB_LOWER}, #nestedBP`
       );
@@ -1793,7 +2067,12 @@
     if (filterBtn) {
       filterBtn.childNodes.forEach((node) => {
         if (node.nodeType === 3 && /Filter/i.test(node.nodeValue)) {
-          node.nodeValue = 'Base Pairs';
+          const label = document.createElement('span');
+          label.className = 'r2dt-bp-filter-label';
+          label.innerHTML =
+            '<span class="r2dt-lbl-full">Base Pairs</span>'
+            + '<span class="r2dt-lbl-short">BPs</span>';
+          node.replaceWith(label);
         }
       });
       if (!root.querySelector('#r2dt-filter-badge')) {
@@ -1935,11 +2214,14 @@
     fr3dData,
     labelToAuth,
     authToLabel,
+    labelToChain,
     root,
   };
   if (link3d) window.__r2dt = ctx.handles;
 
-  const selectInMolstar = createMolstarSelector(molstar, labelToAuth, CHAIN_ID);
+  const selectInMolstar = createMolstarSelector(
+    molstar, labelToAuth, CHAIN_ID, labelToChain
+  );
 
   // Set by _renderLBN when the panel is shown; keeps LBN in sync with every
   // base-pair selection path (list, 2D line click, API).
@@ -2154,6 +2436,14 @@
     updateSelectionTooltip([a, b]);
     if (link3d && molstar) selectInMolstar([a, b]);
     if (lbnHighlightFn) lbnHighlightFn(a, [[a, b]]);
+    // Drive the shared 3D in compare mode (panels run link3d=false): emit the
+    // same event as a residue click so onAnyResidueSelect selects+zooms both
+    // partners. `pair: true` tells the mirror to highlight this exact pair
+    // (both residues at the same positions) in the other panel, rather than
+    // re-deriving a partner for `a` from that panel's own base pairs.
+    emitResidueSelectEvent({
+      pdbId: PDB_LOWER, label: a, partners: [b], cleared: false, pair: true,
+    });
   }
 
   // Find a rendered base-pair path by its two seq ids (either order).
@@ -2191,6 +2481,10 @@
     attachBPClicks();
     applyFixups();
     if (lbnVisibilityFn) lbnVisibilityFn(getVisible2dPairKeys());
+    // Compare mode: this panel has no LBN widget of its own (createCompare
+    // renders one shared widget for both structures), so push visibility
+    // changes ("Nested only" etc.) to it via this optional hook instead.
+    ctx.onBpVisibilityChange?.(getVisible2dPairKeys());
   };
 
   // Base Pairings List rows: the plugin handles a row click by dispatching
@@ -2244,11 +2538,14 @@
 
   // ── LBN (layered dot-bracket notation) panel ────────────────────────────
   if (showLbn) {
-    let lbnData = null;
-    try {
-      const resp = await fetch(resolveUrl(baseUrl, 'lbn.json'));
-      if (resp.ok) lbnData = await resp.json();
-    } catch (_) { /* ignore */ }
+    // Prefer inline LBN data (compare panels embed it); else fetch lbn.json.
+    let lbnData = ctx.lbnData || null;
+    if (!lbnData) {
+      try {
+        const resp = await fetch(resolveUrl(baseUrl, 'lbn.json'));
+        if (resp.ok) lbnData = await resp.json();
+      } catch (_) { /* ignore */ }
+    }
 
     if (lbnData && lbnData.rows && lbnData.rows.length > 0) {
       const lbnPanel = root.querySelector('#lbn-panel');
@@ -2405,14 +2702,28 @@
     // Reflect the current 2D filter state immediately on first render.
     _lbnVisibility(getVisible2dPairKeys());
 
-    // Expose for console debugging.
-    window.__r2dt.lbnData      = data;
-    window.__r2dt.lbnHighlight = _lbnHighlight;
+    // Expose for console debugging (only the single-viewer sets window.__r2dt;
+    // compare panels run with link3d=false and leave it undefined).
+    if (window.__r2dt) {
+      window.__r2dt.lbnData      = data;
+      window.__r2dt.lbnHighlight = _lbnHighlight;
+    }
   }
   // ── end LBN ─────────────────────────────────────────────────────────────
 
   ctx.handles.selectResidue = selectResidue;
+  // Non-toggling select for cross-panel mirroring (avoids clearing when the
+  // mirrored panel already has that residue selected).
+  ctx.handles.selectResidueForce = (label) => {
+    if (lastResidueSelection && lastResidueSelection.label === +label) return;
+    selectResidue(label);
+  };
+  ctx.handles.clearSelection = clearResidueSelection;
   ctx.handles.selectBasePair = (a, b) => selectBasePair(a, b, findBPPath(a, b));
+  // Compare mode: lets createCompare seed the shared LBN widget's initial
+  // per-panel visibility state ("Nested only" etc.) without waiting for a
+  // filter change.
+  ctx.handles.getVisiblePairKeys = getVisible2dPairKeys;
 
   }
 
@@ -2432,8 +2743,215 @@
     panel2d.className = 'r2dt-panel r2dt-panel--2d';
     vis.append(panel2d);
     root.append(vis);
+
+    // No per-panel LBN panel here: createCompare renders one shared LBN
+    // widget (both structures' rows, TP/FP/FN coloured) below the grid —
+    // see buildCompareLbnDom / renderCompareLbn.
+
     slotEl.appendChild(root);
     return { root, panel2d, panel3d: null };
+  }
+
+  // ── Shared compare-mode LBN widget ──────────────────────────────────────
+  // One dot-bracket widget for the whole compare page instead of one per
+  // panel: every layer (WC, cWW, …) shows the reference row directly above
+  // (or below) the model row for that same layer, brackets coloured by
+  // TP (both structures) / FP (model only) / FN (reference only). Each row
+  // still belongs to exactly one source structure, so a source's own
+  // "Nested only" / family filters only greyscale that source's own rows —
+  // see setVisibility below.
+
+  function buildCompareLbnDom(compareRoot) {
+    const lbnPanel = document.createElement('div');
+    lbnPanel.className = 'r2dt-viewer-lbn r2dt-compare-lbn';
+    lbnPanel.hidden = true;
+    const lbnTitle = document.createElement('h2');
+    lbnTitle.className = 'r2dt-viewer-lbn-title';
+    lbnTitle.textContent = 'Layered dot-bracket notation (Leontis–Westhof base pairs)';
+    const lbnCaption = document.createElement('p');
+    lbnCaption.className = 'r2dt-viewer-lbn-caption';
+    lbnCaption.innerHTML =
+      'Brackets coloured by agreement: '
+      + '<b class="lbn-legend lbn-bp--tp">TP both</b> '
+      + '<b class="lbn-legend lbn-bp--fp">FP model only</b> '
+      + '<b class="lbn-legend lbn-bp--fn">FN reference only</b>'
+      + '. Each row belongs to one structure (labelled, left edge coloured) and '
+      + 'follows that structure’s own "Nested only" / family filters.';
+    const lbnBody = document.createElement('div');
+    lbnBody.className = 'lbn-body';
+    lbnPanel.append(lbnTitle, lbnCaption, lbnBody);
+    compareRoot.appendChild(lbnPanel);
+    return { panel: lbnPanel, body: lbnBody };
+  }
+
+  function classifierFor(bpCompare) {
+    if (!bpCompare) return null;
+    const otherKeys = new Set(bpCompare.otherKeys || []);
+    return (a, b) => {
+      const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+      if (otherKeys.has(key)) return 'TP';
+      return bpCompare.role === 'reference' ? 'FN' : 'FP';
+    };
+  }
+
+  // sources: [{ panelIdx, label, lbnData, bpCompare }, …] one entry per
+  // compare panel that has LBN data. selectInSource(panelIdx, pos, partner)
+  // drives that panel's own selection (partner == null => plain residue).
+  function renderCompareLbn(dom, sources, selectInSource) {
+    const withRows = sources.filter(
+      (s) => s.lbnData && s.lbnData.rows && s.lbnData.rows.length > 0
+    );
+    if (withRows.length === 0) return null;
+
+    dom.panel.hidden = false;
+    const SEQ = withRows[0].lbnData.sequence;
+    const N = SEQ.length;
+
+    // Row order: labels in first-seen order across sources, so same-layer
+    // rows from different sources stay adjacent (ref row directly followed
+    // by the model row for that layer).
+    const labelOrder = [];
+    const seenLabels = new Set();
+    withRows.forEach((s) => {
+      s.lbnData.rows.forEach((r) => {
+        if (!seenLabels.has(r.label)) { seenLabels.add(r.label); labelOrder.push(r.label); }
+      });
+    });
+
+    const renderRows = [];
+    labelOrder.forEach((label) => {
+      withRows.forEach((s) => {
+        const row = s.lbnData.rows.find((r) => r.label === label);
+        if (row) renderRows.push({ source: s, row, classify: classifierFor(s.bpCompare) });
+      });
+    });
+
+    let html = '';
+    html += '<div class="lbn-row"><span class="lbn-label">seq</span>: ';
+    for (let i = 0; i < N; i++) {
+      html += `<span data-pos="${i + 1}" class="lbn-nt">${SEQ[i]}</span>`;
+    }
+    html += '</div>';
+
+    renderRows.forEach(({ source, row, classify }) => {
+      const role = source.bpCompare?.role || null;
+      const marker = role === 'reference' ? 'ref' : role === 'model' ? 'mdl' : '';
+      const labelText = marker ? `${row.label} · ${marker}` : row.label;
+      html += `<div class="lbn-row${role ? ` lbn-row--${role}` : ''}" data-panel-idx="${source.panelIdx}">`
+        + `<span class="lbn-label${role ? ` lbn-label--${role}` : ''}" title="${source.label}">${labelText}</span>: `;
+      for (let i = 0; i < N; i++) {
+        const pos = i + 1;
+        const ch = row.chars[i];
+        if (ch === '.') {
+          html += '<span class="lbn-dot">.</span>';
+        } else {
+          const partner = row.partners[String(pos)];
+          const pAttr = partner != null ? ` data-partner="${partner}"` : '';
+          const cls = partner != null && classify ? classify(pos, partner) : null;
+          const clsAttr = cls ? ` lbn-bp--${cls.toLowerCase()}` : '';
+          html += `<span data-pos="${pos}"${pAttr} class="lbn-bp${clsAttr}">${ch}</span>`;
+        }
+      }
+      html += '</div>';
+    });
+
+    dom.body.innerHTML = html;
+
+    const posSpans = {};
+    dom.body.querySelectorAll('[data-pos]').forEach((sp) => {
+      const p = +sp.dataset.pos;
+      (posSpans[p] = posSpans[p] || []).push(sp);
+    });
+
+    let highlighted = [];
+    function highlight(primary, pairs) {
+      highlighted.forEach((sp) => sp.classList.remove('lbn-selected', 'lbn-partner'));
+      highlighted = [];
+      const prim = primary == null ? null : +primary;
+      const edges = pairs || [];
+      if (prim == null && edges.length === 0) return;
+
+      const pairKeys = new Set(
+        edges.map(([a, b]) => `${Math.min(a, b)}_${Math.max(a, b)}`)
+      );
+      const partnerPositions = new Set();
+      edges.forEach(([a, b]) => {
+        if (a !== prim) partnerPositions.add(a);
+        if (b !== prim) partnerPositions.add(b);
+      });
+
+      dom.body.querySelectorAll('.lbn-nt').forEach((sp) => {
+        const p = +sp.dataset.pos;
+        let cls = null;
+        if (p === prim) cls = 'lbn-selected';
+        else if (partnerPositions.has(p)) cls = 'lbn-partner';
+        if (cls) { sp.classList.add(cls); highlighted.push(sp); }
+      });
+
+      dom.body.querySelectorAll('.lbn-bp').forEach((sp) => {
+        const p = +sp.dataset.pos;
+        const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+        if (partner == null) return;
+        const key = `${Math.min(p, partner)}_${Math.max(p, partner)}`;
+        if (!pairKeys.has(key)) return;
+        sp.classList.add(p === prim ? 'lbn-selected' : 'lbn-partner');
+        highlighted.push(sp);
+      });
+
+      const focusSpan = (prim != null && posSpans[prim] && posSpans[prim][0]) || highlighted[0];
+      if (focusSpan) {
+        focusSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }
+
+    dom.body.addEventListener('click', (ev) => {
+      const sp = ev.target.closest('[data-pos]');
+      if (!sp) return;
+      const rowEl = sp.closest('[data-panel-idx]');
+      // The shared seq row has no data-panel-idx; default to the first
+      // source (mirroring propagates the selection to the other panels).
+      const panelIdx = rowEl ? +rowEl.dataset.panelIdx : withRows[0].panelIdx;
+      const pos = +sp.dataset.pos;
+      const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+      selectInSource(panelIdx, pos, partner);
+    });
+
+    // Grey out only the rows belonging to the source whose 2D visibility
+    // changed (own "Nested only" / family filters), leaving every other
+    // source's rows untouched.
+    function setVisibility(panelIdx, visibleKeys) {
+      dom.body.querySelectorAll(`.lbn-row[data-panel-idx="${panelIdx}"]`).forEach((rowEl) => {
+        const bps = rowEl.querySelectorAll('.lbn-bp');
+        bps.forEach((sp) => {
+          const pos = +sp.dataset.pos;
+          const partner = sp.dataset.partner ? +sp.dataset.partner : null;
+          if (partner == null) return;
+          const key = `${Math.min(pos, partner)}_${Math.max(pos, partner)}`;
+          const hidden = visibleKeys ? !visibleKeys.has(key) : false;
+          sp.classList.toggle('lbn-bp-hidden', hidden);
+        });
+        const anyVisible = bps.length === 0
+          || Array.from(bps).some((sp) => !sp.classList.contains('lbn-bp-hidden'));
+        rowEl.classList.toggle('lbn-row--hidden', !anyVisible);
+      });
+    }
+
+    return { highlight, setVisibility };
+  }
+  // ── end shared compare-mode LBN widget ──────────────────────────────────
+
+  // The pdb-rna-viewer selection state (window.UiActionsService.selected) is a
+  // single global Map shared by every panel, so when one panel clears it the
+  // other panels' already-painted nucleotides are orphaned and never repainted
+  // to their deselected colour.  Before mirroring a selection, hard-reset the
+  // target panel's nucleotide colours so stale highlights can't accumulate.
+  function resetPanelNucleotideColors(root) {
+    if (!root) return;
+    root.querySelectorAll('text.rnaviewEle').forEach((t) => {
+      t.removeAttribute('fill');
+      if (t.style) t.style.fill = '';
+    });
+    root.querySelectorAll('.r2dt-nt-selection-bg').forEach((r) => r.remove());
   }
 
   function buildCompareSlot(title, subtitle) {
@@ -2558,6 +3076,11 @@
     const cleanup = [];
     const panelCtxs = [];
     const panelHandles = [];
+    const lbnSources = [];
+    // Mutable indirection so each panel's ctx.onBpVisibilityChange can be
+    // wired before the shared LBN widget exists (it's built after every
+    // panel has rendered, since row order needs every source's labels).
+    const mergedLbn = { highlight() {}, setVisibility() {} };
 
     for (let i = 0; i < panels.length; i++) {
       const pOpts = panels[i];
@@ -2565,6 +3088,7 @@
       const slot = buildCompareSlot(pOpts.title || panelData.structureId, pOpts.subtitle || '');
       grid.appendChild(slot);
       const dom = buildCompare2dDom(slot, { height: opts.panelHeight });
+      const panelIdx = i;
       const ctx = {
         root: dom.root,
         panel2d: dom.panel2d,
@@ -2578,12 +3102,22 @@
         PDB_LOWER: panelData.PDB_LOWER,
         apiData: panelData.apiData,
         fr3dData: panelData.fr3dData,
+        lbnData: panelData.lbnData,
+        bpCompare: panelData.bpCompare,
         showLbn: false,
         link3d: false,
         cleanup: [],
         handles: null,
+        onBpVisibilityChange: (keys) => mergedLbn.setVisibility(panelIdx, keys),
       };
-      await initViewer(ctx);
+      // Pin this panel as active so the plugin's global DOM lookups during
+      // init (svg.rnaTopoSvg, zoom setup, …) resolve inside this panel.
+      const prevRoot = global.__r2dtSetActiveRoot?.(dom.root);
+      try {
+        await initViewer(ctx);
+      } finally {
+        global.__r2dtSetActiveRoot?.(prevRoot);
+      }
       panelCtxs.push(ctx);
       panelHandles.push({
         root: ctx.root,
@@ -2594,6 +3128,31 @@
         selectBasePair(a, b) {
           return ctx.handles?.selectBasePair?.(a, b);
         },
+      });
+      lbnSources.push({
+        panelIdx,
+        label: pOpts.title || panelData.structureId,
+        lbnData: panelData.lbnData,
+        bpCompare: panelData.bpCompare,
+      });
+    }
+
+    // One shared LBN widget below the grid (both structures' rows, TP/FP/FN
+    // coloured) instead of a widget per panel.
+    const lbnDom = buildCompareLbnDom(compareRoot);
+    const compareLbnApi = renderCompareLbn(lbnDom, lbnSources, (panelIdx, pos, partner) => {
+      const handles = panelCtxs[panelIdx]?.handles;
+      if (!handles) return;
+      if (partner != null) handles.selectBasePair?.(pos, partner);
+      else handles.selectResidue?.(pos);
+    });
+    if (compareLbnApi) {
+      mergedLbn.highlight = compareLbnApi.highlight;
+      mergedLbn.setVisibility = compareLbnApi.setVisibility;
+      // Seed each source's initial visibility (current "Nested only" state).
+      panelCtxs.forEach((c, i) => {
+        const keys = c.handles?.getVisiblePairKeys?.();
+        if (keys) compareLbnApi.setVisibility(i, keys);
       });
     }
 
@@ -2628,22 +3187,150 @@
       molData.structureUrl,
       molData.structureFormat
     );
-    const selectInMolstar = createMolstarSelector(
-      molstar,
-      linkedCtx.handles.labelToAuth,
-      molData.chainId
-    );
-    const linkedPdbLower = linkedCtx.PDB_LOWER;
 
-    function onLinkedResidueSelect(e) {
-      const d = e.detail || {};
-      if ((d.pdbId || '').toLowerCase() !== linkedPdbLower) return;
-      if (d.cleared) selectInMolstar([]);
-      else selectInMolstar([d.label, ...(d.partners || [])]);
+    // Structure 1 is the reference (loaded above). Its label→auth / label→chain
+    // maps come from the linked 2D panel.
+    const refBaseColor = molstarOpts.baseColor || null;
+    const molTargets = [{
+      structureNumber: 1,
+      structureId: molData.structureId,
+      labelToAuth: linkedCtx.handles.labelToAuth,
+      labelToChain: linkedCtx.handles.labelToChain,
+      chainId: molData.chainId,
+      baseColor: refBaseColor,
+      highlightColor: highlightColorFor(refBaseColor),
+    }];
+    const toggleEntries = [{
+      structureNumber: 1,
+      label: molstarOpts.title || molData.structureId,
+      color: refBaseColor,
+    }];
+
+    // Load each overlay (e.g. the pre-aligned predicted model) as an additional
+    // superimposed structure in the same canvas.
+    const overlays = molstarOpts.overlays || [];
+    for (let k = 0; k < overlays.length; k++) {
+      const ov = overlays[k];
+      const structureNumber = k + 2;
+      const ovUrl = resolveUrl(molBaseUrl, ov.structureUrl);
+      const ovFormat = ov.structureFormat === 'pdb' ? 'pdb' : 'mmcif';
+      try {
+        await molstar.visual.update(
+          { customData: { url: ovUrl, format: ovFormat, binary: false } },
+          false
+        );
+      } catch (err) {
+        console.error('R2DTViewer.createCompare: overlay load failed', err);
+      }
+      molTargets.push({
+        structureNumber,
+        structureId: ov.structureId,
+        labelToAuth: ov.labelToAuth || {},
+        labelToChain: ov.labelToChain || {},
+        chainId: ov.chainId || '',
+        baseColor: ov.baseColor || null,
+        highlightColor: highlightColorFor(ov.baseColor || null),
+      });
+      toggleEntries.push({
+        structureNumber,
+        label: ov.title || ov.structureId,
+        color: ov.baseColor || null,
+      });
     }
-    document.addEventListener('r2dt-residue-select', onLinkedResidueSelect);
+
+    // Give each structure its distinct base colour (empty selection +
+    // nonSelectedColor colours the whole structure) so the overlay reads apart.
+    for (let i = 0; i < molTargets.length; i++) {
+      const t = molTargets[i];
+      if (!t.baseColor) continue;
+      try {
+        await molstar.visual.select({
+          data: [],
+          nonSelectedColor: t.baseColor,
+          structureNumber: t.structureNumber,
+          keepRepresentations: true,
+        });
+      } catch (_) { /* best-effort */ }
+    }
+
+    // Loading the overlay via visual.update resets the canvas background to the
+    // Mol* default (black); re-assert white to match the init-time bgColor.
+    if (overlays.length) {
+      try { molstar.canvas.setBgColor({ r: 255, g: 255, b: 255 }); } catch (_) {}
+    }
+
+    if (overlays.length) addStructureToggles(molSlot, molstar, toggleEntries);
+    // Loading a second structure via visual.update re-shows Mol*'s side controls
+    // panel (the init-time hideControls no longer applies). It can't be hidden via
+    // the layout state post-init (setProps doesn't re-render the embedded root), so
+    // the compare CSS hides .msp-layout-right and expands .msp-layout-main instead.
+
+    const selectInMolstar = createMultiMolstarSelector(molstar, molTargets);
+
+    // Index panels by their (lower-cased) structure id so a selection event
+    // can be attributed to its source panel and mirrored to the others.
+    const idxByPdb = {};
+    panelCtxs.forEach((c, i) => { idxByPdb[String(c.PDB_LOWER).toLowerCase()] = i; });
+    // Map each panel's structure id to the 3D structureNumber it owns, so a
+    // click in a 2D panel frames that panel's own structure in the shared 3D
+    // (both structures are highlighted, but the camera follows the clicked one).
+    const structNumById = {};
+    molTargets.forEach((t) => {
+      if (t.structureId != null) structNumById[String(t.structureId).toLowerCase()] = t.structureNumber;
+    });
+    let syncing = false;
+
+    function onAnyResidueSelect(e) {
+      if (syncing) return;
+      const d = e.detail || {};
+      const srcIdx = idxByPdb[(d.pdbId || '').toLowerCase()];
+      if (srcIdx == null) return;
+
+      // Drive the shared 3D from whichever panel changed: both structures'
+      // residues light up (each in its own colour); the camera frames the
+      // clicked panel's own structure.
+      const srcStructNum = structNumById[(d.pdbId || '').toLowerCase()];
+      if (d.cleared) selectInMolstar([]);
+      else selectInMolstar([d.label, ...(d.partners || [])], srcStructNum);
+
+      // Mirror the selection into the other 2D panel(s). For a base-pair click,
+      // highlight the *same two positions* (co-indexed structures share the
+      // label space) so clicking pair (a,b) in one panel selects (a,b) in the
+      // other — not a re-derived partner. For a single-nucleotide click, mirror
+      // the residue and let each panel recompute its own partners, so
+      // agreements/disagreements show against its own pairs.
+      // Pin the target panel active around each op so the plugin's global DOM
+      // lookups (clearSelection/select) hit that panel, not the source panel.
+      syncing = true;
+      const prevRoot = global.__r2dtSetActiveRoot?.(null);
+      try {
+        panelCtxs.forEach((c, i) => {
+          if (i === srcIdx || !c.handles) return;
+          global.__r2dtSetActiveRoot?.(c.root);
+          // Clear prior state, then hard-reset colours to defeat the shared-Map
+          // orphaning, then paint the mirrored selection afresh.
+          c.handles.clearSelection?.();
+          resetPanelNucleotideColors(c.root);
+          if (d.cleared) return;
+          if (d.pair && d.partners && d.partners.length) {
+            c.handles.selectBasePair?.(d.label, d.partners[0]);
+          } else {
+            c.handles.selectResidue?.(d.label);
+          }
+        });
+      } finally {
+        global.__r2dtSetActiveRoot?.(prevRoot);
+        syncing = false;
+      }
+
+      // Shared LBN widget: light up this position/pair regardless of which
+      // source row(s) it appears in (position is shared across all rows).
+      const edges = d.cleared ? [] : (d.partners || []).map((p) => [d.label, p]);
+      mergedLbn.highlight(d.cleared ? null : d.label, edges);
+    }
+    document.addEventListener('r2dt-residue-select', onAnyResidueSelect);
     cleanup.push(() => {
-      document.removeEventListener('r2dt-residue-select', onLinkedResidueSelect);
+      document.removeEventListener('r2dt-residue-select', onAnyResidueSelect);
     });
 
     const handle = {

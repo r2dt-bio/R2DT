@@ -2458,7 +2458,12 @@ def _run_multichain_pdb(
     output_path,
     chains,
     rnapuzzler_flag,
+    simulate_model,
+    simulate_seed,
+    compare,
     quiet,
+    model_file=None,
+    model_chains=None,
 ):
     """Build a single combined 2D diagram from multiple RNA chains.
 
@@ -2573,8 +2578,395 @@ def _run_multichain_pdb(
         )
         if not quiet:
             rprint(f"[green]Success! Combined SVG created: {svg_path}[/green]")
+
+        if simulate_model and not compare:
+            _emit_simulated_model_panel(
+                svg_path, structure_id, result, simulate_seed, quiet
+            )
+        if compare:
+            _emit_compare_viewer(
+                file_path,
+                actual_format,
+                structure_id,
+                output_path,
+                result,
+                simulate_seed,
+                quiet,
+                model_file=model_file,
+                model_chains=model_chains,
+            )
     elif not quiet:
         rprint("[yellow]Diagram generation completed. Check output folder.[/yellow]")
+
+
+def _emit_simulated_model_panel(svg_path, structure_id, result, seed, quiet):
+    """TESTING aid: draw a reference/model base-pair diff on the reference
+    layout, using a randomly perturbed copy of the reference pairs as a stand-in
+    model (see multichain.simulate_model_pairs)."""
+    # pylint: disable=import-outside-toplevel
+    from utils import multichain
+
+    ref_pairs = result.nested_pairs + result.crossing_pairs
+    model_pairs = multichain.simulate_model_pairs(
+        ref_pairs, len(result.sequence), seed=seed
+    )
+    model_svg = svg_path.with_name(f"{structure_id}.model.svg")
+    multichain.render_model_panel(
+        str(svg_path), str(model_svg), ref_pairs, model_pairs, quiet=quiet
+    )
+    if not quiet:
+        matched, lost, added = multichain.diff_pairs(ref_pairs, model_pairs)
+        rprint(
+            f"[cyan]Simulated model panel: {model_svg} "
+            f"({len(matched)} matched, {len(lost)} missing, "
+            f"{len(added)} model-only)[/cyan]"
+        )
+
+
+def _ensure_cif(path, workdir, quiet):
+    """Return an mmCIF path for ``path``, converting a PDB via BioPython.
+
+    ``utils.multichain`` reads structures through FR3D's mmCIF reader, so a
+    predicted model supplied as ``.pdb`` is converted first.
+    """
+    if path.suffix.lower() == ".cif":
+        return path
+    # pylint: disable=import-outside-toplevel
+    import warnings
+
+    from Bio.PDB import MMCIFIO, PDBParser
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    out = workdir / f"{path.stem}.cif"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        structure = PDBParser(QUIET=True).get_structure(path.stem, str(path))
+        io = MMCIFIO()
+        io.set_structure(structure)
+        io.save(str(out))
+    if not quiet:
+        rprint(f"[dim]Converted model {path.name} -> {out.name}[/dim]")
+    return out
+
+
+# CASP16 assessment colour scheme (Das et al.): the experimental structure is
+# coloured by molecule type — RNA green, DNA orange, ligand red, protein yellow —
+# and the best predicted model is overlaid in dark blue.
+_CASP_RNA_GREEN = {"r": 0, "g": 166, "b": 81}
+_CASP_DNA_ORANGE = {"r": 247, "g": 148, "b": 30}
+_CASP_LIGAND_RED = {"r": 237, "g": 28, "b": 36}
+_CASP_PROTEIN_YELLOW = {"r": 255, "g": 204, "b": 0}
+_CASP_MODEL_BLUE = {"r": 26, "g": 58, "b": 140}
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+# pylint: disable=too-many-statements
+def _emit_compare_viewer(
+    source_structure_path,
+    actual_format,
+    structure_id,
+    output_path,
+    result,
+    simulate_seed,
+    quiet,
+    model_file=None,
+    model_chains=None,
+):
+    """Assemble the interactive 3-panel compare page.
+
+    Reference 2D and model 2D panels share the reference's combined layout
+    (one ``apiData`` with per-nucleotide ``chain_ids``); each carries its own
+    ``fr3dData`` inline.  A single shared Mol* loads the reference structure.
+    Data is inlined, so the PDB-id fetch router is disabled (``fetch_shim``).
+
+    ``model_file`` supplies a real predicted structure whose base pairs are
+    extracted and drawn on the reference coordinates (approach B).  Without it,
+    a randomly perturbed copy of the reference stands in for the model.
+    """
+    # pylint: disable=import-outside-toplevel
+    from utils import multichain
+
+    results_folder = output_path / "results"
+    colored_json = results_folder / "results" / "json" / f"{structure_id}.colored.json"
+    colored_svg = results_folder / "results" / "svg" / f"{structure_id}.colored.svg"
+    if not colored_json.exists():
+        if not quiet:
+            rprint("[yellow]No colored JSON; cannot build compare viewer.[/yellow]")
+        return
+
+    n = len(result.sequence)
+    api_data = viewer_export.build_multichain_api_data(
+        colored_json,
+        result.chain_of,
+        result.auth_of,
+        structure_id,
+        colored_svg_path=colored_svg if colored_svg.exists() else None,
+    )
+    ref_fr3d = viewer_export.build_pairs_fr3d_data(
+        result.nested_pairs,
+        result.crossing_pairs,
+        result.sequence,
+        result.auth_of,
+        structure_id,
+        all_pairs=result.all_pairs,
+    )
+
+    ref_pairs = result.nested_pairs + result.crossing_pairs
+
+    if model_file:
+        # Real predicted model: extract its base pairs and place them on the
+        # reference coordinates (approach B).  Requires the same sequence in
+        # the same chain order (co-indexed); we validate the length here.
+        model_id = Path(model_file).stem
+        model_cif = _ensure_cif(Path(model_file), output_path / "downloads", quiet)
+        chain_list = (
+            [c.strip() for c in model_chains.split(",") if c.strip()]
+            if model_chains
+            else None
+        )
+        model_result = multichain.assemble(
+            str(model_cif),
+            str(output_path / "model_extraction"),
+            chains=chain_list,
+            auto_order=False,
+            quiet=quiet,
+        )
+        if model_result is None:
+            rprint("[red]Error: could not extract base pairs from the model[/red]")
+            return
+        if len(model_result.sequence) != n:
+            rprint(
+                f"[red]Model/reference length mismatch "
+                f"({len(model_result.sequence)} vs {n}); the two must share the "
+                f"same sequence in the same chain order. Aborting compare.[/red]"
+            )
+            return
+        model_nested = model_result.nested_pairs
+        model_crossing = model_result.crossing_pairs
+        model_all_pairs = model_result.all_pairs
+        model_is_simulated = False
+    else:
+        model_id = f"{structure_id}_model"
+        model_pairs = multichain.simulate_model_pairs(ref_pairs, n, seed=simulate_seed)
+        model_nested, model_crossing = multichain.max_noncrossing(model_pairs, n)
+        # The simulated model only perturbs canonical pairs.
+        model_all_pairs = [(i, j, "cWW") for i, j in model_pairs]
+        model_is_simulated = True
+
+    # Interaction Network Fidelity of the model against the reference.
+    inf_metrics = multichain.compute_inf(result.all_pairs, model_all_pairs)
+
+    model_fr3d = viewer_export.build_pairs_fr3d_data(
+        model_nested,
+        model_crossing,
+        result.sequence,
+        result.auth_of,
+        model_id,
+        all_pairs=model_all_pairs,
+    )
+
+    viewer_dir = output_path / "viewer"
+    viewer_dir.mkdir(exist_ok=True)
+    structure_name = f"{structure_id}.{actual_format}"
+    # Keep only the analysed RNA chain(s) in the 3D reference so a deposited
+    # entry's extra chains (other RNA copies, ligands, whole proteins) don't
+    # render as additional structures beside the one the model overlays.
+    if not multichain.write_structure_chains(
+        str(source_structure_path),
+        list(result.order),
+        str(viewer_dir / structure_name),
+        quiet=quiet,
+    ):
+        shutil.copyfile(source_structure_path, viewer_dir / structure_name)
+    _copy_viewer_assets(viewer_dir)
+
+    # Superimpose the real predicted model onto the reference so the 3D pane can
+    # overlay both structures (approach C: pre-aligned coordinates — the pinned
+    # pdbe-molstar bundle exposes no in-browser transform).  Reference and model
+    # are co-indexed (approach B), giving an exact per-residue atom correspondence.
+    overlays = []
+    superpose_rmsd = None
+    superpose_n = None
+    if model_file and not model_is_simulated:
+        ref_index = [
+            (
+                (result.chain_of[i], result.auth_of[i])
+                if i < len(result.auth_of) and result.auth_of[i] is not None
+                else None
+            )
+            for i in range(n)
+        ]
+        model_index = [
+            (
+                (model_result.chain_of[i], model_result.auth_of[i])
+                if i < len(model_result.auth_of) and model_result.auth_of[i] is not None
+                else None
+            )
+            for i in range(n)
+        ]
+        aligned_name = f"{model_id}.aligned.cif"
+        aligned_path = viewer_dir / aligned_name
+        sp = multichain.superpose_model_onto_reference(
+            str(source_structure_path),
+            str(model_cif),
+            ref_index,
+            model_index,
+            str(aligned_path),
+            quiet=quiet,
+        )
+        if sp is None:
+            # Too few correspondences to fit — show the model in its own frame.
+            shutil.copyfile(str(model_cif), str(aligned_path))
+        else:
+            superpose_rmsd, superpose_n = sp
+        # The model has its own author numbering, so the 3D selection needs a
+        # label→(auth, chain) map built from the model (not the reference).
+        model_label_to_auth = {
+            str(i + 1): model_result.auth_of[i]
+            for i in range(len(model_result.auth_of))
+            if model_result.auth_of[i] is not None
+        }
+        model_label_to_chain = {
+            str(i + 1): model_result.chain_of[i]
+            for i in range(len(model_result.chain_of))
+        }
+        overlays.append(
+            {
+                "structureId": model_id,
+                "structureUrl": aligned_name,
+                "structureFormat": "cif",
+                # Best predicted model: dark blue (CASP16 scheme).
+                "baseColor": _CASP_MODEL_BLUE,
+                "labelToAuth": model_label_to_auth,
+                "labelToChain": model_label_to_chain,
+            }
+        )
+
+    chains_label = "+".join(result.order)
+    model_tag = "model, simulated" if model_is_simulated else "model"
+
+    # The viewer uses structureId as the 2D plugin's pdbId, which is interpolated
+    # into CSS selectors (e.g. querySelector('.rnaTopoSvg_<id>'),
+    # '.rnaview_<id>_<n>') by both the plugin and the glue code. A dot in the id
+    # (e.g. from a "<model>.trim.pdb" filename → stem "<model>.trim") makes the
+    # selector parse the '.' as a *new class* (".rnaTopoSvg_x.trim" = class
+    # rnaTopoSvg_x AND class trim), so those lookups match nothing and that panel's
+    # selection/click path silently breaks. Sanitise the id to [A-Za-z0-9_].
+    def _safe_id(value):
+        return re.sub(r"[^A-Za-z0-9_]", "_", str(value))
+
+    # Per-panel base-pair-list annotation: classify each listed pair against the
+    # *other* structure's pair set (position keys in the shared label space).
+    # Reference list → TP (also in model) / FN (missed); model list → TP / FP.
+    def _pair_keys(pairs):
+        return sorted({f"{min(i, j) + 1}_{max(i, j) + 1}" for i, j in pairs})
+
+    # Compare over *all* families (cWW + non-canonical), by residue-pair
+    # position, so the base-pair list's TP/FP/FN badges are correct for the
+    # non-canonical pairs now shown too — not just the cWW backbone.
+    ref_pair_keys = _pair_keys((i, j) for i, j, _ in result.all_pairs)
+    model_pair_keys = _pair_keys((i, j) for i, j, _ in model_all_pairs)
+
+    panels = [
+        {
+            "title": f"{structure_id} (reference)",
+            "subtitle": f"2D · chains {chains_label}",
+            "structureId": _safe_id(structure_id),
+            "chainId": "",
+            "structureUrl": structure_name,
+            "structureFormat": actual_format,
+            "apiData": api_data,
+            "fr3dData": ref_fr3d,
+            "lbnData": lbn_export.build_lbn_data(api_data, ref_fr3d),
+            "bpCompare": {"role": "reference", "otherKeys": model_pair_keys},
+        },
+        {
+            "title": f"{model_id} ({model_tag})",
+            "subtitle": f"2D · chains {chains_label}",
+            "structureId": _safe_id(model_id),
+            "chainId": "",
+            "structureUrl": structure_name,
+            "structureFormat": actual_format,
+            "apiData": api_data,
+            "fr3dData": model_fr3d,
+            "bpCompare": {"role": "model", "otherKeys": ref_pair_keys},
+            "lbnData": lbn_export.build_lbn_data(api_data, model_fr3d),
+        },
+    ]
+    molstar = {
+        "panelIndex": 0,
+        "structureId": structure_id,
+        "structureUrl": structure_name,
+        "structureFormat": actual_format,
+    }
+    if overlays:
+        # Experimental structure: RNA green (CASP16 scheme). These are RNA targets,
+        # so a single RNA colour is used; DNA/ligand/protein colours are defined
+        # above for when mixed-molecule targets get per-component colouring.
+        molstar["baseColor"] = _CASP_RNA_GREEN
+        molstar["overlays"] = overlays
+    heading = f"{structure_id} — reference vs {model_tag}"
+    html_path = viewer_html.render_compare(
+        viewer_dir,
+        page_title=f"{structure_id} — reference vs model",
+        heading=heading,
+        subtitle=f"chains {chains_label} · shared 3D",
+        panels=panels,
+        molstar=molstar,
+        fetch_shim=False,
+        metrics=inf_metrics,
+    )
+
+    # Structured metrics for the batch dashboard (avoids parsing stdout).
+    matched, lost, added = multichain.diff_pairs(
+        ref_pairs, model_nested + model_crossing
+    )
+
+    def _inf_block(key):
+        m = inf_metrics.get(key) or {}
+        return {k: m.get(k) for k in ("inf", "ppv", "sty", "tp", "fp", "fn")}
+
+    metrics_payload = {
+        "structure_id": structure_id,
+        "model_id": model_id,
+        "model_simulated": model_is_simulated,
+        "chains": result.order,
+        "inf": {k: _inf_block(k) for k in ("wc", "nwc", "all")},
+        "superpose_rmsd": superpose_rmsd,
+        "superpose_n_atoms": superpose_n,
+        "diff": {
+            "matched": len(matched),
+            "lost": len(lost),
+            "added": len(added),
+        },
+    }
+    (viewer_dir / "metrics.json").write_text(
+        json.dumps(metrics_payload, indent=2) + "\n"
+    )
+
+    if not quiet:
+        rprint(
+            f"[cyan]Base-pair diff (reference vs {model_id}): "
+            f"{len(matched)} matched, {len(lost)} missing in model, "
+            f"{len(added)} model-only[/cyan]"
+        )
+
+        def _fmt(metric):
+            val = metric.get("inf")
+            return "n/a" if val is None else f"{val:.3f}"
+
+        rprint(
+            "[cyan]INF (interaction network fidelity): "
+            f"WC {_fmt(inf_metrics['wc'])}, "
+            f"non-WC {_fmt(inf_metrics['nwc'])}, "
+            f"all {_fmt(inf_metrics['all'])}[/cyan]"
+        )
+        rprint(f"[green]Compare viewer ready: {html_path.resolve()}[/green]")
+        rprint(
+            "[dim]Serve over HTTP, e.g.:\n"
+            f"  python3 -m http.server -d {viewer_dir.resolve()} 8000\n"
+            "then open http://localhost:8000/[/dim]"
+        )
 
 
 @cli.command()
@@ -2648,6 +3040,53 @@ def _run_multichain_pdb(
         "concatenation order (e.g. 'A,B'). Implies multi-chain templatefree."
     ),
 )
+@click.option(
+    "--simulate-model",
+    "simulate_model",
+    is_flag=True,
+    default=False,
+    help=(
+        "TESTING: also emit a <id>.model.svg by randomly perturbing the "
+        "reference base pairs, to preview the reference/model diff without a "
+        "real predicted structure (multi-chain only)."
+    ),
+)
+@click.option(
+    "--simulate-seed",
+    "simulate_seed",
+    type=int,
+    default=2,
+    help="Seed for --simulate-model perturbation (default: 2).",
+)
+@click.option(
+    "--compare",
+    "compare",
+    is_flag=True,
+    default=False,
+    help=(
+        "Emit an interactive 3-panel viewer/ page: reference 2D, model 2D, "
+        "and a shared Mol* 3D (multi-chain only). Without --model the model "
+        "panel is a simulated perturbation of the reference."
+    ),
+)
+@click.option(
+    "--model",
+    "model_file",
+    type=click.Path(exists=True),
+    default=None,
+    help=(
+        "Predicted model structure (.pdb/.cif) to compare against this "
+        "structure as reference. Must share the reference's sequence in the "
+        "same chain order. Implies --compare."
+    ),
+)
+@click.option(
+    "--model-chains",
+    "model_chains",
+    type=str,
+    default=None,
+    help="RNA chains of --model, in order matching --chains (default: all).",
+)
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
@@ -2664,6 +3103,11 @@ def pdb(
     mode,
     all_chains,
     chains,
+    simulate_model,
+    simulate_seed,
+    compare,
+    model_file,
+    model_chains,
     quiet,
 ):
     """
@@ -2772,6 +3216,11 @@ def pdb(
             output_path=output_path,
             chains=chains,
             rnapuzzler_flag=rnapuzzler_flag,
+            simulate_model=simulate_model or compare or bool(model_file),
+            simulate_seed=simulate_seed,
+            compare=compare or bool(model_file),
+            model_file=model_file,
+            model_chains=model_chains,
             quiet=quiet,
         )
         return

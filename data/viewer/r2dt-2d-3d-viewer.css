@@ -52,7 +52,8 @@
   margin: 0;
   padding: 8px 12px;
   gap: 10px 12px;
-  flex-wrap: nowrap;
+  /* Wrap to a second row when the panel is too narrow even for short labels. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
@@ -185,13 +186,13 @@
   white-space: nowrap;
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-toggle span {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span {
   position: relative;
   padding-left: 42px;
   line-height: 20px;
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-toggle span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span::before {
   content: "";
   position: absolute;
   left: 0;
@@ -203,7 +204,7 @@
   transition: background 0.15s ease;
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-toggle span::after {
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span::after {
   content: "";
   position: absolute;
   left: 2px;
@@ -216,15 +217,15 @@
   transition: transform 0.15s ease;
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle > span::before {
   background: var(--r2dt-accent);
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle span::after {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle > span::after {
   transform: translateX(14px);
 }
 
-.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:focus-visible + .r2dt-nested-toggle span::before {
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:focus-visible + .r2dt-nested-toggle > span::before {
   outline: 2px solid #b8c9d9;
   outline-offset: 2px;
 }
@@ -303,7 +304,7 @@
 
 /* Docked in the 2D panel (like the base-pair list) so it is not clipped by
    the toolbar or covered by the SVG diagram. */
-#pdb-rna-viewer #checkboxes.r2dt-bp-filter-panel {
+.r2dt-panel--2d #checkboxes.r2dt-bp-filter-panel {
   display: none;
   position: absolute;
   left: auto;
@@ -543,7 +544,7 @@
   white-space: nowrap;
 }
 
-#pdb-rna-viewer .bp-list-dialog.r2dt-bp-list-panel {
+.r2dt-panel--2d .bp-list-dialog.r2dt-bp-list-panel {
   position: absolute;
   left: auto;
   right: 8px;
@@ -576,7 +577,7 @@
   line-height: 1.2;
 }
 
-#pdb-rna-viewer .bp-list-dialog ul {
+.r2dt-panel--2d .bp-list-dialog ul {
   flex: 1 1 auto;
   min-height: 0;
   list-style: none !important;
@@ -587,7 +588,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-#pdb-rna-viewer .bp-list-dialog li {
+.r2dt-panel--2d .bp-list-dialog li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -627,18 +628,47 @@
 
 .r2dt-bp-list-tag {
   flex: none;
+  width: 4.2em;            /* fixed column so the family column stays aligned */
+  box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;     /* keep "non-WC" on one line */
   font-size: 10px;
   font-weight: 500;
   color: #9ca3af;
   letter-spacing: 0.03em;
   text-transform: lowercase;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 3px;
   background: #f3f4f6;
   line-height: 1.3;
 }
 
-#pdb-rna-viewer .bp-list-dialog li:hover,
+/* Canonical rows: reserve the column width but show nothing. */
+.r2dt-bp-list-tag--empty {
+  background: transparent;
+  visibility: hidden;
+}
+
+/* TP/FP/FN badge in the base-pair list (compare mode). TP green, FP red
+   (matches the model-only diff colour), FN blue (matches the missing diff). */
+.r2dt-bp-list-cmp {
+  flex: none;
+  width: 2.2em;             /* fixed width so TP/FP/FN line up in one column */
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 0;
+  border-radius: 3px;
+  line-height: 1.3;
+  color: #fff;
+}
+.r2dt-bp-list-cmp--tp { background: #16a34a; }
+.r2dt-bp-list-cmp--fp { background: #e6194b; }
+.r2dt-bp-list-cmp--fn { background: #4363d8; }
+
+.r2dt-panel--2d .bp-list-dialog li:hover,
 .r2dt-panel--2d .bp-list-dialog li:hover {
   background: #f3f4f6;
 }
@@ -725,10 +755,28 @@
   display: block;
 }
 
-#pdb-rna-viewer #mainMenu.r2dt-toolbar {
+.r2dt-toolbar {
   height: auto !important;
   line-height: normal !important;
   min-height: 44px;
+}
+
+/* --- Responsive toolbar: compact labels when narrow, wrap as last resort --- */
+/* The toolbar is a size-query container; its labels swap to short variants
+   below a width where the full labels would overflow. */
+.r2dt-toolbar {
+  container-type: inline-size;
+}
+.r2dt-lbl-short {
+  display: none;
+}
+@container (max-width: 470px) {
+  .r2dt-lbl-full {
+    display: none;
+  }
+  .r2dt-lbl-short {
+    display: inline;
+  }
 }
 
 .help-tooltip {
@@ -825,6 +873,69 @@
   position: relative;
 }
 
+/* Loading a second (overlay) structure via visual.update re-shows Mol*'s side
+   controls panels, which can't be re-hidden through the layout API post-init.
+   Hide both the right panel and the collapsed-left strip (which otherwise juts
+   ~295px below the canvas) and let the canvas reclaim the width. */
+.r2dt-compare-molstar-root .msp-layout-right,
+.r2dt-compare-molstar-root .msp-layout-left {
+  display: none !important;
+}
+
+.r2dt-compare-molstar-root .msp-layout-main {
+  right: 0 !important;
+}
+
+/* Hide the "Toggle Expanded Viewport" (fullscreen) button — expanding the
+   embedded Mol* pane doesn't behave well in this side-by-side layout. Loading
+   the overlay re-shows the canvas controls, so the init-time hideCanvasControls
+   no longer applies; hide the button (and its hover wrapper) via CSS instead. */
+.r2dt-compare-molstar-root .msp-hover-box-wrapper:has(button[title="Toggle Expanded Viewport"]),
+.r2dt-compare-molstar-root button[title="Toggle Expanded Viewport"] {
+  display: none !important;
+}
+
+/* Reference/model visibility toggles for the shared 3D pane. */
+.r2dt-3d-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 0 0 8px;
+}
+
+/* When placed below the 3D pane instead of above it. */
+.r2dt-3d-toggles--below {
+  margin: 8px 0 0;
+}
+
+.r2dt-3d-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.r2dt-3d-toggle input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.r2dt-3d-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  flex: none;
+}
+
+.r2dt-3d-toggle-label {
+  color: #333;
+}
+
 .r2dt-viewer-lbn .lbn-body {
   overflow-x: auto;
   background: #fafafa;
@@ -900,4 +1011,54 @@
   font-size: 12px;
   color: #6b7280;
   line-height: 1.4;
+}
+
+/* --- Shared compare-mode LBN widget (both structures, TP/FP/FN) -------- */
+
+.r2dt-compare-lbn {
+  max-width: none;
+}
+
+/* Bracket agreement colours, same palette as the base-pair-list TP/FP/FN
+   badges (.r2dt-bp-list-cmp--*): TP green, FP red, FN blue. Lower specificity
+   than .lbn-bp.lbn-bp-hidden, so the "hidden" dim always wins over these. */
+.lbn-bp--tp { color: #16a34a; }
+.lbn-bp--fp { color: #e6194b; }
+.lbn-bp--fn { color: #4363d8; }
+
+.lbn-legend {
+  display: inline-block;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Wider than the single-viewer 7ch label so "cWW(2) · mdl" still fits;
+   every row (incl. the shared seq row) must share one width so nucleotide
+   columns stay aligned down the page. */
+.r2dt-compare-lbn .lbn-label {
+  width: 12ch;
+}
+
+/* Each row belongs to one source structure: colour its label + a left-edge
+   stripe (reference green / model blue, matching the 3D overlay colours) so
+   "which structure is this row" reads at a glance without relying on the
+   TP/FP/FN bracket colours alone. */
+.r2dt-compare-lbn .lbn-row[data-panel-idx] {
+  border-left: 3px solid transparent;
+  padding-left: 6px;
+  margin-left: -9px;
+}
+
+.lbn-row--reference {
+  border-left-color: #00a651;
+}
+.lbn-label--reference {
+  color: #00a651;
+}
+
+.lbn-row--model {
+  border-left-color: #1a3a8c;
+}
+.lbn-label--model {
+  color: #1a3a8c;
 }
