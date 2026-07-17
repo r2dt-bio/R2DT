@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Render a static CASP16 dashboard (``<site>/index.html``) from ``results.json``.
+"""Render a static CASP dashboard (``<site>/index.html``) from ``results.json``.
 
-Self-contained: the results are embedded in the page and rendered client-side,
-so it works both over an HTTP server and from ``file://``.  The table is
-sortable (click a header) and filterable (type in the box); each row links to
-that reference/model pair's compare viewer.
+Season-agnostic (pass ``--title``, e.g. "CASP16" or "CASP15"). Self-contained:
+the results are embedded in the page and rendered client-side, so it works both
+over an HTTP server and from ``file://``.  The table is sortable (click a
+header) and filterable (type in the box); each row links to that
+reference/model pair's compare viewer.
 """
 import argparse
 import json
@@ -15,7 +16,7 @@ _PAGE = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CASP16 — reference vs model dashboard</title>
+<title>{title} — reference vs model dashboard</title>
 <style>
   :root {{ color-scheme: light dark; }}
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -52,7 +53,7 @@ _PAGE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>CASP16 — reference vs model</h1>
+<h1>{title} — reference vs model</h1>
 <p class="sub">{summary}</p>
 <p class="legend">
   <b>BP diff (M/L/A)</b> — base-pair differences between the predicted model and the
@@ -164,6 +165,7 @@ def main():
     """Render ``<site>/results.json`` into a self-contained ``<site>/index.html``."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--site", default="site", help="site dir containing results.json")
+    ap.add_argument("--title", default="CASP", help='page title/heading, e.g. "CASP16"')
     args = ap.parse_args()
 
     site = Path(args.site)
@@ -175,7 +177,9 @@ def main():
         f"{len(targets)} targets · {len(results)} reference/model pairs "
         f"({n_ok} available). Click a column header to sort."
     )
-    html = _PAGE.format(summary=summary, data_json=json.dumps({"results": results}))
+    html = _PAGE.format(
+        title=args.title, summary=summary, data_json=json.dumps({"results": results})
+    )
     out = site / "index.html"
     out.write_text(html)
     print(f"Wrote {out} — {len(targets)} targets, {len(results)} pairs")

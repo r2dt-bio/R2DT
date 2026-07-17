@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Batch-generate CASP16 reference/model compare pages and aggregate metrics.
+"""Batch-generate CASP reference/model compare pages and aggregate metrics.
 
-Reads a targets manifest, runs the (Dockerised) ``r2dt.py pdb --compare --model``
-pipeline for each target's top-N models, and collects each run's
-``viewer/metrics.json`` into a single ``<site>/results.json`` that drives the
-dashboard (``casp16_dashboard.py``).
+Season-agnostic: reads a ``targets.json`` manifest (as produced by
+``casp_fetch.py`` for any season), runs the (Dockerised)
+``r2dt.py pdb --compare --model`` pipeline for each target's top-N models, and
+collects each run's ``viewer/metrics.json`` into a single ``<site>/results.json``
+that drives the dashboard (``casp_dashboard.py``).
 
 The pipeline needs the r2dt Docker image (Infernal, Traveler, FR3D, …), so each
 pair is generated with ``docker run -v <repo>:/rna/r2dt``.  Paths in the manifest
@@ -98,12 +99,17 @@ def main():
 
     results = []
     for target, cfg in manifest["targets"].items():
-        reference = cfg["reference"]
-        ref_chains = cfg.get("ref_chains")
+        default_reference = cfg["reference"]
+        default_ref_chains = cfg.get("ref_chains")
         models = sorted(cfg["models"], key=lambda m: m.get("rank") or 999)[: args.top]
         for idx, m in enumerate(models, 1):
             rank = m.get("rank") or idx
             model_id = m["model"]
+            # A model may carry its own reference/ref_chains, overriding the
+            # target-level default — e.g. an ensemble state (R1149/R1156)
+            # where different models best match different ensemble members.
+            reference = m.get("reference") or default_reference
+            ref_chains = m.get("ref_chains") or default_ref_chains
             out_rel = f"{args.site}/{target}/{rank:02d}-{model_id}"
             viewer = repo / out_rel / "viewer"
             index = viewer / "index.html"
