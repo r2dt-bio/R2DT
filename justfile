@@ -231,7 +231,7 @@ viewers-deploy:
 # in as a subpath of viewers_dir first. Always rm -rf + fresh-copies the
 # destination (never merges into whatever was there before), so a stale or
 # partial previous sync can't linger and silently ship. season is "15" or
-# "16". See docs/pdb-2d-3d-viewer.md for the full deploy writeup.
+# "16". See .ai/casp-cloudflare-deploy.md for the full deploy writeup.
 casp-sync season:
     #!/usr/bin/env bash
     set -euo pipefail
