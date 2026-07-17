@@ -222,6 +222,41 @@ viewers-deploy:
     fi
     npx wrangler@latest pages deploy {{ viewers_dir }} --project-name {{ cloudflare_project }}
 
+# Fold a season's standalone CASP dashboard (output/casp<season>-deploy/,
+# built by scripts/casp_rank.py -> casp_fetch.py -> casp_batch.py ->
+# casp_dashboard.py) into the single-domain gallery at
+# <viewers_dir>/casp<season>/. A wrangler deploy uploads its target directory
+# as a full replacement snapshot, not a merge -- deploying casp<season>-deploy
+# on its own would wipe out the rest of the gallery, so it has to be folded
+# in as a subpath of viewers_dir first. Always rm -rf + fresh-copies the
+# destination (never merges into whatever was there before), so a stale or
+# partial previous sync can't linger and silently ship. season is "15" or
+# "16". See docs/pdb-2d-3d-viewer.md for the full deploy writeup.
+casp-sync season:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="output/casp{{ season }}-deploy"
+    dst="{{ viewers_dir }}/casp{{ season }}"
+    if [[ ! -d "$src" ]]; then
+        echo "!! $src not found -- run the casp_rank/casp_fetch/casp_batch/casp_dashboard pipeline for casp{{ season }} first" >&2
+        exit 1
+    fi
+    rm -rf "$dst"
+    mkdir -p "$dst"
+    cp -R "$src"/. "$dst"/
+    echo "✓ Synced $src -> $dst"
+
+# Sync a season's CASP dashboard into the gallery (see `casp-sync`), then
+# deploy the whole gallery -- same Cloudflare Pages project/domain as
+# `viewers-deploy`, casp15/casp16 landing as subpaths beside the rest.
+# Nothing outside <viewers_dir>/casp<season>/ is touched by the sync step,
+# but the deploy step still re-uploads all of viewers_dir (that's how Pages
+# deploys work), so anything else you meant to update in the main gallery or
+# workstream1/ should be refreshed (`just viewers` / `just ws1-viewers`)
+# before running this too. season is "15" or "16".
+casp-deploy season: (casp-sync season)
+    just viewers-deploy
+
 # Start a development docs server
 docs:
     docker run {{platform}} -p {{port}}:{{port}} -v $(pwd):/rna/r2dt -it --rm {{image}} sphinx-autobuild --host 0.0.0.0 --port {{port}} docs docs/_build/html

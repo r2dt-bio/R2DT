@@ -262,6 +262,43 @@ Several `viewer/` folders can be combined into a browsable gallery with `utils/b
 
 `just viewers-deploy` publishes all of `output/site/` (both galleries) to Cloudflare Pages — for example [https://2d-3d-viewer.na-hackathon-2026.pages.dev](https://2d-3d-viewer.na-hackathon-2026.pages.dev) — so the workstream1 dashboard lands at `/workstream1/`. Run `just viewers` and/or `just ws1-viewers` first to refresh the contents. Set `CLOUDFLARE_PROJECT` in a gitignored `.env`.
 
+### CASP dashboards (same domain, no footgun)
+
+The CASP reference/model dashboards (`scripts/casp_rank.py` -> `casp_fetch.py`
+-> `casp_batch.py` -> `casp_dashboard.py`) each build their own standalone,
+self-contained site under `output/casp15-deploy/` and `output/casp16-deploy/`
+— separate from `output/site/` and from each other.
+
+**Don't `wrangler pages deploy` those directories directly against the same
+Cloudflare Pages project as the main gallery.** A Pages deploy uploads its
+target directory as a full replacement snapshot, not a merge — pointing
+wrangler at `output/casp16-deploy/` would make *that* the entire live site,
+wiping out the main gallery and workstream1 in the process. To land both
+seasons on the same domain as the main gallery, each season's dashboard has
+to be folded in as a subpath of `output/site/` (`output/site/casp15/`,
+`output/site/casp16/`) *before* the deploy step, every time — not merged
+once and left to drift.
+
+Two recipes do this safely:
+
+- **`just casp-sync <season>`** (`season` is `15` or `16`) replaces
+  `output/site/casp<season>/` wholesale with the current contents of
+  `output/casp<season>-deploy/` — `rm -rf` then a fresh copy, never a merge
+  — so a stale or partial previous copy can never linger. Fails loudly if
+  `output/casp<season>-deploy/` doesn't exist yet (run the four pipeline
+  scripts for that season first).
+- **`just casp-deploy <season>`** runs `casp-sync` and then `just
+  viewers-deploy`, i.e. the *whole* `output/site/` (main gallery +
+  workstream1 + both `casp15/`/`casp16/`, whichever have been synced) gets
+  re-uploaded to the one Cloudflare Pages project. If you also changed the
+  main gallery or workstream1 content, refresh those first (`just viewers` /
+  `just ws1-viewers`) — the deploy step re-uploads everything under
+  `output/site/`, not just the season you synced.
+
+Once deployed, the dashboards live at `/casp15/` and `/casp16/` on the same
+domain as the main gallery, e.g.
+`https://2d-3d-viewer.na-hackathon-2026.pages.dev/casp16/`.
+
 ## Interaction model
 
 - **2D → 3D.** Clicking a nucleotide in the 2D diagram selects and focuses the corresponding residue in the 3D view.
