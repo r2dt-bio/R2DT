@@ -2450,7 +2450,8 @@ def generate_template(json_file, quiet):
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
-def _run_multichain_pdb(
+# pylint: disable=too-many-branches,too-many-statements
+def _run_multichain_pdb(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     ctx,
     file_path,
     actual_format,
@@ -2464,6 +2465,7 @@ def _run_multichain_pdb(
     quiet,
     model_file=None,
     model_chains=None,
+    _skip_partition=False,
 ):
     """Build a single combined 2D diagram from multiple RNA chains.
 
@@ -2474,6 +2476,15 @@ def _run_multichain_pdb(
     and draw crossing inter-chain pairs as an overlay.  The concatenation
     metadata is also written to ``<id>.multichain.json`` for the
     model-comparison draw.
+
+    In ``--compare`` mode with an explicit ``--chains``, the requested chains
+    may not be the whole story: the reference structure could have other RNA
+    chains that interact with them (widen the display to the whole group —
+    see ``multichain.partition_components``) or other chains entirely
+    unrelated to them (offer a chain picker instead of silently dropping
+    them). ``_skip_partition`` is for the sibling reference-only pages this
+    generates for the picker — they already name an exact chain set and
+    shouldn't recurse into building their own siblings.
     """
     # pylint: disable=import-outside-toplevel
     from utils import multichain
@@ -2493,6 +2504,44 @@ def _run_multichain_pdb(
         auto_order = True
 
     extraction_dir = output_path / "extraction"
+
+    score_chains = None
+    chain_views = None
+    if compare and chain_list and not _skip_partition:
+        components = multichain.partition_components(
+            str(file_path), str(extraction_dir), quiet=True
+        )
+        if components:
+            requested = set(chain_list)
+            default_component = next(
+                (c for c in components if requested & set(c)), None
+            )
+            if default_component:
+                if set(default_component) != requested:
+                    # The requested chains interact with others — widen the
+                    # display to the whole group; scoring still only covers
+                    # what was actually requested. This can happen even with
+                    # only one component total (e.g. a 2-chain dimer where
+                    # both chains interact and only one was requested).
+                    score_chains = chain_list
+                    chain_list = default_component
+                    auto_order = True
+                # A chain picker is only needed if there's something else in
+                # the structure *not* part of the default view.
+                other_components = [c for c in components if c != default_component]
+                if other_components:
+                    chain_views = _build_chain_views(
+                        ctx,
+                        file_path,
+                        actual_format,
+                        structure_id,
+                        output_path,
+                        default_component,
+                        other_components,
+                        rnapuzzler_flag,
+                        quiet,
+                    )
+
     result = multichain.assemble(
         str(file_path),
         str(extraction_dir),
@@ -2594,9 +2643,78 @@ def _run_multichain_pdb(
                 quiet,
                 model_file=model_file,
                 model_chains=model_chains,
+                score_chains=score_chains,
+                chain_views=chain_views,
             )
     elif not quiet:
         rprint("[yellow]Diagram generation completed. Check output folder.[/yellow]")
+
+
+def _chain_group_slug(chain_ids):
+    return re.sub(r"[^A-Za-z0-9]+", "-", "-".join(chain_ids)).strip("-") or "chain"
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+def _build_chain_views(
+    ctx,
+    file_path,
+    actual_format,
+    structure_id,
+    output_path,
+    default_component,
+    other_components,
+    rnapuzzler_flag,
+    quiet,
+):
+    """Generate a reference-only sibling page for each of ``other_components``
+    — RNA chains of the same structure that don't interact with the ones
+    shown by default — and return the ``chainViews`` list (the default page
+    plus every sibling) for the reference panel's chain picker.
+
+    Each sibling is a real (non-simulated) self-compare: the structure
+    against itself, restricted to that component's chains. This reuses the
+    existing compare-viewer machinery to get a real interactive 2D+3D page
+    with no scoring semantics attached — INF=1.000/RMSD=0.00 there are the
+    expected, meaningless artifact of comparing a structure to itself, not a
+    real prediction score.
+    """
+    views = [
+        {
+            "label": f"Chain {'+'.join(default_component)} (current)",
+            "url": "./index.html",
+            "current": True,
+        }
+    ]
+    for comp in other_components:
+        slug = _chain_group_slug(comp)
+        sib_dir = output_path / f"chain-{slug}"
+        sib_dir.mkdir(parents=True, exist_ok=True)
+        _run_multichain_pdb(
+            ctx,
+            file_path,
+            actual_format,
+            structure_id,
+            sib_dir,
+            ",".join(comp),
+            rnapuzzler_flag,
+            simulate_model=False,
+            simulate_seed=2,
+            compare=True,
+            quiet=quiet,
+            model_file=file_path,
+            model_chains=",".join(comp),
+            _skip_partition=True,
+        )
+        views.append(
+            {
+                # Sibling of the parent output dir, not of viewer/ itself — the
+                # current page lives one level down, at <output>/viewer/index.html.
+                "label": f"Chain {'+'.join(comp)}",
+                "url": f"../chain-{slug}/viewer/index.html",
+                "current": False,
+            }
+        )
+    return views
 
 
 def _emit_simulated_model_panel(svg_path, structure_id, result, seed, quiet):
@@ -2660,7 +2778,7 @@ _CASP_MODEL_BLUE = {"r": 26, "g": 58, "b": 140}
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-branches
 def _emit_compare_viewer(
     source_structure_path,
     actual_format,
@@ -2671,6 +2789,8 @@ def _emit_compare_viewer(
     quiet,
     model_file=None,
     model_chains=None,
+    score_chains=None,
+    chain_views=None,
 ):
     """Assemble the interactive 3-panel compare page.
 
@@ -2682,6 +2802,17 @@ def _emit_compare_viewer(
     ``model_file`` supplies a real predicted structure whose base pairs are
     extracted and drawn on the reference coordinates (approach B).  Without it,
     a randomly perturbed copy of the reference stands in for the model.
+
+    ``result`` may cover more chains than the model actually corresponds to —
+    e.g. a reference that's a dimer with real inter-chain contacts, widened by
+    the caller (see ``multichain.partition_components``) so the 2D/3D panels
+    show the whole interacting complex even though only one chain was
+    predicted. ``score_chains`` (a subset of ``result.order``) then names
+    which chains the model actually covers: INF and the base-pair diff are
+    computed only over those chains, so a wider *display* never changes the
+    score. ``None`` (the common case, unwidened) means "all of result" and
+    reproduces today's behaviour exactly. ``chain_views`` optionally adds a
+    chain-picker to the reference panel (see ``_build_chain_views``).
     """
     # pylint: disable=import-outside-toplevel
     from utils import multichain
@@ -2695,12 +2826,43 @@ def _emit_compare_viewer(
         return
 
     n = len(result.sequence)
+
+    # score_offsets[k] = the absolute position in result's (possibly widened)
+    # label space that the model's k-th residue (in its own, narrower, local
+    # order) corresponds to. Identity when unwidened, so every computation
+    # below that uses it is a no-op in the common case.
+    if score_chains:
+        by_chain = {cid: (start, end) for cid, start, end in result.boundaries}
+        score_offsets = [pos for cid in score_chains for pos in range(*by_chain[cid])]
+    else:
+        score_offsets = list(range(n))
+    score_positions = set(score_offsets)
+    score_n = len(score_offsets)
+
+    def _remap_pairs(pairs):
+        return [(score_offsets[i], score_offsets[j]) for i, j in pairs]
+
+    def _remap_all_pairs(pairs):
+        return [(score_offsets[i], score_offsets[j], fam) for i, j, fam in pairs]
+
     api_data = viewer_export.build_multichain_api_data(
         colored_json,
         result.chain_of,
         result.auth_of,
         structure_id,
         colored_svg_path=colored_svg if colored_svg.exists() else None,
+    )
+    # Model panel only: grey out nucleotides outside score_positions (e.g. a
+    # widened reference's unmodeled second chain) using the existing
+    # unobserved/unresolved-residue dimming path (backbone + text), so it
+    # reads as "not part of this model" rather than looking like normal,
+    # clickable model content. The reference panel keeps the plain api_data
+    # — those residues are real reference data, nothing to greyed there.
+    unscored_labels = sorted(p + 1 for p in range(n) if p not in score_positions)
+    model_api_data = (
+        {**api_data, "unobserved_label_seq_ids": unscored_labels}
+        if unscored_labels
+        else api_data
     )
     ref_fr3d = viewer_export.build_pairs_fr3d_data(
         result.nested_pairs,
@@ -2711,7 +2873,14 @@ def _emit_compare_viewer(
         all_pairs=result.all_pairs,
     )
 
+    # Full pairs (unscoped) for the reference panel's own display/list — shown
+    # as-is even when widened, so the diagram honestly reflects the whole
+    # structure. Scoped for the *scored* diff below, so a wider display never
+    # changes the official matched/lost/added counts.
     ref_pairs = result.nested_pairs + result.crossing_pairs
+    scoped_ref_pairs = [
+        (i, j) for i, j in ref_pairs if i in score_positions and j in score_positions
+    ]
 
     if model_file:
         # Real predicted model: extract its base pairs and place them on the
@@ -2734,16 +2903,18 @@ def _emit_compare_viewer(
         if model_result is None:
             rprint("[red]Error: could not extract base pairs from the model[/red]")
             return
-        if len(model_result.sequence) != n:
+        if len(model_result.sequence) != score_n:
             rprint(
                 f"[red]Model/reference length mismatch "
-                f"({len(model_result.sequence)} vs {n}); the two must share the "
-                f"same sequence in the same chain order. Aborting compare.[/red]"
+                f"({len(model_result.sequence)} vs {score_n}); the two must share "
+                f"the same sequence in the same chain order. Aborting compare.[/red]"
             )
             return
-        model_nested = model_result.nested_pairs
-        model_crossing = model_result.crossing_pairs
-        model_all_pairs = model_result.all_pairs
+        # Positioned onto result's label space (score_offsets is identity
+        # unless the reference display was widened beyond score_chains).
+        model_nested = _remap_pairs(model_result.nested_pairs)
+        model_crossing = _remap_pairs(model_result.crossing_pairs)
+        model_all_pairs = _remap_all_pairs(model_result.all_pairs)
         model_is_simulated = False
     else:
         model_id = f"{structure_id}_model"
@@ -2753,8 +2924,16 @@ def _emit_compare_viewer(
         model_all_pairs = [(i, j, "cWW") for i, j in model_pairs]
         model_is_simulated = True
 
-    # Interaction Network Fidelity of the model against the reference.
-    inf_metrics = multichain.compute_inf(result.all_pairs, model_all_pairs)
+    # Interaction Network Fidelity of the model against the reference. Scoped
+    # to score_chains (a no-op filter when unwidened) so a wider *display*
+    # never inflates or deflates the score with pairs the model never
+    # attempted (e.g. a second, unpredicted chain of a dimer).
+    scoped_ref_all_pairs = [
+        (i, j, fam)
+        for i, j, fam in result.all_pairs
+        if i in score_positions and j in score_positions
+    ]
+    inf_metrics = multichain.compute_inf(scoped_ref_all_pairs, model_all_pairs)
 
     model_fr3d = viewer_export.build_pairs_fr3d_data(
         model_nested,
@@ -2788,13 +2967,15 @@ def _emit_compare_viewer(
     superpose_rmsd = None
     superpose_n = None
     if model_file and not model_is_simulated:
+        # ref_index walks score_offsets (not 0..n-1) so a widened result still
+        # only superposes on the chains the model actually corresponds to.
         ref_index = [
             (
-                (result.chain_of[i], result.auth_of[i])
-                if i < len(result.auth_of) and result.auth_of[i] is not None
+                (result.chain_of[p], result.auth_of[p])
+                if p < len(result.auth_of) and result.auth_of[p] is not None
                 else None
             )
-            for i in range(n)
+            for p in score_offsets
         ]
         model_index = [
             (
@@ -2802,7 +2983,7 @@ def _emit_compare_viewer(
                 if i < len(model_result.auth_of) and model_result.auth_of[i] is not None
                 else None
             )
-            for i in range(n)
+            for i in range(score_n)
         ]
         aligned_name = f"{model_id}.aligned.cif"
         aligned_path = viewer_dir / aligned_name
@@ -2821,13 +3002,17 @@ def _emit_compare_viewer(
             superpose_rmsd, superpose_n = sp
         # The model has its own author numbering, so the 3D selection needs a
         # label→(auth, chain) map built from the model (not the reference).
+        # Keyed by score_offsets[i]+1 (the model's i-th residue's *2D label* in
+        # result's, possibly widened, label space) rather than i+1 directly —
+        # otherwise a widened reference where the scored chain isn't first
+        # silently breaks 2D-click-to-3D-highlight for every other chain.
         model_label_to_auth = {
-            str(i + 1): model_result.auth_of[i]
+            str(score_offsets[i] + 1): model_result.auth_of[i]
             for i in range(len(model_result.auth_of))
             if model_result.auth_of[i] is not None
         }
         model_label_to_chain = {
-            str(i + 1): model_result.chain_of[i]
+            str(score_offsets[i] + 1): model_result.chain_of[i]
             for i in range(len(model_result.chain_of))
         }
         overlays.append(
@@ -2887,12 +3072,14 @@ def _emit_compare_viewer(
             "chainId": "",
             "structureUrl": structure_name,
             "structureFormat": actual_format,
-            "apiData": api_data,
+            "apiData": model_api_data,
             "fr3dData": model_fr3d,
             "bpCompare": {"role": "model", "otherKeys": ref_pair_keys},
-            "lbnData": lbn_export.build_lbn_data(api_data, model_fr3d),
+            "lbnData": lbn_export.build_lbn_data(model_api_data, model_fr3d),
         },
     ]
+    if chain_views:
+        panels[0]["chainViews"] = chain_views
     molstar = {
         "panelIndex": 0,
         "structureId": structure_id,
@@ -2905,6 +3092,13 @@ def _emit_compare_viewer(
         # above for when mixed-molecule targets get per-component colouring.
         molstar["baseColor"] = _CASP_RNA_GREEN
         molstar["overlays"] = overlays
+        # Give the 2D panels' click-to-highlight colour the same per-structure
+        # colour as the 3D pane (reference green / model blue), so a 2D
+        # selection reads as the same colour in both views. Only when a real
+        # 3D overlay exists — otherwise the 3D pane has no per-structure
+        # colour to match.
+        panels[0]["baseColor"] = _CASP_RNA_GREEN
+        panels[1]["baseColor"] = _CASP_MODEL_BLUE
     heading = f"{structure_id} — reference vs {model_tag}"
     html_path = viewer_html.render_compare(
         viewer_dir,
@@ -2918,8 +3112,9 @@ def _emit_compare_viewer(
     )
 
     # Structured metrics for the batch dashboard (avoids parsing stdout).
+    # Scoped, like INF above, so a widened display doesn't change the score.
     matched, lost, added = multichain.diff_pairs(
-        ref_pairs, model_nested + model_crossing
+        scoped_ref_pairs, model_nested + model_crossing
     )
 
     def _inf_block(key):

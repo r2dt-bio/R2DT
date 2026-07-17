@@ -561,6 +561,64 @@ def assemble(  # pylint: disable=too-many-arguments,too-many-positional-argument
     return result
 
 
+def partition_components(
+    cif_file: str,
+    output_dir: str,
+    model_id: Optional[int] = None,
+    quiet: bool = False,
+) -> Optional[List[List[str]]]:
+    """Partition every RNA chain in the structure into connected components by
+    inter-chain base pairing.
+
+    Two chains land in the same component iff they share at least one
+    inter-chain pair, transitively; a chain with no inter-chain pairs to
+    anything is its own singleton component. This is the basis for deciding
+    what a reference structure's viewer should show together: chains that
+    base-pair with each other belong in one combined view, chains that don't
+    interact with anything are independent and browsable one at a time.
+
+    Returns a list of components (each a list of chain ids), or ``None`` if
+    extraction/FR3D failed. An empty structure (no RNA chains) returns ``[]``.
+    """
+    chains = list_rna_chains(cif_file, model_id=model_id)
+    if not chains:
+        return []
+    if len(chains) == 1:
+        return [chains]
+
+    result = assemble(
+        cif_file,
+        output_dir,
+        chains=None,
+        auto_order=True,
+        model_id=model_id,
+        quiet=quiet,
+    )
+    if result is None:
+        return None
+
+    parent = {c: c for c in result.order}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for i, j in result.inter_pairs:
+        union(result.chain_of[i], result.chain_of[j])
+
+    groups: Dict[str, List[str]] = {}
+    for c in result.order:
+        groups.setdefault(find(c), []).append(c)
+    return list(groups.values())
+
+
 # ---------------------------------------------------------------------------
 # INF (Interaction Network Fidelity, Parisien et al. 2009)
 # ---------------------------------------------------------------------------

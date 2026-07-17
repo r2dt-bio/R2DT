@@ -84,15 +84,24 @@
       else el.removeAttribute(attr);
     }
 
-    function removeSelectionBg(label) {
-      const existing = selectionBgs.get(label);
-      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-      selectionBgs.delete(label);
+    // Compare mode shares this whole module (and these Maps) across every
+    // panel, but residue labels repeat across structures (co-indexed
+    // panels both have a "residue 1") -- key every per-nucleotide record by
+    // pdbId+label, not label alone, or one panel's badge/typography gets
+    // silently deleted as a side effect of the other panel's mirrored click.
+    function mapKey(pdbId, label) {
+      return `${pdbId}::${label}`;
     }
 
-    function applySelectionBg(el, label, fill, pad) {
+    function removeSelectionBg(key) {
+      const existing = selectionBgs.get(key);
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      selectionBgs.delete(key);
+    }
+
+    function applySelectionBg(el, key, fill, pad) {
       if (!el || el.nodeName !== 'text' || !el.parentNode) return;
-      removeSelectionBg(label);
+      removeSelectionBg(key);
       let bbox;
       try {
         bbox = el.getBBox();
@@ -110,14 +119,15 @@
       rect.setAttribute('stroke', 'none');
       rect.style.pointerEvents = 'none';
       el.parentNode.insertBefore(rect, el);
-      selectionBgs.set(label, rect);
+      selectionBgs.set(key, rect);
     }
 
-    function applySelectionTypography(el, label) {
+    function applySelectionTypography(el, pdbId, label, color) {
       if (!el || el.nodeName !== 'text') return;
       const isPartner = svc.__r2dtPartnerLabels && svc.__r2dtPartnerLabels.has(label);
-      if (!origStyle.has(label)) {
-        origStyle.set(label, {
+      const key = mapKey(pdbId, label);
+      if (!origStyle.has(key)) {
+        origStyle.set(key, {
           fw: el.getAttribute('font-weight'),
           fs: el.getAttribute('font-size'),
           stroke: el.getAttribute('stroke'),
@@ -138,17 +148,24 @@
       el.setAttribute('stroke-width', isPartner ? PARTNER_HALO_WIDTH : HALO_WIDTH);
       el.setAttribute('stroke-linejoin', 'round');
       el.setAttribute('paint-order', 'stroke fill');
+      // Compare mode passes an `rgb(...)` selection colour (per-structure
+      // green/blue) -- tint the badge to match. The standalone viewer's
+      // 'orange'/'#ffab40' fallbacks keep their original neutral badge.
+      const tint = /^rgb\(/.test(color || '')
+        ? paleTintFor(color, isPartner ? 0.88 : 0.85)
+        : null;
       applySelectionBg(
         el,
-        label,
-        isPartner ? PARTNER_BG_FILL : BG_FILL,
+        key,
+        tint || (isPartner ? PARTNER_BG_FILL : BG_FILL),
         isPartner ? PARTNER_BG_PAD : BG_PAD
       );
     }
 
     function restoreTypography(pdbId, label) {
-      const stored = origStyle.get(label);
-      removeSelectionBg(label);
+      const key = mapKey(pdbId, label);
+      const stored = origStyle.get(key);
+      removeSelectionBg(key);
       if (!stored) return;
       const el = nucleotideEl(pdbId, label);
       if (el && el.nodeName === 'text') {
@@ -159,21 +176,35 @@
         setOrRemove(el, 'stroke-linejoin', stored.slj);
         setOrRemove(el, 'paint-order', stored.po);
       }
-      origStyle.delete(label);
+      origStyle.delete(key);
     }
 
     const origColor = svc.colorNucleotide.bind(svc);
     svc.colorNucleotide = function (pdbId, label, color, mode) {
       origColor(pdbId, label, color, mode);
       if (mode === 'selection') {
-        applySelectionTypography(nucleotideEl(pdbId, label), label);
+        applySelectionTypography(nucleotideEl(pdbId, label), pdbId, label, color);
       }
     };
 
     const origClear = svc.clearNucleotides.bind(svc);
     svc.clearNucleotides = function (pdbId, mode, labels) {
       if (mode === 'selection') {
-        const keys = labels != null ? labels : Array.from(svc.selected.keys());
+        // Don't enumerate "everything selected" from svc.selected -- in
+        // compare mode every panel shares that one Map, keyed by label only
+        // (not pdbId). When the *other* panel clears its own selection over
+        // the same co-indexed labels, the vendor unconditionally deletes
+        // each entry even if it found no matching DOM node under its own
+        // pdbId, silently dropping this panel's still-badged labels from
+        // the map before this panel ever gets a chance to restore them
+        // (orphaning their selection highlight). Our own origStyle records
+        // are correctly scoped by pdbId, so enumerate from those instead.
+        const prefix = `${pdbId}::`;
+        const keys = labels != null
+          ? labels
+          : Array.from(origStyle.keys())
+            .filter((k) => k.startsWith(prefix))
+            .map((k) => k.slice(prefix.length));
         keys.forEach((label) => restoreTypography(pdbId, label));
       }
       origClear(pdbId, mode, labels);
@@ -431,14 +462,50 @@
       b: Math.round((b + m) * 255),
     };
   }
-  function highlightColorFor(base) {
-    if (!base) return SELECTION_COLOR;
+  function nudgedHueFor(base) {
     let { h } = rgbToHsl(base.r, base.g, base.b);
     // The reference base is a spring-green (~150°); a same-hue highlight reads
     // too close to it, so nudge green-family hues toward lime (~90°) — clearly
     // brighter and more yellow, unmistakable against the base green.
     if (h > 100 && h < 175) h = 90;
-    return hslToRgb(h, 0.95, 0.6); // vivid + bright
+    return h;
+  }
+  function highlightColorFor(base) {
+    if (!base) return SELECTION_COLOR;
+    return hslToRgb(nudgedHueFor(base), 0.95, 0.6); // vivid + bright
+  }
+  // Companion shade for a paired/partner residue: same hue, lighter and
+  // softer — mirrors how the old orange/`#ffab40` pair related to each other.
+  function partnerHighlightColorFor(base) {
+    if (!base) return SELECTION_COLOR;
+    return hslToRgb(nudgedHueFor(base), 0.85, 0.72);
+  }
+  function rgbToCss(c) {
+    return `rgb(${c.r},${c.g},${c.b})`;
+  }
+  // Parses the small set of colour formats this file ever hands to
+  // colorNucleotide: the literal 'orange'/'#ffab40' fallbacks (standalone
+  // viewer) or an `rgb(r,g,b)` string (compare-mode per-structure colour).
+  function parseCssColor(css) {
+    if (!css) return null;
+    if (css === 'orange') return { r: 255, g: 165, b: 0 };
+    let m = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(css);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    m = /^#([0-9a-fA-F]{6})$/.exec(css);
+    if (m) {
+      const n = parseInt(m[1], 16);
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    return null;
+  }
+  // A very pale, same-hue tint for the selection badge behind a clicked
+  // letter, so the badge reads as "this colour, softly" rather than a
+  // colour-neutral yellow that clashes with a green/blue selection.
+  function paleTintFor(css, lightness) {
+    const rgb = parseCssColor(css);
+    if (!rgb) return null;
+    const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    return rgbToCss(hslToRgb(h, 0.9, lightness));
   }
 
   // Selection fan-out for the compare view's shared Mol*, which holds two
@@ -489,15 +556,27 @@
       // (its chain/number don't exist in the model) yields an empty loci and
       // the camera flies to blank space. Frame the clicked structure's own
       // residue; superimposition keeps the partner highlight nearby in view.
+      // But the clicked *panel* isn't always the clicked *structure*: a
+      // widened multi-chain reference can show a residue in 2D (both panels
+      // share its layout) that only the reference actually has 3D atoms for
+      // (e.g. a real dimer's second chain, never scored against the model).
+      // If the preferred structure has nothing here, fall back to whichever
+      // target does, rather than focusing an empty loci and going blank.
       if (!cleared) {
         try {
           const fnum = focusStructureNumber != null
             ? focusStructureNumber : targets[0] && targets[0].structureNumber;
-          const ft = targets.find((t) => t.structureNumber === fnum) || targets[0];
-          const focusData = ft ? residueData(ft, labels) : [];
-          const loci = fnum == null
-            ? molstar.getLociForParams(focusData)
-            : molstar.getLociForParams(focusData, fnum);
+          let ft = targets.find((t) => t.structureNumber === fnum) || targets[0];
+          let focusData = ft ? residueData(ft, labels) : [];
+          if (focusData.length === 0) {
+            for (const t of targets) {
+              const d = residueData(t, labels);
+              if (d.length > 0) { ft = t; focusData = d; break; }
+            }
+          }
+          const loci = ft && ft.structureNumber != null
+            ? molstar.getLociForParams(focusData, ft.structureNumber)
+            : molstar.getLociForParams(focusData);
           const camera = molstar.plugin
             && molstar.plugin.managers
             && molstar.plugin.managers.camera;
@@ -776,6 +855,10 @@
     enhanceSelectedNucleotideStyleOnce();
 
     const { labelToAuth, authToLabel, labelToChain } = buildLabelMaps(apiData);
+    // Only worth naming the chain in the selection tooltip when there's more
+    // than one on this panel (a widened multi-chain reference, e.g. a real
+    // dimer) -- for an ordinary single-chain structure it'd just be noise.
+    const hasMultipleChains = new Set(Object.values(labelToChain)).size > 1;
 
   // --- 2D viewer ---
   const rnaPlugin = new PdbRnaViewerPlugin();
@@ -2230,8 +2313,15 @@
   // 2D diagram (via the "Nested only" toggle or the family checkboxes).
   let lbnVisibilityFn = null;
 
-  const BP_SELECTED_COLOR = 'orange'; // matches the plugin's nucleotide click colour
-  const RESIDUE_PARTNER_COLOR = '#ffab40';
+  // Compare mode: match the 2D click highlight to this panel's own 3D colour
+  // (reference green / model blue) instead of a colour-neutral orange, so the
+  // 2D and 3D highlights read as the same selection. Falls back to the
+  // original orange for the standalone viewer, which has no reference/model
+  // structure colour to match.
+  const baseColor = ctx.baseColor || null;
+  const BP_SELECTED_COLOR = baseColor ? rgbToCss(highlightColorFor(baseColor)) : 'orange';
+  const RESIDUE_PARTNER_COLOR = baseColor
+    ? rgbToCss(partnerHighlightColorFor(baseColor)) : '#ffab40';
   const RNA_ENTITY_ID = rnaPlugin.options?.entityId || '1';
   let lastResidueSelection = null;
 
@@ -2281,8 +2371,29 @@
       return;
     }
     tip.style.display = 'inline';
+    let text = svc.buildResidueLabel(labels, undefined);
+    if (hasMultipleChains) {
+      // Grouped by chain (not a flat "(chains 1, 0)" list) so which residue
+      // is on which chain is unambiguous -- a flat list's order isn't
+      // guaranteed to match buildResidueLabel's own (possibly re-sorted)
+      // residue-number order above, which could misattribute a residue to
+      // the wrong chain at a glance.
+      const byChain = new Map();
+      labels.forEach((l) => {
+        const c = labelToChain[l];
+        if (c == null) return;
+        if (!byChain.has(c)) byChain.set(c, []);
+        byChain.get(c).push(l);
+      });
+      if (byChain.size === 1) {
+        text += ` (chain ${byChain.keys().next().value})`;
+      } else if (byChain.size > 1) {
+        const parts = Array.from(byChain, ([c, ls]) => `chain ${c}: ${ls.join(', ')}`);
+        text += ` (${parts.join('; ')})`;
+      }
+    }
     tip.innerHTML =
-      `<strong>Selected ${svc.buildResidueLabel(labels, undefined)}</strong>`
+      `<strong>Selected ${text}</strong>`
       + ' <button type="button" class="r2dt-deselect-btn"'
       + ' aria-label="Clear selection" title="Clear selection (Esc)">&#10005;</button>';
     const clearBtn = tip.querySelector('.r2dt-deselect-btn');
@@ -2954,7 +3065,14 @@
     root.querySelectorAll('.r2dt-nt-selection-bg').forEach((r) => r.remove());
   }
 
-  function buildCompareSlot(title, subtitle) {
+  // `chainViews`: optional [{label, url, current}], for a reference structure
+  // whose RNA chains don't all interact with each other — e.g. two unrelated
+  // copies in the asymmetric unit. Picking an option navigates to that
+  // chain's own reference-only page (a separate pre-rendered static page, not
+  // a live swap — see r2dt.py's `_run_multichain_pdb`/partition_components).
+  // Chains that *do* interact are always shown together in one view instead,
+  // with no selector.
+  function buildCompareSlot(title, subtitle, chainViews) {
     const slot = document.createElement('div');
     slot.className = 'r2dt-compare-slot';
     const heading = document.createElement('h2');
@@ -2968,6 +3086,22 @@
       heading.appendChild(tag);
     }
     slot.appendChild(heading);
+    if (Array.isArray(chainViews) && chainViews.length > 1) {
+      const select = document.createElement('select');
+      select.className = 'r2dt-chain-select';
+      select.title = 'This structure has independent (non-interacting) chains — pick one to view';
+      chainViews.forEach((view) => {
+        const option = document.createElement('option');
+        option.value = view.url;
+        option.textContent = view.label;
+        if (view.current) option.selected = true;
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        if (select.value) window.location.href = select.value;
+      });
+      slot.appendChild(select);
+    }
     return slot;
   }
 
@@ -3085,7 +3219,7 @@
     for (let i = 0; i < panels.length; i++) {
       const pOpts = panels[i];
       const panelData = await resolvePanelData(pOpts.baseUrl || '.', pOpts);
-      const slot = buildCompareSlot(pOpts.title || panelData.structureId, pOpts.subtitle || '');
+      const slot = buildCompareSlot(pOpts.title || panelData.structureId, pOpts.subtitle || '', pOpts.chainViews);
       grid.appendChild(slot);
       const dom = buildCompare2dDom(slot, { height: opts.panelHeight });
       const panelIdx = i;
@@ -3104,6 +3238,7 @@
         fr3dData: panelData.fr3dData,
         lbnData: panelData.lbnData,
         bpCompare: panelData.bpCompare,
+        baseColor: pOpts.baseColor || null,
         showLbn: false,
         link3d: false,
         cleanup: [],
