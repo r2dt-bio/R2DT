@@ -236,11 +236,19 @@ casp-sync season:
     #!/usr/bin/env bash
     set -euo pipefail
     src="output/casp{{ season }}-deploy"
-    dst="{{ viewers_dir }}/casp{{ season }}"
     if [[ ! -d "$src" ]]; then
         echo "!! $src not found -- run the casp_rank/casp_fetch/casp_batch/casp_dashboard pipeline for casp{{ season }} first" >&2
         exit 1
     fi
+    # Some older season builds are themselves a full combined-site snapshot
+    # (main gallery + workstream1 + the actual dashboard nested one level
+    # down at casp<season>/) rather than just the dashboard -- copying such a
+    # dir wholesale would nest a second full site copy inside the gallery.
+    # Prefer the nested dashboard-only subfolder when present.
+    if [[ -d "$src/casp{{ season }}" ]]; then
+        src="$src/casp{{ season }}"
+    fi
+    dst="{{ viewers_dir }}/casp{{ season }}"
     rm -rf "$dst"
     mkdir -p "$dst"
     cp -R "$src"/. "$dst"/
