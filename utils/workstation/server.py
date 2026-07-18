@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import mimetypes
 import re
@@ -25,8 +26,10 @@ from utils.workstation.chrome import (
 )
 from utils.workstation.jobs import (
     JobRunner,
+    create_draw_jobs_from_fasta,
     create_job_from_uploads,
     create_pdb_job_from_upload,
+    find_draw_svg,
     require_runtime,
 )
 
@@ -209,7 +212,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send(*_json_bytes({"error": str(exc)}, 500))
 
     def _route(self, method: str, path: str, parsed) -> bool:
-        # pylint: disable=too-many-return-statements,too-many-branches
+        # pylint: disable=too-many-return-statements,too-many-branches,too-many-statements
         if method == "GET" and path in ("/", "/index.html"):
             self._serve_home()
             return True
@@ -225,13 +228,23 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if method == "GET" and path in ("/pdb/new", "/pdb/new/"):
             self._serve_pdb()
             return True
-        match = re.fullmatch(r"/(2d|align)/?", path)
-        if method == "GET" and match:
-            self._serve_coming_soon(match.group(1))
+        if method == "GET" and path in ("/2d", "/2d/"):
+            self._serve_draw()
             return True
-        match = re.fullmatch(r"/(2d|align)/new/?", path)
+        if method == "GET" and path in ("/2d/new", "/2d/new/"):
+            self._serve_draw()
+            return True
+        match = re.fullmatch(r"/align/?", path)
         if method == "GET" and match:
-            self._redirect(f"/{match.group(1)}")
+            self._serve_coming_soon("align")
+            return True
+        match = re.fullmatch(r"/align/new/?", path)
+        if method == "GET" and match:
+            self._redirect("/align")
+            return True
+        match = re.fullmatch(r"/jobs/([^/]+)/results(?:/(.*))?$", path)
+        if method == "GET" and match:
+            self._serve_results(match.group(1), match.group(2) or "")
             return True
         if method == "GET" and path.startswith("/static/"):
             self._serve_static(path[len("/static/") :])
@@ -291,6 +304,11 @@ class WorkstationHandler(BaseHTTPRequestHandler):
     def _serve_pdb(self) -> None:
         raw = (STATIC_DIR / "pdb.html").read_text(encoding="utf-8")
         html = _fill_page(raw, active_path="pdb")
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_draw(self) -> None:
+        raw = (STATIC_DIR / "draw.html").read_text(encoding="utf-8")
+        html = _fill_page(raw, active_path="2d")
         self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _serve_coming_soon(self, path_key: str) -> None:
@@ -417,6 +435,18 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
             )
+            status = 200 if result.get("dedup") else 201
+        elif job_mode == "draw":
+            result = create_draw_jobs_from_fasta(
+                self.app.catalog,
+                self.app.runner,
+                fasta_text=payload.get("fasta") or "",
+                layout=payload.get("layout") or payload.get("layout_mode") or "auto",
+                label=payload.get("label") or "",
+                notes=payload.get("notes") or "",
+                force=bool(payload.get("force")),
+            )
+            status = 201 if result.get("created") else 200
         else:
             layout_mode = payload.get("layout_mode") or payload.get("mode") or "auto"
             result = create_job_from_uploads(
@@ -432,7 +462,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
             )
-        status = 200 if result.get("dedup") else 201
+            status = 200 if result.get("dedup") else 201
         self._send(*_json_bytes(result, status))
 
     def _get_basepairs(self, job_id: str) -> bool:
@@ -464,6 +494,74 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         )
         self._send(*_json_bytes({"ok": True, **saved, **counts}))
         return True
+
+    def _serve_results(self, job_id: str, rel: str) -> None:
+        """Serve draw-mode results page or a file under the job directory."""
+        meta = self.app.catalog.read_meta(job_id)
+        if not meta:
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return
+        job_dir = self.app.catalog.job_dir(job_id).resolve()
+        if rel in ("", "index.html"):
+            self._send_results_page(job_id, meta, job_dir)
+            return
+        target = (job_dir / rel).resolve()
+        if not str(target).startswith(str(job_dir)):
+            self._send(*_json_bytes({"error": "forbidden"}, 403))
+            return
+        if not target.is_file():
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return
+        self._send_file(target)
+
+    def _send_results_page(
+        self, job_id: str, meta: Dict[str, Any], job_dir: Path
+    ) -> None:
+        label = str(meta.get("label") or job_id)
+        svg = None
+        if svg_rel := meta.get("svg_path"):
+            candidate = job_dir / str(svg_rel)
+            if candidate.is_file():
+                svg = candidate
+        if svg is None:
+            svg = find_draw_svg(job_dir)
+        status = meta.get("status") or ""
+        raw = (STATIC_DIR / "results.html").read_text(encoding="utf-8")
+        html = raw.replace("<!--HEAD-->", _HEAD_LINKS)
+        html = html.replace(
+            "<!--HEADER-->",
+            chrome_header(active_path="2d", job_label=label, job_id=job_id),
+        )
+        html = html.replace("<!--JOB_LABEL-->", html_lib.escape(label))
+        html = html.replace("<!--JOB_ID-->", html_lib.escape(job_id))
+        html = html.replace("<!--JOB_STATUS-->", html_lib.escape(str(status)))
+        if svg is not None:
+            rel = svg.relative_to(job_dir).as_posix()
+            href = f"/jobs/{job_id}/results/{rel}"
+            preview = (
+                f'<div class="ws-svg-wrap">'
+                f'<img class="ws-svg-preview" src="{html_lib.escape(href)}" '
+                f'alt="{html_lib.escape(label)}">'
+                f"</div>"
+                f'<p class="ws-results-actions">'
+                f'<a class="cta" href="{html_lib.escape(href)}" download>'
+                f"Download SVG</a>"
+                f'<a class="ws-stub-link" href="/2d">← Back to 2D jobs</a>'
+                f"</p>"
+            )
+        elif status in ("queued", "running"):
+            preview = (
+                '<p class="sub">Job still running — refresh this page shortly.</p>'
+                '<p><a class="ws-stub-link" href="/2d">← Back to 2D jobs</a></p>'
+            )
+        else:
+            err = html_lib.escape(str(meta.get("error") or "No SVG produced"))
+            preview = (
+                f'<p class="ws-coming">{err}</p>'
+                '<p><a class="ws-stub-link" href="/2d">← Back to 2D jobs</a></p>'
+            )
+        html = html.replace("<!--RESULTS_BODY-->", preview)
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _serve_viewer(self, job_id: str, rel: str) -> None:
         # Always serve the latest R2DT glue/CSS from the repo so existing jobs

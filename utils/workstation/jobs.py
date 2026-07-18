@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from utils.workstation.catalog import Catalog, utc_now
 from utils.workstation.chains import ensure_mmcif, normalize_suffix, structure_stem
+from utils.workstation.fasta import FastaRecord, parse_fasta_records
 
 
 def _resolve_upload(catalog: Catalog, upload_id: str) -> Path:
@@ -180,6 +181,8 @@ class JobRunner:
         job_mode = meta.get("mode") or "compare"
         if job_mode == "pdb":
             self._run_pdb_job(job_id, meta)
+        elif job_mode == "draw":
+            self._run_draw_job(job_id, meta)
         else:
             self._run_compare_job(job_id, meta)
 
@@ -255,6 +258,93 @@ class JobRunner:
         )
         code = self._stream_command(job_id, cmd)
         self._finish_viewer_job(job_id, out_dir, code)
+
+    def _run_draw_job(self, job_id: str, meta: Dict[str, Any]) -> None:
+        inputs_dir = self.catalog.inputs_job_dir(job_id)
+        out_dir = self.catalog.job_dir(job_id)
+        params = meta.get("params") or {}
+        inputs = meta.get("inputs") or {}
+        fasta_path = inputs_dir / inputs["fasta_name"]
+        layout = params.get("layout") or "auto"
+        cmd = self._build_draw_cmd(
+            fasta_path=fasta_path,
+            out_dir=out_dir,
+            layout=layout,
+        )
+        code = self._stream_command(job_id, cmd)
+        self._finish_draw_job(job_id, out_dir, code)
+
+    def _finish_draw_job(self, job_id: str, out_dir: Path, code: int) -> None:
+        svg = find_draw_svg(out_dir)
+        if code == 0 and svg is not None:
+            rel = svg.relative_to(out_dir).as_posix()
+            self.catalog.update_meta(
+                job_id,
+                status="ready",
+                finished=utc_now(),
+                results_url=f"/jobs/{job_id}/results/",
+                svg_path=rel,
+                error=None,
+            )
+            self.catalog.append_log(job_id, f"Job completed successfully ({rel})")
+            return
+        self.catalog.update_meta(
+            job_id,
+            status="failed",
+            finished=utc_now(),
+            error=(
+                f"pipeline exited {code}" if code else "no .colored.svg found in output"
+            ),
+        )
+        self.catalog.append_log(job_id, f"Job failed (exit {code})")
+
+    def _build_draw_cmd(
+        self,
+        fasta_path: Path,
+        out_dir: Path,
+        layout: str,
+    ) -> List[str]:
+        """Build r2dt.py draw or templatefree (in- or out-of-docker)."""
+        if in_docker():
+            return self._local_draw_cmd(fasta_path, out_dir, layout)
+        workspace = self.catalog.workspace.resolve()
+        repo = self.repo_root.resolve()
+        rel_fa = fasta_path.resolve().relative_to(workspace)
+        rel_out = out_dir.resolve().relative_to(workspace)
+        subcmd = "templatefree" if layout == "templatefree" else "draw"
+        inner = [
+            "python3",
+            "r2dt.py",
+            subcmd,
+            f"/workspace/{rel_fa.as_posix()}",
+            f"/workspace/{rel_out.as_posix()}",
+            "--quiet",
+        ]
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{repo}:/rna/r2dt",
+            "-v",
+            f"{workspace}:/workspace",
+            "-w",
+            "/rna/r2dt",
+            self.docker_image,
+            *inner,
+        ]
+
+    @staticmethod
+    def _local_draw_cmd(fasta_path: Path, out_dir: Path, layout: str) -> List[str]:
+        subcmd = "templatefree" if layout == "templatefree" else "draw"
+        return [
+            "python3",
+            "r2dt.py",
+            subcmd,
+            str(fasta_path),
+            str(out_dir),
+            "--quiet",
+        ]
 
     def _build_compare_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -561,3 +651,118 @@ def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-l
     catalog.append_log(job_id, "Queued")
     runner.enqueue(job_id)
     return {"dedup": False, "job": meta}
+
+
+def find_draw_svg(job_dir: Path) -> Optional[Path]:
+    """Return the best ``*.colored.svg`` under a draw job directory."""
+    job_dir = Path(job_dir)
+    if preferred := sorted(job_dir.glob("**/results/svg/*.colored.svg")):
+        return preferred[0]
+    fallback = sorted(job_dir.glob("**/*.colored.svg"))
+    return fallback[0] if fallback else None
+
+
+def draw_content_hash(record: FastaRecord, layout: str) -> str:
+    """Stable hash for one draw sequence + layout."""
+    digest = hashlib.sha256()
+    digest.update(b"draw\0")
+    digest.update(layout.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(record.seq_id.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(record.sequence.encode("utf-8"))
+    digest.update(b"\0")
+    if record.structure:
+        digest.update(record.structure.encode("utf-8"))
+    return "sha256:" + digest.hexdigest()
+
+
+def create_draw_jobs_from_fasta(  # pylint: disable=too-many-arguments,too-many-locals
+    catalog: Catalog,
+    runner: JobRunner,
+    *,
+    fasta_text: str,
+    layout: str = "auto",
+    label: str = "",
+    notes: str = "",
+    force: bool = False,
+) -> Dict[str, Any]:
+    """Split FASTA into N draw jobs (one sequence each) and enqueue them."""
+    layout = (layout or "auto").strip().lower()
+    if layout not in ("auto", "templatefree"):
+        raise ValueError("layout must be 'auto' or 'templatefree'")
+
+    records = parse_fasta_records(fasta_text)
+    if layout == "templatefree":
+        missing = [r.seq_id for r in records if not r.structure]
+        if missing:
+            raise ValueError(
+                "templatefree requires a third-line structure for each sequence "
+                f"(missing for: {', '.join(missing[:5])}"
+                + ("…" if len(missing) > 5 else "")
+                + ")"
+            )
+
+    batch_id = uuid.uuid4().hex[:10]
+    label_prefix = label.strip()
+    created: List[Dict[str, Any]] = []
+    deduped: List[Dict[str, Any]] = []
+
+    for record in records:
+        digest = draw_content_hash(record, layout)
+        if not force:
+            existing = catalog.find_by_content_hash(digest, mode="draw")
+            if existing:
+                deduped.append(existing)
+                continue
+
+        job_id = new_job_id()
+        inputs_dir = catalog.inputs_job_dir(job_id)
+        inputs_dir.mkdir(parents=True, exist_ok=True)
+        fasta_name = f"{record.seq_id}.fasta"
+        fasta_path = inputs_dir / fasta_name
+        fasta_path.write_text(record.to_fasta_text(), encoding="utf-8")
+
+        display = label_prefix or record.seq_id
+        if label_prefix and len(records) > 1:
+            display = f"{label_prefix} · {record.seq_id}"
+
+        meta: Dict[str, Any] = {
+            "id": job_id,
+            "mode": "draw",
+            "label": display,
+            "notes": notes.strip(),
+            "created": utc_now(),
+            "status": "queued",
+            "batch_id": batch_id,
+            "params": {
+                "layout": layout,
+                "seq_id": record.seq_id,
+                "length": record.length,
+                "has_structure": bool(record.structure),
+            },
+            "inputs": {
+                "fasta_name": fasta_name,
+                "content_hash": digest,
+            },
+            "metrics": {},
+            "results_url": f"/jobs/{job_id}/results/",
+        }
+        catalog.write_meta(job_id, meta)
+        catalog.append_log(job_id, "Queued")
+        runner.enqueue(job_id)
+        created.append(meta)
+
+    if not created and not deduped:
+        raise ValueError("No jobs created")
+
+    return {
+        "batch_id": batch_id,
+        "jobs": created + deduped,
+        "created": created,
+        "deduped": deduped,
+        "message": (
+            f"Queued {len(created)} job(s)"
+            + (f", {len(deduped)} already cached" if deduped else "")
+        ),
+    }

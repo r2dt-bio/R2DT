@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2D · R2DT workstation</title>
+<!--HEAD-->
+</head>
+<body class="ws-dashboard">
+<!--HEADER-->
+
+<section id="panel-dashboard" class="panel active">
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="Filter by label or sequence id…" autocomplete="off">
+    <button type="button" id="refresh">Refresh</button>
+    <span class="count" id="count"></span>
+    <a class="cta" href="/2d/new">New 2D job</a>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="num" data-sort="seq" title="Stable job number (oldest first)">#</th>
+          <th data-sort="label">Label</th>
+          <th data-sort="seq_id">Sequence</th>
+          <th class="num" data-sort="length">Length</th>
+          <th data-sort="layout">Layout</th>
+          <th data-sort="created">Created</th>
+          <th data-sort="status">Status</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <pre id="log" class="log hidden" aria-live="polite"></pre>
+</section>
+
+<section id="panel-new" class="panel">
+  <div class="new-head">
+    <a class="linkish" href="/2d">← Back to jobs</a>
+    <h2>New 2D job</h2>
+  </div>
+  <form id="new-form">
+    <fieldset>
+      <legend>Sequences</legend>
+      <p class="hint-block">Paste or upload FASTA. Multi-FASTA is split into one job per sequence.</p>
+      <label>FASTA
+        <textarea id="fasta" rows="10" placeholder=">seq1&#10;GGAAC…"></textarea>
+      </label>
+      <label class="file-inline">Or upload a file
+        <input type="file" id="fasta-file" accept=".fasta,.fa,.fna,.txt,.FASTA,.FA">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="row opts">
+        <label>Layout
+          <select id="layout">
+            <option value="auto" selected>auto (template cascade)</option>
+            <option value="templatefree">templatefree (needs structure line)</option>
+          </select>
+        </label>
+        <label>Label
+          <input type="text" id="label" placeholder="Optional batch / display name">
+        </label>
+      </div>
+      <label class="notes">Notes
+        <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="force"> Force re-run even if identical jobs are cached
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="generate">Generate</button>
+      <span id="form-status" class="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<footer class="ws-footer">
+  <span id="runtime"></span>
+</footer>
+
+<script src="/static/draw.js"></script>
+</body>
+</html>

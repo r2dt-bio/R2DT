@@ -14,7 +14,7 @@ MODES = (
         "title": "2D",
         "blurb": "Draw secondary structure diagrams from FASTA sequences.",
         "cta": "New 2D job",
-        "ready": False,
+        "ready": True,
     },
     {
         "id": "pdb",
