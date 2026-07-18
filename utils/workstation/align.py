@@ -24,7 +24,6 @@ _GF_AC_RE = re.compile(r"^#=GF\s+AC\s+(\S+)", re.MULTILINE)
 # Repo examples served by GET /api/examples/stockholm/<id>
 EXAMPLE_STOCKHOLM = {
     "RF00162": "examples/RF00162.stk",
-    "hcv": "examples/hcv-alignment.stk",
 }
 
 

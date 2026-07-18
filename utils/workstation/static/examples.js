@@ -56,10 +56,5 @@ window.R2DT_WS_EXAMPLES = {
       label: "RF00162 SAM",
       note: "seed without cov_* → R-scape then draw",
     },
-    {
-      id: "hcv",
-      label: "HCV IRES",
-      note: "multi-region alignment (larger)",
-    },
   ],
 };

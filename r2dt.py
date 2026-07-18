@@ -2987,9 +2987,34 @@ def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positio
     ]
     inf_metrics = multichain.compute_inf(scoped_ref_all_pairs, model_all_pairs)
 
+    # Shared-layout model panel is drawn on the reference 2D diagram, so
+    # Nested filtering must use crossing relative to the *reference* nested
+    # backbone — not the model's own 3D-topology nested/crossing split
+    # (still kept in model_nested / model_crossing for the own-layout panel).
+    ref_nested_set = {(min(i, j), max(i, j)) for i, j in result.nested_pairs}
+
+    def _crosses_ref_nested(i: int, j: int) -> bool:
+        a, b = (i, j) if i < j else (j, i)
+        for c, d in ref_nested_set:
+            if (a < c < b < d) or (c < a < d < b):
+                return True
+        return False
+
+    shared_nested = []
+    shared_crossing = []
+    seen_pair = set()
+    for i, j, _fam in model_all_pairs:
+        a, b = (i, j) if i < j else (j, i)
+        if (a, b) in seen_pair:
+            continue
+        seen_pair.add((a, b))
+        if _crosses_ref_nested(a, b):
+            shared_crossing.append((a, b))
+        else:
+            shared_nested.append((a, b))
     model_fr3d = viewer_export.build_pairs_fr3d_data(
-        model_nested,
-        model_crossing,
+        shared_nested,
+        shared_crossing,
         result.sequence,
         result.auth_of,
         model_id,

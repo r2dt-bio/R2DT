@@ -375,7 +375,7 @@ def build_pairs_fr3d_data(
     as ``cWW``. A pair is tagged ``crossing="0"`` only when it belongs to the
     nested cWW backbone (``nested_pairs``); everything else — crossing cWW and
     all non-canonical tertiary contacts — is ``crossing="1"`` so the viewer's
-    "Nested only" filter still isolates the backbone.
+    Nested toggle can isolate nested vs crossing contacts.
     """
 
     def auth(i: int) -> str:

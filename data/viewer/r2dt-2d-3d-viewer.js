@@ -253,6 +253,46 @@
     return { labelToAuth, authToLabel, labelToChain };
   }
 
+  /** True when intervals [a,b] and [c,d] (a<b, c<d) properly interleave. */
+  function intervalsInterleave(a, b, c, d) {
+    return (a < c && c < b && b < d) || (c < a && a < d && d < b);
+  }
+
+  /** Nested (crossing=0) intervals from annotations, 1-based inclusive. */
+  function layoutNestedIntervals(annotations) {
+    const out = [];
+    (annotations || []).forEach((ann) => {
+      if (ann && ann.crossing && String(ann.crossing) !== '0') return;
+      const i = Math.min(+ann.seq_id1, +ann.seq_id2);
+      const j = Math.max(+ann.seq_id1, +ann.seq_id2);
+      if (i !== j && !Number.isNaN(i) && !Number.isNaN(j)) out.push([i, j]);
+    });
+    return out;
+  }
+
+  /**
+   * Re-tag ``crossing`` on annotations relative to a layout nested backbone.
+   * Used for compare model panels drawn on the shared reference layout: the
+   * model's own nested/crossing split (from its 3D graph) does not match
+   * which pairs look nested on the reference 2D diagram.
+   */
+  function reclassifyCrossingVsLayout(annotations, layoutNested) {
+    if (!layoutNested || !layoutNested.length || !annotations) return;
+    annotations.forEach((ann) => {
+      const i = Math.min(+ann.seq_id1, +ann.seq_id2);
+      const j = Math.max(+ann.seq_id1, +ann.seq_id2);
+      let crosses = false;
+      for (let n = 0; n < layoutNested.length; n++) {
+        const [c, d] = layoutNested[n];
+        if (intervalsInterleave(i, j, c, d)) {
+          crosses = true;
+          break;
+        }
+      }
+      ann.crossing = crosses ? '1' : '0';
+    });
+  }
+
   async function resolvePanelData(baseUrl, opts) {
     const normalized = normalizeBaseUrl(baseUrl);
     const manifest = opts.structureId ? null : await loadManifest(normalized);
@@ -875,7 +915,7 @@
       lbnCaption.className = 'r2dt-viewer-lbn-caption';
       lbnCaption.textContent =
         'Greyed-out pairs are hidden in the current 2D view '
-        + '(via "Nested only" or the base-pair family filters).';
+        + '(via Nested or the base-pair family filters).';
       const lbnBody = document.createElement('div');
       lbnBody.id = 'lbn-body';
       lbnBody.className = 'lbn-body';
@@ -1009,24 +1049,36 @@
     return !!(a && a.crossing && String(a.crossing) !== '0');
   }
 
-  /** Whether an edited/live path should be shown given current filters. */
+  /** Whether an edited/live path should be shown given current filters.
+   *  Nested ON (default) = show nested pairs (full set). Nested OFF = hide
+   *  nested pairs and keep only crossing / pseudoknot contacts. */
   function shouldShowBpPath(pathId, annByKey) {
     if (!pathId) return false;
     const ui = rnaPlugin.uiTemplateService;
     if (!ui) return true;
-    const nested = nestedBpInput()?.checked;
-    const displayHtml = nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs;
-    const visibleIds = pathIdsInDisplayHtml(displayHtml);
-    if (visibleIds.has(pathId)) return true;
-    // Refamily: same pair, new LW class — keep if the original pair was shown.
+    const showNested = !nestedBpInput() || nestedBpInput().checked;
+    const displayAll = ui.displayBaseStrs;
+    const displayNested = ui.displayNestedBaseStrs;
     const key = bpPairKeyFromPathId(pathId);
-    if (pairKeysInDisplayHtml(displayHtml).has(key)) return true;
-    // Newly added pairs aren't in the plugin display strings.
     const family = familyFromPathId(pathId);
+    if (showNested) {
+      const visibleIds = pathIdsInDisplayHtml(displayAll);
+      if (visibleIds.has(pathId)) return true;
+      if (pairKeysInDisplayHtml(displayAll).has(key)) return true;
+      if (!isBpFamilyFilterOn(family)) return false;
+      return true;
+    }
+    // Nested off: keep only crossing pairs.
+    const allIds = pathIdsInDisplayHtml(displayAll);
+    const nestedIds = pathIdsInDisplayHtml(displayNested);
+    if (allIds.has(pathId) && !nestedIds.has(pathId)) return true;
+    if (
+      pairKeysInDisplayHtml(displayAll).has(key)
+      && !pairKeysInDisplayHtml(displayNested).has(key)
+    ) return true;
     if (!isBpFamilyFilterOn(family)) return false;
     const ann = annByKey.get(key);
-    if (nested && isCrossingAnn(ann)) return false;
-    return true;
+    return isCrossingAnn(ann);
   }
 
   function isCanonicalWatsonCrick(family, nt1, nt2) {
@@ -1251,7 +1303,7 @@
 
   // Pair keys ("min_max") for the base pairs currently shown in the 2D
   // diagram. Reads the rendered paths directly so it reflects whatever the
-  // "Nested only" toggle and family checkboxes produced, without
+  // Nested toggle and family checkboxes produced, without
   // re-deriving the plugin's filter logic.
   function getVisible2dPairKeys() {
     const keys = new Set();
@@ -2023,7 +2075,7 @@
           // Path may not exist yet for a just-added pair before geometry sync;
           // still list it when its family filter allows.
           return isBpFamilyFilterOn(a.bp || 'cWW')
-            && !(nestedInput.checked && isCrossingAnn(a));
+            && (nestedInput.checked || isCrossingAnn(a));
         })
         .sort((x, y) => {
           const ax = +x.seq_id1;
@@ -2250,10 +2302,7 @@
       nestedWrap.classList.add('r2dt-nested-wrap');
       const nestedText = nestedWrap.querySelector('label span');
       if (nestedText) {
-        // Full + short variants; CSS shows one based on toolbar width.
-        nestedText.innerHTML =
-          '<span class="r2dt-lbl-full">Nested only</span>'
-          + '<span class="r2dt-lbl-short">Nested</span>';
+        nestedText.textContent = 'Nested';
       }
       let nestedInput = nestedWrap.querySelector(
         `#nestedBP-${PDB_LOWER}, #nestedBP`
@@ -2261,7 +2310,7 @@
       const nestedLabel = nestedWrap.querySelector('label');
       const nestedId = `nestedBP-${PDB_LOWER}`;
       if (nestedInput) {
-        nestedInput.setAttribute('aria-label', 'Only nested base pairs');
+        nestedInput.setAttribute('aria-label', 'Show nested base pairs');
       }
       if (nestedLabel) {
         nestedLabel.classList.add('r2dt-nested-toggle');
@@ -2271,7 +2320,9 @@
       // stay repaired after toggling nested view.
       if (nestedInput && !nestedInput.dataset.r2dtNestedBound) {
         const nestedFresh = nestedInput.cloneNode(true);
-        nestedFresh.checked = nestedInput.checked;
+        // Nested ON by default (= show nested pairs). Plugin ships unchecked
+        // because its checkbox meant "nested only".
+        nestedFresh.checked = true;
         nestedFresh.id = nestedId;
         nestedInput.replaceWith(nestedFresh);
         nestedFresh.dataset.r2dtNestedBound = '1';
@@ -2480,7 +2531,7 @@
   // base-pair selection path (list, 2D line click, API).
   let lbnHighlightFn = null;
   // Set by _renderLBN; greys out LBN pairs that are currently hidden in the
-  // 2D diagram (via the "Nested only" toggle or the family checkboxes).
+  // 2D diagram (via the Nested toggle or the family checkboxes).
   let lbnVisibilityFn = null;
 
   // Compare mode: match the 2D click highlight to this panel's own 3D colour
@@ -2779,7 +2830,7 @@
     if (lbnVisibilityFn) lbnVisibilityFn(getVisible2dPairKeys());
     // Compare mode: this panel has no LBN widget of its own (createCompare
     // renders one shared widget for both structures), so push visibility
-    // changes ("Nested only" etc.) to it via this optional hook instead.
+    // changes (Nested etc.) to it via this optional hook instead.
     ctx.onBpVisibilityChange?.(getVisible2dPairKeys());
   };
 
@@ -2968,7 +3019,7 @@
     });
 
     // Grey out the pairs that are hidden in the 2D diagram so the list
-    // mirrors what the "Nested only" toggle / family checkboxes show.
+    // mirrors what the Nested toggle / family checkboxes show.
     // `visibleKeys` is a Set of "min_max" pair keys (null => show all).
     function _lbnVisibility(visibleKeys) {
       container.querySelectorAll('.lbn-bp').forEach((sp) => {
@@ -3017,7 +3068,7 @@
   ctx.handles.clearSelection = clearResidueSelection;
   ctx.handles.selectBasePair = (a, b) => selectBasePair(a, b, findBPPath(a, b));
   // Compare mode: lets createCompare seed the shared LBN widget's initial
-  // per-panel visibility state ("Nested only" etc.) without waiting for a
+  // per-panel visibility state (Nested etc.) without waiting for a
   // filter change.
   ctx.handles.getVisiblePairKeys = getVisible2dPairKeys;
 
@@ -3107,7 +3158,7 @@
   // (or below) the model row for that same layer, brackets coloured by
   // TP (both structures) / FP (model only) / FN (reference only). Each row
   // still belongs to exactly one source structure, so a source's own
-  // "Nested only" / family filters only greyscale that source's own rows —
+  // "Nested" / family filters only greyscale that source's own rows —
   // see setVisibility below.
 
   function buildCompareLbnDom(compareRoot) {
@@ -3125,7 +3176,7 @@
       + '<b class="lbn-legend lbn-bp--fp">FP model only</b> '
       + '<b class="lbn-legend lbn-bp--fn">FN reference only</b>'
       + '. Each row belongs to one structure (labelled, left edge coloured) and '
-      + 'follows that structure’s own "Nested only" / family filters.';
+      + 'follows that structure’s own Nested / family filters.';
     const lbnBody = document.createElement('div');
     lbnBody.className = 'lbn-body';
     lbnPanel.append(lbnTitle, lbnCaption, lbnBody);
@@ -3266,7 +3317,7 @@
     });
 
     // Grey out only the rows belonging to the source whose 2D visibility
-    // changed (own "Nested only" / family filters), leaving every other
+    // changed (own Nested / family filters), leaving every other
     // source's rows untouched.
     function setVisibility(panelIdx, visibleKeys) {
       dom.body.querySelectorAll(`.lbn-row[data-panel-idx="${panelIdx}"]`).forEach((rowEl) => {
@@ -3552,6 +3603,21 @@
         } catch (_) { /* keep panel's own */ }
       }
 
+      // Shared-layout model: retag crossing vs the reference nested backbone
+      // so Nested filters the pairs that look nested on this diagram.
+      const usingOwnLayout = !!(
+        modeCfg
+        && pOpts.layoutModes
+        && pOpts.layoutModes.own
+        && modeCfg.baseUrl === pOpts.layoutModes.own.baseUrl
+      );
+      if (i > 0 && !usingOwnLayout && panelCtxs[0]?.fr3dData) {
+        reclassifyCrossingVsLayout(
+          panelData.fr3dData.annotations,
+          layoutNestedIntervals(panelCtxs[0].fr3dData.annotations)
+        );
+      }
+
       const dom = buildCompare2dDom(body, { height: opts.panelHeight });
       const panelIdx = i;
       const ctx = {
@@ -3602,7 +3668,7 @@
       };
       // Refresh idxByPdb if selection wiring already ran.
       if (typeof rebuildIdxByPdb === 'function') rebuildIdxByPdb();
-      // Re-seed Nested-only visibility into the shared LBN after a swap.
+      // Re-seed Nested visibility into the shared LBN after a swap.
       const keys = ctx.handles?.getVisiblePairKeys?.();
       if (keys) mergedLbn.setVisibility(panelIdx, keys);
     }
@@ -3655,7 +3721,7 @@
     if (compareLbnApi) {
       mergedLbn.highlight = compareLbnApi.highlight;
       mergedLbn.setVisibility = compareLbnApi.setVisibility;
-      // Seed each source's initial visibility (current "Nested only" state).
+      // Seed each source's initial visibility (current Nested state).
       panelCtxs.forEach((c, i) => {
         const keys = c.handles?.getVisiblePairKeys?.();
         if (keys) compareLbnApi.setVisibility(i, keys);

@@ -153,11 +153,11 @@
       tr.innerHTML =
         '<td class="num">' + (seqMap[j.id] || "—") + "</td>" +
         labelCell(j) +
+        '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
+        '<td class="actions-col"><div class="row-actions"></div></td>' +
         "<td>" + esc(inputs.structure_name || "") + "</td>" +
         "<td>" + esc(params.chain || "") + "</td>" +
-        '<td title="' + esc(j.created || "") + '">' + esc(fmtDate(j.created)) + "</td>" +
-        '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
-        '<td class="actions-col"><div class="row-actions"></div></td>';
+        '<td title="' + esc(j.created || "") + '">' + esc(fmtDate(j.created)) + "</td>";
       var actions = tr.querySelector(".row-actions");
       if (window.R2DTTransfer) window.R2DTTransfer.addExportButton(actions, j);
       if (j.status === "running" || j.status === "queued" || j.status === "failed") {
