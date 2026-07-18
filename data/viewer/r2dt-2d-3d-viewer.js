@@ -624,30 +624,43 @@
   // the structure's base colour so the control doubles as a legend.
   function addStructureToggles(slotEl, molstar, entries) {
     const bar = document.createElement('div');
-    bar.className = 'r2dt-3d-toggles';
-    entries.forEach((entry) => {
+    bar.className = 'r2dt-3d-toggles r2dt-3d-toggles--below';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', '3D structure visibility');
+    entries.forEach((entry, idx) => {
       const label = document.createElement('label');
-      label.className = 'r2dt-3d-toggle';
+      label.className = 'r2dt-toggle r2dt-3d-toggle';
+      const inputId = `r2dt-3d-vis-${entry.structureNumber}-${idx}`;
+      label.htmlFor = inputId;
       const cb = document.createElement('input');
       cb.type = 'checkbox';
+      cb.id = inputId;
       cb.checked = true;
+      cb.setAttribute(
+        'aria-label',
+        `Show ${entry.label || ('structure ' + entry.structureNumber)} in 3D`
+      );
       cb.addEventListener('change', () => {
         try { molstar.visual.structureVisibility(entry.structureNumber, cb.checked); } catch (_) {}
       });
-      const swatch = document.createElement('span');
-      swatch.className = 'r2dt-3d-swatch';
-      if (entry.color) {
-        swatch.style.background = `rgb(${entry.color.r},${entry.color.g},${entry.color.b})`;
-      }
+      const track = document.createElement('span');
+      track.className = 'r2dt-toggle-track';
+      track.setAttribute('aria-hidden', 'true');
       const text = document.createElement('span');
-      text.className = 'r2dt-3d-toggle-label';
-      text.textContent = entry.label;
-      label.append(cb, swatch, text);
+      text.className = 'r2dt-toggle-label';
+      if (entry.color) {
+        const swatch = document.createElement('span');
+        swatch.className = 'r2dt-3d-swatch';
+        swatch.style.background = `rgb(${entry.color.r},${entry.color.g},${entry.color.b})`;
+        text.append(swatch, document.createTextNode(entry.label || ''));
+      } else {
+        text.textContent = entry.label || '';
+      }
+      label.append(cb, track, text);
       bar.appendChild(label);
     });
     // Placed at the end of the slot so the legend/toggles sit *below* the 3D
     // pane (the 3D root has already been appended when this runs).
-    bar.classList.add('r2dt-3d-toggles--below');
     slotEl.appendChild(bar);
     return bar;
   }
@@ -3297,7 +3310,10 @@
   // a live swap — see r2dt.py's `_run_multichain_pdb`/partition_components).
   // Chains that *do* interact are always shown together in one view instead,
   // with no selector.
-  function buildCompareSlot(title, subtitle, chainViews) {
+  //
+  // `layoutModes`: optional {shared, own} for the model panel — switch between
+  // the shared reference layout and the model's own templatefree layout.
+  function buildCompareSlot(title, subtitle, chainViews, layoutModes, onLayoutMode) {
     const slot = document.createElement('div');
     slot.className = 'r2dt-compare-slot';
     const heading = document.createElement('h2');
@@ -3327,7 +3343,57 @@
       });
       slot.appendChild(select);
     }
+    const body = document.createElement('div');
+    body.className = 'r2dt-compare-slot-body';
+    slot.appendChild(body);
+    slot._body = body;
+    if (layoutModes && layoutModes.shared && layoutModes.own && typeof onLayoutMode === 'function') {
+      const row = document.createElement('div');
+      row.className = 'r2dt-layout-toggle';
+      row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', 'Model 2D layout');
+      const modes = [
+        { id: 'shared', label: 'Same as reference' },
+        { id: 'own', label: 'Own layout' },
+      ];
+      modes.forEach((m) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'r2dt-layout-toggle-btn' + (m.id === 'shared' ? ' is-active' : '');
+        btn.textContent = m.label;
+        btn.dataset.mode = m.id;
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('is-active')) return;
+          row.querySelectorAll('.r2dt-layout-toggle-btn').forEach((b) => {
+            b.classList.toggle('is-active', b === btn);
+          });
+          onLayoutMode(m.id);
+        });
+        row.appendChild(btn);
+      });
+      slot.appendChild(row);
+    }
     return slot;
+  }
+
+  function mapThroughBridge(bridge, direction, label) {
+    if (label == null || !bridge) return label;
+    const table = direction === 'toShared' ? bridge.toShared : bridge.fromShared;
+    if (!table) return label;
+    const mapped = table[String(label)];
+    return mapped == null ? label : +mapped;
+  }
+
+  function labelsToShared(bridge, label, partners) {
+    const shared = mapThroughBridge(bridge, 'toShared', label);
+    const sharedPartners = (partners || []).map((p) => mapThroughBridge(bridge, 'toShared', p));
+    return { label: shared, partners: sharedPartners };
+  }
+
+  function labelsFromShared(bridge, sharedLabel, sharedPartners) {
+    const label = mapThroughBridge(bridge, 'fromShared', sharedLabel);
+    const partners = (sharedPartners || []).map((p) => mapThroughBridge(bridge, 'fromShared', p));
+    return { label, partners };
   }
 
   async function create(userOptions) {
@@ -3438,18 +3504,51 @@
     const cleanup = [];
     const panelCtxs = [];
     const panelHandles = [];
+    const panelSlots = [];
+    const panelBridges = [];
     const lbnSources = [];
     // Mutable indirection so each panel's ctx.onBpVisibilityChange can be
     // wired before the shared LBN widget exists (it's built after every
     // panel has rendered, since row order needs every source's labels).
     const mergedLbn = { highlight() {}, setVisibility() {} };
 
-    for (let i = 0; i < panels.length; i++) {
-      const pOpts = panels[i];
-      const panelData = await resolvePanelData(pOpts.baseUrl || '.', pOpts);
-      const slot = buildCompareSlot(pOpts.title || panelData.structureId, pOpts.subtitle || '', pOpts.chainViews);
-      grid.appendChild(slot);
-      const dom = buildCompare2dDom(slot, { height: opts.panelHeight });
+    async function mountPanel2d(i, pOpts, modeCfg) {
+      const slot = panelSlots[i];
+      const body = slot._body || slot;
+      // Tear down previous mount in this slot body (layout switch).
+      while (body.firstChild) body.removeChild(body.firstChild);
+      const old = panelCtxs[i];
+      if (old && Array.isArray(old.cleanup)) {
+        old.cleanup.forEach((fn) => { try { fn(); } catch (_) { /* ignore */ } });
+      }
+
+      const resolvedOpts = {
+        ...pOpts,
+        baseUrl: (modeCfg && modeCfg.baseUrl) || pOpts.baseUrl,
+      };
+      // LBN for the model panel always stays on the shared-layout data so
+      // TP/FP/FN rows remain in the reference label space. Own-layout only
+      // swaps the 2D diagram.
+      if (i === 1 && modeCfg && modeCfg.baseUrl && modeCfg.baseUrl !== 'model/') {
+        // Keep bpCompare/role from panel opts; lbn fetched from shared model/.
+        resolvedOpts.lbnData = undefined;
+      }
+      const panelData = await resolvePanelData(resolvedOpts.baseUrl || '.', resolvedOpts);
+      // Prefer shared-layout LBN for model panel (index 1) when switching.
+      let lbnData = panelData.lbnData;
+      let bpCompare = panelData.bpCompare;
+      if (i === 1 && pOpts.layoutModes && pOpts.layoutModes.shared) {
+        try {
+          const sharedData = await resolvePanelData(
+            pOpts.layoutModes.shared.baseUrl || 'model/',
+            { ...pOpts, baseUrl: pOpts.layoutModes.shared.baseUrl || 'model/' }
+          );
+          lbnData = sharedData.lbnData || lbnData;
+          bpCompare = sharedData.bpCompare || bpCompare;
+        } catch (_) { /* keep panel's own */ }
+      }
+
+      const dom = buildCompare2dDom(body, { height: opts.panelHeight });
       const panelIdx = i;
       const ctx = {
         root: dom.root,
@@ -3464,8 +3563,8 @@
         PDB_LOWER: panelData.PDB_LOWER,
         apiData: panelData.apiData,
         fr3dData: panelData.fr3dData,
-        lbnData: panelData.lbnData,
-        bpCompare: panelData.bpCompare,
+        lbnData,
+        bpCompare,
         baseColor: pOpts.baseColor || null,
         showLbn: false,
         link3d: false,
@@ -3473,16 +3572,14 @@
         handles: null,
         onBpVisibilityChange: (keys) => mergedLbn.setVisibility(panelIdx, keys),
       };
-      // Pin this panel as active so the plugin's global DOM lookups during
-      // init (svg.rnaTopoSvg, zoom setup, …) resolve inside this panel.
       const prevRoot = global.__r2dtSetActiveRoot?.(dom.root);
       try {
         await initViewer(ctx);
       } finally {
         global.__r2dtSetActiveRoot?.(prevRoot);
       }
-      panelCtxs.push(ctx);
-      panelHandles.push({
+      panelCtxs[i] = ctx;
+      panelHandles[i] = {
         root: ctx.root,
         structureId: panelData.structureId,
         selectResidue(label) {
@@ -3491,13 +3588,48 @@
         selectBasePair(a, b) {
           return ctx.handles?.selectBasePair?.(a, b);
         },
-      });
-      lbnSources.push({
+      };
+      panelBridges[i] = (modeCfg && modeCfg.labelBridge) || null;
+      lbnSources[i] = {
         panelIdx,
         label: pOpts.title || panelData.structureId,
-        lbnData: panelData.lbnData,
-        bpCompare: panelData.bpCompare,
-      });
+        lbnData,
+        bpCompare,
+      };
+      // Refresh idxByPdb if selection wiring already ran.
+      if (typeof rebuildIdxByPdb === 'function') rebuildIdxByPdb();
+      // Re-seed Nested-only visibility into the shared LBN after a swap.
+      const keys = ctx.handles?.getVisiblePairKeys?.();
+      if (keys) mergedLbn.setVisibility(panelIdx, keys);
+    }
+
+    let rebuildIdxByPdb = null;
+
+    for (let i = 0; i < panels.length; i++) {
+      const pOpts = panels[i];
+      const hasModes = pOpts.layoutModes && pOpts.layoutModes.shared && pOpts.layoutModes.own;
+      const slot = buildCompareSlot(
+        pOpts.title || '',
+        pOpts.subtitle || '',
+        pOpts.chainViews,
+        hasModes ? pOpts.layoutModes : null,
+        hasModes
+          ? (modeId) => {
+              const cfg = pOpts.layoutModes[modeId];
+              if (!cfg) return;
+              mountPanel2d(i, pOpts, cfg).catch((err) => {
+                console.error('R2DTViewer: layout switch failed', err);
+              });
+            }
+          : null
+      );
+      grid.appendChild(slot);
+      panelSlots[i] = slot;
+      const initialMode = pOpts.defaultLayoutMode || 'shared';
+      const initialCfg = hasModes
+        ? (pOpts.layoutModes[initialMode] || pOpts.layoutModes.shared)
+        : null;
+      await mountPanel2d(i, pOpts, initialCfg);
     }
 
     // One shared LBN widget below the grid (both structures' rows, TP/FP/FN
@@ -3506,8 +3638,15 @@
     const compareLbnApi = renderCompareLbn(lbnDom, lbnSources, (panelIdx, pos, partner) => {
       const handles = panelCtxs[panelIdx]?.handles;
       if (!handles) return;
-      if (partner != null) handles.selectBasePair?.(pos, partner);
-      else handles.selectResidue?.(pos);
+      // LBN rows always use shared/reference labels; map into the panel's
+      // current local label space (identity unless model own-layout is active).
+      const local = labelsFromShared(
+        panelBridges[panelIdx],
+        pos,
+        partner != null ? [partner] : []
+      );
+      if (partner != null) handles.selectBasePair?.(local.label, local.partners[0]);
+      else handles.selectResidue?.(local.label);
     });
     if (compareLbnApi) {
       mergedLbn.highlight = compareLbnApi.highlight;
@@ -3548,7 +3687,7 @@
     panel3d.className = 'r2dt-panel r2dt-panel--3d';
     molVis.append(panel3d);
     molRoot.append(molVis);
-    molSlot.appendChild(molRoot);
+    (molSlot._body || molSlot).appendChild(molRoot);
 
     const molstar = await renderMolstarPlugin(
       panel3d,
@@ -3647,7 +3786,13 @@
     // Index panels by their (lower-cased) structure id so a selection event
     // can be attributed to its source panel and mirrored to the others.
     const idxByPdb = {};
-    panelCtxs.forEach((c, i) => { idxByPdb[String(c.PDB_LOWER).toLowerCase()] = i; });
+    rebuildIdxByPdb = function rebuildIdxByPdbFn() {
+      Object.keys(idxByPdb).forEach((k) => { delete idxByPdb[k]; });
+      panelCtxs.forEach((c, i) => {
+        if (c) idxByPdb[String(c.PDB_LOWER).toLowerCase()] = i;
+      });
+    };
+    rebuildIdxByPdb();
     // Map each panel's structure id to the 3D structureNumber it owns, so a
     // click in a 2D panel frames that panel's own structure in the shared 3D
     // (both structures are highlighted, but the camera follows the clicked one).
@@ -3663,36 +3808,48 @@
       const srcIdx = idxByPdb[(d.pdbId || '').toLowerCase()];
       if (srcIdx == null) return;
 
+      // Map the source panel's local labels into the shared (reference) space
+      // for 3D + LBN, then into each peer panel's local space for mirroring.
+      const sharedSel = labelsToShared(
+        panelBridges[srcIdx],
+        d.cleared ? null : d.label,
+        d.cleared ? [] : (d.partners || [])
+      );
+
       // Drive the shared 3D from whichever panel changed: both structures'
       // residues light up (each in its own colour); the camera frames the
       // clicked panel's own structure.
+      // Overlay label-maps accept both shared and own-layout keys, so either
+      // form of the model label works; prefer the source's native label for
+      // the model structure and shared labels for the reference.
       const srcStructNum = structNumById[(d.pdbId || '').toLowerCase()];
       if (d.cleared) selectInMolstar([]);
-      else selectInMolstar([d.label, ...(d.partners || [])], srcStructNum);
+      else {
+        const molLabels = srcIdx === linkIndex
+          ? [sharedSel.label, ...sharedSel.partners]
+          : [d.label, ...(d.partners || [])];
+        selectInMolstar(molLabels.filter((x) => x != null), srcStructNum);
+      }
 
-      // Mirror the selection into the other 2D panel(s). For a base-pair click,
-      // highlight the *same two positions* (co-indexed structures share the
-      // label space) so clicking pair (a,b) in one panel selects (a,b) in the
-      // other — not a re-derived partner. For a single-nucleotide click, mirror
-      // the residue and let each panel recompute its own partners, so
-      // agreements/disagreements show against its own pairs.
-      // Pin the target panel active around each op so the plugin's global DOM
-      // lookups (clearSelection/select) hit that panel, not the source panel.
+      // Mirror the selection into the other 2D panel(s).
       syncing = true;
       const prevRoot = global.__r2dtSetActiveRoot?.(null);
       try {
         panelCtxs.forEach((c, i) => {
-          if (i === srcIdx || !c.handles) return;
+          if (i === srcIdx || !c || !c.handles) return;
           global.__r2dtSetActiveRoot?.(c.root);
-          // Clear prior state, then hard-reset colours to defeat the shared-Map
-          // orphaning, then paint the mirrored selection afresh.
           c.handles.clearSelection?.();
           resetPanelNucleotideColors(c.root);
           if (d.cleared) return;
-          if (d.pair && d.partners && d.partners.length) {
-            c.handles.selectBasePair?.(d.label, d.partners[0]);
+          const local = labelsFromShared(
+            panelBridges[i],
+            sharedSel.label,
+            sharedSel.partners
+          );
+          if (d.pair && local.partners && local.partners.length) {
+            c.handles.selectBasePair?.(local.label, local.partners[0]);
           } else {
-            c.handles.selectResidue?.(d.label);
+            c.handles.selectResidue?.(local.label);
           }
         });
       } finally {
@@ -3700,10 +3857,11 @@
         syncing = false;
       }
 
-      // Shared LBN widget: light up this position/pair regardless of which
-      // source row(s) it appears in (position is shared across all rows).
-      const edges = d.cleared ? [] : (d.partners || []).map((p) => [d.label, p]);
-      mergedLbn.highlight(d.cleared ? null : d.label, edges);
+      // Shared LBN always uses reference/shared label space.
+      const edges = d.cleared
+        ? []
+        : (sharedSel.partners || []).map((p) => [sharedSel.label, p]);
+      mergedLbn.highlight(d.cleared ? null : sharedSel.label, edges);
     }
     document.addEventListener('r2dt-residue-select', onAnyResidueSelect);
     cleanup.push(() => {

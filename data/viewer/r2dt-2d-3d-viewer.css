@@ -875,10 +875,51 @@
   max-width: 100%;
 }
 
+.r2dt-layout-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+}
+.r2dt-layout-toggle-btn {
+  appearance: none;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #4b5563;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.r2dt-layout-toggle-btn:hover {
+  border-color: #393185;
+  color: #393185;
+}
+.r2dt-layout-toggle-btn.is-active {
+  background: #393185;
+  border-color: #393185;
+  color: #fff;
+}
+.r2dt-compare-slot-body {
+  min-width: 0;
+}
+
 @media (prefers-color-scheme: dark) {
   .r2dt-chain-select {
     background: #111827;
     border-color: #374151;
+  }
+  .r2dt-layout-toggle-btn {
+    background: #111827;
+    border-color: #374151;
+    color: #d1d5db;
+  }
+  .r2dt-layout-toggle-btn.is-active {
+    background: #5b52a3;
+    border-color: #5b52a3;
+    color: #fff;
   }
 }
 
@@ -919,32 +960,23 @@
   display: none !important;
 }
 
-/* Reference/model visibility toggles for the shared 3D pane. */
+/* Reference/model visibility — same switch style as Backbone / Nested. */
 .r2dt-3d-toggles {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 8px 16px;
   align-items: center;
   margin: 0 0 8px;
 }
 
-/* When placed below the 3D pane instead of above it. */
 .r2dt-3d-toggles--below {
   margin: 8px 0 0;
 }
 
-.r2dt-3d-toggle {
+.r2dt-3d-toggle .r2dt-toggle-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.r2dt-3d-toggle input {
-  margin: 0;
-  cursor: pointer;
 }
 
 .r2dt-3d-swatch {
@@ -954,10 +986,6 @@
   border-radius: 2px;
   border: 1px solid rgba(0, 0, 0, 0.25);
   flex: none;
-}
-
-.r2dt-3d-toggle-label {
-  color: #333;
 }
 
 .r2dt-viewer-lbn .lbn-body {

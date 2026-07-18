@@ -2635,6 +2635,7 @@ def _run_multichain_pdb(  # pylint: disable=too-many-arguments,too-many-position
             )
         if compare:
             _emit_compare_viewer(
+                ctx,
                 file_path,
                 actual_format,
                 structure_id,
@@ -2646,6 +2647,7 @@ def _run_multichain_pdb(  # pylint: disable=too-many-arguments,too-many-position
                 model_chains=model_chains,
                 score_chains=score_chains,
                 chain_views=chain_views,
+                rnapuzzler_flag=rnapuzzler_flag,
             )
     elif not quiet:
         rprint("[yellow]Diagram generation completed. Check output folder.[/yellow]")
@@ -2780,7 +2782,67 @@ _CASP_MODEL_BLUE = {"r": 26, "g": 58, "b": 140}
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 # pylint: disable=too-many-statements,too-many-branches
-def _emit_compare_viewer(
+def _layout_multichain_structure(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    ctx,
+    *,
+    structure_id: str,
+    sequence: str,
+    dot_bracket: str,
+    boundaries,
+    nested_pairs,
+    crossing_pairs,
+    layout_dir: Path,
+    rnapuzzler_flag: bool,
+    quiet: bool,
+):
+    """Run templatefree on a multi-chain FASTA; return (colored_json, colored_svg) or None."""
+    # pylint: disable=import-outside-toplevel
+    from utils import multichain
+
+    layout_dir = Path(layout_dir)
+    layout_dir.mkdir(parents=True, exist_ok=True)
+    fasta_path = layout_dir / f"{structure_id}.fasta"
+    fasta_path.write_text(
+        f">{structure_id}\n{sequence}\n{dot_bracket}\n", encoding="utf-8"
+    )
+    results_folder = layout_dir / "results"
+    ctx.invoke(
+        templatefree,
+        fasta_input=str(fasta_path),
+        output_folder=str(results_folder),
+        rnartist=False,
+        rscape=False,
+        rnapuzzler_flag=rnapuzzler_flag,
+        quiet=quiet,
+    )
+    svg_dir = results_folder / "results" / "svg"
+    json_dir = results_folder / "results" / "json"
+    svg_path = next(
+        (
+            p
+            for p in (
+                svg_dir / f"{structure_id}.colored.svg",
+                svg_dir / f"{structure_id}.svg",
+            )
+            if p.exists()
+        ),
+        None,
+    )
+    json_path = json_dir / f"{structure_id}.colored.json"
+    if svg_path is None or not json_path.exists():
+        return None
+    multichain.postprocess_combined_svg(
+        str(svg_path),
+        boundaries,
+        nested_pairs,
+        crossing_pairs,
+        quiet=quiet,
+    )
+    return json_path, svg_path
+
+
+def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals,too-many-statements,too-many-branches
+    ctx,
     source_structure_path,
     actual_format,
     structure_id,
@@ -2792,32 +2854,15 @@ def _emit_compare_viewer(
     model_chains=None,
     score_chains=None,
     chain_views=None,
+    rnapuzzler_flag=False,
 ):
     """Assemble the interactive 3-panel compare page.
 
-    Reference 2D and model 2D panels share the reference's combined layout
-    (one ``apiData`` with per-nucleotide ``chain_ids``); each carries its own
-    ``fr3dData``. Both are written to ``ref/`` / ``model/`` subfolders next to
-    ``index.html`` rather than inlined, so each panel's ``baseUrl`` points at
-    its own folder and the client fetches ``api.json``/``fr3d.json``/``lbn.json``
-    from there (same mechanism as the single-structure ``pdb_2d_3d`` viewer).
-    A single shared Mol* loads the reference structure from the viewer root
-    (``baseUrl: "."``, since the panels' own ``baseUrl``s now point elsewhere).
-
-    ``model_file`` supplies a real predicted structure whose base pairs are
-    extracted and drawn on the reference coordinates (approach B).  Without it,
-    a randomly perturbed copy of the reference stands in for the model.
-
-    ``result`` may cover more chains than the model actually corresponds to —
-    e.g. a reference that's a dimer with real inter-chain contacts, widened by
-    the caller (see ``multichain.partition_components``) so the 2D/3D panels
-    show the whole interacting complex even though only one chain was
-    predicted. ``score_chains`` (a subset of ``result.order``) then names
-    which chains the model actually covers: INF and the base-pair diff are
-    computed only over those chains, so a wider *display* never changes the
-    score. ``None`` (the common case, unwidened) means "all of result" and
-    reproduces today's behaviour exactly. ``chain_views`` optionally adds a
-    chain-picker to the reference panel (see ``_build_chain_views``).
+    Reference 2D and the default model 2D panel share the reference's combined
+    layout (approach B). A second model layout (``model-own/``) is also
+    generated from the model's own structure so the viewer can switch on
+    demand. Each panel's data lives under ``ref/`` / ``model/`` / ``model-own/``
+    next to ``index.html``.
     """
     # pylint: disable=import-outside-toplevel
     from utils import multichain
@@ -2887,6 +2932,8 @@ def _emit_compare_viewer(
         (i, j) for i, j in ref_pairs if i in score_positions and j in score_positions
     ]
 
+    model_result = None
+    model_cif = None
     if model_file:
         # Real predicted model: extract its base pairs and place them on the
         # reference coordinates (approach B).  Requires the same sequence in
@@ -3007,19 +3054,19 @@ def _emit_compare_viewer(
             superpose_rmsd, superpose_n = sp
         # The model has its own author numbering, so the 3D selection needs a
         # label→(auth, chain) map built from the model (not the reference).
-        # Keyed by score_offsets[i]+1 (the model's i-th residue's *2D label* in
-        # result's, possibly widened, label space) rather than i+1 directly —
-        # otherwise a widened reference where the scored chain isn't first
-        # silently breaks 2D-click-to-3D-highlight for every other chain.
-        model_label_to_auth = {
-            str(score_offsets[i] + 1): model_result.auth_of[i]
-            for i in range(len(model_result.auth_of))
-            if model_result.auth_of[i] is not None
-        }
-        model_label_to_chain = {
-            str(score_offsets[i] + 1): model_result.chain_of[i]
-            for i in range(len(model_result.chain_of))
-        }
+        # Keyed by both shared-layout labels (score_offsets[i]+1) and own-layout
+        # labels (i+1) so either model 2D mode can drive the overlay.
+        model_label_to_auth = {}
+        model_label_to_chain = {}
+        for i in range(score_n):
+            shared_key = str(score_offsets[i] + 1)
+            own_key = str(i + 1)
+            if i < len(model_result.auth_of) and model_result.auth_of[i] is not None:
+                model_label_to_auth[shared_key] = model_result.auth_of[i]
+                model_label_to_auth[own_key] = model_result.auth_of[i]
+            if i < len(model_result.chain_of):
+                model_label_to_chain[shared_key] = model_result.chain_of[i]
+                model_label_to_chain[own_key] = model_result.chain_of[i]
         # label-maps.json lives in model/ alongside that panel's own data (the
         # panels' ref/ and model/ dirs are created below, but this write runs
         # first, so make sure model/ exists here too).
@@ -3099,6 +3146,76 @@ def _emit_compare_viewer(
     (ref_dir / "bp-compare.json").write_text(json.dumps(model_pair_keys))
     (model_dir / "bp-compare.json").write_text(json.dumps(ref_pair_keys))
 
+    # Independent model layout (always for real models) so the viewer can
+    # switch the right-hand 2D between shared-reference and own coordinates.
+    model_own_layout = None
+    if model_result is not None and not model_is_simulated:
+        if not quiet:
+            rprint("Generating model's own 2D layout (templatefree)...")
+        own_layout = _layout_multichain_structure(
+            ctx,
+            structure_id=_safe_id(model_id),
+            sequence=model_result.sequence,
+            dot_bracket=model_result.dot_bracket,
+            boundaries=model_result.boundaries,
+            nested_pairs=model_result.nested_pairs,
+            crossing_pairs=model_result.crossing_pairs,
+            layout_dir=output_path / "model_layout",
+            rnapuzzler_flag=rnapuzzler_flag,
+            quiet=quiet,
+        )
+        if own_layout is None:
+            if not quiet:
+                rprint(
+                    "[yellow]Model own-layout generation failed; "
+                    "shared layout only.[/yellow]"
+                )
+        else:
+            own_json, own_svg = own_layout
+            own_api = viewer_export.build_multichain_api_data(
+                own_json,
+                model_result.chain_of,
+                model_result.auth_of,
+                _safe_id(model_id),
+                colored_svg_path=own_svg,
+            )
+            own_fr3d = viewer_export.build_pairs_fr3d_data(
+                model_result.nested_pairs,
+                model_result.crossing_pairs,
+                model_result.sequence,
+                model_result.auth_of,
+                _safe_id(model_id),
+                all_pairs=model_result.all_pairs,
+            )
+            # Ref pair keys remapped into the model's native 1..score_n space
+            # so TP/FP/FN badges stay correct on the own-layout pair list.
+            inv = {score_offsets[i]: i for i in range(score_n)}
+            ref_keys_own = _pair_keys(
+                (inv[i], inv[j])
+                for i, j, _ in scoped_ref_all_pairs
+                if i in inv and j in inv
+            )
+            own_dir = viewer_dir / "model-own"
+            own_dir.mkdir(exist_ok=True)
+            own_lbn = lbn_export.build_lbn_data(own_api, own_fr3d)
+            (own_dir / "api.json").write_text(json.dumps(own_api))
+            (own_dir / "fr3d.json").write_text(json.dumps(own_fr3d))
+            (own_dir / "lbn.json").write_text(json.dumps(own_lbn))
+            (own_dir / "bp-compare.json").write_text(json.dumps(ref_keys_own))
+            # Dual-key maps (same as model/) so 3D click-through works.
+            if (model_dir / "label-maps.json").is_file():
+                shutil.copyfile(
+                    model_dir / "label-maps.json", own_dir / "label-maps.json"
+                )
+            to_shared = {str(i + 1): score_offsets[i] + 1 for i in range(score_n)}
+            from_shared = {str(score_offsets[i] + 1): i + 1 for i in range(score_n)}
+            model_own_layout = {
+                "baseUrl": "model-own/",
+                "labelBridge": {"toShared": to_shared, "fromShared": from_shared},
+            }
+            if not quiet:
+                rprint(f"[green]Model own layout ready: {own_svg}[/green]")
+
     panels = [
         {
             "title": f"{structure_id} (reference)",
@@ -3121,6 +3238,12 @@ def _emit_compare_viewer(
             "bpCompare": {"role": "model"},
         },
     ]
+    if model_own_layout:
+        panels[1]["layoutModes"] = {
+            "shared": {"baseUrl": "model/", "labelBridge": None},
+            "own": model_own_layout,
+        }
+        panels[1]["defaultLayoutMode"] = "shared"
     if chain_views:
         panels[0]["chainViews"] = chain_views
     molstar = {
@@ -3168,6 +3291,7 @@ def _emit_compare_viewer(
         "structure_id": structure_id,
         "model_id": model_id,
         "model_simulated": model_is_simulated,
+        "model_own_layout": bool(model_own_layout),
         "chains": result.order,
         "inf": {k: _inf_block(k) for k in ("wc", "nwc", "all")},
         "superpose_rmsd": superpose_rmsd,
