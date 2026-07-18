@@ -1109,82 +1109,101 @@
   color: #1e3a8a;
 }
 
-/* ── Workstation base-pair editing chrome (R2DTBpEdit) ─────────────────── */
-.r2dt-bp-edit-bar {
+/* ── Workstation base-pair editing (top-left, matches zoom btn style) ─── */
+.r2dt-panel--2d .r2dt-bp-edit {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 45;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
   align-items: center;
-  gap: 8px 12px;
-  margin: 0 0 12px;
-  padding: 8px 12px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  font-size: 13px;
+  gap: 4px;
+  pointer-events: none;
+  user-select: none;
 }
-.r2dt-bp-edit-title {
-  font-weight: 600;
-  color: #166534;
-  margin-right: 4px;
+.r2dt-panel--2d:has(.r2dt-bp-edit.is-open) {
+  box-shadow: inset 0 0 0 2px #d1d5db;
 }
-.r2dt-bp-edit-bar button {
-  padding: 4px 10px;
+.r2dt-bp-edit > * {
+  pointer-events: auto;
+}
+.r2dt-bp-edit .r2dt-bp-edit-tools {
+  display: none;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+}
+.r2dt-bp-edit.is-open .r2dt-bp-edit-toggle {
+  display: none;
+}
+.r2dt-bp-edit.is-open .r2dt-bp-edit-tools {
+  display: flex;
+}
+.r2dt-bp-edit .pdb-rna-view-btn {
   font-size: 12px;
-  border-radius: 6px;
-  border: 1px solid #86efac;
-  background: #fff;
-  cursor: pointer;
+  font-weight: 500;
+  line-height: 1;
+  min-height: 32px;
+  box-sizing: border-box;
 }
-.r2dt-bp-edit-bar button:disabled {
-  opacity: 0.45;
+.r2dt-bp-edit .pdb-rna-view-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
-.r2dt-bp-edit-bar button.active {
-  background: #166534;
-  color: #fff;
-  border-color: #166534;
+.r2dt-bp-edit .pdb-rna-view-btn.active {
+  background: #e5e7eb;
+  border-color: #9ca3af;
 }
-.r2dt-bp-edit-bar label {
-  display: inline-flex;
+.r2dt-bp-edit-iconbtn {
+  display: inline-flex !important;
   align-items: center;
-  gap: 6px;
-  color: #374151;
+  justify-content: center;
+  width: 32px;
+  padding: 6px !important;
+  font-size: 15px !important;
 }
-.r2dt-bp-edit-bar select {
+.r2dt-bp-edit-ico {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.r2dt-bp-edit-select {
+  height: 32px;
+  padding: 0 6px;
   font-size: 12px;
-  padding: 3px 6px;
-  border-radius: 4px;
   border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
-.r2dt-bp-edit-sep {
-  width: 1px;
-  height: 18px;
-  background: #86efac;
-  margin: 0 2px;
+.r2dt-bp-edit-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
-.r2dt-bp-edit-hint {
-  color: #854d0e;
-  font-size: 12px;
+.r2dt-bp-edit-select:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
 }
-.r2dt-bp-edit-status {
-  margin-left: auto;
-  color: #6b7280;
-  font-size: 12px;
-}
-.r2dt-bp-edit-status--ok { color: #15803d; }
-.r2dt-bp-edit-status--busy { color: #a16207; }
-.r2dt-bp-edit-status--err { color: #b91c1c; }
 
 @media (prefers-color-scheme: dark) {
-  .r2dt-bp-edit-bar {
-    background: #052e16;
-    border-color: #166534;
+  .r2dt-panel--2d:has(.r2dt-bp-edit.is-open) {
+    box-shadow: inset 0 0 0 2px #374151;
   }
-  .r2dt-bp-edit-title { color: #86efac; }
-  .r2dt-bp-edit-bar button {
-    background: #0b0f16;
-    border-color: #166534;
+  .r2dt-bp-edit-select {
+    background: #111827;
+    border-color: #374151;
     color: #e5e7eb;
   }
-  .r2dt-bp-edit-bar label { color: #d1d5db; }
+  .r2dt-bp-edit-select:hover:not(:disabled) {
+    background: #1f2937;
+    border-color: #6b7280;
+  }
+  .r2dt-bp-edit .pdb-rna-view-btn.active {
+    background: #374151;
+    border-color: #6b7280;
+  }
 }

@@ -442,7 +442,13 @@
     surface.refreshBpListLabels();
   }
 
-  // ----- UI chrome -----
+  // ----- UI chrome (per-panel, top-left of each 2D) -----
+
+  var ICON_TRASH =
+    '<svg class="r2dt-bp-edit-ico" viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path fill="currentColor" d="M6 2h4l.5 1H14v1.5H2V3h3.5L6 2zm1 4v6H5.5V6H7zm3.5 ' +
+    '0v6H9V6h1.5zM3.5 4.5h9l-.7 9.2A1.5 1.5 0 0 1 10.3 15H5.7a1.5 1.5 0 0 1-1.5-1.3L3.5 ' +
+    '4.5z"/></svg>';
 
   function infColour(value) {
     if (value == null) return '#9ca3af';
@@ -477,31 +483,39 @@
     });
   }
 
-  function buildToolbar() {
-    var bar = document.createElement('div');
-    bar.className = 'r2dt-bp-edit-bar';
-    bar.innerHTML =
-      '<span class="r2dt-bp-edit-title">Edit base pairs</span>' +
-      '<button type="button" data-act="undo" disabled>Undo</button>' +
-      '<button type="button" data-act="redo" disabled>Redo</button>' +
-      '<span class="r2dt-bp-edit-sep"></span>' +
-      '<label>Panel <select data-act="panel">' +
-      '<option value="0">Reference</option>' +
-      '<option value="1">Model</option>' +
-      '</select></label>' +
-      '<button type="button" data-act="add">Add pair</button>' +
-      '<button type="button" data-act="delete" disabled>Delete</button>' +
-      '<label>Type <select data-act="family" disabled></select></label>' +
-      '<span class="r2dt-bp-edit-hint" data-role="hint"></span>' +
-      '<span class="r2dt-bp-edit-status" data-role="status"></span>';
-    var fam = bar.querySelector('[data-act="family"]');
+  function fillFamilySelect(sel) {
     LW_FAMILIES.forEach(function (f) {
       var opt = document.createElement('option');
       opt.value = f;
       opt.textContent = f;
-      fam.appendChild(opt);
+      sel.appendChild(opt);
     });
-    return bar;
+  }
+
+  function buildPanelChrome(panelIdx) {
+    var wrap = document.createElement('div');
+    wrap.className = 'r2dt-bp-edit';
+    wrap.dataset.panel = String(panelIdx);
+    wrap.innerHTML =
+      '<button type="button" class="pdb-rna-view-btn r2dt-bp-edit-toggle" ' +
+        'data-act="toggle" title="Edit base pairs in this diagram">Edit</button>' +
+      '<div class="r2dt-bp-edit-tools" role="toolbar" aria-label="Base-pair editing">' +
+        '<button type="button" class="pdb-rna-view-btn r2dt-bp-edit-iconbtn" ' +
+          'data-act="undo" title="Undo" aria-label="Undo" disabled>↶</button>' +
+        '<button type="button" class="pdb-rna-view-btn r2dt-bp-edit-iconbtn" ' +
+          'data-act="redo" title="Redo" aria-label="Redo" disabled>↷</button>' +
+        '<button type="button" class="pdb-rna-view-btn" data-act="add" ' +
+          'title="Add pair by clicking two nucleotides">Add</button>' +
+        '<button type="button" class="pdb-rna-view-btn r2dt-bp-edit-iconbtn" ' +
+          'data-act="delete" title="Delete selected pair" aria-label="Delete" disabled>' +
+          ICON_TRASH + '</button>' +
+        '<select class="r2dt-bp-edit-select" data-act="family" disabled ' +
+          'title="Leontis–Westhof type" aria-label="Pair type"></select>' +
+        '<button type="button" class="pdb-rna-view-btn" data-act="done" ' +
+          'title="Finish editing this diagram">Done</button>' +
+      '</div>';
+    fillFamilySelect(wrap.querySelector('[data-act="family"]'));
+    return wrap;
   }
 
   // ----- Controller -----
@@ -521,23 +535,17 @@
     var overrides = { ref: [], model: [] };
     var undoStack = [];
     var redoStack = [];
-    var activePanel = 0;
+    // Which 2D has its edit tools open (−1 = none). Only that panel accepts edits.
+    var activePanel = -1;
     var addMode = false;
     var addFirst = null;
     var selected = null; // { panel, i, j, family }
     var saveTimer = null;
-    var bar = buildToolbar();
-    var inf = document.querySelector('.mc-inf');
-    if (inf && inf.parentNode) {
-      inf.parentNode.insertBefore(bar, inf.nextSibling);
-    } else {
-      var compareRoot = panelCtxs[0].root.closest('.r2dt-compare-root');
-      if (compareRoot && compareRoot.parentNode) {
-        compareRoot.parentNode.insertBefore(bar, compareRoot);
-      } else {
-        document.body.insertBefore(bar, document.body.firstChild);
-      }
-    }
+    var chromes = surfaces.map(function (surface, idx) {
+      var chrome = buildPanelChrome(idx);
+      surface.panel2d.appendChild(chrome);
+      return chrome;
+    });
 
     function panelName(idx) { return idx === 0 ? 'ref' : 'model'; }
 
@@ -545,27 +553,63 @@
       return applyOverrides(baselines[idx], overrides[panelName(idx)]);
     }
 
+    function activeChrome() {
+      return activePanel >= 0 ? chromes[activePanel] : null;
+    }
+
     function setStatus(text, kind) {
-      var el = bar.querySelector('[data-role="status"]');
-      el.textContent = text || '';
-      el.className = 'r2dt-bp-edit-status' + (kind ? ' r2dt-bp-edit-status--' + kind : '');
+      void kind;
+      chromes.forEach(function (chrome) {
+        var tools = chrome.querySelector('.r2dt-bp-edit-tools');
+        if (!tools) return;
+        var base = tools.getAttribute('data-hint') || '';
+        tools.title = [base, text].filter(Boolean).join(' · ');
+      });
     }
 
     function setHint(text) {
-      bar.querySelector('[data-role="hint"]').textContent = text || '';
+      chromes.forEach(function (chrome) {
+        var tools = chrome.querySelector('.r2dt-bp-edit-tools');
+        if (!tools) return;
+        tools.setAttribute('data-hint', text || '');
+        var statusPart = (tools.title || '').split(' · ').slice(1).join(' · ');
+        tools.title = [text || '', statusPart].filter(Boolean).join(' · ');
+      });
     }
 
     function refreshChrome() {
-      bar.querySelector('[data-act="undo"]').disabled = undoStack.length === 0;
-      bar.querySelector('[data-act="redo"]').disabled = redoStack.length === 0;
-      bar.querySelector('[data-act="delete"]').disabled = !selected || selected.panel !== activePanel;
-      var fam = bar.querySelector('[data-act="family"]');
-      // Enable Type while adding (pick glyph before clicking residues) or
-      // when a pair is selected (refamily).
-      fam.disabled = !(addMode || (selected && selected.panel === activePanel));
-      if (selected && selected.family && !addMode) fam.value = selected.family;
-      bar.querySelector('[data-act="add"]').classList.toggle('active', addMode);
-      bar.querySelector('[data-act="panel"]').value = String(activePanel);
+      chromes.forEach(function (chrome, idx) {
+        var open = activePanel === idx;
+        chrome.classList.toggle('is-open', open);
+        chrome.querySelector('[data-act="undo"]').disabled = !open || undoStack.length === 0;
+        chrome.querySelector('[data-act="redo"]').disabled = !open || redoStack.length === 0;
+        var selHere = !!(selected && selected.panel === idx);
+        chrome.querySelector('[data-act="delete"]').disabled = !open || !selHere;
+        var fam = chrome.querySelector('[data-act="family"]');
+        fam.disabled = !open || !(addMode || selHere);
+        if (selHere && selected.family && !addMode) fam.value = selected.family;
+        chrome.querySelector('[data-act="add"]').classList.toggle('active', open && addMode);
+      });
+    }
+
+    function closeEdit() {
+      activePanel = -1;
+      addMode = false;
+      addFirst = null;
+      selected = null;
+      setHint('');
+      refreshChrome();
+    }
+
+    function openEdit(panelIdx) {
+      if (activePanel !== panelIdx) {
+        addMode = false;
+        addFirst = null;
+        if (selected && selected.panel !== panelIdx) selected = null;
+      }
+      activePanel = panelIdx;
+      setHint('Editing this 2D — Add, or select a pair to delete / change type');
+      refreshChrome();
     }
 
     function pushHistory() {
@@ -589,20 +633,55 @@
       refreshChrome();
     }
 
+    function doUndo() {
+      if (!undoStack.length) return;
+      redoStack.push({
+        ref: JSON.parse(JSON.stringify(overrides.ref)),
+        model: JSON.parse(JSON.stringify(overrides.model)),
+      });
+      var prev = undoStack.pop();
+      overrides.ref = prev.ref;
+      overrides.model = prev.model;
+      selected = null;
+      addMode = false;
+      addFirst = null;
+      setHint('');
+      refreshAll();
+      scheduleSave();
+      refreshChrome();
+    }
+
+    function doRedo() {
+      if (!redoStack.length) return;
+      undoStack.push({
+        ref: JSON.parse(JSON.stringify(overrides.ref)),
+        model: JSON.parse(JSON.stringify(overrides.model)),
+      });
+      var next = redoStack.pop();
+      overrides.ref = next.ref;
+      overrides.model = next.model;
+      selected = null;
+      addMode = false;
+      addFirst = null;
+      setHint('');
+      refreshAll();
+      scheduleSave();
+      refreshChrome();
+    }
+
     function refreshAll() {
       var anns0 = workingAnns(0);
       var anns1 = workingAnns(1);
       surfaces[0].setAnnotations(anns0);
       surfaces[1].setAnnotations(anns1);
-      // Update compare keys each side uses for TP/FP/FN.
       surfaces[0].setOtherPairKeys(pairKeysFromAnns(anns1));
       surfaces[1].setOtherPairKeys(pairKeysFromAnns(anns0));
       syncPanelGeometry(surfaces[0], anns0);
       syncPanelGeometry(surfaces[1], anns1);
       rebuildBpList(surfaces[0], anns0);
       rebuildBpList(surfaces[1], anns1);
-      var inf = computeInf(annsToPairs(anns0), annsToPairs(anns1));
-      updateInfBar(inf);
+      var infMetrics = computeInf(annsToPairs(anns0), annsToPairs(anns1));
+      updateInfBar(infMetrics);
       var diff = diffCounts(annsToPairs(anns0), annsToPairs(anns1));
       setStatus(
         'edits ' + overrides.ref.length + '/' + overrides.model.length +
@@ -632,7 +711,6 @@
       });
     }
 
-    // Simpler coalesce used by commit helpers:
     function setOverridesForPair(panelIdx, i, j, nextAction) {
       var panel = panelName(panelIdx);
       var baseline = baselines[panelIdx];
@@ -640,7 +718,6 @@
       var j0 = Math.max(+i, +j);
       var baseIdx = findAnnIndex(baseline, i0, j0);
       var baseFam = baseIdx >= 0 ? (baseline[baseIdx].bp || 'cWW') : null;
-      // Drop prior ops for this pair.
       overrides[panel] = overrides[panel].filter(function (op) {
         var a = Math.min(+op.i, +op.j);
         var b = Math.max(+op.i, +op.j);
@@ -652,7 +729,6 @@
             action: 'delete', i: i0, j: j0, family: baseFam,
           });
         }
-        // else: was only an add we just removed — done
       } else if (nextAction.action === 'add') {
         if (baseIdx >= 0 && baseFam === nextAction.family) {
           // equals baseline — no override
@@ -681,20 +757,14 @@
     }
 
     function onPairSelected(panelIdx, i, j, family) {
-      if (addMode && panelIdx === activePanel) {
-        if (addFirst == null) {
-          addFirst = { i: +i, j: null };
-          // residue click in add mode comes as single nt — handled separately
-        }
-        return;
-      }
+      if (activePanel < 0 || panelIdx !== activePanel) return;
+      if (addMode) return;
       selected = { panel: panelIdx, i: +i, j: +j, family: family || 'cWW' };
-      activePanel = panelIdx;
       refreshChrome();
     }
 
     function onResidueClicked(panelIdx, label) {
-      if (!addMode || panelIdx !== activePanel) return;
+      if (activePanel < 0 || !addMode || panelIdx !== activePanel) return;
       var nt = +label;
       if (!addFirst) {
         addFirst = nt;
@@ -707,9 +777,8 @@
       }
       var i = Math.min(addFirst, nt);
       var j = Math.max(addFirst, nt);
-      var fam = bar.querySelector('[data-act="family"]').value || 'cWW';
-      // Confirm immediately with current family dropdown (default cWW).
-      // The LW glyph is drawn from that family in syncPanelGeometry.
+      var chrome = activeChrome();
+      var fam = (chrome && chrome.querySelector('[data-act="family"]').value) || 'cWW';
       commit(function () {
         setOverridesForPair(activePanel, i, j, { action: 'add', family: fam });
       });
@@ -727,86 +796,67 @@
       });
     });
 
-    bar.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-act]');
-      if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'LABEL') return;
-      var act = btn.getAttribute('data-act');
-      if (act === 'undo') {
-        if (!undoStack.length) return;
-        redoStack.push({
-          ref: JSON.parse(JSON.stringify(overrides.ref)),
-          model: JSON.parse(JSON.stringify(overrides.model)),
-        });
-        var prev = undoStack.pop();
-        overrides.ref = prev.ref;
-        overrides.model = prev.model;
-        selected = null;
-        refreshAll();
-        scheduleSave();
-        refreshChrome();
-      } else if (act === 'redo') {
-        if (!redoStack.length) return;
-        undoStack.push({
-          ref: JSON.parse(JSON.stringify(overrides.ref)),
-          model: JSON.parse(JSON.stringify(overrides.model)),
-        });
-        var next = redoStack.pop();
-        overrides.ref = next.ref;
-        overrides.model = next.model;
-        selected = null;
-        refreshAll();
-        scheduleSave();
-        refreshChrome();
-      } else if (act === 'add') {
-        addMode = !addMode;
-        addFirst = null;
-        selected = null;
-        setHint(addMode
-          ? 'Pick Type, then click two nucleotides in the ' +
-            (activePanel === 0 ? 'reference' : 'model') + ' 2D'
-          : '');
-        refreshChrome();
-      } else if (act === 'delete') {
+    chromes.forEach(function (chrome, idx) {
+      chrome.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-act]');
+        if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'LABEL') return;
+        var act = btn.getAttribute('data-act');
+        if (act === 'toggle') {
+          openEdit(idx);
+          return;
+        }
+        if (act === 'done') {
+          closeEdit();
+          return;
+        }
+        if (activePanel !== idx) return;
+        if (act === 'undo') {
+          doUndo();
+        } else if (act === 'redo') {
+          doRedo();
+        } else if (act === 'add') {
+          addMode = !addMode;
+          addFirst = null;
+          selected = null;
+          setHint(addMode
+            ? 'Pick Type, then click two nucleotides in this 2D'
+            : 'Editing this 2D — Add, or select a pair to delete / change type');
+          refreshChrome();
+        } else if (act === 'delete') {
+          if (!selected || selected.panel !== activePanel) return;
+          var si = selected.i;
+          var sj = selected.j;
+          commit(function () {
+            setOverridesForPair(activePanel, si, sj, { action: 'delete' });
+          });
+        }
+      });
+
+      chrome.querySelector('[data-act="family"]').addEventListener('change', function (ev) {
+        if (activePanel !== idx) return;
         if (!selected || selected.panel !== activePanel) return;
+        var to = ev.target.value;
         var si = selected.i;
         var sj = selected.j;
         commit(function () {
-          setOverridesForPair(activePanel, si, sj, { action: 'delete' });
+          setOverridesForPair(activePanel, si, sj, { action: 'refamily', to: to });
         });
-      }
-    });
-
-    bar.querySelector('[data-act="panel"]').addEventListener('change', function (ev) {
-      activePanel = +ev.target.value;
-      addMode = false;
-      addFirst = null;
-      selected = null;
-      setHint('');
-      refreshChrome();
-    });
-
-    bar.querySelector('[data-act="family"]').addEventListener('change', function (ev) {
-      if (!selected || selected.panel !== activePanel) return;
-      var to = ev.target.value;
-      var si = selected.i;
-      var sj = selected.j;
-      commit(function () {
-        setOverridesForPair(activePanel, si, sj, { action: 'refamily', to: to });
+        selected = { panel: activePanel, i: si, j: sj, family: to };
+        refreshChrome();
       });
-      selected = { panel: activePanel, i: si, j: sj, family: to };
-      refreshChrome();
     });
 
     document.addEventListener('keydown', function (ev) {
+      if (activePanel < 0) return;
       var mod = ev.metaKey || ev.ctrlKey;
       if (!mod) return;
       var key = ev.key.toLowerCase();
       if (key === 'z' && !ev.shiftKey) {
         ev.preventDefault();
-        bar.querySelector('[data-act="undo"]').click();
-      } else if (key === 'z' && ev.shiftKey || key === 'y') {
+        doUndo();
+      } else if ((key === 'z' && ev.shiftKey) || key === 'y') {
         ev.preventDefault();
-        bar.querySelector('[data-act="redo"]').click();
+        doRedo();
       }
     });
 
@@ -817,7 +867,7 @@
         overrides.model = data.model || [];
         refreshAll();
         refreshChrome();
-        setStatus('Editing enabled · auto-saves to workstation', 'ok');
+        setStatus('Click Edit on a 2D to curate pairs', 'ok');
       });
   }
 
