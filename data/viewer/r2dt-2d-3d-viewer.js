@@ -679,6 +679,16 @@
     return `${Math.min(a, b)}_${Math.max(a, b)}`;
   }
 
+  // [min, max] residue numbers from a "<family>_<a>_<b>" pathID, for sorting
+  // the base-pair list by nucleotide position. Unparseable ids sort last.
+  function bpPositionsFromPathId(pathId) {
+    const m = (pathId || '').match(/([a-zA-Z]{3})_(\d+)_(\d+)/);
+    if (!m) return [Infinity, Infinity];
+    const a = +m[2];
+    const b = +m[3];
+    return a < b ? [a, b] : [b, a];
+  }
+
   const BP_FAMILY_GLYPH = {
     cWW: { shapes: ['circle'], filled: true },
     tWW: { shapes: ['circle'], filled: false },
@@ -1903,6 +1913,11 @@
         : ui.displayBaseStrs;
       const ul = document.createElement('ul');
       const seenPairKeys = new Set();
+      // ui.bpLabels follows SVG DOM order, not nucleotide order: crossing/
+      // non-canonical pairs are drawn as overlay arcs appended after every
+      // nested pair (see postprocess_combined_svg's <g class="mc-overlay">),
+      // so they'd otherwise all sort to the bottom of the list regardless of
+      // position. Re-sort by residue number for display.
       (ui.bpLabels || [])
         .filter((item) => displayHtml.includes(item.pathID))
         .filter((item) => {
@@ -1910,6 +1925,11 @@
           if (seenPairKeys.has(key)) return false;
           seenPairKeys.add(key);
           return true;
+        })
+        .sort((x, y) => {
+          const [ax, bx] = bpPositionsFromPathId(x.pathID);
+          const [ay, by] = bpPositionsFromPathId(y.pathID);
+          return ax - ay || bx - by;
         })
         .forEach((item) => {
           const li = document.createElement('li');
