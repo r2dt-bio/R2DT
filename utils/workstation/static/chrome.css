@@ -1,0 +1,77 @@
+/* Shared workstation chrome (dashboard + job viewer pages).
+   Brand colour/font match https://r2dt.bio (#393185, Helvetica Neue). */
+
+:root {
+  --ws-brand: #393185;
+}
+
+.ws-chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: var(--panel, #f9fafb);
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  color: var(--fg, #1f2937);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  box-sizing: border-box;
+}
+
+/* Cancel typical page body padding so the bar is full-bleed. */
+body.ws-dashboard .ws-chrome {
+  margin: 0 0 20px;
+  flex-shrink: 0;
+}
+body:not(.ws-dashboard) .ws-chrome {
+  margin: -16px -16px 16px;
+}
+
+.ws-chrome-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ws-brand);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.ws-chrome-brand:hover {
+  color: var(--ws-brand);
+  opacity: 0.85;
+}
+.ws-chrome-logo {
+  width: 32px;
+  height: 32px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.ws-chrome-job {
+  margin-left: auto;
+  color: var(--muted, #6b7280);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  max-width: min(420px, 50vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ws-chrome {
+    background: #111827;
+    border-bottom-color: #1f2937;
+    color: #e5e7eb;
+  }
+  .ws-chrome-brand {
+    color: #a5b4fc;
+  }
+}

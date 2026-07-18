@@ -424,21 +424,11 @@
     surface.refreshAfterGeometryChange();
   }
 
-  function rebuildBpList(surface, anns) {
-    var dialog = surface.root.querySelector('#bpListDialog-' + surface.pdbLower);
-    if (!dialog) return;
-    var ul = dialog.querySelector('ul');
-    if (!ul) return;
-    ul.innerHTML = '';
-    (anns || []).slice().sort(function (a, b) {
-      return (+a.seq_id1 - +b.seq_id1) || (+a.seq_id2 - +b.seq_id2);
-    }).forEach(function (a) {
-      var li = document.createElement('li');
-      var nt1 = a.nt1 || a.unit1 || 'N';
-      var nt2 = a.nt2 || a.unit2 || 'N';
-      li.textContent = nt1 + a.seq_id1 + ' - ' + nt2 + a.seq_id2 + ' ; ' + (a.bp || 'cWW');
-      ul.appendChild(li);
-    });
+  function rebuildBpList(surface) {
+    if (surface.rebuildBpList) {
+      surface.rebuildBpList();
+      return;
+    }
     surface.refreshBpListLabels();
   }
 
@@ -550,7 +540,16 @@
     function panelName(idx) { return idx === 0 ? 'ref' : 'model'; }
 
     function workingAnns(idx) {
-      return applyOverrides(baselines[idx], overrides[panelName(idx)]);
+      var anns = applyOverrides(baselines[idx], overrides[panelName(idx)]);
+      anns.forEach(function (a) {
+        var n1 = residueLetter(surfaces[idx], a.seq_id1);
+        var n2 = residueLetter(surfaces[idx], a.seq_id2);
+        a.nt1 = n1;
+        a.nt2 = n2;
+        a.unit1 = n1;
+        a.unit2 = n2;
+      });
+      return anns;
     }
 
     function activeChrome() {
@@ -678,8 +677,8 @@
       surfaces[1].setOtherPairKeys(pairKeysFromAnns(anns0));
       syncPanelGeometry(surfaces[0], anns0);
       syncPanelGeometry(surfaces[1], anns1);
-      rebuildBpList(surfaces[0], anns0);
-      rebuildBpList(surfaces[1], anns1);
+      rebuildBpList(surfaces[0]);
+      rebuildBpList(surfaces[1]);
       var infMetrics = computeInf(annsToPairs(anns0), annsToPairs(anns1));
       updateInfBar(infMetrics);
       var diff = diffCounts(annsToPairs(anns0), annsToPairs(anns1));

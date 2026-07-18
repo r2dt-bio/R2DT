@@ -676,6 +676,9 @@
       if (!a.bp) return;
       families.add(a.bp);
       families.add(pluginLwFamily(a.bp));
+      // Dropdown families follow drawable LW codes; ncWW/ntWW map onto WW.
+      if (a.bp === 'ncWW') families.add('cWW');
+      if (a.bp === 'ntWW') families.add('tWW');
     });
     return families;
   }
@@ -954,9 +957,63 @@
     return ids;
   }
 
+  function pairKeysInDisplayHtml(html) {
+    const keys = new Set();
+    pathIdsInDisplayHtml(html).forEach((id) => keys.add(bpPairKeyFromPathId(id)));
+    return keys;
+  }
+
   function bpPathIdFromElement(el) {
     const m = (el.getAttribute('class') || '').match(BP_PATH_ID_RE);
     return m ? m[1] : null;
+  }
+
+  function familyFromPathId(pathId) {
+    const m = (pathId || '').match(/^([a-zA-Z]{3})_/);
+    return m ? m[1] : '';
+  }
+
+  function isBpFamilyFilterOn(family) {
+    const all = root.querySelector('#Checkbox_All');
+    if (all?.checked) return true;
+    const f = String(family || '');
+    if (!f) return true;
+    const ids = new Set([f, pluginLwFamily(f)]);
+    for (const id of ids) {
+      const cb = root.querySelector(`#Checkbox_${id}`);
+      if (cb?.checked) return true;
+    }
+    // Families the filter UI doesn't list (ncWW etc.) stay visible when All
+    // is off only if no family boxes exist yet.
+    return root.querySelectorAll('input[id^="Checkbox_"]').length === 0;
+  }
+
+  function annPairKey(a) {
+    return bpPairKeyFromPathId(`cWW_${a.seq_id1}_${a.seq_id2}`);
+  }
+
+  function isCrossingAnn(a) {
+    return !!(a && a.crossing && String(a.crossing) !== '0');
+  }
+
+  /** Whether an edited/live path should be shown given current filters. */
+  function shouldShowBpPath(pathId, annByKey) {
+    if (!pathId) return false;
+    const ui = rnaPlugin.uiTemplateService;
+    if (!ui) return true;
+    const nested = nestedBpInput()?.checked;
+    const displayHtml = nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs;
+    const visibleIds = pathIdsInDisplayHtml(displayHtml);
+    if (visibleIds.has(pathId)) return true;
+    // Refamily: same pair, new LW class — keep if the original pair was shown.
+    const key = bpPairKeyFromPathId(pathId);
+    if (pairKeysInDisplayHtml(displayHtml).has(key)) return true;
+    // Newly added pairs aren't in the plugin display strings.
+    const family = familyFromPathId(pathId);
+    if (!isBpFamilyFilterOn(family)) return false;
+    const ann = annByKey.get(key);
+    if (nested && isCrossingAnn(ann)) return false;
+    return true;
   }
 
   function isCanonicalWatsonCrick(family, nt1, nt2) {
@@ -1164,16 +1221,16 @@
     const ui = rnaPlugin.uiTemplateService;
     if (!ui) return;
     materializeAllBpPaths();
-    const nested = nestedBpInput()?.checked;
-    const visible = pathIdsInDisplayHtml(
-      nested ? ui.displayNestedBaseStrs : ui.displayBaseStrs
-    );
+    const annByKey = new Map();
+    (fr3dData.annotations || []).forEach((a) => {
+      annByKey.set(annPairKey(a), a);
+    });
     const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
     if (!inner) return;
     inner.querySelectorAll('path.rnaviewBP').forEach((p) => {
       const id = bpPathIdFromElement(p);
       if (!id) return;
-      p.style.display = visible.has(id) ? '' : 'none';
+      p.style.display = shouldShowBpPath(id, annByKey) ? '' : 'none';
     });
     repairNonCanonicalCwwGlyphs();
     onBpFilterUpdated();
@@ -1842,7 +1899,7 @@
       if (!m) return;
       const pairText = m[1].trim();
       const familyText = pluginLwFamily(m[2]);
-      const ntMatch = pairText.match(/([AUGCT])(\d+)\s*-\s*([AUGCT])(\d+)/i);
+      const ntMatch = pairText.match(/([A-Z])(\d+)\s*-\s*([A-Z])(\d+)/i);
       const canonical = ntMatch
         ? isCanonicalWatsonCrick(familyText, ntMatch[1], ntMatch[3])
         : familyText === 'cWW';
@@ -1927,53 +1984,64 @@
         dialog.style.display = open ? 'none' : 'flex';
       }
       dialog.innerHTML = '';
-      const displayHtml = nestedInput.checked
-        ? ui.displayNestedBaseStrs
-        : ui.displayBaseStrs;
       const ul = document.createElement('ul');
-      const seenPairKeys = new Set();
-      // ui.bpLabels follows SVG DOM order, not nucleotide order: crossing/
-      // non-canonical pairs are drawn as overlay arcs appended after every
-      // nested pair (see postprocess_combined_svg's <g class="mc-overlay">),
-      // so they'd otherwise all sort to the bottom of the list regardless of
-      // position. Re-sort by residue number for display.
-      (ui.bpLabels || [])
-        .filter((item) => displayHtml.includes(item.pathID))
-        .filter((item) => {
-          const key = bpPairKeyFromPathId(item.pathID);
-          if (seenPairKeys.has(key)) return false;
-          seenPairKeys.add(key);
-          return true;
+      // Prefer live annotations (includes workstation edits) over the plugin's
+      // frozen bpLabels, which still point at pre-edit path IDs / families.
+      const annByKey = new Map();
+      (fr3dData.annotations || []).forEach((a) => {
+        const key = annPairKey(a);
+        if (!annByKey.has(key)) annByKey.set(key, a);
+      });
+      const visibleKeys = new Set();
+      root.querySelectorAll('path.rnaviewBP').forEach((p) => {
+        if (p.style.display === 'none') return;
+        const id = bpPathIdFromElement(p);
+        if (id) visibleKeys.add(bpPairKeyFromPathId(id));
+      });
+      // If visibility hasn't been applied yet, fall back to display-html keys
+      // plus every annotation (first paint).
+      const useVisibleFilter = visibleKeys.size > 0
+        || root.querySelector('path.rnaviewBP');
+      const rows = [...annByKey.values()]
+        .filter((a) => {
+          const key = annPairKey(a);
+          if (!useVisibleFilter) return true;
+          if (visibleKeys.has(key)) return true;
+          // Path may not exist yet for a just-added pair before geometry sync;
+          // still list it when its family filter allows.
+          return isBpFamilyFilterOn(a.bp || 'cWW')
+            && !(nestedInput.checked && isCrossingAnn(a));
         })
         .sort((x, y) => {
-          const [ax, bx] = bpPositionsFromPathId(x.pathID);
-          const [ay, by] = bpPositionsFromPathId(y.pathID);
+          const ax = +x.seq_id1;
+          const ay = +y.seq_id1;
+          const bx = +x.seq_id2;
+          const by = +y.seq_id2;
           return ax - ay || bx - by;
-        })
-        .forEach((item) => {
-          const li = document.createElement('li');
-          li.textContent = item.label;
-          li.style.cursor = 'pointer';
-          const pathID = item.pathID;
-          li.addEventListener('mouseenter', () => {
-            findBpPathByPathId(pathID)?.dispatchEvent(
-              new Event('mouseover', { bubbles: true })
-            );
-            const tip = document.getElementById('tooltip');
-            if (tip) tip.style.display = 'none';
-          });
-          li.addEventListener('mouseleave', () => {
-            findBpPathByPathId(pathID)?.dispatchEvent(
-              new Event('mouseout', { bubbles: true })
-            );
-          });
-          li.addEventListener('click', () => {
-            findBpPathByPathId(pathID)?.dispatchEvent(
-              new Event('click', { bubbles: true })
-            );
-          });
-          ul.appendChild(li);
         });
+      rows.forEach((a) => {
+        const li = document.createElement('li');
+        const nt1 = a.nt1 || a.unit1 || 'N';
+        const nt2 = a.nt2 || a.unit2 || 'N';
+        const fam = a.bp || 'cWW';
+        li.textContent = `${nt1}${a.seq_id1} - ${nt2}${a.seq_id2} ; ${fam}`;
+        li.style.cursor = 'pointer';
+        const i = +a.seq_id1;
+        const j = +a.seq_id2;
+        li.addEventListener('mouseenter', () => {
+          findBPPath(i, j)?.dispatchEvent(
+            new Event('mouseover', { bubbles: true })
+          );
+          const tip = document.getElementById('tooltip');
+          if (tip) tip.style.display = 'none';
+        });
+        li.addEventListener('mouseleave', () => {
+          findBPPath(i, j)?.dispatchEvent(
+            new Event('mouseout', { bubbles: true })
+          );
+        });
+        ul.appendChild(li);
+      });
       dialog.appendChild(ul);
       ensureBpListPanelTitle();
       applyBpListItemLabels();
@@ -2270,37 +2338,63 @@
     tick();
   })();
 
+  // Hide family checkboxes with no pairs in the current annotations, show
+  // newly present ones, and refresh the BPs n/m badge. Safe to call after
+  // workstation edits (add / delete / refamily).
+  function syncBpFilterToAnnotations(opts) {
+    const ensureAllOn = !!(opts && opts.ensureAllOn);
+    const presentBPs = presentLwFamilies(fr3dData.annotations);
+    const boxes = root.querySelectorAll('input[id^="Checkbox_"]');
+    if (boxes.length === 0) return false;
+    boxes.forEach((cb) => {
+      if (cb.id === 'Checkbox_All') return;
+      const family = cb.id.slice('Checkbox_'.length);
+      const td = cb.closest('td');
+      const present = presentBPs.has(family);
+      const wasHidden = !td || td.style.display === 'none'
+        || !isFilterCheckboxVisible(cb);
+      if (!present) {
+        if (td) td.style.display = 'none';
+        return;
+      }
+      if (td) td.style.display = '';
+      // A newly appeared family (e.g. user added a tHS) should be checked
+      // so the new pairs are visible immediately.
+      if (wasHidden && !cb.checked) cb.checked = true;
+    });
+    hideEmptyFilterRows();
+    const all = root.querySelector('#Checkbox_All');
+    if (all) {
+      if (ensureAllOn && !all.checked) {
+        all.click();
+      } else {
+        // Keep "All" in sync with whether every visible family is checked.
+        const famBoxes = [...boxes].filter(
+          (cb) => cb.id !== 'Checkbox_All' && isFilterCheckboxVisible(cb)
+        );
+        const allOn = famBoxes.length > 0 && famBoxes.every((cb) => cb.checked);
+        if (all.checked !== allOn) all.checked = allOn;
+      }
+    }
+    ensureFilterPanelTitle();
+    injectFilterGlyphs();
+    mountFilterLegend();
+    updateFilterBadge();
+    return true;
+  }
+
   // Hide base-pair family checkboxes that have no annotations in this
   // structure's fr3d.json, so the dropdown only lists families the user
   // can actually toggle. Then enable the remaining families ("All").
   (function tidyBPFilter() {
-    const presentBPs = presentLwFamilies(fr3dData.annotations);
     let attempts = 0;
     const tick = () => {
-      const boxes = root.querySelectorAll('input[id^="Checkbox_"]');
-      if (boxes.length === 0) {
+      if (!syncBpFilterToAnnotations({ ensureAllOn: true })) {
         if (attempts++ > 40) return;
         setTimeout(tick, 100);
         return;
       }
-      boxes.forEach((cb) => {
-        if (cb.id === 'Checkbox_All') return;
-        const family = cb.id.slice('Checkbox_'.length);
-        const td = cb.closest('td');
-        if (!presentBPs.has(family)) {
-          if (td) td.style.display = 'none';
-        } else if (td) {
-          td.style.display = '';
-        }
-      });
-      hideEmptyFilterRows();
-      const all = root.querySelector('#Checkbox_All');
-      if (all && !all.checked) all.click();
       applyBpVisibility();
-      ensureFilterPanelTitle();
-      injectFilterGlyphs();
-      mountFilterLegend();
-      updateFilterBadge();
     };
     tick();
   })();
@@ -2921,7 +3015,10 @@
     panel2d,
     pdbLower: PDB_LOWER,
     getAnnotations: () => fr3dData.annotations || [],
-    setAnnotations: (anns) => { fr3dData.annotations = anns; },
+    setAnnotations: (anns) => {
+      fr3dData.annotations = anns;
+      fr3dPairLookup = null;
+    },
     findBPPath,
     getResidueLocation,
     bindBpPathClick: (el) => {
@@ -2938,12 +3035,25 @@
     },
     refreshAfterGeometryChange: () => {
       attachBPClicks();
-      applyFixups();
-      if (typeof onBpFilterUpdated === 'function') onBpFilterUpdated();
+      // Refresh BPs dropdown (hide empty families / show new ones) before
+      // re-applying visibility so the badge and checkboxes match edits.
+      syncBpFilterToAnnotations();
+      // Re-apply family/nested filters using pair-key matching so refamily /
+      // add paths are not force-hidden (their SVG class no longer matches the
+      // plugin's original path IDs in displayBaseStrs).
+      applyBpVisibility();
     },
     refreshBpListLabels: () => {
       applyBpListItemLabels();
       normalizeBpListScroll();
+    },
+    rebuildBpList: () => {
+      const ui = rnaPlugin.uiTemplateService;
+      if (ui?.renderBpListDialog) ui.renderBpListDialog(false);
+      else {
+        applyBpListItemLabels();
+        normalizeBpListScroll();
+      }
     },
     setOtherPairKeys,
     onPairSelect: (fn) => { pairSelectListeners.push(fn); },

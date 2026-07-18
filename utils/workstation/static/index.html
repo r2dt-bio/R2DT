@@ -3,26 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>R2DT curator workstation</title>
+<title>R2DT workstation</title>
+<link rel="icon" type="image/png" href="/static/favicon/favicon-96x96.png" sizes="96x96">
+<link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg">
+<link rel="shortcut icon" href="/static/favicon/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/chrome.css">
 <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-<header>
-  <h1>R2DT curator workstation</h1>
-  <p class="sub">Private local comparisons — structures stay on this machine.</p>
-  <p class="runtime" id="runtime"></p>
+<body class="ws-dashboard">
+<header class="ws-chrome">
+  <a class="ws-chrome-brand" href="/" title="Back to dashboard">
+    <img class="ws-chrome-logo" src="/static/r2dt-logo-blue.svg" alt="">
+    <span>R2DT workstation</span>
+  </a>
 </header>
-
-<nav class="tabs">
-  <button type="button" class="tab active" data-panel="dashboard">Dashboard</button>
-  <button type="button" class="tab" data-panel="new">New comparison</button>
-</nav>
 
 <section id="panel-dashboard" class="panel active">
   <div class="toolbar">
     <input id="filter" type="search" placeholder="Filter by label or filename…" autocomplete="off">
     <button type="button" id="refresh">Refresh</button>
     <span class="count" id="count"></span>
+    <button type="button" class="cta" id="new-comparison" data-panel="new">New comparison</button>
   </div>
   <div class="table-wrap">
     <table id="tbl">
@@ -49,11 +51,15 @@
 </section>
 
 <section id="panel-new" class="panel">
+  <div class="new-head">
+    <button type="button" class="linkish" id="back-dashboard" data-panel="dashboard">← Back to jobs</button>
+    <h2>New comparison</h2>
+  </div>
   <form id="new-form">
     <fieldset>
       <legend>Structures</legend>
       <div class="row">
-        <label>Reference (mmCIF required for compare)
+        <label>Reference (PDB or mmCIF)
           <input type="file" id="ref-file" accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB">
         </label>
         <div id="ref-chains" class="chains"></div>
@@ -101,6 +107,10 @@
     </div>
   </form>
 </section>
+
+<footer class="ws-footer">
+  <span id="runtime"></span>
+</footer>
 
 <script src="/static/app.js"></script>
 </body>

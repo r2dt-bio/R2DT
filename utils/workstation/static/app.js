@@ -30,14 +30,9 @@
     }
   }
 
-  function setTabs() {
-    document.querySelectorAll(".tab").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        document.querySelectorAll(".tab").forEach(function (b) { b.classList.remove("active"); });
-        document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
-        btn.classList.add("active");
-        $("panel-" + btn.getAttribute("data-panel")).classList.add("active");
-      });
+  function showPanel(name) {
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.classList.toggle("active", p.id === "panel-" + name);
     });
   }
 
@@ -251,9 +246,8 @@
     }
     var chains = info.chains || [];
     var html = "";
-    if (role === "ref" && !info.compare_ready) {
-      html += '<p class="err">Compare needs an mmCIF reference (.cif). This file is ' +
-        esc(info.format) + ".</p>";
+    if (role === "ref" && info.needs_cif_conversion) {
+      html += '<p class="hint">PDB reference will be converted to mmCIF for compare.</p>';
     }
     if (!chains.length) {
       html += '<p class="err">No RNA chains detected.</p>';
@@ -353,7 +347,7 @@
         status.className = "form-status ok";
         status.textContent = "Job queued: " + body.job.id;
       }
-      document.querySelector('.tab[data-panel="dashboard"]').click();
+      showPanel("dashboard");
       return loadJobs();
     }).catch(function (err) {
       $("generate").disabled = false;
@@ -363,7 +357,9 @@
   }
 
   function init() {
-    setTabs();
+    showPanel("dashboard");
+    $("new-comparison").addEventListener("click", function () { showPanel("new"); });
+    $("back-dashboard").addEventListener("click", function () { showPanel("dashboard"); });
     renderChainPicker("ref-chains", null, "ref");
     renderChainPicker("model-chains", null, "model");
     $("filter").addEventListener("input", renderJobs);

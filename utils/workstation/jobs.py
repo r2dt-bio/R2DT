@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from utils.workstation.catalog import Catalog, utc_now
-from utils.workstation.chains import list_rna_chains, normalize_suffix
+from utils.workstation.chains import ensure_mmcif, normalize_suffix, structure_stem
 
 
 def _resolve_upload(catalog: Catalog, upload_id: str) -> Path:
@@ -330,13 +330,6 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
     ref_src = _resolve_upload(catalog, ref_upload_id)
     model_src = _resolve_upload(catalog, model_upload_id)
 
-    ref_info = list_rna_chains(ref_src)
-    if not ref_info.get("compare_ready"):
-        raise ValueError(
-            "Compare mode needs an mmCIF reference (.cif). "
-            "Convert the reference or download the mmCIF from RCSB."
-        )
-
     chains_csv = ",".join(chains)
     model_chains_csv = ",".join(model_chains)
     digest = content_hash(
@@ -354,12 +347,17 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
     job_id = new_job_id()
     inputs_dir = catalog.inputs_job_dir(job_id)
     inputs_dir.mkdir(parents=True, exist_ok=True)
-    ref_dest = inputs_dir / ref_src.name
+    # Compare path needs mmCIF reference (FR3D multichain reader) — same as
+    # CASP official PDB refs, which are converted before --compare.
+    ref_original = ref_src.name
+    ref_dest = ensure_mmcif(ref_src, inputs_dir, label=structure_stem(ref_src))
     model_dest = inputs_dir / model_src.name
-    shutil.copy2(ref_src, ref_dest)
-    shutil.copy2(model_src, model_dest)
+    if model_src.resolve() != model_dest.resolve():
+        shutil.copy2(model_src, model_dest)
 
-    display = label.strip() or f"{ref_src.stem} vs {model_src.stem}"
+    display = (
+        label.strip() or f"{structure_stem(ref_src)} vs {structure_stem(model_src)}"
+    )
     meta: Dict[str, Any] = {
         "id": job_id,
         "label": display,
@@ -375,6 +373,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
         "inputs": {
             "ref_name": ref_dest.name,
             "model_name": model_dest.name,
+            "ref_original_name": ref_original,
             "ref_format": normalize_suffix(ref_dest),
             "model_format": normalize_suffix(model_dest),
             "content_hash": digest,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import mimetypes
 import re
@@ -23,6 +24,51 @@ from utils.workstation.jobs import (
 )
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+def _viewer_chrome_html(job_id: str, label: str = "") -> str:
+    """Sticky header injected into job viewer pages (brand links home)."""
+    job_label = (label or "").strip() or job_id
+    safe_label = html_lib.escape(job_label, quote=True)
+    safe_id = html_lib.escape(job_id, quote=True)
+    return (
+        '<header class="ws-chrome">'
+        '<a class="ws-chrome-brand" href="/" title="Back to dashboard">'
+        '<img class="ws-chrome-logo" src="/static/r2dt-logo-blue.svg" alt="">'
+        "<span>R2DT workstation</span>"
+        "</a>"
+        f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
+        "</header>\n"
+    )
+
+
+_FAVICON_LINKS = (
+    '<link rel="icon" type="image/png" href="/static/favicon/favicon-96x96.png" '
+    'sizes="96x96">\n'
+    '<link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg">\n'
+    '<link rel="shortcut icon" href="/static/favicon/favicon.ico">\n'
+    '<link rel="apple-touch-icon" sizes="180x180" '
+    'href="/static/favicon/apple-touch-icon.png">\n'
+)
+
+
+def _inject_viewer_chrome(html: str, job_id: str, label: str = "") -> str:
+    """Add shared workstation chrome to a viewer index.html (idempotent)."""
+    if "ws-chrome" in html:
+        return html
+    head = _FAVICON_LINKS + '<link rel="stylesheet" href="/static/chrome.css">\n'
+    if "</head>" in html:
+        html = html.replace("</head>", head + "</head>", 1)
+    else:
+        html = head + html
+    header = _viewer_chrome_html(job_id, label)
+    match = re.search(r"<body([^>]*)>", html, flags=re.IGNORECASE)
+    if match:
+        insert_at = match.end()
+        html = html[:insert_at] + "\n" + header + html[insert_at:]
+    else:
+        html = header + html
+    return html
 
 
 class WorkstationApp:
@@ -342,6 +388,14 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             target = target / "index.html"
         if not target.is_file():
             self._send(*_json_bytes({"error": "not found"}, 404))
+            return
+        if target.name == "index.html":
+            meta = self.app.catalog.read_meta(job_id) or {}
+            label = str(meta.get("label") or job_id)
+            html = _inject_viewer_chrome(
+                target.read_text(encoding="utf-8"), job_id, label
+            )
+            self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
             return
         self._send_file(target)
 
