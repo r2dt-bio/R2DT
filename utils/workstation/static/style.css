@@ -640,9 +640,33 @@ a { color: inherit; }
   justify-content: flex-end;
 }
 .row-actions a,
-.row-actions button {
+.row-actions button,
+.row-actions summary {
   font-size: 12px;
   padding: 4px 8px;
+}
+.row-actions .ws-export-menu--row summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8f9fa;
+  color: inherit;
+}
+.row-actions .ws-export-menu--row summary::-webkit-details-marker { display: none; }
+.row-actions .ws-export-menu--row summary::marker { content: ""; }
+.row-actions .ws-export-menu--row summary:hover {
+  background: #fff;
+  border-color: #bbb;
+}
+.row-actions .ws-export-menu-panel {
+  right: 0;
+  left: auto;
+  min-width: 180px;
+}
+.row-actions .ws-export-menu-panel button {
+  font-size: 12px;
+  padding: 7px 10px;
 }
 
 .log {

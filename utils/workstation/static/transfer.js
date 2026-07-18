@@ -5,14 +5,49 @@
     global.location.href = "/api/jobs/" + encodeURIComponent(jobId) + "/export";
   }
 
+  function exportJobHtml(jobId) {
+    if (!jobId) return;
+    global.location.href =
+      "/api/jobs/" + encodeURIComponent(jobId) + "/export/html";
+  }
+
   function addExportButton(actionsEl, job) {
     if (!actionsEl || !job || job.status !== "ready") return;
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = "Export";
-    btn.title = "Download .r2dt-job.zip";
-    btn.addEventListener("click", function () { exportJob(job.id); });
-    actionsEl.appendChild(btn);
+    var includeHtml = Boolean(job.viewer_url);
+    var wrap = document.createElement("details");
+    wrap.className = "ws-export-menu ws-export-menu--row";
+    var summary = document.createElement("summary");
+    summary.textContent = "Export";
+    summary.title = "Export this job";
+    wrap.appendChild(summary);
+    var panel = document.createElement("div");
+    panel.className = "ws-export-menu-panel";
+    panel.setAttribute("role", "menu");
+
+    var pkg = document.createElement("button");
+    pkg.type = "button";
+    pkg.textContent = "R2DT work package";
+    pkg.title = "Download .r2dt-job.zip for another workstation";
+    pkg.addEventListener("click", function () {
+      wrap.open = false;
+      exportJob(job.id);
+    });
+    panel.appendChild(pkg);
+
+    if (includeHtml) {
+      var htmlBtn = document.createElement("button");
+      htmlBtn.type = "button";
+      htmlBtn.textContent = "Shareable HTML";
+      htmlBtn.title = "Static viewer with edits baked in";
+      htmlBtn.addEventListener("click", function () {
+        wrap.open = false;
+        exportJobHtml(job.id);
+      });
+      panel.appendChild(htmlBtn);
+    }
+
+    wrap.appendChild(panel);
+    actionsEl.appendChild(wrap);
   }
 
   function wireImportControls(opts) {
@@ -67,6 +102,7 @@
 
   global.R2DTTransfer = {
     exportJob: exportJob,
+    exportJobHtml: exportJobHtml,
     addExportButton: addExportButton,
     wireImportControls: wireImportControls,
   };

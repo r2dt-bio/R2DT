@@ -28,6 +28,7 @@ from utils.workstation.chrome import (
     MODE_BY_PATH,
     MODES,
     chrome_header,
+    export_menu_html,
     normalize_job_mode,
 )
 from utils.workstation.jobs import (
@@ -39,6 +40,7 @@ from utils.workstation.jobs import (
     require_runtime,
 )
 from utils.workstation.package import export_job_bytes, import_job_bytes
+from utils.workstation.publish import export_shareable_html_bytes
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -167,11 +169,7 @@ def _inject_viewer_chrome(
     else:
         html = header + html
     if has_inf and job_id:
-        export_href = f"/api/jobs/{html_lib.escape(job_id, quote=True)}/export"
-        export = (
-            f'<a class="ws-inf-export" href="{export_href}" '
-            f'title="Download .r2dt-job.zip to share">Export</a>'
-        )
+        export = export_menu_html(job_id, include_html=True, variant="inf")
         html = re.sub(
             r'(<div class="mc-inf">)(.*?)(</div>)',
             rf"\1\2{export}\3",
@@ -358,6 +356,9 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([^/]+)/log", path)
         if method == "GET" and match:
             return self._get_log(match.group(1), parsed)
+        match = re.fullmatch(r"/api/jobs/([^/]+)/export/html", path)
+        if method == "GET" and match:
+            return self._export_job_html(match.group(1))
         match = re.fullmatch(r"/api/jobs/([^/]+)/export", path)
         if method == "GET" and match:
             return self._export_job(match.group(1))
@@ -495,6 +496,25 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send(*_json_bytes({"error": "not found"}, 404))
             return True
         data, filename = export_job_bytes(self.app.catalog, job_id)
+        self._send(
+            200,
+            data,
+            "application/zip",
+            extra_headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+        return True
+
+    def _export_job_html(self, job_id: str) -> bool:
+        if not self.app.catalog.get_job(job_id):
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return True
+        try:
+            data, filename = export_shareable_html_bytes(self.app.catalog, job_id)
+        except ValueError as exc:
+            self._send(*_json_bytes({"error": str(exc)}, 400))
+            return True
         self._send(
             200,
             data,
@@ -704,6 +724,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 job_label=label,
                 job_id=job_id,
                 show_export=True,
+                export_html=False,
             ),
         )
         html = html.replace("<!--JOB_LABEL-->", html_lib.escape(label))

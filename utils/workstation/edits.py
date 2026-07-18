@@ -9,6 +9,84 @@ from typing import Any, Dict, List
 VALID_ACTIONS = frozenset({"add", "delete", "refamily"})
 
 
+def apply_overrides(
+    baseline_anns: List[Dict[str, Any]], overrides: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Return a deep-copied annotation list with overrides applied.
+
+    Mirrors ``R2DTBpEdit._applyOverrides`` in the workstation edit UI.
+    """
+    anns = [dict(a) for a in (baseline_anns or [])]
+    for op in overrides or []:
+        try:
+            i = int(op["i"])
+            j = int(op["j"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if i == j:
+            continue
+        if i > j:
+            i, j = j, i
+        idx = _find_ann_index(anns, i, j)
+        action = op.get("action")
+        if action == "delete":
+            if idx >= 0:
+                anns.pop(idx)
+        elif action == "add":
+            family = str(op.get("family") or "cWW")
+            if idx < 0:
+                anns.append(
+                    {
+                        "seq_id1": str(i),
+                        "seq_id2": str(j),
+                        "3d_id1": str(i),
+                        "3d_id2": str(j),
+                        "nt1": "N",
+                        "nt2": "N",
+                        "unit1": "N",
+                        "unit2": "N",
+                        "bp": family,
+                        "crossing": "0",
+                    }
+                )
+            else:
+                anns[idx]["bp"] = family
+        elif action == "refamily" and idx >= 0:
+            family = op.get("to") or op.get("family") or anns[idx].get("bp")
+            anns[idx]["bp"] = str(family)
+    return anns
+
+
+def annotations_to_pairs(anns: List[Dict[str, Any]]) -> List[tuple]:
+    """Convert fr3d annotations to ``(i, j, family)`` tuples for INF."""
+    pairs = []
+    for ann in anns or []:
+        try:
+            i = int(ann["seq_id1"])
+            j = int(ann["seq_id2"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if i == j:
+            continue
+        if i > j:
+            i, j = j, i
+        family = str(ann.get("bp") or "cWW")
+        pairs.append((i, j, family))
+    return pairs
+
+
+def _find_ann_index(anns: List[Dict[str, Any]], i: int, j: int) -> int:
+    for n, ann in enumerate(anns):
+        try:
+            a = int(ann["seq_id1"])
+            b = int(ann["seq_id2"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (a == i and b == j) or (a == j and b == i):
+            return n
+    return -1
+
+
 def edits_dir(job_dir: Path) -> Path:
     """Return ``jobs/<id>/edits/``, creating it if needed."""
     path = Path(job_dir) / "edits"

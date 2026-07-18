@@ -159,14 +159,6 @@
         '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
         '<td class="actions-col"><div class="row-actions"></div></td>';
       var actions = tr.querySelector(".row-actions");
-      if (j.status === "ready" && j.viewer_url) {
-        var open = document.createElement("a");
-        open.href = j.viewer_url;
-        open.textContent = "Open";
-        open.target = "_blank";
-        open.rel = "noopener";
-        actions.appendChild(open);
-      }
       if (window.R2DTTransfer) window.R2DTTransfer.addExportButton(actions, j);
       if (j.status === "running" || j.status === "queued" || j.status === "failed") {
         var logBtn = document.createElement("button");

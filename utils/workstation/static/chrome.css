@@ -128,7 +128,7 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
   color: #666;
   text-decoration: none;
   padding: 4px 0 5px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
@@ -148,7 +148,7 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
   gap: 4px 14px;
   align-items: center;
   margin-left: auto;
-  font-size: 13px;
+  font-size: 15px;
 }
 .ws-chrome-ext a {
   color: #555;
@@ -162,7 +162,7 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
 
 .ws-chrome-job {
   color: #666;
-  font-size: 12px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   max-width: min(280px, 28vw);
   overflow: hidden;
@@ -185,15 +185,64 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
 }
+.ws-chrome-export::-webkit-details-marker { display: none; }
+.ws-chrome-export::marker { content: ""; }
 .ws-chrome-export:hover {
   background: var(--ws-brand-soft);
 }
 
+/* Export dropdown (header, INF bar, dashboard rows). */
+.ws-export-menu {
+  position: relative;
+  display: inline-block;
+}
+.ws-export-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 400;
+  min-width: 190px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid rgba(57, 49, 133, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-export-menu-panel a,
+.ws-export-menu-panel button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #222;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.ws-export-menu-panel a:hover,
+.ws-export-menu-panel button:hover {
+  background: rgba(57, 49, 133, 0.08);
+  color: var(--ws-brand);
+}
+
 /* Export on the compare INF bar (injected by workstation chrome). */
+.mc-inf .ws-export-menu--inf {
+  margin-left: auto;
+}
 .mc-inf .ws-inf-export {
   display: inline-block;
-  margin-left: auto;
   padding: 5px 12px;
   border-radius: 6px;
   background: #393185;
@@ -202,11 +251,28 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
 }
+.mc-inf .ws-inf-export::-webkit-details-marker { display: none; }
+.mc-inf .ws-inf-export::marker { content: ""; }
 .mc-inf .ws-inf-export:hover {
   background: #5b52a3;
 }
 @media (prefers-color-scheme: dark) {
+  .ws-export-menu-panel {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  .ws-export-menu-panel a,
+  .ws-export-menu-panel button {
+    color: #e5e7eb;
+  }
+  .ws-export-menu-panel a:hover,
+  .ws-export-menu-panel button:hover {
+    background: #374151;
+    color: #fff;
+  }
   .mc-inf .ws-inf-export {
     background: #5b52a3;
   }

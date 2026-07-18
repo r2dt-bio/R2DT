@@ -58,12 +58,48 @@ def normalize_job_mode(mode: Optional[str]) -> str:
     return "compare"
 
 
+def export_menu_html(
+    job_id: str,
+    *,
+    include_html: bool = True,
+    variant: str = "chrome",
+) -> str:
+    """Dropdown: R2DT work package and optional shareable HTML viewer zip."""
+    safe_id = html_lib.escape(job_id, quote=True)
+    package_href = f"/api/jobs/{safe_id}/export"
+    html_href = f"/api/jobs/{safe_id}/export/html"
+    if variant == "inf":
+        summary_cls = "ws-inf-export"
+        menu_cls = "ws-export-menu ws-export-menu--inf"
+    else:
+        summary_cls = "ws-chrome-export"
+        menu_cls = "ws-export-menu"
+    html_item = ""
+    if include_html:
+        html_item = (
+            f'<a href="{html_href}" '
+            f'title="Static viewer with edits baked in">'
+            f"Shareable HTML</a>"
+        )
+    return (
+        f'<details class="{menu_cls}">'
+        f'<summary class="{summary_cls}" title="Export this job">Export</summary>'
+        f'<div class="ws-export-menu-panel" role="menu">'
+        f'<a href="{package_href}" '
+        f'title="Download .r2dt-job.zip for another workstation">'
+        f"R2DT work package</a>"
+        f"{html_item}"
+        f"</div></details>"
+    )
+
+
 def chrome_header(
     active_path: Optional[str] = None,
     *,
     job_label: str = "",
     job_id: str = "",
     show_export: bool = False,
+    export_html: bool = True,
 ) -> str:
     """Return the sticky header HTML used on every workstation page."""
     brand = (
@@ -97,12 +133,7 @@ def chrome_header(
         safe_id = html_lib.escape(job_id or display, quote=True)
         export = ""
         if show_export and job_id:
-            export_href = f"/api/jobs/{html_lib.escape(job_id, quote=True)}/export"
-            export = (
-                f'<a class="ws-chrome-export" href="{export_href}" '
-                f'title="Download .r2dt-job.zip to share">'
-                f"Export</a>"
-            )
+            export = export_menu_html(job_id, include_html=export_html)
         job = (
             f'<span class="ws-chrome-job-wrap">'
             f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
