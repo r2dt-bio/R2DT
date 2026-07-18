@@ -270,6 +270,15 @@
     const resolvedStructureUrl = resolveUrl(normalized, structureUrl);
     const apiData = opts.apiData || await fetchJson(resolveUrl(normalized, 'api.json'));
     const fr3dData = opts.fr3dData || await fetchJson(resolveUrl(normalized, 'fr3d.json'));
+    // otherPairKeys is only present in compare mode (bpCompare set at all);
+    // fetch it lazily from this panel's own folder when not passed inline.
+    let bpCompare = opts.bpCompare || null;
+    if (bpCompare && !bpCompare.otherPairKeys) {
+      try {
+        const otherPairKeys = await fetchJson(resolveUrl(normalized, 'bp-compare.json'));
+        bpCompare = { ...bpCompare, otherPairKeys };
+      } catch (_) { /* optional */ }
+    }
     return {
       baseUrl: normalized,
       resolveUrl,
@@ -280,7 +289,7 @@
       apiData,
       fr3dData,
       lbnData: opts.lbnData || null,
-      bpCompare: opts.bpCompare || null,
+      bpCompare,
       PDB_LOWER: structureId.toLowerCase(),
     };
   }
@@ -878,7 +887,7 @@
     // Compare mode: classify each listed base pair against the other structure's
     // pairs. Reference list → TP (matched) / FN (missed); model list → TP / FP.
     const bpCompare = ctx.bpCompare || null;
-    const bpCompareKeys = bpCompare ? new Set(bpCompare.otherKeys || []) : null;
+    const bpCompareKeys = bpCompare ? new Set(bpCompare.otherPairKeys || []) : null;
     function classifyBpPair(a, b) {
       if (!bpCompareKeys) return null;
       const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
@@ -2717,14 +2726,14 @@
     const N   = SEQ.length;
 
     let html = '';
-    html += '<div class="lbn-row"><span class="lbn-label">seq</span>: ';
+    html += '<div class="lbn-row"><span class="lbn-label">seq:</span> ';
     for (let i = 0; i < N; i++) {
       html += `<span data-pos="${i + 1}" class="lbn-nt">${SEQ[i]}</span>`;
     }
     html += '</div>';
 
     for (const row of data.rows) {
-      html += `<div class="lbn-row"><span class="lbn-label">${row.label}</span>: `;
+      html += `<div class="lbn-row"><span class="lbn-label">${row.label}:</span> `;
       for (let i = 0; i < N; i++) {
         const pos = i + 1;
         const ch  = row.chars[i];
@@ -2941,10 +2950,10 @@
 
   function classifierFor(bpCompare) {
     if (!bpCompare) return null;
-    const otherKeys = new Set(bpCompare.otherKeys || []);
+    const otherPairKeys = new Set(bpCompare.otherPairKeys || []);
     return (a, b) => {
       const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
-      if (otherKeys.has(key)) return 'TP';
+      if (otherPairKeys.has(key)) return 'TP';
       return bpCompare.role === 'reference' ? 'FN' : 'FP';
     };
   }
@@ -2982,7 +2991,7 @@
     });
 
     let html = '';
-    html += '<div class="lbn-row"><span class="lbn-label">seq</span>: ';
+    html += '<div class="lbn-row"><span class="lbn-label">seq:</span> ';
     for (let i = 0; i < N; i++) {
       html += `<span data-pos="${i + 1}" class="lbn-nt">${SEQ[i]}</span>`;
     }
@@ -2993,7 +3002,7 @@
       const marker = role === 'reference' ? 'ref' : role === 'model' ? 'mdl' : '';
       const labelText = marker ? `${row.label} · ${marker}` : row.label;
       html += `<div class="lbn-row${role ? ` lbn-row--${role}` : ''}" data-panel-idx="${source.panelIdx}">`
-        + `<span class="lbn-label${role ? ` lbn-label--${role}` : ''}" title="${source.label}">${labelText}</span>: `;
+        + `<span class="lbn-label${role ? ` lbn-label--${role}` : ''}" title="${source.label}">${labelText}:</span> `;
       for (let i = 0; i < N; i++) {
         const pos = i + 1;
         const ch = row.chars[i];
@@ -3343,6 +3352,11 @@
       ...molstarOpts,
       structureId: molstarOpts.structureId || linkedPanel.structureId,
       chainId: molstarOpts.chainId ?? linkedPanel.chainId,
+      // Not used for the 3D pane itself; unset so resolvePanelData doesn't
+      // try (and fail) to fetch a bp-compare.json that may not exist at
+      // this baseUrl (e.g. when molstarOpts.baseUrl differs from the
+      // linked panel's own baseUrl).
+      bpCompare: null,
     });
 
     const molSlot = buildCompareSlot(
@@ -3401,11 +3415,20 @@
       } catch (err) {
         console.error('R2DTViewer.createCompare: overlay load failed', err);
       }
+      let ovLabelToAuth = ov.labelToAuth || null;
+      let ovLabelToChain = ov.labelToChain || null;
+      if (!ovLabelToAuth || !ovLabelToChain) {
+        try {
+          const maps = await fetchJson(resolveUrl(ov.baseUrl || molBaseUrl, 'label-maps.json'));
+          ovLabelToAuth = ovLabelToAuth || maps.labelToAuth || {};
+          ovLabelToChain = ovLabelToChain || maps.labelToChain || {};
+        } catch (_) { /* optional */ }
+      }
       molTargets.push({
         structureNumber,
         structureId: ov.structureId,
-        labelToAuth: ov.labelToAuth || {},
-        labelToChain: ov.labelToChain || {},
+        labelToAuth: ovLabelToAuth || {},
+        labelToChain: ovLabelToChain || {},
         chainId: ov.chainId || '',
         baseColor: ov.baseColor || null,
         highlightColor: highlightColorFor(ov.baseColor || null),

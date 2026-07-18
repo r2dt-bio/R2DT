@@ -67,6 +67,51 @@ R2DT ships the [pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.
 
 The folder is self-contained relative to its own location: every data file is fetched via a relative URL, so it works under any same-origin static host — a local `http.server`, GitHub Pages, or Cloudflare Pages — with no configuration.
 
+## Comparing a reference structure against a predicted model
+
+`pdb` also has a compare mode that produces a 3-panel viewer instead of the single-structure one above: the reference's 2D diagram, a predicted model's 2D diagram (drawn on the *same* combined layout, so equivalent residues line up), and one shared Mol* pane overlaying both 3D structures. It's the same `R2DTViewer.createCompare()` API used in [Comparing two 2D diagrams with one 3D view](#comparing-two-2d-diagrams-with-one-3d-view) below — this command is simply R2DT's own generator for that pattern, and it's what CASP-style reference/prediction dashboards are built from.
+
+Compare mode needs an mmCIF reference and an explicit chain selection (multi-chain diagrams only work from mmCIF):
+
+```bash
+# Reference vs a real predicted model (same sequence, same chain order)
+r2dt.py pdb reference.cif output/ --chains A --compare --model model.pdb
+
+# --model implies --compare; --model-chains maps the model's own chain ids
+# when they differ from the reference's (default: same order as --chains)
+r2dt.py pdb reference.cif output/ --chains A,B --model model.cif --model-chains X,Y
+
+# Without --model, --compare alone shows a randomly perturbed copy of the
+# reference standing in for the model (useful for previewing the diff UI)
+r2dt.py pdb reference.cif output/ --chains A --compare
+```
+
+Output layout adds to `viewer/`:
+
+```
+<output_folder>/viewer/
+├── index.html                          # calls R2DTViewer.createCompare()
+├── ref/                                 # reference panel's data
+│   ├── api.json
+│   ├── fr3d.json
+│   ├── lbn.json
+│   └── bp-compare.json                 # base-pair keys for the model panel's TP/FN badges
+├── model/                               # model panel's data (same shape as ref/)
+│   ├── api.json
+│   ├── fr3d.json
+│   ├── lbn.json
+│   ├── bp-compare.json                 # base-pair keys for the reference panel's TP/FP badges
+│   └── label-maps.json                 # 2D-label → model author residue/chain, for 3D click-through
+├── api.json, fr3d.json                 # root-level copy of ref/'s data, used
+│                                        # by the shared Mol* pane
+├── metrics.json                        # INF + matched/lost/added base pairs
+├── <reference_id>.cif                  # reference structure
+├── <model_id>.aligned.cif              # model superposed onto the reference
+└── … the same vendored viewer assets as above
+```
+
+As with the single-structure viewer, every file is fetched via a relative URL — `index.html` itself carries no structural data, so hosting a compare page is the same "upload the folder" deal as [Embedding on your own site](#embedding-on-your-own-site), just with `ref/`/`model/` added alongside the structure files.
+
 ## Running via Docker
 
 `pdb_2d_3d` is not in a released image yet, so use the pull-request build that has the code baked in (`rnacentral/r2dt:pr-219`). Mount an output directory to get the results back on your host:
@@ -235,7 +280,7 @@ R2DTViewer.createCompare({
 | `fetchShim` | no | Route pdb-rna-viewer's EBI fetches to local `api.json` / `fr3d.json` (default `true`) |
 | `onReady` | no | Callback `(handle) => {}` when init completes |
 
-`utils/viewer_html.render_compare()` writes an `index.html` that calls `createCompare()` — see `output/compare/` for a working example.
+`utils/viewer_html.render_compare()` writes an `index.html` that calls `createCompare()` — see `output/compare/` for a hand-built working example, or generate a real one with [`pdb --compare --model`](#comparing-a-reference-structure-against-a-predicted-model) above, whose `viewer/ref/` and `viewer/model/` folders are exactly the per-panel `baseUrl` folders this API expects.
 
 ### iframe fallback
 

@@ -2796,8 +2796,12 @@ def _emit_compare_viewer(
 
     Reference 2D and model 2D panels share the reference's combined layout
     (one ``apiData`` with per-nucleotide ``chain_ids``); each carries its own
-    ``fr3dData`` inline.  A single shared Mol* loads the reference structure.
-    Data is inlined, so the PDB-id fetch router is disabled (``fetch_shim``).
+    ``fr3dData``. Both are written to ``ref/`` / ``model/`` subfolders next to
+    ``index.html`` rather than inlined, so each panel's ``baseUrl`` points at
+    its own folder and the client fetches ``api.json``/``fr3d.json``/``lbn.json``
+    from there (same mechanism as the single-structure ``pdb_2d_3d`` viewer).
+    A single shared Mol* loads the reference structure from the viewer root
+    (``baseUrl: "."``, since the panels' own ``baseUrl``s now point elsewhere).
 
     ``model_file`` supplies a real predicted structure whose base pairs are
     extracted and drawn on the reference coordinates (approach B).  Without it,
@@ -3015,6 +3019,19 @@ def _emit_compare_viewer(
             str(score_offsets[i] + 1): model_result.chain_of[i]
             for i in range(len(model_result.chain_of))
         }
+        # label-maps.json lives in model/ alongside that panel's own data (the
+        # panels' ref/ and model/ dirs are created below, but this write runs
+        # first, so make sure model/ exists here too).
+        model_dir = viewer_dir / "model"
+        model_dir.mkdir(exist_ok=True)
+        (model_dir / "label-maps.json").write_text(
+            json.dumps(
+                {
+                    "labelToAuth": model_label_to_auth,
+                    "labelToChain": model_label_to_chain,
+                }
+            )
+        )
         overlays.append(
             {
                 "structureId": model_id,
@@ -3022,8 +3039,7 @@ def _emit_compare_viewer(
                 "structureFormat": "cif",
                 # Best predicted model: dark blue (CASP16 scheme).
                 "baseColor": _CASP_MODEL_BLUE,
-                "labelToAuth": model_label_to_auth,
-                "labelToChain": model_label_to_chain,
+                "baseUrl": "model/",
             }
         )
 
@@ -3052,36 +3068,63 @@ def _emit_compare_viewer(
     ref_pair_keys = _pair_keys((i, j) for i, j, _ in result.all_pairs)
     model_pair_keys = _pair_keys((i, j) for i, j, _ in model_all_pairs)
 
+    # Write each panel's data as sibling JSON files instead of inlining it into
+    # index.html: the client already fetches api.json/fr3d.json/lbn.json from a
+    # panel's own baseUrl when they aren't passed inline (resolvePanelData() in
+    # r2dt-2d-3d-viewer.js), so this is a pure generation-side change. Keeps
+    # index.html small and the raw data independently fetchable/cacheable.
+    ref_dir = viewer_dir / "ref"
+    model_dir = viewer_dir / "model"
+    ref_dir.mkdir(exist_ok=True)
+    model_dir.mkdir(exist_ok=True)
+    ref_lbn = lbn_export.build_lbn_data(api_data, ref_fr3d)
+    model_lbn = lbn_export.build_lbn_data(model_api_data, model_fr3d)
+    (ref_dir / "api.json").write_text(json.dumps(api_data))
+    (ref_dir / "fr3d.json").write_text(json.dumps(ref_fr3d))
+    (ref_dir / "lbn.json").write_text(json.dumps(ref_lbn))
+    (model_dir / "api.json").write_text(json.dumps(model_api_data))
+    (model_dir / "fr3d.json").write_text(json.dumps(model_fr3d))
+    (model_dir / "lbn.json").write_text(json.dumps(model_lbn))
+    # Also drop a root-level copy of the reference's data (duplicated from
+    # ref/): the shared Mol* pane below always links panelIndex 0 (reference)
+    # and resolves its own api.json/fr3d.json relative to the viewer root, not
+    # the panel's baseUrl, so those two files need to exist there too.
+    (viewer_dir / "api.json").write_text(json.dumps(api_data))
+    (viewer_dir / "fr3d.json").write_text(json.dumps(ref_fr3d))
+    # otherPairKeys is the *other* panel's base-pair position keys, used only
+    # to classify this panel's own list as TP/FP/FN -- same size concern as
+    # apiData/fr3dData, so it goes in bp-compare.json alongside them rather
+    # than inline in the panel dict.
+    (ref_dir / "bp-compare.json").write_text(json.dumps(model_pair_keys))
+    (model_dir / "bp-compare.json").write_text(json.dumps(ref_pair_keys))
+
     panels = [
         {
             "title": f"{structure_id} (reference)",
             "subtitle": f"2D · chains {chains_label}",
             "structureId": _safe_id(structure_id),
             "chainId": "",
-            "structureUrl": structure_name,
+            "baseUrl": "ref/",
+            "structureUrl": f"../{structure_name}",
             "structureFormat": actual_format,
-            "apiData": api_data,
-            "fr3dData": ref_fr3d,
-            "lbnData": lbn_export.build_lbn_data(api_data, ref_fr3d),
-            "bpCompare": {"role": "reference", "otherKeys": model_pair_keys},
+            "bpCompare": {"role": "reference"},
         },
         {
             "title": f"{model_id} ({model_tag})",
             "subtitle": f"2D · chains {chains_label}",
             "structureId": _safe_id(model_id),
             "chainId": "",
-            "structureUrl": structure_name,
+            "baseUrl": "model/",
+            "structureUrl": f"../{structure_name}",
             "structureFormat": actual_format,
-            "apiData": model_api_data,
-            "fr3dData": model_fr3d,
-            "bpCompare": {"role": "model", "otherKeys": ref_pair_keys},
-            "lbnData": lbn_export.build_lbn_data(model_api_data, model_fr3d),
+            "bpCompare": {"role": "model"},
         },
     ]
     if chain_views:
         panels[0]["chainViews"] = chain_views
     molstar = {
         "panelIndex": 0,
+        "baseUrl": ".",
         "structureId": structure_id,
         "structureUrl": structure_name,
         "structureFormat": actual_format,
@@ -3107,7 +3150,6 @@ def _emit_compare_viewer(
         subtitle=f"chains {chains_label} · shared 3D",
         panels=panels,
         molstar=molstar,
-        fetch_shim=False,
         metrics=inf_metrics,
     )
 

@@ -735,12 +735,17 @@
   overflow: visible;
 }
 
-#pdb-molstar .msp-layout-main {
+#pdb-molstar .msp-layout-main,
+.r2dt-panel--3d .msp-layout-main {
   overflow: hidden;
   border-radius: 7px;
 }
 
-#pdb-molstar .msp-plugin-content {
+/* Mol* sets border on `.msp-plugin .msp-layout-standard` and loads after this
+   file, so compare panels (no #pdb-molstar id) need equal-or-higher specificity. */
+#pdb-molstar .msp-plugin-content,
+#pdb-molstar .msp-layout-standard,
+.r2dt-panel--3d .msp-plugin .msp-layout-standard {
   border: none;
 }
 
@@ -964,16 +969,34 @@
 }
 
 .lbn-row {
+  /* max-content so the row box spans the full sequence; otherwise sticky
+     labels only work for ~one viewport width, then scroll away. */
+  width: max-content;
+  min-width: 100%;
   font-family: "Courier New", Courier, monospace;
   font-size: 12px;
   white-space: pre;
   line-height: 1.6;
 }
 
+/* Sticky left gutter: labels stay put while the sequence scrolls horizontally.
+   Opaque background + right mask so glyphs never show through underneath. */
 .lbn-label {
   display: inline-block;
-  width: 7ch;
-  color: #888;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 8ch; /* 7ch text + trailing ":" */
+  color: #111827;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  background: #fafafa;
+  /* Hard mask to the right of the label (shadow alone can look soft/grey). */
+  box-shadow: 1ch 0 0 #fafafa;
+  padding: 0 1ch 0 0;
+  margin-right: 0.25ch;
+  box-sizing: content-box;
 }
 
 .lbn-nt,
@@ -1022,14 +1045,24 @@
 }
 
 .lbn-row--hidden .lbn-label {
-  color: #c9ced6;
+  color: #9ca3af;
+  font-weight: 600;
 }
 
 .r2dt-viewer-lbn-caption {
   margin: 0 0 8px;
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.4;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.lbn-legend {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 /* --- Shared compare-mode LBN widget (both structures, TP/FP/FN) -------- */
@@ -1045,23 +1078,17 @@
 .lbn-bp--fp { color: #e6194b; }
 .lbn-bp--fn { color: #4363d8; }
 
-.lbn-legend {
-  display: inline-block;
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
-/* Wider than the single-viewer 7ch label so "cWW(2) · mdl" still fits;
+/* Wider than the single-viewer gutter so "cWW(2) · mdl:" still fits;
    every row (incl. the shared seq row) must share one width so nucleotide
    columns stay aligned down the page. */
 .r2dt-compare-lbn .lbn-label {
-  width: 12ch;
+  width: 13ch; /* 12ch text + trailing ":" */
 }
 
-/* Each row belongs to one source structure: colour its label + a left-edge
-   stripe (reference green / model blue, matching the 3D overlay colours) so
-   "which structure is this row" reads at a glance without relying on the
-   TP/FP/FN bracket colours alone. */
+/* Each row belongs to one source structure: colour its sticky label + a
+   left-edge stripe (reference green / model blue, matching the 3D overlay
+   colours) so "which structure is this row" reads at a glance without
+   relying on the TP/FP/FN bracket colours alone. */
 .r2dt-compare-lbn .lbn-row[data-panel-idx] {
   border-left: 3px solid transparent;
   padding-left: 6px;
@@ -1072,12 +1099,12 @@
   border-left-color: #00a651;
 }
 .lbn-label--reference {
-  color: #00a651;
+  color: #047857;
 }
 
 .lbn-row--model {
   border-left-color: #1a3a8c;
 }
 .lbn-label--model {
-  color: #1a3a8c;
+  color: #1e3a8a;
 }
