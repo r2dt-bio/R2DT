@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from utils.workstation.chrome import normalize_job_mode
+
 
 def utc_now() -> str:
     """Return an ISO-8601 UTC timestamp."""
@@ -27,8 +29,8 @@ class Catalog:
         self.inputs_dir.mkdir(parents=True, exist_ok=True)
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
 
-    def list_jobs(self) -> List[Dict[str, Any]]:
-        """Return all jobs, newest first. Rebuilds from meta.json if needed."""
+    def list_jobs(self, mode: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return jobs, newest first. Optional ``mode`` filters by job type."""
         jobs = []
         for child in sorted(self.jobs_dir.iterdir(), reverse=True):
             if not child.is_dir():
@@ -37,6 +39,9 @@ class Catalog:
             if meta:
                 jobs.append(meta)
         self._write_catalog(jobs)
+        if mode:
+            want = normalize_job_mode(mode)
+            return [j for j in jobs if normalize_job_mode(j.get("mode")) == want]
         return jobs
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -52,24 +57,38 @@ class Catalog:
         return self.inputs_dir / job_id
 
     def read_meta(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Load ``jobs/<id>/meta.json``."""
+        """Load ``jobs/<id>/meta.json``; tag legacy jobs as compare."""
         path = self.job_dir(job_id) / "meta.json"
         if not path.is_file():
             return None
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            meta = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return None
+        if not isinstance(meta, dict):
+            return None
+        normalized = normalize_job_mode(meta.get("mode"))
+        if meta.get("mode") != normalized:
+            meta = dict(meta)
+            meta["mode"] = normalized
+            meta["id"] = job_id
+            self._persist_meta_file(job_id, meta)
+        return meta
 
-    def write_meta(self, job_id: str, meta: Dict[str, Any]) -> None:
-        """Persist meta.json and refresh catalog.json."""
+    def _persist_meta_file(self, job_id: str, meta: Dict[str, Any]) -> None:
+        """Write meta.json without refreshing the catalog (avoids recursion)."""
         job_path = self.job_dir(job_id)
         job_path.mkdir(parents=True, exist_ok=True)
-        meta = dict(meta)
-        meta["id"] = job_id
         (job_path / "meta.json").write_text(
             json.dumps(meta, indent=2) + "\n", encoding="utf-8"
         )
+
+    def write_meta(self, job_id: str, meta: Dict[str, Any]) -> None:
+        """Persist meta.json and refresh catalog.json."""
+        meta = dict(meta)
+        meta["id"] = job_id
+        meta["mode"] = normalize_job_mode(meta.get("mode"))
+        self._persist_meta_file(job_id, meta)
         self.list_jobs()
 
     def update_meta(self, job_id: str, **fields: Any) -> Optional[Dict[str, Any]]:

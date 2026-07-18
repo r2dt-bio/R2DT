@@ -63,7 +63,7 @@
   }
 
   function loadJobs() {
-    return fetch("/api/jobs").then(function (r) { return r.json(); }).then(function (data) {
+    return fetch("/api/jobs?mode=compare").then(function (r) { return r.json(); }).then(function (data) {
       state.jobs = data.jobs || [];
       renderJobs();
       maybePoll();
@@ -143,7 +143,7 @@
     var tbody = $("rows");
     tbody.innerHTML = "";
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="12">No comparisons yet. Start one under New comparison.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12">No comparisons yet. Use New comparison to start one.</td></tr>';
       return;
     }
     rows.forEach(function (j) {
@@ -327,7 +327,7 @@
         model_upload_id: state.model.upload_id,
         chains: chains,
         model_chains: modelChains,
-        mode: $("mode").value,
+        mode: $("layout-mode").value,
         basepairs: $("basepairs").value,
         label: $("label").value,
         notes: $("notes").value,
@@ -347,6 +347,9 @@
         status.className = "form-status ok";
         status.textContent = "Job queued: " + body.job.id;
       }
+      if (window.location.pathname !== "/compare") {
+        window.history.replaceState({}, "", "/compare");
+      }
       showPanel("dashboard");
       return loadJobs();
     }).catch(function (err) {
@@ -357,9 +360,8 @@
   }
 
   function init() {
-    showPanel("dashboard");
-    $("new-comparison").addEventListener("click", function () { showPanel("new"); });
-    $("back-dashboard").addEventListener("click", function () { showPanel("dashboard"); });
+    var onNew = window.location.pathname.indexOf("/compare/new") === 0;
+    showPanel(onNew ? "new" : "dashboard");
     renderChainPicker("ref-chains", null, "ref");
     renderChainPicker("model-chains", null, "model");
     $("filter").addEventListener("input", renderJobs);

@@ -1,7 +1,6 @@
-"""Local curator workstation: private compare dashboard + job runner.
+"""Local R2DT workstation: private multi-mode web UI + job runner.
 
-See ``.ai/local-curator-workstation-plan.md``. Editing / export phases are
-not wired yet — this package covers dashboard + generate from uploads.
+See ``.ai/workstation-general-ui-plan.md``.
 """
 
 from utils.workstation.server import run_server

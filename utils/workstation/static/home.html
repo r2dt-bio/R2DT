@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2DT workstation</title>
+<!--HEAD-->
+</head>
+<body class="ws-home">
+<!--HEADER-->
+<main class="ws-home-main">
+  <section class="ws-hero">
+    <h1>R2DT workstation</h1>
+    <p class="ws-hero-lead">
+      A private local UI to run R2DT, keep a history of jobs, and reopen results.
+      Structures stay on this machine.
+    </p>
+  </section>
+
+  <section class="ws-mode-grid" aria-label="Modes">
+    <!--MODE_CARDS-->
+  </section>
+
+  <section class="ws-how">
+    <h2>How it works</h2>
+    <ol>
+      <li>Start with <code>just workstation</code> (Docker required).</li>
+      <li>Pick a mode above — each has its own job list and launch form.</li>
+      <li>Upload inputs, run the job, and reopen results anytime from that mode’s dashboard.</li>
+      <li>Cache lives in <code>~/.r2dt-workstation</code> (mounted at <code>/workspace</code> in Docker).</li>
+    </ol>
+  </section>
+</main>
+<footer class="ws-footer">
+  <span id="runtime"></span>
+</footer>
+<script src="/static/runtime.js"></script>
+</body>
+</html>

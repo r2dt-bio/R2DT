@@ -1,8 +1,7 @@
-"""Stdlib HTTP server for the local curator workstation."""
+"""Stdlib HTTP server for the local R2DT workstation."""
 
 from __future__ import annotations
 
-import html as html_lib
 import json
 import mimetypes
 import re
@@ -17,6 +16,13 @@ from rich import print as rprint
 from utils.workstation import edits as edits_mod
 from utils.workstation.catalog import Catalog
 from utils.workstation.chains import is_structure_filename, list_rna_chains
+from utils.workstation.chrome import (
+    FAVICON_LINKS,
+    MODE_BY_PATH,
+    MODES,
+    chrome_header,
+    normalize_job_mode,
+)
 from utils.workstation.jobs import (
     JobRunner,
     create_job_from_uploads,
@@ -25,43 +31,62 @@ from utils.workstation.jobs import (
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-
-def _viewer_chrome_html(job_id: str, label: str = "") -> str:
-    """Sticky header injected into job viewer pages (brand links home)."""
-    job_label = (label or "").strip() or job_id
-    safe_label = html_lib.escape(job_label, quote=True)
-    safe_id = html_lib.escape(job_id, quote=True)
-    return (
-        '<header class="ws-chrome">'
-        '<a class="ws-chrome-brand" href="/" title="Back to dashboard">'
-        '<img class="ws-chrome-logo" src="/static/r2dt-logo-blue.svg" alt="">'
-        "<span>R2DT workstation</span>"
-        "</a>"
-        f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
-        "</header>\n"
-    )
-
-
-_FAVICON_LINKS = (
-    '<link rel="icon" type="image/png" href="/static/favicon/favicon-96x96.png" '
-    'sizes="96x96">\n'
-    '<link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg">\n'
-    '<link rel="shortcut icon" href="/static/favicon/favicon.ico">\n'
-    '<link rel="apple-touch-icon" sizes="180x180" '
-    'href="/static/favicon/apple-touch-icon.png">\n'
+_HEAD_LINKS = (
+    FAVICON_LINKS
+    + '<link rel="stylesheet" href="/static/chrome.css">\n'
+    + '<link rel="stylesheet" href="/static/style.css">\n'
 )
 
 
-def _inject_viewer_chrome(html: str, job_id: str, label: str = "") -> str:
+def _fill_page(template: str, *, active_path: Optional[str] = None, **repl) -> str:
+    """Substitute <!--HEADER--> / <!--HEAD--> and optional string placeholders."""
+    html = template.replace("<!--HEAD-->", _HEAD_LINKS)
+    html = html.replace("<!--HEADER-->", chrome_header(active_path=active_path))
+    for key, value in repl.items():
+        html = html.replace(f"<!--{key}-->", str(value))
+    return html
+
+
+def _mode_cards_html() -> str:
+    cards = []
+    for mode in MODES:
+        path = mode["path"]
+        title = mode["title"]
+        blurb = mode["blurb"]
+        if mode["ready"]:
+            href = f"/{path}"
+            cta = mode["cta"]
+            extra = f'<a class="ws-card-cta" href="{href}/new">{cta}</a>'
+            dash = f'<a class="ws-card-dash" href="{href}">View jobs →</a>'
+        else:
+            href = f"/{path}"
+            extra = '<span class="ws-card-soon">Coming soon</span>'
+            dash = f'<a class="ws-card-dash" href="{href}">Open mode →</a>'
+        cards.append(
+            f'<article class="ws-mode-card">'
+            f'<h2><a href="{href}">{title}</a></h2>'
+            f"<p>{blurb}</p>"
+            f'<div class="ws-card-actions">{extra}{dash}</div>'
+            f"</article>"
+        )
+    return "\n".join(cards)
+
+
+def _inject_viewer_chrome(
+    html: str,
+    job_id: str,
+    label: str = "",
+    active_path: str = "compare",
+) -> str:
     """Add shared workstation chrome to a viewer index.html (idempotent)."""
     if "ws-chrome" in html:
         return html
-    head = _FAVICON_LINKS + '<link rel="stylesheet" href="/static/chrome.css">\n'
+    head = FAVICON_LINKS + '<link rel="stylesheet" href="/static/chrome.css">\n'
     if "</head>" in html:
         html = html.replace("</head>", head + "</head>", 1)
     else:
         html = head + html
-    header = _viewer_chrome_html(job_id, label)
+    header = chrome_header(active_path=active_path, job_label=label, job_id=job_id)
     match = re.search(r"<body([^>]*)>", html, flags=re.IGNORECASE)
     if match:
         insert_at = match.end()
@@ -140,7 +165,7 @@ def run_server(
 
 
 class WorkstationHandler(BaseHTTPRequestHandler):
-    """Route table for the curator workstation."""
+    """Route table for the local R2DT workstation."""
 
     server_version = "R2DTWorkstation/0.1"
 
@@ -185,7 +210,22 @@ class WorkstationHandler(BaseHTTPRequestHandler):
     def _route(self, method: str, path: str, parsed) -> bool:
         # pylint: disable=too-many-return-statements,too-many-branches
         if method == "GET" and path in ("/", "/index.html"):
-            self._send_file(STATIC_DIR / "index.html")
+            self._serve_home()
+            return True
+        if method == "GET" and path in ("/compare", "/compare/"):
+            self._serve_compare()
+            return True
+        if method == "GET" and path in ("/compare/new", "/compare/new/"):
+            self._serve_compare()
+            return True
+        match = re.fullmatch(r"/(2d|pdb|align)/?", path)
+        if method == "GET" and match:
+            self._serve_coming_soon(match.group(1))
+            return True
+        match = re.fullmatch(r"/(2d|pdb|align)/new/?", path)
+        if method == "GET" and match:
+            # Forms not ready yet — send users to the mode stub.
+            self._redirect(f"/{match.group(1)}")
             return True
         if method == "GET" and path.startswith("/static/"):
             self._serve_static(path[len("/static/") :])
@@ -194,7 +234,10 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send(*_json_bytes(self._runtime_payload()))
             return True
         if method == "GET" and path == "/api/jobs":
-            self._send(*_json_bytes({"jobs": self.app.catalog.list_jobs()}))
+            qs = parse_qs(parsed.query)
+            mode = (qs.get("mode") or [None])[0]
+            jobs = self.app.catalog.list_jobs(mode=mode)
+            self._send(*_json_bytes({"jobs": jobs}))
             return True
         match = re.fullmatch(r"/api/jobs/([^/]+)", path)
         if method == "GET" and match:
@@ -227,6 +270,38 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if method == "DELETE" and match:
             return self._delete_job(match.group(1))
         return False
+
+    def _serve_home(self) -> None:
+        raw = (STATIC_DIR / "home.html").read_text(encoding="utf-8")
+        html = _fill_page(raw, active_path=None)
+        html = html.replace("<!--MODE_CARDS-->", _mode_cards_html())
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_compare(self) -> None:
+        raw = (STATIC_DIR / "compare.html").read_text(encoding="utf-8")
+        html = _fill_page(raw, active_path="compare")
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_coming_soon(self, path_key: str) -> None:
+        mode = MODE_BY_PATH.get(path_key)
+        if not mode:
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return
+        raw = (STATIC_DIR / "coming-soon.html").read_text(encoding="utf-8")
+        html = _fill_page(
+            raw,
+            active_path=path_key,
+            TITLE=mode["title"],
+            BLURB=mode["blurb"],
+        )
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _redirect(self, location: str, status: int = 302) -> None:
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _get_job(self, job_id: str) -> bool:
         job = self.app.catalog.get_job(job_id)
@@ -318,6 +393,8 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             payload = json.loads(raw.decode("utf-8"))
         except ValueError as exc:
             raise ValueError("Invalid JSON body") from exc
+        # Layout mode (auto/templated/…) — job type is always compare for now.
+        layout_mode = payload.get("layout_mode") or payload.get("mode") or "auto"
         result = create_job_from_uploads(
             self.app.catalog,
             self.app.runner,
@@ -325,7 +402,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             model_upload_id=payload.get("model_upload_id") or "",
             chains=list(payload.get("chains") or []),
             model_chains=list(payload.get("model_chains") or []),
-            mode=payload.get("mode") or "auto",
+            mode=layout_mode,
             basepairs=payload.get("basepairs") or "fr3d",
             label=payload.get("label") or "",
             notes=payload.get("notes") or "",
@@ -392,8 +469,13 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if target.name == "index.html":
             meta = self.app.catalog.read_meta(job_id) or {}
             label = str(meta.get("label") or job_id)
+            job_mode = normalize_job_mode(meta.get("mode"))
+            active = next((m["path"] for m in MODES if m["id"] == job_mode), "compare")
             html = _inject_viewer_chrome(
-                target.read_text(encoding="utf-8"), job_id, label
+                target.read_text(encoding="utf-8"),
+                job_id,
+                label,
+                active_path=active,
             )
             self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
             return

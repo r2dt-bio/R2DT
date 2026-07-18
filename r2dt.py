@@ -4022,8 +4022,9 @@ def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
 )
 def workstation(workspace, port, bind, docker_image):
     """
-    Start the private local curator workstation (compare dashboard).
+    Start the private local R2DT workstation (web UI).
 
+    Homepage plus mode dashboards for 2D, 2D+3D, compare, and alignments.
     Requires Docker. Prefer ``just workstation``, which publishes the port
     to 127.0.0.1 only and mounts ~/.r2dt-workstation.
     """

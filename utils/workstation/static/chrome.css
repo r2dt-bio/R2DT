@@ -23,11 +23,12 @@
 }
 
 /* Cancel typical page body padding so the bar is full-bleed. */
-body.ws-dashboard .ws-chrome {
+body.ws-dashboard .ws-chrome,
+body.ws-home .ws-chrome {
   margin: 0 0 20px;
   flex-shrink: 0;
 }
-body:not(.ws-dashboard) .ws-chrome {
+body:not(.ws-dashboard):not(.ws-home) .ws-chrome {
   margin: -16px -16px 16px;
 }
 
@@ -54,12 +55,38 @@ body:not(.ws-dashboard) .ws-chrome {
   flex-shrink: 0;
 }
 
+.ws-chrome-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+  align-items: center;
+}
+
+.ws-chrome-link {
+  color: var(--muted, #6b7280);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ws-chrome-link:hover {
+  color: var(--ws-brand);
+  background: color-mix(in srgb, var(--ws-brand) 8%, transparent);
+}
+.ws-chrome-link.is-active {
+  color: var(--ws-brand);
+  background: color-mix(in srgb, var(--ws-brand) 12%, transparent);
+  font-weight: 600;
+}
+
 .ws-chrome-job {
   margin-left: auto;
   color: var(--muted, #6b7280);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  max-width: min(420px, 50vw);
+  max-width: min(420px, 40vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -73,5 +100,12 @@ body:not(.ws-dashboard) .ws-chrome {
   }
   .ws-chrome-brand {
     color: #a5b4fc;
+  }
+  .ws-chrome-link.is-active {
+    color: #c7d2fe;
+    background: color-mix(in srgb, #6366f1 25%, transparent);
+  }
+  .ws-chrome-link:hover {
+    color: #c7d2fe;
   }
 }

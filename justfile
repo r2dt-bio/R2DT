@@ -210,7 +210,7 @@ ws1-viewers tag=default_tag:
 viewers-serve:
     python3 -m http.server -d {{ viewers_dir }} {{ port }}
 
-# Private local curator workstation (compare dashboard + generate).
+# Private local R2DT workstation (homepage + mode dashboards).
 # Docker required. Publishes only to 127.0.0.1; cache in ~/.r2dt-workstation.
 workstation tag=default_tag ws_port="8765":
     #!/usr/bin/env bash

@@ -360,6 +360,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
     )
     meta: Dict[str, Any] = {
         "id": job_id,
+        "mode": "compare",
         "label": display,
         "notes": notes.strip(),
         "created": utc_now(),
