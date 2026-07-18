@@ -374,13 +374,37 @@
         setTimeout(resolve, 1500);
       }
     });
-    // Mol*'s auto camera-clipping ties fog density to the current view radius,
-    // so it reads as "fog turning on" whenever focusLoci zooms tight on a
-    // single nucleotide. Disable it outright rather than fighting the radius math.
-    if (molstar.plugin && molstar.plugin.canvas3d) {
-      molstar.plugin.canvas3d.setProps({ cameraFog: { name: 'off', params: {} } });
-    }
+    keepFogAndOcclusionOff(molstar);
     return molstar;
+  }
+
+  // Mol*'s auto camera-clipping ties fog density to the current view radius,
+  // and ambient occlusion's shadowing gets a lot more visible too, so both read
+  // as "switching on" whenever focusLoci zooms tight on a single nucleotide.
+  // cameraFog has a real discriminated "off" state and setting it once here
+  // reliably sticks. postprocessing.occlusion and cameraClipping.radius do not
+  // -- occlusion gets reset back to Mol*'s default at some later,
+  // unpredictable point (confirmed at least once, right after the compare
+  // view's overlay structure loads, but re-asserting right after that specific
+  // load isn't enough either, so that isn't the only reset), and
+  // cameraClipping.radius looks to be recomputed continuously from the camera
+  // view every frame rather than a static setting, so nothing short of a
+  // per-frame override would pin it. Re-asserting all three on an interval is
+  // a best-effort, not a confirmed fix, for the latter two -- see
+  // .ai/molstar-fog-occlusion-clipping.md for the full investigation before
+  // spending more time on this.
+  function keepFogAndOcclusionOff(molstar) {
+    const apply = () => {
+      if (molstar && molstar.plugin && molstar.plugin.canvas3d) {
+        molstar.plugin.canvas3d.setProps({
+          cameraFog: { name: 'off', params: {} },
+          postprocessing: { occlusion: { name: 'off', params: {} } },
+          cameraClipping: { radius: 0 },
+        });
+      }
+    };
+    apply();
+    setInterval(apply, 1000);
   }
 
   function createMolstarSelector(molstar, labelToAuth, chainId, labelToChain) {
