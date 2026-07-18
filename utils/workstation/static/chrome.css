@@ -3,6 +3,7 @@
 
 :root {
   --ws-brand: #393185;
+  --ws-brand-soft: #5b52a3;
 }
 
 .ws-chrome {
@@ -10,10 +11,11 @@
   align-items: center;
   gap: 12px 20px;
   flex-wrap: wrap;
-  padding: 10px 20px;
-  background: var(--panel, #f9fafb);
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  color: var(--fg, #1f2937);
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(57, 49, 133, 0.12);
+  color: #222;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 14px;
   position: sticky;
@@ -22,7 +24,6 @@
   box-sizing: border-box;
 }
 
-/* Cancel typical page body padding so the bar is full-bleed. */
 body.ws-dashboard .ws-chrome,
 body.ws-home .ws-chrome {
   margin: 0 0 20px;
@@ -37,20 +38,19 @@ body:not(.ws-dashboard):not(.ws-home) .ws-chrome {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 20px;
   color: var(--ws-brand);
   text-decoration: none;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 .ws-chrome-brand:hover {
-  color: var(--ws-brand);
-  opacity: 0.85;
+  color: var(--ws-brand-soft);
 }
 .ws-chrome-logo {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: block;
   flex-shrink: 0;
 }
@@ -58,54 +58,57 @@ body:not(.ws-dashboard):not(.ws-home) .ws-chrome {
 .ws-chrome-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 2px;
+  gap: 6px 12px;
   align-items: center;
 }
 
 .ws-chrome-link {
-  color: var(--muted, #6b7280);
+  color: #555;
   text-decoration: none;
-  padding: 6px 10px;
+  padding: 7px 14px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 .ws-chrome-link:hover {
   color: var(--ws-brand);
-  background: color-mix(in srgb, var(--ws-brand) 8%, transparent);
+  background: rgba(57, 49, 133, 0.06);
+  border-color: rgba(57, 49, 133, 0.12);
 }
 .ws-chrome-link.is-active {
   color: var(--ws-brand);
-  background: color-mix(in srgb, var(--ws-brand) 12%, transparent);
+  background: #fff;
+  border-color: rgba(57, 49, 133, 0.28);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(57, 49, 133, 0.08);
+}
+
+.ws-chrome-ext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+  margin-left: auto;
+  font-size: 13px;
+}
+.ws-chrome-ext a {
+  color: #555;
+  text-decoration: none;
+  font-weight: 500;
+}
+.ws-chrome-ext a:hover {
+  color: var(--ws-brand);
+  text-decoration: underline;
 }
 
 .ws-chrome-job {
-  margin-left: auto;
-  color: var(--muted, #6b7280);
+  color: #666;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  max-width: min(420px, 40vw);
+  max-width: min(320px, 30vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (prefers-color-scheme: dark) {
-  .ws-chrome {
-    background: #111827;
-    border-bottom-color: #1f2937;
-    color: #e5e7eb;
-  }
-  .ws-chrome-brand {
-    color: #a5b4fc;
-  }
-  .ws-chrome-link.is-active {
-    color: #c7d2fe;
-    background: color-mix(in srgb, #6366f1 25%, transparent);
-  }
-  .ws-chrome-link:hover {
-    color: #c7d2fe;
-  }
 }

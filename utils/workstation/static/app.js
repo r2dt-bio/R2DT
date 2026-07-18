@@ -156,7 +156,7 @@
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td class="num">' + (seqMap[j.id] || "—") + "</td>" +
-        "<td>" + esc(j.label || j.id) + "</td>" +
+        labelCell(j) +
         "<td>" + esc(inputs.ref_name || "") + "</td>" +
         "<td>" + esc(inputs.model_name || "") + "</td>" +
         "<td>" + esc(params.chains || "") +
@@ -198,6 +198,17 @@
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function labelCell(j) {
+    var text = esc(j.label || j.id);
+    if (j.status === "ready" && j.viewer_url) {
+      return (
+        '<td><a class="ws-label-link" href="' + esc(j.viewer_url) +
+        '" target="_blank" rel="noopener">' + text + "</a></td>"
+      );
+    }
+    return "<td>" + text + "</td>";
   }
 
   function maybePoll() {

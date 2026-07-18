@@ -1,7 +1,6 @@
 (function () {
   var state = {
     jobs: [],
-    upload: null,
     pollTimer: null,
     sortKey: "created",
     sortDir: "desc",
@@ -55,7 +54,7 @@
   }
 
   function loadJobs() {
-    return fetch("/api/jobs?mode=pdb").then(function (r) { return r.json(); }).then(function (data) {
+    return fetch("/api/jobs?mode=align").then(function (r) { return r.json(); }).then(function (data) {
       state.jobs = data.jobs || [];
       renderJobs();
       maybePoll();
@@ -72,14 +71,20 @@
     return map;
   }
 
+  function rscapeLabel(params) {
+    if (params.ran_rscape) return "ran";
+    if (params.will_run_rscape) return "will run";
+    if (params.has_covariation) return "present";
+    return "—";
+  }
+
   function rowValue(j, key, seqMap) {
     var params = j.params || {};
-    var inputs = j.inputs || {};
     switch (key) {
       case "seq": return seqMap[j.id] || 0;
       case "label": return (j.label || j.id || "").toLowerCase();
-      case "structure": return (inputs.structure_name || "").toLowerCase();
-      case "chain": return String(params.chain || "");
+      case "rscape": return rscapeLabel(params);
+      case "stitch": return params.stitch ? 1 : 0;
       case "created": return j.created || "";
       case "status": return j.status || "";
       default: return "";
@@ -119,9 +124,9 @@
 
   function labelCell(j) {
     var text = esc(j.label || j.id);
-    if (j.status === "ready" && j.viewer_url) {
+    if (j.status === "ready" && j.results_url) {
       return (
-        '<td><a class="ws-label-link" href="' + esc(j.viewer_url) +
+        '<td><a class="ws-label-link" href="' + esc(j.results_url) +
         '" target="_blank" rel="noopener">' + text + "</a></td>"
       );
     }
@@ -132,8 +137,7 @@
     var q = ($("filter").value || "").trim().toLowerCase();
     var filtered = state.jobs.filter(function (j) {
       if (!q) return true;
-      var hay = [j.label, j.notes, j.id,
-        (j.inputs || {}).structure_name, (j.params || {}).chain].join(" ").toLowerCase();
+      var hay = [j.label, j.notes, j.id].join(" ").toLowerCase();
       return hay.indexOf(q) !== -1;
     });
     var seqMap = seqNumbers(state.jobs);
@@ -143,25 +147,25 @@
     var tbody = $("rows");
     tbody.innerHTML = "";
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7">No 2D+3D jobs yet. Use New 2D + 3D job to start one.</td></tr>';
+      tbody.innerHTML =
+        '<tr><td colspan="7">No alignment jobs yet. Use New alignment job to start one.</td></tr>';
       return;
     }
     rows.forEach(function (j) {
       var params = j.params || {};
-      var inputs = j.inputs || {};
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td class="num">' + (seqMap[j.id] || "—") + "</td>" +
         labelCell(j) +
-        "<td>" + esc(inputs.structure_name || "") + "</td>" +
-        "<td>" + esc(params.chain || "") + "</td>" +
+        "<td>" + esc(rscapeLabel(params)) + "</td>" +
+        "<td>" + (params.stitch ? "yes" : "no") + "</td>" +
         '<td title="' + esc(j.created || "") + '">' + esc(fmtDate(j.created)) + "</td>" +
         '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
         '<td class="actions-col"><div class="row-actions"></div></td>';
       var actions = tr.querySelector(".row-actions");
-      if (j.status === "ready" && j.viewer_url) {
+      if (j.status === "ready" && j.results_url) {
         var open = document.createElement("a");
-        open.href = j.viewer_url;
+        open.href = j.results_url;
         open.textContent = "Open";
         open.target = "_blank";
         open.rel = "noopener";
@@ -217,72 +221,14 @@
       .then(function () { return loadJobs(); });
   }
 
-  function selectedChain() {
-    var box = $("struct-chains").querySelector('input[type=radio]:checked');
-    return box ? box.value : "";
-  }
-
-  function renderChainPicker(info) {
-    var el = $("struct-chains");
-    if (!info) {
-      el.innerHTML = "<p class=\"hint\">Upload a structure to detect RNA chains.</p>";
-      return;
-    }
-    var chains = info.chains || [];
-    var html = "";
-    if (!chains.length) {
-      html += '<p class="err">No RNA chains detected.</p>';
-      el.innerHTML = html;
-      return;
-    }
-    html += '<p class="hint">' + esc(info.filename) + " · " + chains.length +
-      " RNA chain" + (chains.length === 1 ? "" : "s") +
-      " — select one for the interactive viewer.</p>";
-    chains.forEach(function (c, idx) {
-      var checked = idx === 0 ? " checked" : "";
-      html += '<label class="chain"><input type="radio" name="pdb-chain" value="' +
-        esc(c) + '"' + checked + "> " + esc(c) + "</label>";
-    });
-    el.innerHTML = html;
-  }
-
-  function uploadFile(file) {
-    var status = $("form-status");
-    status.className = "form-status";
-    status.textContent = "Uploading " + file.name + "…";
-    return fetch("/api/uploads", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "X-Filename": file.name,
-      },
-      body: file,
-    }).then(function (r) { return r.json().then(function (body) {
-      if (!r.ok) throw new Error(body.error || ("upload failed (" + r.status + ")"));
-      return body;
-    }); }).then(function (info) {
-      state.upload = info;
-      renderChainPicker(info);
-      status.textContent = "";
-    }).catch(function (err) {
-      status.className = "form-status err";
-      status.textContent = err.message || String(err);
-    });
-  }
-
   function onSubmit(ev) {
     ev.preventDefault();
     var status = $("form-status");
     status.className = "form-status";
-    if (!state.upload) {
+    var stockholm = ($("stockholm").value || "").trim();
+    if (!stockholm) {
       status.className = "form-status err";
-      status.textContent = "Upload a structure first.";
-      return;
-    }
-    var chain = selectedChain();
-    if (!chain) {
-      status.className = "form-status err";
-      status.textContent = "Select one RNA chain.";
+      status.textContent = "Paste or upload a Stockholm alignment first.";
       return;
     }
     status.textContent = "Starting job…";
@@ -291,11 +237,9 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        job_mode: "pdb",
-        upload_id: state.upload.upload_id,
-        chain: chain,
-        mode: $("layout-mode").value,
-        basepairs: $("basepairs").value,
+        job_mode: "align",
+        stockholm: stockholm,
+        stitch: $("stitch").checked,
         label: $("label").value,
         notes: $("notes").value,
         force: $("force").checked,
@@ -307,15 +251,13 @@
       });
     }).then(function (body) {
       $("generate").disabled = false;
-      if (body.dedup) {
-        status.className = "form-status ok";
-        status.textContent = "Already cached — opening existing job.";
-      } else {
-        status.className = "form-status ok";
-        status.textContent = "Job queued: " + body.job.id;
-      }
-      if (window.location.pathname !== "/pdb") {
-        window.history.replaceState({}, "", "/pdb");
+      status.className = "form-status ok";
+      var job = body.job || {};
+      status.textContent = body.dedup
+        ? "Identical job already cached: " + (job.label || job.id)
+        : "Queued " + (job.label || job.id);
+      if (window.location.pathname !== "/align") {
+        window.history.replaceState({}, "", "/align");
       }
       showPanel("dashboard");
       return loadJobs();
@@ -326,15 +268,67 @@
     });
   }
 
+  function initExamples() {
+    var host = $("examples");
+    var list = (window.R2DT_WS_EXAMPLES && window.R2DT_WS_EXAMPLES.align) || [];
+    if (!host || !list.length) return;
+    list.forEach(function (ex) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ws-example";
+      btn.textContent = ex.label;
+      if (ex.note) btn.title = ex.note;
+      btn.addEventListener("click", function () {
+        statusLoad(ex);
+        host.querySelectorAll(".ws-example").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+      });
+      host.appendChild(btn);
+    });
+  }
+
+  function statusLoad(ex) {
+    var status = $("form-status");
+    status.className = "form-status";
+    status.textContent = "Loading " + ex.label + "…";
+    fetch("/api/examples/stockholm/" + encodeURIComponent(ex.id))
+      .then(function (r) {
+        return r.json().then(function (body) {
+          if (!r.ok) throw new Error(body.error || "load failed");
+          return body;
+        });
+      })
+      .then(function (body) {
+        $("stockholm").value = body.stockholm || "";
+        if (!$("label").value) $("label").value = ex.label;
+        status.textContent = ex.note
+          ? "Loaded " + ex.label + " (" + ex.note + ")"
+          : "Loaded " + ex.label;
+      })
+      .catch(function (err) {
+        status.className = "form-status err";
+        status.textContent = err.message || String(err);
+      });
+  }
+
   function init() {
-    var onNew = window.location.pathname.indexOf("/pdb/new") === 0;
+    var onNew = window.location.pathname.indexOf("/align/new") === 0;
     showPanel(onNew ? "new" : "dashboard");
-    renderChainPicker(null);
+    initExamples();
     $("filter").addEventListener("input", renderJobs);
     $("refresh").addEventListener("click", function () { loadJobs(); loadRuntime(); });
-    $("struct-file").addEventListener("change", function (ev) {
+    $("stk-file").addEventListener("change", function (ev) {
       var f = ev.target.files && ev.target.files[0];
-      if (f) uploadFile(f);
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        $("stockholm").value = String(reader.result || "");
+        if (!$("label").value) {
+          $("label").value = f.name.replace(/\.(stk|sto|stockholm|txt)$/i, "");
+        }
+      };
+      reader.readAsText(f);
     });
     $("new-form").addEventListener("submit", onSubmit);
     document.querySelectorAll("#tbl thead th[data-sort]").forEach(function (th) {

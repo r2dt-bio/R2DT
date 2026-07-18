@@ -116,6 +116,17 @@
       .replace(/"/g, "&quot;");
   }
 
+  function labelCell(j) {
+    var text = esc(j.label || j.id);
+    if (j.status === "ready" && j.results_url) {
+      return (
+        '<td><a class="ws-label-link" href="' + esc(j.results_url) +
+        '" target="_blank" rel="noopener">' + text + "</a></td>"
+      );
+    }
+    return "<td>" + text + "</td>";
+  }
+
   function renderJobs() {
     var q = ($("filter").value || "").trim().toLowerCase();
     var filtered = state.jobs.filter(function (j) {
@@ -138,7 +149,7 @@
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td class="num">' + (seqMap[j.id] || "—") + "</td>" +
-        "<td>" + esc(j.label || j.id) + "</td>" +
+        labelCell(j) +
         "<td>" + esc(params.seq_id || "") + "</td>" +
         '<td class="num">' + (params.length != null ? params.length : "—") + "</td>" +
         "<td>" + esc(params.layout || "") + "</td>" +
@@ -248,9 +259,36 @@
     });
   }
 
+  function initExamples() {
+    var host = $("examples");
+    var list = (window.R2DT_WS_EXAMPLES && window.R2DT_WS_EXAMPLES.draw) || [];
+    if (!host || !list.length) return;
+    list.forEach(function (ex) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ws-example";
+      btn.textContent = ex.label;
+      if (ex.note) btn.title = ex.note;
+      btn.addEventListener("click", function () {
+        $("fasta").value = ex.fasta || "";
+        if (ex.layout && $("layout")) $("layout").value = ex.layout;
+        if (!$("label").value) $("label").value = ex.label;
+        host.querySelectorAll(".ws-example").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        $("form-status").className = "form-status";
+        $("form-status").textContent = ex.note
+          ? "Loaded " + ex.label + " (" + ex.note + ")"
+          : "Loaded " + ex.label;
+      });
+      host.appendChild(btn);
+    });
+  }
+
   function init() {
     var onNew = window.location.pathname.indexOf("/2d/new") === 0;
     showPanel(onNew ? "new" : "dashboard");
+    initExamples();
     $("filter").addEventListener("input", renderJobs);
     $("refresh").addEventListener("click", function () { loadJobs(); loadRuntime(); });
     $("fasta-file").addEventListener("change", function (ev) {

@@ -12,6 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from utils.workstation.align import (
+    find_cacofold_r2r_sto,
+    has_covariation_annotations,
+    list_align_result_svgs,
+    svg_gallery_entry,
+)
 from utils.workstation.catalog import Catalog, utc_now
 from utils.workstation.chains import ensure_mmcif, normalize_suffix, structure_stem
 from utils.workstation.fasta import FastaRecord, parse_fasta_records
@@ -183,6 +189,8 @@ class JobRunner:
             self._run_pdb_job(job_id, meta)
         elif job_mode == "draw":
             self._run_draw_job(job_id, meta)
+        elif job_mode == "align":
+            self._run_align_job(job_id, meta)
         else:
             self._run_compare_job(job_id, meta)
 
@@ -208,12 +216,15 @@ class JobRunner:
         )
         self.catalog.append_log(job_id, f"Job failed (exit {code})")
 
-    def _stream_command(self, job_id: str, cmd: List[str]) -> int:
+    def _stream_command(
+        self, job_id: str, cmd: List[str], *, cwd: Optional[Path] = None
+    ) -> int:
         self.catalog.append_log(job_id, "Command: " + " ".join(cmd))
         env = os.environ.copy()
+        workdir = str(cwd) if cwd is not None else str(self.repo_root)
         process = subprocess.Popen(  # pylint: disable=consider-using-with
             cmd,
-            cwd=str(self.repo_root),
+            cwd=workdir,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -273,6 +284,107 @@ class JobRunner:
         )
         code = self._stream_command(job_id, cmd)
         self._finish_draw_job(job_id, out_dir, code)
+
+    def _run_align_job(self, job_id: str, meta: Dict[str, Any]) -> None:
+        inputs_dir = self.catalog.inputs_job_dir(job_id)
+        out_dir = self.catalog.job_dir(job_id)
+        params = meta.get("params") or {}
+        inputs = meta.get("inputs") or {}
+        stockholm_path = inputs_dir / inputs["stockholm_name"]
+        stitch = bool(params.get("stitch", True))
+
+        text = stockholm_path.read_text(encoding="utf-8", errors="replace")
+        if has_covariation_annotations(text):
+            self.catalog.append_log(
+                job_id, "R-scape covariation annotations present — skipping R-scape"
+            )
+            sto_for_r2dt = stockholm_path
+            ran_rscape = False
+        else:
+            self.catalog.append_log(
+                job_id, "No cov_* annotations — running R-scape --cacofold"
+            )
+            sto_for_r2dt = self._run_rscape(job_id, stockholm_path, out_dir)
+            if sto_for_r2dt is None:
+                self.catalog.update_meta(
+                    job_id,
+                    status="failed",
+                    finished=utc_now(),
+                    error="R-scape did not produce a *.cacofold.R2R.sto file",
+                )
+                self.catalog.append_log(job_id, "Job failed (R-scape)")
+                return
+            ran_rscape = True
+
+        self.catalog.update_meta(
+            job_id,
+            params={
+                **params,
+                "ran_rscape": ran_rscape,
+                "stockholm_used": sto_for_r2dt.name,
+            },
+        )
+        cmd = self._build_stockholm_cmd(
+            stockholm_path=sto_for_r2dt,
+            out_dir=out_dir,
+            stitch=stitch,
+        )
+        code = self._stream_command(job_id, cmd)
+        self._finish_align_job(job_id, out_dir, code)
+
+    def _run_rscape(
+        self, job_id: str, stockholm_path: Path, out_dir: Path
+    ) -> Optional[Path]:
+        """Run R-scape --cacofold; return path to *.cacofold.R2R.sto or None."""
+        rscape_dir = out_dir / "rscape"
+        rscape_dir.mkdir(parents=True, exist_ok=True)
+        local_sto = rscape_dir / "alignment.stk"
+        shutil.copy2(stockholm_path, local_sto)
+        cmd = self._build_rscape_cmd(rscape_dir)
+        code = self._stream_command(
+            job_id, cmd, cwd=rscape_dir if in_docker() else None
+        )
+        if code != 0:
+            self.catalog.append_log(job_id, f"R-scape exited {code}")
+            return None
+        found = find_cacofold_r2r_sto(rscape_dir)
+        if found is None:
+            self.catalog.append_log(
+                job_id, "R-scape finished but no *.cacofold.R2R.sto found"
+            )
+            return None
+        self.catalog.append_log(job_id, f"Using R-scape output {found.name}")
+        return found
+
+    def _finish_align_job(self, job_id: str, out_dir: Path, code: int) -> None:
+        svgs = list_align_result_svgs(out_dir)
+        if code == 0 and svgs:
+            gallery = [svg_gallery_entry(p, out_dir) for p in svgs]
+            primary = gallery[0]["path"]
+            self.catalog.update_meta(
+                job_id,
+                status="ready",
+                finished=utc_now(),
+                results_url=f"/jobs/{job_id}/results/",
+                svg_path=primary,
+                svg_gallery=gallery,
+                error=None,
+            )
+            self.catalog.append_log(
+                job_id, f"Job completed successfully ({len(gallery)} SVG(s))"
+            )
+            return
+        self.catalog.update_meta(
+            job_id,
+            status="failed",
+            finished=utc_now(),
+            error=(
+                f"pipeline exited {code}"
+                if code
+                else "no SVG outputs under results/svg/"
+            ),
+        )
+        self.catalog.append_log(job_id, f"Job failed (exit {code})")
 
     def _finish_draw_job(self, job_id: str, out_dir: Path, code: int) -> None:
         svg = find_draw_svg(out_dir)
@@ -344,6 +456,76 @@ class JobRunner:
             str(fasta_path),
             str(out_dir),
             "--quiet",
+        ]
+
+    def _build_rscape_cmd(self, rscape_dir: Path) -> List[str]:
+        """Build R-scape --cacofold with cwd = rscape_dir (in- or out-of-docker)."""
+        if in_docker():
+            return ["R-scape", "--cacofold", "alignment.stk"]
+        workspace = self.catalog.workspace.resolve()
+        rel = rscape_dir.resolve().relative_to(workspace)
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{workspace}:/workspace",
+            "-w",
+            f"/workspace/{rel.as_posix()}",
+            self.docker_image,
+            "R-scape",
+            "--cacofold",
+            "alignment.stk",
+        ]
+
+    def _build_stockholm_cmd(
+        self,
+        stockholm_path: Path,
+        out_dir: Path,
+        stitch: bool,
+    ) -> List[str]:
+        """Build r2dt.py stockholm (in- or out-of-docker)."""
+        if in_docker():
+            return self._local_stockholm_cmd(stockholm_path, out_dir, stitch)
+        workspace = self.catalog.workspace.resolve()
+        repo = self.repo_root.resolve()
+        rel_sto = stockholm_path.resolve().relative_to(workspace)
+        rel_out = out_dir.resolve().relative_to(workspace)
+        inner = [
+            "python3",
+            "r2dt.py",
+            "stockholm",
+            f"/workspace/{rel_sto.as_posix()}",
+            f"/workspace/{rel_out.as_posix()}",
+            "--quiet",
+            "--stitch" if stitch else "--no-stitch",
+        ]
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{repo}:/rna/r2dt",
+            "-v",
+            f"{workspace}:/workspace",
+            "-w",
+            "/rna/r2dt",
+            self.docker_image,
+            *inner,
+        ]
+
+    @staticmethod
+    def _local_stockholm_cmd(
+        stockholm_path: Path, out_dir: Path, stitch: bool
+    ) -> List[str]:
+        return [
+            "python3",
+            "r2dt.py",
+            "stockholm",
+            str(stockholm_path),
+            str(out_dir),
+            "--quiet",
+            "--stitch" if stitch else "--no-stitch",
         ]
 
     def _build_compare_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments

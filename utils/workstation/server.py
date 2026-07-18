@@ -15,6 +15,12 @@ from urllib.parse import parse_qs, urlparse
 from rich import print as rprint
 
 from utils.workstation import edits as edits_mod
+from utils.workstation.align import (
+    EXAMPLE_STOCKHOLM,
+    create_align_job_from_stockholm,
+    list_align_result_svgs,
+    svg_gallery_entry,
+)
 from utils.workstation.catalog import Catalog
 from utils.workstation.chains import is_structure_filename, list_rna_chains
 from utils.workstation.chrome import (
@@ -236,11 +242,11 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             return True
         match = re.fullmatch(r"/align/?", path)
         if method == "GET" and match:
-            self._serve_coming_soon("align")
+            self._serve_align()
             return True
         match = re.fullmatch(r"/align/new/?", path)
         if method == "GET" and match:
-            self._redirect("/align")
+            self._serve_align()
             return True
         match = re.fullmatch(r"/jobs/([^/]+)/results(?:/(.*))?$", path)
         if method == "GET" and match:
@@ -252,6 +258,9 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/runtime":
             self._send(*_json_bytes(self._runtime_payload()))
             return True
+        match = re.fullmatch(r"/api/examples/stockholm/([^/]+)", path)
+        if method == "GET" and match:
+            return self._serve_stockholm_example(match.group(1))
         if method == "GET" and path == "/api/jobs":
             qs = parse_qs(parsed.query)
             mode = (qs.get("mode") or [None])[0]
@@ -310,6 +319,32 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         raw = (STATIC_DIR / "draw.html").read_text(encoding="utf-8")
         html = _fill_page(raw, active_path="2d")
         self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_align(self) -> None:
+        raw = (STATIC_DIR / "align.html").read_text(encoding="utf-8")
+        html = _fill_page(raw, active_path="align")
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_stockholm_example(self, example_id: str) -> bool:
+        rel = EXAMPLE_STOCKHOLM.get(example_id)
+        if not rel:
+            self._send(*_json_bytes({"error": "unknown example"}, 404))
+            return True
+        path = (self.app.repo_root / rel).resolve()
+        if not path.is_file() or not str(path).startswith(str(self.app.repo_root)):
+            self._send(*_json_bytes({"error": "example file missing"}, 404))
+            return True
+        text = path.read_text(encoding="utf-8")
+        self._send(
+            *_json_bytes(
+                {
+                    "id": example_id,
+                    "filename": path.name,
+                    "stockholm": text,
+                }
+            )
+        )
+        return True
 
     def _serve_coming_soon(self, path_key: str) -> None:
         mode = MODE_BY_PATH.get(path_key)
@@ -447,6 +482,17 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 force=bool(payload.get("force")),
             )
             status = 201 if result.get("created") else 200
+        elif job_mode == "align":
+            result = create_align_job_from_stockholm(
+                self.app.catalog,
+                self.app.runner,
+                stockholm_text=payload.get("stockholm") or "",
+                stitch=bool(payload.get("stitch", True)),
+                label=payload.get("label") or "",
+                notes=payload.get("notes") or "",
+                force=bool(payload.get("force")),
+            )
+            status = 200 if result.get("dedup") else 201
         else:
             layout_mode = payload.get("layout_mode") or payload.get("mode") or "auto"
             result = create_job_from_uploads(
@@ -518,6 +564,42 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         self, job_id: str, meta: Dict[str, Any], job_dir: Path
     ) -> None:
         label = str(meta.get("label") or job_id)
+        job_mode = normalize_job_mode(meta.get("mode"))
+        active = next((m["path"] for m in MODES if m["id"] == job_mode), "2d")
+        back_href = f"/{active}"
+        back_label = next((m["nav"] for m in MODES if m["id"] == job_mode), "jobs")
+        status = meta.get("status") or ""
+        raw = (STATIC_DIR / "results.html").read_text(encoding="utf-8")
+        html = raw.replace("<!--HEAD-->", _HEAD_LINKS)
+        html = html.replace(
+            "<!--HEADER-->",
+            chrome_header(active_path=active, job_label=label, job_id=job_id),
+        )
+        html = html.replace("<!--JOB_LABEL-->", html_lib.escape(label))
+        html = html.replace("<!--JOB_ID-->", html_lib.escape(job_id))
+        html = html.replace("<!--JOB_STATUS-->", html_lib.escape(str(status)))
+
+        if job_mode == "align":
+            preview = self._align_results_body(
+                job_id, meta, job_dir, status, back_href, back_label
+            )
+        else:
+            preview = self._draw_results_body(
+                job_id, meta, job_dir, status, label, back_href, back_label
+            )
+        html = html.replace("<!--RESULTS_BODY-->", preview)
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _draw_results_body(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        job_id: str,
+        meta: Dict[str, Any],
+        job_dir: Path,
+        status: str,
+        label: str,
+        back_href: str,
+        back_label: str,
+    ) -> str:
         svg = None
         if svg_rel := meta.get("svg_path"):
             candidate = job_dir / str(svg_rel)
@@ -525,20 +607,10 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 svg = candidate
         if svg is None:
             svg = find_draw_svg(job_dir)
-        status = meta.get("status") or ""
-        raw = (STATIC_DIR / "results.html").read_text(encoding="utf-8")
-        html = raw.replace("<!--HEAD-->", _HEAD_LINKS)
-        html = html.replace(
-            "<!--HEADER-->",
-            chrome_header(active_path="2d", job_label=label, job_id=job_id),
-        )
-        html = html.replace("<!--JOB_LABEL-->", html_lib.escape(label))
-        html = html.replace("<!--JOB_ID-->", html_lib.escape(job_id))
-        html = html.replace("<!--JOB_STATUS-->", html_lib.escape(str(status)))
         if svg is not None:
             rel = svg.relative_to(job_dir).as_posix()
             href = f"/jobs/{job_id}/results/{rel}"
-            preview = (
+            return (
                 f'<div class="ws-svg-wrap">'
                 f'<img class="ws-svg-preview" src="{html_lib.escape(href)}" '
                 f'alt="{html_lib.escape(label)}">'
@@ -546,22 +618,86 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 f'<p class="ws-results-actions">'
                 f'<a class="cta" href="{html_lib.escape(href)}" download>'
                 f"Download SVG</a>"
-                f'<a class="ws-stub-link" href="/2d">← Back to 2D jobs</a>'
+                f'<a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+                f"← Back to {html_lib.escape(back_label)} jobs</a>"
                 f"</p>"
             )
-        elif status in ("queued", "running"):
-            preview = (
+        if status in ("queued", "running"):
+            return (
                 '<p class="sub">Job still running — refresh this page shortly.</p>'
-                '<p><a class="ws-stub-link" href="/2d">← Back to 2D jobs</a></p>'
+                f'<p><a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+                f"← Back to {html_lib.escape(back_label)} jobs</a></p>"
             )
-        else:
-            err = html_lib.escape(str(meta.get("error") or "No SVG produced"))
-            preview = (
-                f'<p class="ws-coming">{err}</p>'
-                '<p><a class="ws-stub-link" href="/2d">← Back to 2D jobs</a></p>'
+        err = html_lib.escape(str(meta.get("error") or "No SVG produced"))
+        return (
+            f'<p class="ws-coming">{err}</p>'
+            f'<p><a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+            f"← Back to {html_lib.escape(back_label)} jobs</a></p>"
+        )
+
+    def _align_results_body(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        self,
+        job_id: str,
+        meta: Dict[str, Any],
+        job_dir: Path,
+        status: str,
+        back_href: str,
+        back_label: str,
+    ) -> str:
+        gallery = meta.get("svg_gallery") or []
+        if not gallery:
+            paths = list_align_result_svgs(job_dir)
+            gallery = [svg_gallery_entry(p, job_dir) for p in paths]
+        if gallery:
+            tiles = []
+            for entry in gallery:
+                rel = html_lib.escape(str(entry.get("path") or ""))
+                href = f"/jobs/{job_id}/results/{rel}"
+                caption = html_lib.escape(
+                    str(entry.get("caption") or entry.get("name"))
+                )
+                kind = html_lib.escape(str(entry.get("kind") or ""))
+                tiles.append(
+                    f'<figure class="ws-gallery-tile" data-kind="{kind}">'
+                    f"<figcaption>{caption}</figcaption>"
+                    f'<div class="ws-svg-wrap">'
+                    f'<img class="ws-svg-preview" src="{href}" alt="{caption}">'
+                    f"</div>"
+                    f'<a class="ws-stub-link" href="{href}" download>Download</a>'
+                    f"</figure>"
+                )
+            note = ""
+            params = meta.get("params") or {}
+            if params.get("ran_rscape"):
+                note = (
+                    '<p class="sub">R-scape was run automatically '
+                    "(no cov_* annotations in the input).</p>"
+                )
+            elif params.get("has_covariation"):
+                note = (
+                    '<p class="sub">Input already included R-scape '
+                    "covariation annotations.</p>"
+                )
+            return (
+                note
+                + f'<div class="ws-gallery">{"".join(tiles)}</div>'
+                + '<p class="ws-results-actions">'
+                + f'<a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+                + f"← Back to {html_lib.escape(back_label)} jobs</a>"
+                + "</p>"
             )
-        html = html.replace("<!--RESULTS_BODY-->", preview)
-        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+        if status in ("queued", "running"):
+            return (
+                '<p class="sub">Job still running — refresh this page shortly.</p>'
+                f'<p><a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+                f"← Back to {html_lib.escape(back_label)} jobs</a></p>"
+            )
+        err = html_lib.escape(str(meta.get("error") or "No SVG produced"))
+        return (
+            f'<p class="ws-coming">{err}</p>'
+            f'<p><a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
+            f"← Back to {html_lib.escape(back_label)} jobs</a></p>"
+        )
 
     def _serve_viewer(self, job_id: str, rel: str) -> None:
         # Always serve the latest R2DT glue/CSS from the repo so existing jobs

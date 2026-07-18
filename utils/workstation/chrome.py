@@ -41,7 +41,7 @@ MODES = (
         "title": "Alignments",
         "blurb": "Stockholm / R-scape alignments with covariation-annotated diagrams.",
         "cta": "New alignment job",
-        "ready": False,
+        "ready": True,
     },
 )
 
@@ -81,13 +81,21 @@ def chrome_header(
         label = html_lib.escape(mode["nav"])
         links.append(f'<a class="{cls}" href="{href}">{label}</a>')
     nav = '<nav class="ws-chrome-nav" aria-label="Modes">' + "".join(links) + "</nav>"
+    ext = (
+        '<nav class="ws-chrome-ext" aria-label="R2DT links">'
+        '<a href="https://docs.r2dt.bio" target="_blank" rel="noopener">Docs</a>'
+        '<a href="https://r2dt.bio" target="_blank" rel="noopener">r2dt.bio</a>'
+        '<a href="https://github.com/r2dt-bio/r2dt" target="_blank" rel="noopener">'
+        "GitHub</a>"
+        "</nav>"
+    )
     job = ""
     if job_label or job_id:
         display = (job_label or "").strip() or job_id
         safe_label = html_lib.escape(display, quote=True)
         safe_id = html_lib.escape(job_id or display, quote=True)
         job = f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
-    return f'<header class="ws-chrome">{brand}{nav}{job}</header>\n'
+    return f'<header class="ws-chrome">{brand}{nav}{ext}{job}</header>\n'
 
 
 FAVICON_LINKS = (
