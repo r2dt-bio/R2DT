@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2DT curator workstation</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>R2DT curator workstation</h1>
+  <p class="sub">Private local comparisons — structures stay on this machine.</p>
+  <p class="runtime" id="runtime"></p>
+</header>
+
+<nav class="tabs">
+  <button type="button" class="tab active" data-panel="dashboard">Dashboard</button>
+  <button type="button" class="tab" data-panel="new">New comparison</button>
+</nav>
+
+<section id="panel-dashboard" class="panel active">
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="Filter by label or filename…" autocomplete="off">
+    <button type="button" id="refresh">Refresh</button>
+    <span class="count" id="count"></span>
+  </div>
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>Reference</th>
+        <th>Model</th>
+        <th>Chains</th>
+        <th>Created</th>
+        <th class="num">INF WC</th>
+        <th class="num">INF non-WC</th>
+        <th class="num">INF all</th>
+        <th>BP (M/L/A)</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <pre id="log" class="log hidden" aria-live="polite"></pre>
+</section>
+
+<section id="panel-new" class="panel">
+  <form id="new-form">
+    <fieldset>
+      <legend>Structures</legend>
+      <div class="row">
+        <label>Reference (mmCIF required for compare)
+          <input type="file" id="ref-file" accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB">
+        </label>
+        <div id="ref-chains" class="chains"></div>
+      </div>
+      <div class="row">
+        <label>Model (PDB or mmCIF)
+          <input type="file" id="model-file" accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB">
+        </label>
+        <div id="model-chains" class="chains"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="row opts">
+        <label>Mode
+          <select id="mode">
+            <option value="auto" selected>auto</option>
+            <option value="templated">templated</option>
+            <option value="templatefree">templatefree</option>
+          </select>
+        </label>
+        <label>Base pairs
+          <select id="basepairs">
+            <option value="fr3d" selected>fr3d</option>
+            <option value="cif">cif</option>
+            <option value="rnaview">rnaview</option>
+          </select>
+        </label>
+        <label>Label
+          <input type="text" id="label" placeholder="Optional display name">
+        </label>
+      </div>
+      <label class="notes">Notes
+        <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="force"> Force re-run even if an identical job is cached
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="generate">Generate</button>
+      <span id="form-status" class="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

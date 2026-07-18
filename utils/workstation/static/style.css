@@ -1,0 +1,173 @@
+:root {
+  color-scheme: light dark;
+  --fg: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --bg: #fff;
+  --panel: #f9fafb;
+  --accent: #0f766e;
+  --danger: #b91c1c;
+  --ok: #15803d;
+  --warn: #a16207;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #1f2937;
+    --bg: #0b0f16;
+    --panel: #111827;
+    --accent: #2dd4bf;
+    --danger: #f87171;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  font-size: 14px;
+}
+
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 8px; font-size: 13px; }
+.runtime { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
+
+.tabs { display: flex; gap: 8px; margin: 0 0 16px; }
+.tab {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tab.active { border-color: var(--accent); color: var(--accent); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+}
+
+input[type=search], input[type=text], select, textarea {
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+}
+
+input[type=search] { min-width: 240px; }
+
+button {
+  padding: 7px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+}
+
+button.primary, #generate {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.danger { color: var(--danger); }
+
+.count { color: var(--muted); font-size: 12px; }
+
+table { border-collapse: collapse; width: 100%; }
+th, td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th { background: var(--panel); font-weight: 600; position: sticky; top: 0; }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr:hover td { background: color-mix(in srgb, var(--fg) 4%, transparent); }
+a { color: inherit; }
+.badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+.badge.ready { color: var(--ok); }
+.badge.running, .badge.queued { color: var(--warn); }
+.badge.failed { color: var(--danger); }
+
+.row-actions { display: flex; gap: 6px; }
+
+.log {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.hidden { display: none; }
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 16px;
+  padding: 12px 14px 16px;
+}
+legend { padding: 0 6px; color: var(--muted); font-size: 12px; }
+
+.row { margin: 0 0 14px; }
+.row.opts { display: flex; gap: 16px; flex-wrap: wrap; }
+label { display: block; font-size: 13px; }
+label > input[type=file],
+label > input[type=text],
+label > select,
+label > textarea { display: block; margin-top: 6px; width: min(420px, 100%); }
+.notes textarea { width: min(640px, 100%); }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+
+.chains {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  min-height: 2.5em;
+  color: var(--muted);
+  font-size: 13px;
+}
+.chains .hint { margin: 0 0 6px; }
+.chains label.chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 6px 0;
+  color: var(--fg);
+}
+.chains .warn { color: var(--warn); }
+.chains .err { color: var(--danger); }
+
+.actions { display: flex; gap: 12px; align-items: center; }
+.form-status { color: var(--muted); font-size: 13px; }
+.form-status.err { color: var(--danger); }
+.form-status.ok { color: var(--ok); }

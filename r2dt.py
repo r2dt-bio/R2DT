@@ -43,6 +43,7 @@ from utils import rnaview as rnaview_utils
 from utils import shared
 from utils import stockholm as stockholm_utils
 from utils import viewer_export, viewer_html
+from utils import workstation as workstation_mod
 from utils.rnartist import RnaArtist
 from utils.runner import runner
 from utils.scale_template import scale_coordinates
@@ -3997,6 +3998,46 @@ def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
         if not quiet:
             print(f"Error in RNAView extraction: {e}")
         return None, None
+
+
+@cli.command("workstation")
+@click.option(
+    "--workspace",
+    type=click.Path(),
+    default=None,
+    help="Local cache directory (default: ~/.r2dt-workstation).",
+)
+@click.option("--port", default=8765, show_default=True, type=int)
+@click.option(
+    "--bind",
+    default="127.0.0.1",
+    show_default=True,
+    help="Bind address. Use 0.0.0.0 only inside Docker with -p 127.0.0.1:PORT:PORT.",
+)
+@click.option(
+    "--docker-image",
+    default="rnacentral/r2dt:latest",
+    show_default=True,
+    help="Image used when the server runs on the host and spawns job containers.",
+)
+def workstation(workspace, port, bind, docker_image):
+    """
+    Start the private local curator workstation (compare dashboard).
+
+    Requires Docker. Prefer ``just workstation``, which publishes the port
+    to 127.0.0.1 only and mounts ~/.r2dt-workstation.
+    """
+    ws = (
+        Path(workspace).expanduser() if workspace else Path.home() / ".r2dt-workstation"
+    )
+    repo_root = Path(__file__).resolve().parent
+    workstation_mod.run_server(
+        workspace=ws,
+        repo_root=repo_root,
+        host=bind,
+        port=port,
+        docker_image=docker_image,
+    )
 
 
 if __name__ == "__main__":

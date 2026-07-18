@@ -210,6 +210,27 @@ ws1-viewers tag=default_tag:
 viewers-serve:
     python3 -m http.server -d {{ viewers_dir }} {{ port }}
 
+# Private local curator workstation (compare dashboard + generate).
+# Docker required. Publishes only to 127.0.0.1; cache in ~/.r2dt-workstation.
+workstation tag=default_tag ws_port="8765":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ws="${R2DT_WORKSPACE:-$HOME/.r2dt-workstation}"
+    mkdir -p "$ws"
+    echo "Workspace: $ws"
+    echo "Open http://127.0.0.1:{{ ws_port }}/  (Ctrl+C to stop)"
+    docker run {{ platform_arg }} --rm \
+        -p "127.0.0.1:{{ ws_port }}:{{ ws_port }}" \
+        -v "$(pwd):/rna/r2dt" \
+        -v "$ws:/workspace" \
+        -w /rna/r2dt \
+        {{ image }}:{{ tag }} \
+        python3 r2dt.py workstation \
+            --workspace /workspace \
+            --port {{ ws_port }} \
+            --bind 0.0.0.0 \
+            --docker-image {{ image }}:{{ tag }}
+
 # Publish the viewer gallery (incl. workstream1/) to Cloudflare Pages
 # (needs wrangler + CLOUDFLARE_API_TOKEN). Deploys all of viewers_dir, so run
 # `just viewers` and/or `just ws1-viewers` first to refresh its contents.
