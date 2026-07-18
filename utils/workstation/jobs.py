@@ -1,5 +1,7 @@
 """Docker / runtime checks and job execution for the workstation."""
 
+# pylint: disable=too-many-lines
+
 from __future__ import annotations
 
 import hashlib
@@ -12,6 +14,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from utils.workstation.advanced import (
+    append_draw_flags,
+    append_stockholm_flags,
+    append_structure_flags,
+    hash_draw_advanced,
+    hash_structure_advanced,
+    normalize_align_advanced,
+    normalize_draw_advanced,
+    normalize_structure_advanced,
+)
 from utils.workstation.align import (
     find_cacofold_r2r_sto,
     has_covariation_annotations,
@@ -81,6 +93,7 @@ def content_hash(  # pylint: disable=too-many-arguments,too-many-positional-argu
     model_chains: str,
     mode: str,
     basepairs: str,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Stable hash of compare inputs + generate params (edits are not included)."""
     digest = hashlib.sha256()
@@ -97,6 +110,7 @@ def content_hash(  # pylint: disable=too-many-arguments,too-many-positional-argu
     for part in (chains, model_chains, mode, basepairs):
         digest.update(part.encode("utf-8"))
         digest.update(b"\0")
+    hash_structure_advanced(digest, advanced or {})
     return "sha256:" + digest.hexdigest()
 
 
@@ -105,8 +119,9 @@ def pdb_content_hash(
     chain: str,
     mode: str,
     basepairs: str,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Stable hash for a single-structure 2D+3D job."""
+    """Stable hash for a single-structure pdb job."""
     digest = hashlib.sha256()
     digest.update(b"pdb\0")
     digest.update(structure_path.name.encode("utf-8"))
@@ -121,6 +136,7 @@ def pdb_content_hash(
     for part in (chain, mode, basepairs):
         digest.update(part.encode("utf-8"))
         digest.update(b"\0")
+    hash_structure_advanced(digest, advanced or {})
     return "sha256:" + digest.hexdigest()
 
 
@@ -250,6 +266,7 @@ class JobRunner:
             model_chains=params.get("model_chains") or "",
             mode=params.get("mode") or "auto",
             basepairs=params.get("basepairs") or "fr3d",
+            advanced=normalize_structure_advanced(params.get("advanced")),
         )
         code = self._stream_command(job_id, cmd)
         self._finish_viewer_job(job_id, out_dir, code)
@@ -266,6 +283,7 @@ class JobRunner:
             chain=params.get("chain") or "",
             mode=params.get("mode") or "auto",
             basepairs=params.get("basepairs") or "fr3d",
+            advanced=normalize_structure_advanced(params.get("advanced")),
         )
         code = self._stream_command(job_id, cmd)
         self._finish_viewer_job(job_id, out_dir, code)
@@ -281,11 +299,13 @@ class JobRunner:
             fasta_path=fasta_path,
             out_dir=out_dir,
             layout=layout,
+            advanced=normalize_draw_advanced(params.get("advanced")),
         )
         code = self._stream_command(job_id, cmd)
         self._finish_draw_job(job_id, out_dir, code)
 
     def _run_align_job(self, job_id: str, meta: Dict[str, Any]) -> None:
+        # align advanced is normalized in _build_stockholm_cmd
         inputs_dir = self.catalog.inputs_job_dir(job_id)
         out_dir = self.catalog.job_dir(job_id)
         params = meta.get("params") or {}
@@ -328,6 +348,7 @@ class JobRunner:
             stockholm_path=sto_for_r2dt,
             out_dir=out_dir,
             stitch=stitch,
+            advanced=params.get("advanced"),
         )
         code = self._stream_command(job_id, cmd)
         self._finish_align_job(job_id, out_dir, code)
@@ -415,10 +436,12 @@ class JobRunner:
         fasta_path: Path,
         out_dir: Path,
         layout: str,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Build r2dt.py draw or templatefree (in- or out-of-docker)."""
+        adv = normalize_draw_advanced(advanced)
         if in_docker():
-            return self._local_draw_cmd(fasta_path, out_dir, layout)
+            return self._local_draw_cmd(fasta_path, out_dir, layout, adv)
         workspace = self.catalog.workspace.resolve()
         repo = self.repo_root.resolve()
         rel_fa = fasta_path.resolve().relative_to(workspace)
@@ -432,6 +455,7 @@ class JobRunner:
             f"/workspace/{rel_out.as_posix()}",
             "--quiet",
         ]
+        append_draw_flags(inner, layout, adv)
         return [
             "docker",
             "run",
@@ -447,9 +471,15 @@ class JobRunner:
         ]
 
     @staticmethod
-    def _local_draw_cmd(fasta_path: Path, out_dir: Path, layout: str) -> List[str]:
+    def _local_draw_cmd(
+        fasta_path: Path,
+        out_dir: Path,
+        layout: str,
+        advanced: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        adv = normalize_draw_advanced(advanced)
         subcmd = "templatefree" if layout == "templatefree" else "draw"
-        return [
+        cmd = [
             "python3",
             "r2dt.py",
             subcmd,
@@ -457,6 +487,8 @@ class JobRunner:
             str(out_dir),
             "--quiet",
         ]
+        append_draw_flags(cmd, layout, adv)
+        return cmd
 
     def _build_rscape_cmd(self, rscape_dir: Path) -> List[str]:
         """Build R-scape --cacofold with cwd = rscape_dir (in- or out-of-docker)."""
@@ -483,10 +515,12 @@ class JobRunner:
         stockholm_path: Path,
         out_dir: Path,
         stitch: bool,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Build r2dt.py stockholm (in- or out-of-docker)."""
+        adv = normalize_align_advanced(advanced)
         if in_docker():
-            return self._local_stockholm_cmd(stockholm_path, out_dir, stitch)
+            return self._local_stockholm_cmd(stockholm_path, out_dir, stitch, adv)
         workspace = self.catalog.workspace.resolve()
         repo = self.repo_root.resolve()
         rel_sto = stockholm_path.resolve().relative_to(workspace)
@@ -498,8 +532,8 @@ class JobRunner:
             f"/workspace/{rel_sto.as_posix()}",
             f"/workspace/{rel_out.as_posix()}",
             "--quiet",
-            "--stitch" if stitch else "--no-stitch",
         ]
+        append_stockholm_flags(inner, stitch=stitch, adv=adv)
         return [
             "docker",
             "run",
@@ -516,17 +550,22 @@ class JobRunner:
 
     @staticmethod
     def _local_stockholm_cmd(
-        stockholm_path: Path, out_dir: Path, stitch: bool
+        stockholm_path: Path,
+        out_dir: Path,
+        stitch: bool,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
-        return [
+        adv = normalize_align_advanced(advanced)
+        cmd = [
             "python3",
             "r2dt.py",
             "stockholm",
             str(stockholm_path),
             str(out_dir),
             "--quiet",
-            "--stitch" if stitch else "--no-stitch",
         ]
+        append_stockholm_flags(cmd, stitch=stitch, adv=adv)
+        return cmd
 
     def _build_compare_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -537,11 +576,20 @@ class JobRunner:
         model_chains: str,
         mode: str,
         basepairs: str,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Build the r2dt.py pdb --compare --model command (in- or out-of-docker)."""
+        adv = normalize_structure_advanced(advanced)
         if in_docker():
             return self._local_compare_cmd(
-                ref_path, model_path, out_dir, chains, model_chains, mode, basepairs
+                ref_path,
+                model_path,
+                out_dir,
+                chains,
+                model_chains,
+                mode,
+                basepairs,
+                adv,
             )
         workspace = self.catalog.workspace.resolve()
         repo = self.repo_root.resolve()
@@ -567,6 +615,7 @@ class JobRunner:
         ]
         if model_chains:
             inner.extend(["--model-chains", model_chains])
+        append_structure_flags(inner, adv)
         return [
             "docker",
             "run",
@@ -588,11 +637,13 @@ class JobRunner:
         chain: str,
         mode: str,
         basepairs: str,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Build r2dt.py pdb_2d_3d for a single-structure interactive viewer."""
+        adv = normalize_structure_advanced(advanced)
         if in_docker():
             return self._local_pdb_2d3d_cmd(
-                structure_path, out_dir, chain, mode, basepairs
+                structure_path, out_dir, chain, mode, basepairs, adv
             )
         workspace = self.catalog.workspace.resolve()
         repo = self.repo_root.resolve()
@@ -612,6 +663,7 @@ class JobRunner:
         ]
         if chain:
             inner.extend(["--chain", chain])
+        append_structure_flags(inner, adv)
         return [
             "docker",
             "run",
@@ -635,7 +687,9 @@ class JobRunner:
         model_chains: str,
         mode: str,
         basepairs: str,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
+        adv = normalize_structure_advanced(advanced)
         cmd = [
             "python3",
             "r2dt.py",
@@ -655,16 +709,19 @@ class JobRunner:
         ]
         if model_chains:
             cmd.extend(["--model-chains", model_chains])
+        append_structure_flags(cmd, adv)
         return cmd
 
     @staticmethod
-    def _local_pdb_2d3d_cmd(
+    def _local_pdb_2d3d_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         structure_path: Path,
         out_dir: Path,
         chain: str,
         mode: str,
         basepairs: str,
+        advanced: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
+        adv = normalize_structure_advanced(advanced)
         cmd = [
             "python3",
             "r2dt.py",
@@ -679,6 +736,7 @@ class JobRunner:
         ]
         if chain:
             cmd.extend(["--chain", chain])
+        append_structure_flags(cmd, adv)
         return cmd
 
 
@@ -695,6 +753,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
     label: str = "",
     notes: str = "",
     force: bool = False,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Materialise compare inputs, write meta, enqueue. Returns job meta."""
     if not chains:
@@ -714,8 +773,9 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
 
     chains_csv = ",".join(chains)
     model_chains_csv = ",".join(model_chains)
+    adv = normalize_structure_advanced(advanced)
     digest = content_hash(
-        ref_src, model_src, chains_csv, model_chains_csv, mode, basepairs
+        ref_src, model_src, chains_csv, model_chains_csv, mode, basepairs, adv
     )
     if not force:
         existing = catalog.find_by_content_hash(digest, mode="compare")
@@ -752,6 +812,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
             "model_chains": model_chains_csv,
             "mode": mode,
             "basepairs": basepairs,
+            "advanced": adv,
         },
         "inputs": {
             "ref_name": ref_dest.name,
@@ -781,6 +842,7 @@ def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-l
     label: str = "",
     notes: str = "",
     force: bool = False,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Materialise a single-structure 2D+3D job and enqueue it."""
     chain = (chain or "").strip()
@@ -790,7 +852,8 @@ def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-l
         raise ValueError("Missing upload id")
 
     src = _resolve_upload(catalog, upload_id)
-    digest = pdb_content_hash(src, chain, mode, basepairs)
+    adv = normalize_structure_advanced(advanced)
+    digest = pdb_content_hash(src, chain, mode, basepairs, adv)
     if not force:
         existing = catalog.find_by_content_hash(digest, mode="pdb")
         if existing:
@@ -820,6 +883,7 @@ def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-l
             "chain": chain,
             "mode": mode,
             "basepairs": basepairs,
+            "advanced": adv,
         },
         "inputs": {
             "structure_name": dest.name,
@@ -844,8 +908,51 @@ def find_draw_svg(job_dir: Path) -> Optional[Path]:
     return fallback[0] if fallback else None
 
 
-def draw_content_hash(record: FastaRecord, layout: str) -> str:
-    """Stable hash for one draw sequence + layout."""
+def find_draw_svg_variants(job_dir: Path) -> List[Dict[str, str]]:
+    """Discover thumbnail / colored / enriched SVGs for the results tabs.
+
+    Returns a list of ``{id, label, path}`` dicts (relative to ``job_dir``),
+    in display order. Missing variants are omitted.
+    """
+    job_dir = Path(job_dir)
+    variants: List[Dict[str, str]] = []
+
+    def _rel(path: Path) -> str:
+        return path.relative_to(job_dir).as_posix()
+
+    thumb = sorted(job_dir.glob("**/results/thumbnail/*.thumbnail.svg"))
+    if not thumb:
+        thumb = sorted(job_dir.glob("**/*.thumbnail.svg"))
+    if thumb:
+        variants.append(
+            {"id": "thumbnail", "label": "Thumbnail", "path": _rel(thumb[0])}
+        )
+
+    colored = sorted(job_dir.glob("**/results/svg/*.colored.svg"))
+    if not colored:
+        colored = sorted(job_dir.glob("**/*.colored.svg"))
+    if colored:
+        variants.append({"id": "colored", "label": "Colored", "path": _rel(colored[0])})
+
+    enriched = sorted(job_dir.glob("**/results/svg/*.enriched.svg"))
+    if not enriched:
+        enriched = sorted(job_dir.glob("**/*.enriched.svg"))
+    if enriched:
+        variants.append(
+            {"id": "enriched", "label": "Enriched", "path": _rel(enriched[0])}
+        )
+
+    if not variants:
+        fallback = find_draw_svg(job_dir)
+        if fallback is not None:
+            variants.append({"id": "svg", "label": "SVG", "path": _rel(fallback)})
+    return variants
+
+
+def draw_content_hash(
+    record: FastaRecord, layout: str, advanced: Optional[Dict[str, Any]] = None
+) -> str:
+    """Stable hash for one draw sequence + layout + Advanced flags."""
     digest = hashlib.sha256()
     digest.update(b"draw\0")
     digest.update(layout.encode("utf-8"))
@@ -856,6 +963,7 @@ def draw_content_hash(record: FastaRecord, layout: str) -> str:
     digest.update(b"\0")
     if record.structure:
         digest.update(record.structure.encode("utf-8"))
+    hash_draw_advanced(digest, advanced or {})
     return "sha256:" + digest.hexdigest()
 
 
@@ -868,11 +976,13 @@ def create_draw_jobs_from_fasta(  # pylint: disable=too-many-arguments,too-many-
     label: str = "",
     notes: str = "",
     force: bool = False,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Split FASTA into N draw jobs (one sequence each) and enqueue them."""
     layout = (layout or "auto").strip().lower()
     if layout not in ("auto", "templatefree"):
         raise ValueError("layout must be 'auto' or 'templatefree'")
+    adv = normalize_draw_advanced(advanced)
 
     records = parse_fasta_records(fasta_text)
     if layout == "templatefree":
@@ -891,7 +1001,7 @@ def create_draw_jobs_from_fasta(  # pylint: disable=too-many-arguments,too-many-
     deduped: List[Dict[str, Any]] = []
 
     for record in records:
-        digest = draw_content_hash(record, layout)
+        digest = draw_content_hash(record, layout, adv)
         if not force:
             existing = catalog.find_by_content_hash(digest, mode="draw")
             if existing:
@@ -922,6 +1032,7 @@ def create_draw_jobs_from_fasta(  # pylint: disable=too-many-arguments,too-many-
                 "seq_id": record.seq_id,
                 "length": record.length,
                 "has_structure": bool(record.structure),
+                "advanced": adv,
             },
             "inputs": {
                 "fasta_name": fasta_name,

@@ -244,6 +244,14 @@
         label: $("label").value,
         notes: $("notes").value,
         force: $("force").checked,
+        advanced: {
+          include_novel: $("adv-include-novel").checked,
+          all_structures: $("adv-all-structures").checked,
+          auto_repair: $("adv-auto-repair").checked,
+          monochrome: $("adv-monochrome").checked,
+          max_unpaired: parseInt($("adv-max-unpaired").value, 10) || 0,
+          color_by: $("adv-color-by").value || "none",
+        },
       }),
     }).then(function (r) {
       return r.json().then(function (body) {

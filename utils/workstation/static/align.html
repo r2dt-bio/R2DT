@@ -79,6 +79,33 @@
       <label class="check">
         <input type="checkbox" id="force"> Force re-run even if an identical job is cached
       </label>
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <label class="check">
+          <input type="checkbox" id="adv-include-novel"> Include novelSS_names regions
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-all-structures"> Include unnamed segments with secondary structure
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-auto-repair"> Auto-repair unbalanced brackets
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-monochrome" checked> Monochrome stitched output
+        </label>
+        <div class="row opts">
+          <label>Max unpaired stretch
+            <input type="number" id="adv-max-unpaired" min="0" step="1" value="30">
+          </label>
+          <label>Colour panels by
+            <select id="adv-color-by">
+              <option value="none" selected>none</option>
+              <option value="structure">structure</option>
+              <option value="region">region</option>
+            </select>
+          </label>
+        </div>
+      </details>
     </fieldset>
 
     <div class="actions">

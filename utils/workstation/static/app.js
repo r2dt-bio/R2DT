@@ -253,9 +253,11 @@
   function renderChainPicker(containerId, info, role) {
     var el = $(containerId);
     if (!info) {
-      el.innerHTML = "<p class=\"hint\">Upload a structure to detect RNA chains.</p>";
+      el.classList.add("hidden");
+      el.innerHTML = "";
       return;
     }
+    el.classList.remove("hidden");
     var chains = info.chains || [];
     var html = "";
     if (role === "ref" && info.needs_cif_conversion) {
@@ -266,8 +268,8 @@
       el.innerHTML = html;
       return;
     }
-    html += '<p class="hint">' + esc(info.filename) + " · " + chains.length +
-      " RNA chain" + (chains.length === 1 ? "" : "s") + "</p>";
+    html += '<p class="hint">' + chains.length +
+      " RNA chain" + (chains.length === 1 ? "" : "s") + " detected</p>";
     if (chains.length > 1) {
       html += '<p class="warn">Select the chain(s) to include (order = diagram order).</p>';
     }
@@ -344,6 +346,10 @@
         label: $("label").value,
         notes: $("notes").value,
         force: $("force").checked,
+        advanced: {
+          pseudoknots: $("adv-pseudoknots").checked,
+          rnapuzzler: $("adv-rnapuzzler").checked,
+        },
       }),
     }).then(function (r) {
       return r.json().then(function (body) {
@@ -383,14 +389,36 @@
         onDone: function () { loadJobs(); loadRuntime(); },
       });
     }
-    $("ref-file").addEventListener("change", function (ev) {
-      var f = ev.target.files && ev.target.files[0];
-      if (f) uploadFile(f, "ref");
-    });
-    $("model-file").addEventListener("change", function (ev) {
-      var f = ev.target.files && ev.target.files[0];
-      if (f) uploadFile(f, "model");
-    });
+    if (window.R2DTDropzone) {
+      window.R2DTDropzone.wire({
+        zone: $("ref-drop"),
+        input: $("ref-file"),
+        nameEl: $("ref-drop-name"),
+        onFile: function (file, err) {
+          if (err) {
+            var status = $("form-status");
+            status.className = "form-status err";
+            status.textContent = err.message || String(err);
+            return;
+          }
+          if (file) uploadFile(file, "ref");
+        },
+      });
+      window.R2DTDropzone.wire({
+        zone: $("model-drop"),
+        input: $("model-file"),
+        nameEl: $("model-drop-name"),
+        onFile: function (file, err) {
+          if (err) {
+            var status = $("form-status");
+            status.className = "form-status err";
+            status.textContent = err.message || String(err);
+            return;
+          }
+          if (file) uploadFile(file, "model");
+        },
+      });
+    }
     $("new-form").addEventListener("submit", onSubmit);
     document.querySelectorAll("#tbl thead th[data-sort]").forEach(function (th) {
       th.addEventListener("click", function () {

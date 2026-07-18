@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from utils.workstation.advanced import hash_align_advanced, normalize_align_advanced
+
 if TYPE_CHECKING:
     from utils.workstation.catalog import Catalog
     from utils.workstation.jobs import JobRunner
@@ -82,12 +84,15 @@ def svg_gallery_entry(path: Path, job_dir: Path) -> Dict[str, Any]:
     return {"path": rel, "name": name, "kind": kind, "caption": caption}
 
 
-def align_content_hash(stockholm_text: str, stitch: bool) -> str:
-    """Stable hash for one Stockholm alignment + stitch flag."""
+def align_content_hash(
+    stockholm_text: str,
+    stitch: bool,
+    advanced: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Stable hash for one Stockholm alignment + stitch + Advanced flags."""
     digest = hashlib.sha256()
     digest.update(b"align\0")
-    digest.update(b"1" if stitch else b"0")
-    digest.update(b"\0")
+    hash_align_advanced(digest, stitch, advanced or {})
     digest.update(stockholm_text.encode("utf-8"))
     return "sha256:" + digest.hexdigest()
 
@@ -101,6 +106,7 @@ def create_align_job_from_stockholm(  # pylint: disable=too-many-arguments,too-m
     label: str = "",
     notes: str = "",
     force: bool = False,
+    advanced: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create one align job from Stockholm text and enqueue it."""
     # Deferred to avoid circular import with jobs.JobRunner.
@@ -117,7 +123,8 @@ def create_align_job_from_stockholm(  # pylint: disable=too-many-arguments,too-m
     if "STOCKHOLM" not in text.upper()[:400]:
         raise ValueError("Input does not look like a Stockholm alignment")
 
-    digest = align_content_hash(text, stitch)
+    adv = normalize_align_advanced(advanced)
+    digest = align_content_hash(text, stitch, adv)
     if not force:
         existing = catalog.find_by_content_hash(digest, mode="align")
         if existing:
@@ -143,6 +150,7 @@ def create_align_job_from_stockholm(  # pylint: disable=too-many-arguments,too-m
             "stitch": bool(stitch),
             "has_covariation": has_cov,
             "will_run_rscape": not has_cov,
+            "advanced": adv,
         },
         "inputs": {
             "stockholm_name": stockholm_name,

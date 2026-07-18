@@ -46,12 +46,15 @@
   <form id="new-form">
     <fieldset>
       <legend>Structure</legend>
-      <div class="row">
-        <label>PDB or mmCIF
-          <input type="file" id="struct-file" accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB">
-        </label>
-        <div id="struct-chains" class="chains"></div>
+      <div class="ws-dropzone" id="struct-drop" tabindex="0" role="button"
+           aria-label="Drop PDB or mmCIF here, or click to browse">
+        <input type="file" id="struct-file" class="ws-dropzone-input"
+               accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB" tabindex="-1">
+        <p class="ws-dropzone-title">Drop PDB or mmCIF here</p>
+        <p class="ws-dropzone-sub">or click to browse · .cif / .pdb (also .gz)</p>
+        <p class="ws-dropzone-file hidden" id="struct-drop-name"></p>
       </div>
+      <div id="struct-chains" class="chains hidden" aria-live="polite"></div>
     </fieldset>
 
     <fieldset>
@@ -81,6 +84,15 @@
       <label class="check">
         <input type="checkbox" id="force"> Force re-run even if an identical job is cached
       </label>
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <label class="check">
+          <input type="checkbox" id="adv-pseudoknots" checked> Include pseudoknots (FR3D)
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-rnapuzzler"> Use RNAPuzzler for templatefree layout
+        </label>
+      </details>
     </fieldset>
 
     <div class="actions">
@@ -100,6 +112,7 @@
 </footer>
 
 <script src="/static/transfer.js"></script>
+<script src="/static/dropzone.js"></script>
 <script src="/static/pdb.js"></script>
 </body>
 </html>

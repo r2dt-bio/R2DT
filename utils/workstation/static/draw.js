@@ -216,6 +216,25 @@
       .then(function () { return loadJobs(); });
   }
 
+  function collectAdvanced() {
+    var layout = $("layout").value;
+    if (layout === "templatefree") {
+      return { tf_engine: $("adv-tf-engine").value || "auto" };
+    }
+    return {
+      force_template: ($("adv-force-template").value || "").trim(),
+      constraint: $("adv-constraint").checked,
+      skip_ribovore_filters: $("adv-skip-ribovore").checked,
+    };
+  }
+
+  function syncAdvancedVisibility() {
+    var tf = $("layout").value === "templatefree";
+    $("adv-tf-opts").classList.toggle("hidden", !tf);
+    $("adv-draw-body").classList.toggle("hidden", tf);
+    $("adv-draw-tf-note").classList.toggle("hidden", !tf);
+  }
+
   function onSubmit(ev) {
     ev.preventDefault();
     var status = $("form-status");
@@ -238,6 +257,7 @@
         label: $("label").value,
         notes: $("notes").value,
         force: $("force").checked,
+        advanced: collectAdvanced(),
       }),
     }).then(function (r) {
       return r.json().then(function (body) {
@@ -272,7 +292,10 @@
       if (ex.note) btn.title = ex.note;
       btn.addEventListener("click", function () {
         $("fasta").value = ex.fasta || "";
-        if (ex.layout && $("layout")) $("layout").value = ex.layout;
+        if (ex.layout && $("layout")) {
+          $("layout").value = ex.layout;
+          syncAdvancedVisibility();
+        }
         if (!$("label").value) $("label").value = ex.label;
         host.querySelectorAll(".ws-example").forEach(function (b) {
           b.classList.toggle("is-active", b === btn);
@@ -307,6 +330,8 @@
       reader.readAsText(f);
     });
     $("new-form").addEventListener("submit", onSubmit);
+    $("layout").addEventListener("change", syncAdvancedVisibility);
+    syncAdvancedVisibility();
     document.querySelectorAll("#tbl thead th[data-sort]").forEach(function (th) {
       th.addEventListener("click", function () {
         var key = th.getAttribute("data-sort");

@@ -35,7 +35,7 @@ from utils.workstation.jobs import (
     create_draw_jobs_from_fasta,
     create_job_from_uploads,
     create_pdb_job_from_upload,
-    find_draw_svg,
+    find_draw_svg_variants,
     require_runtime,
 )
 from utils.workstation.package import export_job_bytes, import_job_bytes
@@ -563,6 +563,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         except ValueError as exc:
             raise ValueError("Invalid JSON body") from exc
         job_mode = payload.get("job_mode") or "compare"
+        advanced = payload.get("advanced")
         if job_mode == "pdb":
             result = create_pdb_job_from_upload(
                 self.app.catalog,
@@ -574,6 +575,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 label=payload.get("label") or "",
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
+                advanced=advanced,
             )
             status = 200 if result.get("dedup") else 201
         elif job_mode == "draw":
@@ -585,6 +587,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 label=payload.get("label") or "",
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
+                advanced=advanced,
             )
             status = 201 if result.get("created") else 200
         elif job_mode == "align":
@@ -596,6 +599,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 label=payload.get("label") or "",
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
+                advanced=advanced,
             )
             status = 200 if result.get("dedup") else 201
         else:
@@ -612,6 +616,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 label=payload.get("label") or "",
                 notes=payload.get("notes") or "",
                 force=bool(payload.get("force")),
+                advanced=advanced,
             )
             status = 200 if result.get("dedup") else 201
         self._send(*_json_bytes(result, status))
@@ -710,23 +715,62 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         back_href: str,
         back_label: str,
     ) -> str:
-        svg = None
+        variants = find_draw_svg_variants(job_dir)
+        # Prefer meta.svg_path as colored when it matches a known file.
         if svg_rel := meta.get("svg_path"):
             candidate = job_dir / str(svg_rel)
             if candidate.is_file():
-                svg = candidate
-        if svg is None:
-            svg = find_draw_svg(job_dir)
-        if svg is not None:
-            rel = svg.relative_to(job_dir).as_posix()
-            href = f"/jobs/{job_id}/results/{rel}"
+                rel = candidate.relative_to(job_dir).as_posix()
+                if not any(v["path"] == rel for v in variants):
+                    variants.insert(0, {"id": "primary", "label": "SVG", "path": rel})
+        if variants:
+            default_id = next(
+                (v["id"] for v in variants if v["id"] == "colored"),
+                variants[0]["id"],
+            )
+            tabs = []
+            panels = []
+            for variant in variants:
+                vid = html_lib.escape(variant["id"])
+                vlabel = html_lib.escape(variant["label"])
+                href = f"/jobs/{job_id}/results/{html_lib.escape(variant['path'])}"
+                selected = variant["id"] == default_id
+                tabs.append(
+                    f'<button type="button" class="ws-svg-tab'
+                    f'{" is-active" if selected else ""}" '
+                    f'data-tab="{vid}" role="tab" '
+                    f'aria-selected="{"true" if selected else "false"}">'
+                    f"{vlabel}</button>"
+                )
+                panels.append(
+                    f'<div class="ws-svg-panel'
+                    f'{" is-active" if selected else ""}" '
+                    f'data-panel="{vid}" role="tabpanel"'
+                    f'{" hidden" if not selected else ""}>'
+                    f'<div class="ws-svg-wrap">'
+                    f'<img class="ws-svg-preview" src="{href}" '
+                    f'alt="{html_lib.escape(label)} ({vlabel})">'
+                    f"</div></div>"
+                )
+            default_href = next(
+                f"/jobs/{job_id}/results/{v['path']}"
+                for v in variants
+                if v["id"] == default_id
+            )
+            tablist = ""
+            if len(variants) > 1:
+                tablist = (
+                    '<div class="ws-svg-tabs" role="tablist" '
+                    'aria-label="SVG variants">' + "".join(tabs) + "</div>"
+                )
             return (
-                f'<div class="ws-svg-wrap">'
-                f'<img class="ws-svg-preview" src="{html_lib.escape(href)}" '
-                f'alt="{html_lib.escape(label)}">'
+                f'<div class="ws-svg-stage" data-default-tab="{html_lib.escape(default_id)}">'
+                f"{tablist}"
+                f'<div class="ws-svg-panels">{"".join(panels)}</div>'
                 f"</div>"
                 f'<p class="ws-results-actions">'
-                f'<a class="cta" href="{html_lib.escape(href)}" download>'
+                f'<a class="cta" id="ws-svg-download" '
+                f'href="{html_lib.escape(default_href)}" download>'
                 f"Download SVG</a>"
                 f'<a class="ws-stub-link" href="{html_lib.escape(back_href)}">'
                 f"← Back to {html_lib.escape(back_label)} jobs</a>"

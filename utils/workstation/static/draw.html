@@ -68,6 +68,14 @@
             <option value="templatefree">templatefree (needs structure line)</option>
           </select>
         </label>
+        <label id="adv-tf-opts" class="hidden">Templatefree engine
+          <select id="adv-tf-engine">
+            <option value="auto" selected>auto</option>
+            <option value="rscape">R-scape</option>
+            <option value="rnartist">RNArtist</option>
+            <option value="rnapuzzler">RNAPuzzler</option>
+          </select>
+        </label>
         <label>Label
           <input type="text" id="label" placeholder="Optional batch / display name">
         </label>
@@ -78,6 +86,25 @@
       <label class="check">
         <input type="checkbox" id="force"> Force re-run even if identical jobs are cached
       </label>
+
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <p class="hint-block">Template-cascade flags (<code>r2dt.py draw</code>). Hidden when layout is templatefree.</p>
+        <div id="adv-draw-body">
+          <div class="row opts" id="adv-draw-opts">
+            <label>Force template
+              <input type="text" id="adv-force-template" placeholder="e.g. RF00005" autocomplete="off">
+            </label>
+          </div>
+          <label class="check" id="adv-constraint-wrap">
+            <input type="checkbox" id="adv-constraint"> Fold insertions with RNAfold (<code>--constraint</code>)
+          </label>
+          <label class="check" id="adv-skip-ribovore-wrap">
+            <input type="checkbox" id="adv-skip-ribovore"> Skip ribovore filters
+          </label>
+        </div>
+        <p class="hint-block hidden" id="adv-draw-tf-note">No extra draw flags for templatefree — pick the engine above.</p>
+      </details>
     </fieldset>
 
     <div class="actions">

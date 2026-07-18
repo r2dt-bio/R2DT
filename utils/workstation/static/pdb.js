@@ -226,9 +226,11 @@
   function renderChainPicker(info) {
     var el = $("struct-chains");
     if (!info) {
-      el.innerHTML = "<p class=\"hint\">Upload a structure to detect RNA chains.</p>";
+      el.classList.add("hidden");
+      el.innerHTML = "";
       return;
     }
+    el.classList.remove("hidden");
     var chains = info.chains || [];
     var html = "";
     if (!chains.length) {
@@ -236,9 +238,7 @@
       el.innerHTML = html;
       return;
     }
-    html += '<p class="hint">' + esc(info.filename) + " · " + chains.length +
-      " RNA chain" + (chains.length === 1 ? "" : "s") +
-      " — select one for the interactive viewer.</p>";
+    html += '<p class="hint">Select one RNA chain for the interactive viewer.</p>';
     chains.forEach(function (c, idx) {
       var checked = idx === 0 ? " checked" : "";
       html += '<label class="chain"><input type="radio" name="pdb-chain" value="' +
@@ -300,6 +300,10 @@
         label: $("label").value,
         notes: $("notes").value,
         force: $("force").checked,
+        advanced: {
+          pseudoknots: $("adv-pseudoknots").checked,
+          rnapuzzler: $("adv-rnapuzzler").checked,
+        },
       }),
     }).then(function (r) {
       return r.json().then(function (body) {
@@ -338,10 +342,22 @@
         onDone: function () { loadJobs(); loadRuntime(); },
       });
     }
-    $("struct-file").addEventListener("change", function (ev) {
-      var f = ev.target.files && ev.target.files[0];
-      if (f) uploadFile(f);
-    });
+    if (window.R2DTDropzone) {
+      window.R2DTDropzone.wire({
+        zone: $("struct-drop"),
+        input: $("struct-file"),
+        nameEl: $("struct-drop-name"),
+        onFile: function (file, err) {
+          if (err) {
+            var status = $("form-status");
+            status.className = "form-status err";
+            status.textContent = err.message || String(err);
+            return;
+          }
+          if (file) uploadFile(file);
+        },
+      });
+    }
     $("new-form").addEventListener("submit", onSubmit);
     document.querySelectorAll("#tbl thead th[data-sort]").forEach(function (th) {
       th.addEventListener("click", function () {
