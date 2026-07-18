@@ -24,24 +24,27 @@
     <button type="button" id="refresh">Refresh</button>
     <span class="count" id="count"></span>
   </div>
-  <table id="tbl">
-    <thead>
-      <tr>
-        <th>Label</th>
-        <th>Reference</th>
-        <th>Model</th>
-        <th>Chains</th>
-        <th>Created</th>
-        <th class="num">INF WC</th>
-        <th class="num">INF non-WC</th>
-        <th class="num">INF all</th>
-        <th>BP (M/L/A)</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="num" data-sort="seq" title="Stable job number (oldest first)">#</th>
+          <th data-sort="label">Label</th>
+          <th data-sort="ref">Reference</th>
+          <th data-sort="model">Model</th>
+          <th data-sort="chains">Chains</th>
+          <th data-sort="created">Created</th>
+          <th class="num" data-sort="inf_wc">INF WC</th>
+          <th class="num" data-sort="inf_nwc">INF non-WC</th>
+          <th class="num" data-sort="inf_all">INF all</th>
+          <th data-sort="bp">BP (M/L/A)</th>
+          <th data-sort="status">Status</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
   <pre id="log" class="log hidden" aria-live="polite"></pre>
 </section>
 

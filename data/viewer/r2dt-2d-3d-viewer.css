@@ -1108,3 +1108,83 @@
 .lbn-label--model {
   color: #1e3a8a;
 }
+
+/* ── Workstation base-pair editing chrome (R2DTBpEdit) ─────────────────── */
+.r2dt-bp-edit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.r2dt-bp-edit-title {
+  font-weight: 600;
+  color: #166534;
+  margin-right: 4px;
+}
+.r2dt-bp-edit-bar button {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #86efac;
+  background: #fff;
+  cursor: pointer;
+}
+.r2dt-bp-edit-bar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.r2dt-bp-edit-bar button.active {
+  background: #166534;
+  color: #fff;
+  border-color: #166534;
+}
+.r2dt-bp-edit-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+}
+.r2dt-bp-edit-bar select {
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+}
+.r2dt-bp-edit-sep {
+  width: 1px;
+  height: 18px;
+  background: #86efac;
+  margin: 0 2px;
+}
+.r2dt-bp-edit-hint {
+  color: #854d0e;
+  font-size: 12px;
+}
+.r2dt-bp-edit-status {
+  margin-left: auto;
+  color: #6b7280;
+  font-size: 12px;
+}
+.r2dt-bp-edit-status--ok { color: #15803d; }
+.r2dt-bp-edit-status--busy { color: #a16207; }
+.r2dt-bp-edit-status--err { color: #b91c1c; }
+
+@media (prefers-color-scheme: dark) {
+  .r2dt-bp-edit-bar {
+    background: #052e16;
+    border-color: #166534;
+  }
+  .r2dt-bp-edit-title { color: #86efac; }
+  .r2dt-bp-edit-bar button {
+    background: #0b0f16;
+    border-color: #166534;
+    color: #e5e7eb;
+  }
+  .r2dt-bp-edit-bar label { color: #d1d5db; }
+}

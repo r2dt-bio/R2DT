@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 from rich import print as rprint
 
+from utils.workstation import edits as edits_mod
 from utils.workstation.catalog import Catalog
 from utils.workstation.chains import is_structure_filename, list_rna_chains
 from utils.workstation.jobs import (
@@ -32,10 +33,13 @@ class WorkstationApp:
         catalog: Catalog,
         runner: JobRunner,
         docker_image: str,
+        repo_root: Path,
     ):
         self.catalog = catalog
         self.runner = runner
         self.docker_image = docker_image
+        self.repo_root = Path(repo_root)
+        self.viewer_assets = self.repo_root / "data" / "viewer"
 
 
 # Set by run_server before serve_forever(); read by WorkstationHandler.
@@ -66,7 +70,7 @@ def run_server(
     workspace.mkdir(parents=True, exist_ok=True)
     catalog = Catalog(workspace)
     runner = JobRunner(catalog, repo_root=repo_root, docker_image=docker_image)
-    _APP = WorkstationApp(catalog, runner, docker_image)
+    _APP = WorkstationApp(catalog, runner, docker_image, repo_root)
 
     server = ThreadingHTTPServer((host, port), WorkstationHandler)
     server.allow_reuse_address = True
@@ -113,6 +117,10 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         """Handle POST."""
         self._dispatch("POST")
 
+    def do_PUT(self):  # pylint: disable=invalid-name
+        """Handle PUT."""
+        self._dispatch("PUT")
+
     def do_DELETE(self):  # pylint: disable=invalid-name
         """Handle DELETE."""
         self._dispatch("DELETE")
@@ -155,6 +163,14 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if method == "GET" and match:
             self._serve_viewer(match.group(1), match.group(2) or "index.html")
             return True
+        if method == "GET" and path == "/__edit-api/ping":
+            self._send(*_json_bytes({"ok": True, "editing": True}))
+            return True
+        match = re.fullmatch(r"/__edit-api/jobs/([^/]+)/basepairs", path)
+        if method == "GET" and match:
+            return self._get_basepairs(match.group(1))
+        if method == "PUT" and match:
+            return self._put_basepairs(match.group(1))
         if method == "POST" and path == "/api/uploads":
             self._handle_upload()
             return True
@@ -272,7 +288,48 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         status = 200 if result.get("dedup") else 201
         self._send(*_json_bytes(result, status))
 
+    def _get_basepairs(self, job_id: str) -> bool:
+        if not self.app.catalog.get_job(job_id):
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return True
+        data = edits_mod.load_overrides(self.app.catalog.job_dir(job_id))
+        self._send(*_json_bytes(data))
+        return True
+
+    def _put_basepairs(self, job_id: str) -> bool:
+        if not self.app.catalog.get_job(job_id):
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return True
+        length = int(self.headers.get("Content-Length") or "0")
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except ValueError as exc:
+            raise ValueError("Invalid JSON body") from exc
+        saved = edits_mod.save_overrides(self.app.catalog.job_dir(job_id), payload)
+        counts = edits_mod.edit_counts(self.app.catalog.job_dir(job_id))
+        self.app.catalog.update_meta(
+            job_id,
+            edits={
+                "ref_count": counts["ref_count"],
+                "model_count": counts["model_count"],
+            },
+        )
+        self._send(*_json_bytes({"ok": True, **saved, **counts}))
+        return True
+
     def _serve_viewer(self, job_id: str, rel: str) -> None:
+        # Always serve the latest R2DT glue/CSS from the repo so existing jobs
+        # pick up editing hooks without regenerating.
+        live_names = {
+            "r2dt-2d-3d-viewer.js",
+            "r2dt-2d-3d-viewer.css",
+        }
+        if (name := Path(rel).name) in live_names:
+            live = self.app.viewer_assets / name
+            if live.is_file():
+                self._send_file(live)
+                return
         base = (self.app.catalog.job_dir(job_id) / "viewer").resolve()
         if not base.is_dir():
             self._send(*_json_bytes({"error": "viewer not ready"}, 404))

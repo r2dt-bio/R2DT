@@ -887,13 +887,23 @@
     // Compare mode: classify each listed base pair against the other structure's
     // pairs. Reference list → TP (matched) / FN (missed); model list → TP / FP.
     const bpCompare = ctx.bpCompare || null;
-    const bpCompareKeys = bpCompare ? new Set(bpCompare.otherPairKeys || []) : null;
+    let bpCompareKeys = bpCompare ? new Set(bpCompare.otherPairKeys || []) : null;
     function classifyBpPair(a, b) {
       if (!bpCompareKeys) return null;
       const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
       if (bpCompareKeys.has(key)) return 'TP';
       return bpCompare.role === 'reference' ? 'FN' : 'FP';
     }
+    function setOtherPairKeys(keys) {
+      if (!bpCompareKeys) return;
+      bpCompareKeys.clear();
+      (keys || []).forEach((k) => bpCompareKeys.add(String(k)));
+      if (bpCompare) bpCompare.otherPairKeys = Array.from(bpCompareKeys);
+    }
+
+    // Workstation editing hooks (no-ops unless R2DTBpEdit attaches listeners).
+    const pairSelectListeners = [];
+    const residueSelectListeners = [];
 
     enhanceSelectedNucleotideStyleOnce();
 
@@ -2560,6 +2570,9 @@
     if (link3d && molstar) selectInMolstar([id, ...partners]);
     if (lbnHighlightFn) lbnHighlightFn(id, partners.map((p) => [id, p]));
     emitResidueSelectEvent({ pdbId: PDB_LOWER, label: id, partners, cleared: false });
+    residueSelectListeners.forEach((fn) => {
+      try { fn(id); } catch (_) { /* ignore listener errors */ }
+    });
   }
 
   bindNucleotideCaptureClicks(panel2d);
@@ -2607,6 +2620,18 @@
     // re-deriving a partner for `a` from that panel's own base pairs.
     emitResidueSelectEvent({
       pdbId: PDB_LOWER, label: a, partners: [b], cleared: false, pair: true,
+    });
+    const famMatch = (pathEl?.getAttribute('class') || '')
+      .match(/([a-zA-Z]{3})_\d+_\d+/);
+    const family = famMatch ? famMatch[1] : (
+      (fr3dData.annotations || []).find((ann) => {
+        const x = +ann.seq_id1;
+        const y = +ann.seq_id2;
+        return (x === a && y === b) || (x === b && y === a);
+      }) || {}
+    ).bp || 'cWW';
+    pairSelectListeners.forEach((fn) => {
+      try { fn(a, b, family); } catch (_) { /* ignore listener errors */ }
     });
   }
 
@@ -2888,6 +2913,43 @@
   // per-panel visibility state ("Nested only" etc.) without waiting for a
   // filter change.
   ctx.handles.getVisiblePairKeys = getVisible2dPairKeys;
+
+  // Thin adapter for workstation base-pair editing (R2DTBpEdit). Keeps edit
+  // logic out of this file while still allowing geometry / list updates.
+  ctx.handles.getEditSurface = () => ({
+    root,
+    panel2d,
+    pdbLower: PDB_LOWER,
+    getAnnotations: () => fr3dData.annotations || [],
+    setAnnotations: (anns) => { fr3dData.annotations = anns; },
+    findBPPath,
+    getResidueLocation,
+    bindBpPathClick: (el) => {
+      if (!el || el.dataset.r2dtBpClickBound) return;
+      el.dataset.r2dtBpClickBound = '1';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (ev) => {
+        const cls = el.getAttribute('class') || '';
+        const m = cls.match(/[a-zA-Z]{3}_(\d+)_(\d+)/);
+        if (!m) return;
+        ev.stopPropagation();
+        selectBasePair(parseInt(m[1], 10), parseInt(m[2], 10), el);
+      });
+    },
+    refreshAfterGeometryChange: () => {
+      attachBPClicks();
+      applyFixups();
+      if (typeof onBpFilterUpdated === 'function') onBpFilterUpdated();
+    },
+    refreshBpListLabels: () => {
+      applyBpListItemLabels();
+      normalizeBpListScroll();
+    },
+    setOtherPairKeys,
+    onPairSelect: (fn) => { pairSelectListeners.push(fn); },
+    onResidueSelect: (fn) => { residueSelectListeners.push(fn); },
+    getLayoutScale: () => getBaseBpStrokeWidth() * 6,
+  });
 
   }
 
@@ -3552,8 +3614,49 @@
       },
     };
     activeViewer = handle;
+    // Workstation-only editing: probe + dynamic script load. Static hosts
+    // never expose /__edit-api, so this is a no-op there.
+    maybeEnableWorkstationEditing(panelCtxs).catch(() => {});
     if (typeof opts.onReady === 'function') opts.onReady(handle);
     return handle;
+  }
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[data-r2dt-src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.dataset.r2dtSrc = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function maybeEnableWorkstationEditing(panelCtxs) {
+    let ping;
+    try {
+      const res = await fetch('/__edit-api/ping', { method: 'GET' });
+      if (!res.ok) return;
+      ping = await res.json().catch(() => ({ ok: true }));
+    } catch (_) {
+      return;
+    }
+    if (!ping || ping.ok === false) return;
+    const jobMatch = typeof location !== 'undefined'
+      ? location.pathname.match(/\/jobs\/([^/]+)\/viewer\/?/)
+      : null;
+    const jobId = jobMatch && jobMatch[1];
+    if (!jobId) return;
+    await loadScriptOnce('/static/r2dt-bp-edit.js');
+    if (!global.R2DTBpEdit || typeof global.R2DTBpEdit.attachCompare !== 'function') {
+      return;
+    }
+    await global.R2DTBpEdit.attachCompare({ panelCtxs, jobId });
   }
 
   global.R2DTViewer = { create, createCompare };
