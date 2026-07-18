@@ -157,6 +157,8 @@
       tr.innerHTML =
         '<td class="num">' + (seqMap[j.id] || "—") + "</td>" +
         labelCell(j) +
+        '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
+        '<td class="actions-col"><div class="row-actions"></div></td>' +
         "<td>" + esc(inputs.ref_name || "") + "</td>" +
         "<td>" + esc(inputs.model_name || "") + "</td>" +
         "<td>" + esc(params.chains || "") +
@@ -165,9 +167,7 @@
         '<td class="num">' + fmt(inf.wc) + "</td>" +
         '<td class="num">' + fmt(inf.nwc) + "</td>" +
         '<td class="num">' + fmt(inf.all) + "</td>" +
-        "<td>" + bp + "</td>" +
-        '<td><span class="badge ' + esc(j.status || "") + '">' + esc(j.status || "") + "</span></td>" +
-        '<td class="actions-col"><div class="row-actions"></div></td>';
+        "<td>" + bp + "</td>";
       var actions = tr.querySelector(".row-actions");
       if (j.status === "ready" && j.viewer_url) {
         var open = document.createElement("a");

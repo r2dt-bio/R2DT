@@ -151,11 +151,14 @@ def _inject_viewer_chrome(
         html = html.replace("</head>", head + "</head>", 1)
     else:
         html = head + html
+    # Compare pages have an INF metrics bar — put Export there instead of the
+    # header so it sits with the scoring summary.
+    has_inf = 'class="mc-inf"' in html
     header = chrome_header(
         active_path=active_path,
         job_label=label,
         job_id=job_id,
-        show_export=bool(job_id),
+        show_export=bool(job_id) and not has_inf,
     )
     match = re.search(r"<body([^>]*)>", html, flags=re.IGNORECASE)
     if match:
@@ -163,6 +166,19 @@ def _inject_viewer_chrome(
         html = html[:insert_at] + "\n" + header + html[insert_at:]
     else:
         html = header + html
+    if has_inf and job_id:
+        export_href = f"/api/jobs/{html_lib.escape(job_id, quote=True)}/export"
+        export = (
+            f'<a class="ws-inf-export" href="{export_href}" '
+            f'title="Download .r2dt-job.zip to share">Export</a>'
+        )
+        html = re.sub(
+            r'(<div class="mc-inf">)(.*?)(</div>)',
+            rf"\1\2{export}\3",
+            html,
+            count=1,
+            flags=re.DOTALL,
+        )
     if "fitWorkstationViewer" not in html:
         if "</body>" in html:
             html = html.replace("</body>", _VIEWER_FIT_SCRIPT + "</body>", 1)

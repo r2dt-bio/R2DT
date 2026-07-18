@@ -3352,6 +3352,10 @@
       row.className = 'r2dt-layout-toggle';
       row.setAttribute('role', 'group');
       row.setAttribute('aria-label', 'Model 2D layout');
+      const caption = document.createElement('span');
+      caption.className = 'r2dt-layout-toggle-label';
+      caption.textContent = 'Choose layout';
+      row.appendChild(caption);
       const modes = [
         { id: 'shared', label: 'Same as reference' },
         { id: 'own', label: 'Own layout' },

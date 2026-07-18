@@ -120,31 +120,26 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
 .ws-chrome-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 12px;
+  gap: 0 18px;
   align-items: center;
 }
 
 .ws-chrome-link {
-  color: #555;
+  color: #666;
   text-decoration: none;
-  padding: 7px 14px;
-  border-radius: 6px;
+  padding: 4px 0 5px;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
 }
 .ws-chrome-link:hover {
   color: var(--ws-brand);
-  background: rgba(57, 49, 133, 0.06);
-  border-color: rgba(57, 49, 133, 0.12);
 }
 .ws-chrome-link.is-active {
   color: var(--ws-brand);
-  background: #fff;
-  border-color: rgba(57, 49, 133, 0.28);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(57, 49, 133, 0.08);
+  border-bottom-color: var(--ws-brand);
 }
 
 .ws-chrome-ext {
@@ -193,4 +188,29 @@ body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
 }
 .ws-chrome-export:hover {
   background: var(--ws-brand-soft);
+}
+
+/* Export on the compare INF bar (injected by workstation chrome). */
+.mc-inf .ws-inf-export {
+  display: inline-block;
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #393185;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mc-inf .ws-inf-export:hover {
+  background: #5b52a3;
+}
+@media (prefers-color-scheme: dark) {
+  .mc-inf .ws-inf-export {
+    background: #5b52a3;
+  }
+  .mc-inf .ws-inf-export:hover {
+    background: #6d64b5;
+  }
 }
