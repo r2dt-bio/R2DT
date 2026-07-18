@@ -3391,6 +3391,8 @@
     if (typeof opts.onReady === 'function') opts.onReady(handle);
     return handle;
   }
+
+  async function createCompare(userOptions) {
     if (activeViewer) {
       throw new Error('R2DTViewer.createCompare: only one viewer or compare widget per page (v1)');
     }
