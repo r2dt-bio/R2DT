@@ -32,7 +32,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "122"
+_R2DT_ASSETS_VERSION = "123"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
 # The interaction glue (``R2DTViewer.create`` API).

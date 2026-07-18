@@ -512,9 +512,10 @@
 
   function attachCompare(options) {
     var panelCtxs = options.panelCtxs || [];
-    if (panelCtxs.length < 2) {
-      return Promise.reject(new Error('R2DTBpEdit needs two compare panels'));
+    if (panelCtxs.length < 1) {
+      return Promise.reject(new Error('R2DTBpEdit needs at least one panel'));
     }
+    var single = panelCtxs.length === 1;
     var surfaces = panelCtxs.map(function (ctx) {
       var surface = ctx.handles && ctx.handles.getEditSurface && ctx.handles.getEditSurface();
       if (!surface) throw new Error('Panel missing getEditSurface()');
@@ -670,14 +671,18 @@
 
     function refreshAll() {
       var anns0 = workingAnns(0);
-      var anns1 = workingAnns(1);
       surfaces[0].setAnnotations(anns0);
+      syncPanelGeometry(surfaces[0], anns0);
+      rebuildBpList(surfaces[0]);
+      if (single) {
+        setStatus('edits ' + overrides.ref.length, 'ok');
+        return;
+      }
+      var anns1 = workingAnns(1);
       surfaces[1].setAnnotations(anns1);
       surfaces[0].setOtherPairKeys(pairKeysFromAnns(anns1));
       surfaces[1].setOtherPairKeys(pairKeysFromAnns(anns0));
-      syncPanelGeometry(surfaces[0], anns0);
       syncPanelGeometry(surfaces[1], anns1);
-      rebuildBpList(surfaces[0]);
       rebuildBpList(surfaces[1]);
       var infMetrics = computeInf(annsToPairs(anns0), annsToPairs(anns1));
       updateInfBar(infMetrics);
@@ -870,6 +875,13 @@
       });
   }
 
+  function attachSingle(options) {
+    return attachCompare({
+      panelCtxs: [options.panelCtx],
+      jobId: options.jobId,
+    });
+  }
+
   function jobIdFromLocation() {
     var m = (global.location && location.pathname || '')
       .match(/\/jobs\/([^/]+)\/viewer\/?/);
@@ -889,6 +901,7 @@
     probe: probe,
     jobIdFromLocation: jobIdFromLocation,
     attachCompare: attachCompare,
+    attachSingle: attachSingle,
     // exposed for tests
     _computeInf: computeInf,
     _applyOverrides: applyOverrides,

@@ -112,10 +112,15 @@ class Catalog:
         self.list_jobs()
         return True
 
-    def find_by_content_hash(self, content_hash: str) -> Optional[Dict[str, Any]]:
+    def find_by_content_hash(
+        self, content_hash: str, mode: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Return a ready job with the same content hash, if any."""
+        want_mode = normalize_job_mode(mode) if mode else None
         for meta in self.list_jobs():
             if meta.get("status") != "ready":
+                continue
+            if want_mode and normalize_job_mode(meta.get("mode")) != want_mode:
                 continue
             inputs = meta.get("inputs") or {}
             if inputs.get("content_hash") == content_hash:

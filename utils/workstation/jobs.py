@@ -75,7 +75,7 @@ def content_hash(  # pylint: disable=too-many-arguments,too-many-positional-argu
     mode: str,
     basepairs: str,
 ) -> str:
-    """Stable hash of inputs + generate params (edits are not included)."""
+    """Stable hash of compare inputs + generate params (edits are not included)."""
     digest = hashlib.sha256()
     for path in (ref_path, model_path):
         digest.update(path.name.encode("utf-8"))
@@ -93,8 +93,32 @@ def content_hash(  # pylint: disable=too-many-arguments,too-many-positional-argu
     return "sha256:" + digest.hexdigest()
 
 
+def pdb_content_hash(
+    structure_path: Path,
+    chain: str,
+    mode: str,
+    basepairs: str,
+) -> str:
+    """Stable hash for a single-structure 2D+3D job."""
+    digest = hashlib.sha256()
+    digest.update(b"pdb\0")
+    digest.update(structure_path.name.encode("utf-8"))
+    digest.update(b"\0")
+    with structure_path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    digest.update(b"\0")
+    for part in (chain, mode, basepairs):
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
+
+
 class JobRunner:
-    """Serial job queue: one compare generate at a time."""
+    """Serial job queue: one generate at a time."""
 
     def __init__(
         self,
@@ -153,46 +177,13 @@ class JobRunner:
         )
         self.catalog.append_log(job_id, f"Starting job {job_id}")
 
-        inputs_dir = self.catalog.inputs_job_dir(job_id)
-        out_dir = self.catalog.job_dir(job_id)
-        params = meta.get("params") or {}
-        inputs = meta.get("inputs") or {}
-        ref_name = inputs["ref_name"]
-        model_name = inputs["model_name"]
-        ref_path = inputs_dir / ref_name
-        model_path = inputs_dir / model_name
+        job_mode = meta.get("mode") or "compare"
+        if job_mode == "pdb":
+            self._run_pdb_job(job_id, meta)
+        else:
+            self._run_compare_job(job_id, meta)
 
-        chains = params.get("chains") or ""
-        model_chains = params.get("model_chains") or ""
-        mode = params.get("mode") or "auto"
-        basepairs = params.get("basepairs") or "fr3d"
-
-        cmd = self._build_cmd(
-            ref_path=ref_path,
-            model_path=model_path,
-            out_dir=out_dir,
-            chains=chains,
-            model_chains=model_chains,
-            mode=mode,
-            basepairs=basepairs,
-        )
-        self.catalog.append_log(job_id, "Command: " + " ".join(cmd))
-
-        env = os.environ.copy()
-        # Stream logs line-by-line; context-manager wait would block the pipe.
-        process = subprocess.Popen(  # pylint: disable=consider-using-with
-            cmd,
-            cwd=str(self.repo_root),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=env,
-        )
-        assert process.stdout is not None
-        for line in process.stdout:
-            self.catalog.append_log(job_id, line.rstrip("\n"))
-        code = process.wait()
-
+    def _finish_viewer_job(self, job_id: str, out_dir: Path, code: int) -> None:
         viewer = out_dir / "viewer" / "index.html"
         if code == 0 and viewer.is_file():
             self.catalog.refresh_metrics(job_id)
@@ -214,7 +205,58 @@ class JobRunner:
         )
         self.catalog.append_log(job_id, f"Job failed (exit {code})")
 
-    def _build_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _stream_command(self, job_id: str, cmd: List[str]) -> int:
+        self.catalog.append_log(job_id, "Command: " + " ".join(cmd))
+        env = os.environ.copy()
+        process = subprocess.Popen(  # pylint: disable=consider-using-with
+            cmd,
+            cwd=str(self.repo_root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            self.catalog.append_log(job_id, line.rstrip("\n"))
+        return process.wait()
+
+    def _run_compare_job(self, job_id: str, meta: Dict[str, Any]) -> None:
+        inputs_dir = self.catalog.inputs_job_dir(job_id)
+        out_dir = self.catalog.job_dir(job_id)
+        params = meta.get("params") or {}
+        inputs = meta.get("inputs") or {}
+        ref_path = inputs_dir / inputs["ref_name"]
+        model_path = inputs_dir / inputs["model_name"]
+        cmd = self._build_compare_cmd(
+            ref_path=ref_path,
+            model_path=model_path,
+            out_dir=out_dir,
+            chains=params.get("chains") or "",
+            model_chains=params.get("model_chains") or "",
+            mode=params.get("mode") or "auto",
+            basepairs=params.get("basepairs") or "fr3d",
+        )
+        code = self._stream_command(job_id, cmd)
+        self._finish_viewer_job(job_id, out_dir, code)
+
+    def _run_pdb_job(self, job_id: str, meta: Dict[str, Any]) -> None:
+        inputs_dir = self.catalog.inputs_job_dir(job_id)
+        out_dir = self.catalog.job_dir(job_id)
+        params = meta.get("params") or {}
+        inputs = meta.get("inputs") or {}
+        structure_path = inputs_dir / inputs["structure_name"]
+        cmd = self._build_pdb_cmd(
+            structure_path=structure_path,
+            out_dir=out_dir,
+            chain=params.get("chain") or "",
+            mode=params.get("mode") or "auto",
+            basepairs=params.get("basepairs") or "fr3d",
+        )
+        code = self._stream_command(job_id, cmd)
+        self._finish_viewer_job(job_id, out_dir, code)
+
+    def _build_compare_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         ref_path: Path,
         model_path: Path,
@@ -226,10 +268,9 @@ class JobRunner:
     ) -> List[str]:
         """Build the r2dt.py pdb --compare --model command (in- or out-of-docker)."""
         if in_docker():
-            return self._local_pdb_cmd(
+            return self._local_compare_cmd(
                 ref_path, model_path, out_dir, chains, model_chains, mode, basepairs
             )
-        # Host: run the same command inside a one-shot container with mounts.
         workspace = self.catalog.workspace.resolve()
         repo = self.repo_root.resolve()
         rel_ref = ref_path.resolve().relative_to(workspace)
@@ -268,8 +309,53 @@ class JobRunner:
             *inner,
         ]
 
+    def _build_pdb_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        structure_path: Path,
+        out_dir: Path,
+        chain: str,
+        mode: str,
+        basepairs: str,
+    ) -> List[str]:
+        """Build r2dt.py pdb_2d_3d for a single-structure interactive viewer."""
+        if in_docker():
+            return self._local_pdb_2d3d_cmd(
+                structure_path, out_dir, chain, mode, basepairs
+            )
+        workspace = self.catalog.workspace.resolve()
+        repo = self.repo_root.resolve()
+        rel_struct = structure_path.resolve().relative_to(workspace)
+        rel_out = out_dir.resolve().relative_to(workspace)
+        inner = [
+            "python3",
+            "r2dt.py",
+            "pdb_2d_3d",
+            f"/workspace/{rel_struct.as_posix()}",
+            f"/workspace/{rel_out.as_posix()}",
+            "--mode",
+            mode,
+            "--basepairs",
+            basepairs,
+            "--quiet",
+        ]
+        if chain:
+            inner.extend(["--chain", chain])
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{repo}:/rna/r2dt",
+            "-v",
+            f"{workspace}:/workspace",
+            "-w",
+            "/rna/r2dt",
+            self.docker_image,
+            *inner,
+        ]
+
     @staticmethod
-    def _local_pdb_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _local_compare_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         ref_path: Path,
         model_path: Path,
         out_dir: Path,
@@ -299,6 +385,30 @@ class JobRunner:
             cmd.extend(["--model-chains", model_chains])
         return cmd
 
+    @staticmethod
+    def _local_pdb_2d3d_cmd(
+        structure_path: Path,
+        out_dir: Path,
+        chain: str,
+        mode: str,
+        basepairs: str,
+    ) -> List[str]:
+        cmd = [
+            "python3",
+            "r2dt.py",
+            "pdb_2d_3d",
+            str(structure_path),
+            str(out_dir),
+            "--mode",
+            mode,
+            "--basepairs",
+            basepairs,
+            "--quiet",
+        ]
+        if chain:
+            cmd.extend(["--chain", chain])
+        return cmd
+
 
 def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-locals
     catalog: Catalog,
@@ -314,7 +424,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
     notes: str = "",
     force: bool = False,
 ) -> Dict[str, Any]:
-    """Materialise inputs, write meta, enqueue. Returns job meta."""
+    """Materialise compare inputs, write meta, enqueue. Returns job meta."""
     if not chains:
         raise ValueError("Select at least one reference chain")
     if not model_chains:
@@ -336,7 +446,7 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
         ref_src, model_src, chains_csv, model_chains_csv, mode, basepairs
     )
     if not force:
-        existing = catalog.find_by_content_hash(digest)
+        existing = catalog.find_by_content_hash(digest, mode="compare")
         if existing:
             return {
                 "dedup": True,
@@ -377,6 +487,71 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
             "ref_original_name": ref_original,
             "ref_format": normalize_suffix(ref_dest),
             "model_format": normalize_suffix(model_dest),
+            "content_hash": digest,
+        },
+        "metrics": {},
+        "viewer_url": f"/jobs/{job_id}/viewer/",
+    }
+    catalog.write_meta(job_id, meta)
+    catalog.append_log(job_id, "Queued")
+    runner.enqueue(job_id)
+    return {"dedup": False, "job": meta}
+
+
+def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-locals
+    catalog: Catalog,
+    runner: JobRunner,
+    *,
+    upload_id: str,
+    chain: str,
+    mode: str = "auto",
+    basepairs: str = "fr3d",
+    label: str = "",
+    notes: str = "",
+    force: bool = False,
+) -> Dict[str, Any]:
+    """Materialise a single-structure 2D+3D job and enqueue it."""
+    chain = (chain or "").strip()
+    if not chain:
+        raise ValueError("Select one RNA chain")
+    if not upload_id:
+        raise ValueError("Missing upload id")
+
+    src = _resolve_upload(catalog, upload_id)
+    digest = pdb_content_hash(src, chain, mode, basepairs)
+    if not force:
+        existing = catalog.find_by_content_hash(digest, mode="pdb")
+        if existing:
+            return {
+                "dedup": True,
+                "job": existing,
+                "message": "Identical 2D+3D job already cached",
+            }
+
+    job_id = new_job_id()
+    inputs_dir = catalog.inputs_job_dir(job_id)
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+    dest = inputs_dir / src.name
+    if src.resolve() != dest.resolve():
+        shutil.copy2(src, dest)
+
+    stem = structure_stem(src)
+    display = label.strip() or f"{stem} chain {chain}"
+    meta: Dict[str, Any] = {
+        "id": job_id,
+        "mode": "pdb",
+        "label": display,
+        "notes": notes.strip(),
+        "created": utc_now(),
+        "status": "queued",
+        "params": {
+            "chain": chain,
+            "mode": mode,
+            "basepairs": basepairs,
+        },
+        "inputs": {
+            "structure_name": dest.name,
+            "structure_format": normalize_suffix(dest),
             "content_hash": digest,
         },
         "metrics": {},

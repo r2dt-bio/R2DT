@@ -26,6 +26,7 @@ from utils.workstation.chrome import (
 from utils.workstation.jobs import (
     JobRunner,
     create_job_from_uploads,
+    create_pdb_job_from_upload,
     require_runtime,
 )
 
@@ -218,13 +219,18 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         if method == "GET" and path in ("/compare/new", "/compare/new/"):
             self._serve_compare()
             return True
-        match = re.fullmatch(r"/(2d|pdb|align)/?", path)
+        if method == "GET" and path in ("/pdb", "/pdb/"):
+            self._serve_pdb()
+            return True
+        if method == "GET" and path in ("/pdb/new", "/pdb/new/"):
+            self._serve_pdb()
+            return True
+        match = re.fullmatch(r"/(2d|align)/?", path)
         if method == "GET" and match:
             self._serve_coming_soon(match.group(1))
             return True
-        match = re.fullmatch(r"/(2d|pdb|align)/new/?", path)
+        match = re.fullmatch(r"/(2d|align)/new/?", path)
         if method == "GET" and match:
-            # Forms not ready yet — send users to the mode stub.
             self._redirect(f"/{match.group(1)}")
             return True
         if method == "GET" and path.startswith("/static/"):
@@ -280,6 +286,11 @@ class WorkstationHandler(BaseHTTPRequestHandler):
     def _serve_compare(self) -> None:
         raw = (STATIC_DIR / "compare.html").read_text(encoding="utf-8")
         html = _fill_page(raw, active_path="compare")
+        self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _serve_pdb(self) -> None:
+        raw = (STATIC_DIR / "pdb.html").read_text(encoding="utf-8")
+        html = _fill_page(raw, active_path="pdb")
         self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _serve_coming_soon(self, path_key: str) -> None:
@@ -393,21 +404,34 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             payload = json.loads(raw.decode("utf-8"))
         except ValueError as exc:
             raise ValueError("Invalid JSON body") from exc
-        # Layout mode (auto/templated/…) — job type is always compare for now.
-        layout_mode = payload.get("layout_mode") or payload.get("mode") or "auto"
-        result = create_job_from_uploads(
-            self.app.catalog,
-            self.app.runner,
-            ref_upload_id=payload.get("ref_upload_id") or "",
-            model_upload_id=payload.get("model_upload_id") or "",
-            chains=list(payload.get("chains") or []),
-            model_chains=list(payload.get("model_chains") or []),
-            mode=layout_mode,
-            basepairs=payload.get("basepairs") or "fr3d",
-            label=payload.get("label") or "",
-            notes=payload.get("notes") or "",
-            force=bool(payload.get("force")),
-        )
+        job_mode = payload.get("job_mode") or "compare"
+        if job_mode == "pdb":
+            result = create_pdb_job_from_upload(
+                self.app.catalog,
+                self.app.runner,
+                upload_id=payload.get("upload_id") or "",
+                chain=payload.get("chain") or "",
+                mode=payload.get("layout_mode") or payload.get("mode") or "auto",
+                basepairs=payload.get("basepairs") or "fr3d",
+                label=payload.get("label") or "",
+                notes=payload.get("notes") or "",
+                force=bool(payload.get("force")),
+            )
+        else:
+            layout_mode = payload.get("layout_mode") or payload.get("mode") or "auto"
+            result = create_job_from_uploads(
+                self.app.catalog,
+                self.app.runner,
+                ref_upload_id=payload.get("ref_upload_id") or "",
+                model_upload_id=payload.get("model_upload_id") or "",
+                chains=list(payload.get("chains") or []),
+                model_chains=list(payload.get("model_chains") or []),
+                mode=layout_mode,
+                basepairs=payload.get("basepairs") or "fr3d",
+                label=payload.get("label") or "",
+                notes=payload.get("notes") or "",
+                force=bool(payload.get("force")),
+            )
         status = 200 if result.get("dedup") else 201
         self._send(*_json_bytes(result, status))
 

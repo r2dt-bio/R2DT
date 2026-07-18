@@ -23,7 +23,7 @@ MODES = (
         "title": "2D + 3D",
         "blurb": "Linked 2D topology and 3D structure for one PDB or mmCIF.",
         "cta": "New 2D + 3D job",
-        "ready": False,
+        "ready": True,
     },
     {
         "id": "compare",

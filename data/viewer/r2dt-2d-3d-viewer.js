@@ -3385,11 +3385,12 @@
       },
     };
     activeViewer = handle;
+    // Workstation-only editing: probe + dynamic script load. Static hosts
+    // never expose /__edit-api, so this is a no-op there.
+    maybeEnableWorkstationEditing([ctx]).catch(() => {});
     if (typeof opts.onReady === 'function') opts.onReady(handle);
     return handle;
   }
-
-  async function createCompare(userOptions) {
     if (activeViewer) {
       throw new Error('R2DTViewer.createCompare: only one viewer or compare widget per page (v1)');
     }
@@ -3763,10 +3764,16 @@
     const jobId = jobMatch && jobMatch[1];
     if (!jobId) return;
     await loadScriptOnce('/static/r2dt-bp-edit.js');
-    if (!global.R2DTBpEdit || typeof global.R2DTBpEdit.attachCompare !== 'function') {
+    if (!global.R2DTBpEdit) return;
+    if (panelCtxs.length >= 2
+        && typeof global.R2DTBpEdit.attachCompare === 'function') {
+      await global.R2DTBpEdit.attachCompare({ panelCtxs, jobId });
       return;
     }
-    await global.R2DTBpEdit.attachCompare({ panelCtxs, jobId });
+    if (panelCtxs.length === 1
+        && typeof global.R2DTBpEdit.attachSingle === 'function') {
+      await global.R2DTBpEdit.attachSingle({ panelCtx: panelCtxs[0], jobId });
+    }
   }
 
   global.R2DTViewer = { create, createCompare };
