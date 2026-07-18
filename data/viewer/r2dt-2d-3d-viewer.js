@@ -661,12 +661,15 @@
 
   // Reference/model visibility toggles for the shared 3D pane. Each checkbox
   // drives `structureVisibility(structureNumber, on)`; a colour swatch matches
-  // the structure's base colour so the control doubles as a legend.
-  function addStructureToggles(slotEl, molstar, entries) {
+  // the structure's base colour so the control doubles as a legend. Mounted in
+  // a bottom "chin" toolbar inside the 3D panel (same role as the 2D #mainMenu).
+  function addStructureToggles(panel3d, molstar, entries) {
+    const chin = document.createElement('div');
+    chin.className = 'r2dt-3d-chin';
+    chin.setAttribute('role', 'group');
+    chin.setAttribute('aria-label', '3D structure visibility');
     const bar = document.createElement('div');
-    bar.className = 'r2dt-3d-toggles r2dt-3d-toggles--below';
-    bar.setAttribute('role', 'group');
-    bar.setAttribute('aria-label', '3D structure visibility');
+    bar.className = 'r2dt-3d-toggles';
     entries.forEach((entry, idx) => {
       const label = document.createElement('label');
       label.className = 'r2dt-toggle r2dt-3d-toggle';
@@ -699,10 +702,9 @@
       label.append(cb, track, text);
       bar.appendChild(label);
     });
-    // Placed at the end of the slot so the legend/toggles sit *below* the 3D
-    // pane (the 3D root has already been appended when this runs).
-    slotEl.appendChild(bar);
-    return bar;
+    chin.appendChild(bar);
+    panel3d.appendChild(chin);
+    return chin;
   }
 
   const BP_GLYPH_COLOR = '#909090';
@@ -3744,12 +3746,15 @@
     molVis.className = 'r2dt-viewer-vis';
     const panel3d = document.createElement('div');
     panel3d.className = 'r2dt-panel r2dt-panel--3d';
+    const canvasHost = document.createElement('div');
+    canvasHost.className = 'r2dt-3d-canvas';
+    panel3d.appendChild(canvasHost);
     molVis.append(panel3d);
     molRoot.append(molVis);
     (molSlot._body || molSlot).appendChild(molRoot);
 
     const molstar = await renderMolstarPlugin(
-      panel3d,
+      canvasHost,
       molData.structureUrl,
       molData.structureFormat
     );
@@ -3834,7 +3839,7 @@
       try { molstar.canvas.setBgColor({ r: 255, g: 255, b: 255 }); } catch (_) {}
     }
 
-    if (overlays.length) addStructureToggles(molSlot, molstar, toggleEntries);
+    if (overlays.length) addStructureToggles(panel3d, molstar, toggleEntries);
     // Loading a second structure via visual.update re-shows Mol*'s side controls
     // panel (the init-time hideControls no longer applies). It can't be hidden via
     // the layout state post-init (setProps doesn't re-render the embedded root), so

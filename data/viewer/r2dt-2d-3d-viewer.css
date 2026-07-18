@@ -731,14 +731,36 @@
   border-radius: 8px;
   background: #fff;
   box-sizing: border-box;
-  /* Allow Mol* "outside" control panels (bottom:-295px) to show below the canvas. */
+  position: relative;
+  /* Allow Mol* "outside" control panels when there is no chin. */
   overflow: visible;
 }
 
-#pdb-molstar .msp-layout-main,
-.r2dt-panel--3d .msp-layout-main {
+/* Compare 3D with canvas host + optional chin: flex column inside the pane. */
+.r2dt-panel--3d:has(.r2dt-3d-canvas) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.r2dt-3d-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  position: relative;
   overflow: hidden;
   border-radius: 7px;
+}
+
+.r2dt-panel--3d:has(.r2dt-3d-chin) .r2dt-3d-canvas {
+  border-radius: 7px 7px 0 0;
+}
+
+#pdb-molstar .msp-layout-main,
+.r2dt-panel--3d .msp-layout-main,
+.r2dt-3d-canvas .msp-layout-main {
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 /* Mol* sets border on `.msp-plugin .msp-layout-standard` and loads after this
@@ -977,17 +999,25 @@
   display: none !important;
 }
 
+/* 3D bottom chin — same role as the 2D #mainMenu toolbar. */
+.r2dt-3d-chin {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  background: #f8f9fa;
+  border-top: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  z-index: 30;
+  font-family: var(--r2dt-font-ui);
+}
+
 /* Reference/model visibility — same switch style as Backbone / Nested. */
 .r2dt-3d-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
   align-items: center;
-  margin: 0 0 8px;
-}
-
-.r2dt-3d-toggles--below {
-  margin: 8px 0 0;
+  margin: 0;
 }
 
 .r2dt-3d-toggle .r2dt-toggle-label {
