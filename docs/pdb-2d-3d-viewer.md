@@ -2,6 +2,8 @@
 
 The `pdb_2d_3d` command runs the standard [`pdb`](./pdb.md) pipeline and additionally assembles a `viewer/` folder. Served over HTTP, `viewer/index.html` shows the R2DT 2D diagram and a 3D molstar view side by side, with clicks linked between them.
 
+For an interactive local UI that generates these viewers (and compare / edit / export workflows), see the [local workstation](./workstation.md).
+
 ## Basic usage
 
 ```bash

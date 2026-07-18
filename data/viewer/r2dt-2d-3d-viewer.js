@@ -1050,35 +1050,25 @@
   }
 
   /** Whether an edited/live path should be shown given current filters.
-   *  Nested ON (default) = show nested pairs (full set). Nested OFF = hide
-   *  nested pairs and keep only crossing / pseudoknot contacts. */
+   *  Nested OFF (default) = show all pairs. Nested ON = nested only
+   *  (hide crossing / pseudoknot contacts). */
   function shouldShowBpPath(pathId, annByKey) {
     if (!pathId) return false;
     const ui = rnaPlugin.uiTemplateService;
     if (!ui) return true;
-    const showNested = !nestedBpInput() || nestedBpInput().checked;
-    const displayAll = ui.displayBaseStrs;
-    const displayNested = ui.displayNestedBaseStrs;
+    const nestedOnly = !!(nestedBpInput() && nestedBpInput().checked);
+    const displayHtml = nestedOnly ? ui.displayNestedBaseStrs : ui.displayBaseStrs;
+    const visibleIds = pathIdsInDisplayHtml(displayHtml);
+    if (visibleIds.has(pathId)) return true;
+    // Refamily: same pair, new LW class — keep if the original pair was shown.
     const key = bpPairKeyFromPathId(pathId);
+    if (pairKeysInDisplayHtml(displayHtml).has(key)) return true;
+    // Newly added pairs aren't in the plugin display strings.
     const family = familyFromPathId(pathId);
-    if (showNested) {
-      const visibleIds = pathIdsInDisplayHtml(displayAll);
-      if (visibleIds.has(pathId)) return true;
-      if (pairKeysInDisplayHtml(displayAll).has(key)) return true;
-      if (!isBpFamilyFilterOn(family)) return false;
-      return true;
-    }
-    // Nested off: keep only crossing pairs.
-    const allIds = pathIdsInDisplayHtml(displayAll);
-    const nestedIds = pathIdsInDisplayHtml(displayNested);
-    if (allIds.has(pathId) && !nestedIds.has(pathId)) return true;
-    if (
-      pairKeysInDisplayHtml(displayAll).has(key)
-      && !pairKeysInDisplayHtml(displayNested).has(key)
-    ) return true;
     if (!isBpFamilyFilterOn(family)) return false;
     const ann = annByKey.get(key);
-    return isCrossingAnn(ann);
+    if (nestedOnly && isCrossingAnn(ann)) return false;
+    return true;
   }
 
   function isCanonicalWatsonCrick(family, nt1, nt2) {
@@ -2075,7 +2065,7 @@
           // Path may not exist yet for a just-added pair before geometry sync;
           // still list it when its family filter allows.
           return isBpFamilyFilterOn(a.bp || 'cWW')
-            && (nestedInput.checked || isCrossingAnn(a));
+            && !(nestedInput.checked && isCrossingAnn(a));
         })
         .sort((x, y) => {
           const ax = +x.seq_id1;
@@ -2310,7 +2300,7 @@
       const nestedLabel = nestedWrap.querySelector('label');
       const nestedId = `nestedBP-${PDB_LOWER}`;
       if (nestedInput) {
-        nestedInput.setAttribute('aria-label', 'Show nested base pairs');
+        nestedInput.setAttribute('aria-label', 'Show only nested base pairs');
       }
       if (nestedLabel) {
         nestedLabel.classList.add('r2dt-nested-toggle');
@@ -2320,9 +2310,8 @@
       // stay repaired after toggling nested view.
       if (nestedInput && !nestedInput.dataset.r2dtNestedBound) {
         const nestedFresh = nestedInput.cloneNode(true);
-        // Nested ON by default (= show nested pairs). Plugin ships unchecked
-        // because its checkbox meant "nested only".
-        nestedFresh.checked = true;
+        // Off by default: show all pairs. On = nested only.
+        nestedFresh.checked = false;
         nestedFresh.id = nestedId;
         nestedInput.replaceWith(nestedFresh);
         nestedFresh.dataset.r2dtNestedBound = '1';
