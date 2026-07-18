@@ -29,8 +29,70 @@ body.ws-home .ws-chrome {
   margin: 0 0 20px;
   flex-shrink: 0;
 }
-body:not(.ws-dashboard):not(.ws-home) .ws-chrome {
-  margin: -16px -16px 16px;
+
+/* ---- Viewer pages: fit chrome + panels into one viewport (no page scroll) ---- */
+html:has(body > .ws-chrome):not(:has(body.ws-dashboard)):not(:has(body.ws-home)),
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) {
+  display: flex;
+  flex-direction: column;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .ws-chrome {
+  margin: 0 !important;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  gap: 8px 14px;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > h1 {
+  flex-shrink: 0;
+  font-size: 15px !important;
+  margin: 8px 16px 2px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .meta {
+  flex-shrink: 0;
+  margin: 0 16px 6px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .mc-inf {
+  flex-shrink: 0;
+  margin: 0 16px 8px !important;
+  padding: 4px 10px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > #r2dt-compare-mount,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > #r2dt-viewer-mount {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-root,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-grid,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-vis {
+  flex: 0 0 auto;
+}
+/* LBN scrolls inside its own pane so the page itself does not. */
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-lbn,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 8px;
 }
 
 .ws-chrome-brand {
@@ -107,8 +169,28 @@ body:not(.ws-dashboard):not(.ws-home) .ws-chrome {
   color: #666;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  max-width: min(320px, 30vw);
+  max-width: min(280px, 28vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ws-chrome-job-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.ws-chrome-export {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: var(--ws-brand);
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-chrome-export:hover {
+  background: var(--ws-brand-soft);
 }

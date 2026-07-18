@@ -38,6 +38,7 @@ from utils.workstation.jobs import (
     find_draw_svg,
     require_runtime,
 )
+from utils.workstation.package import export_job_bytes, import_job_bytes
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -82,6 +83,60 @@ def _mode_cards_html() -> str:
     return "\n".join(cards)
 
 
+_VIEWER_FIT_SCRIPT = """
+<script>
+(function () {
+  function fitWorkstationViewer() {
+    var compareRoot = document.querySelector('.r2dt-compare-root');
+    var viewerRoot = document.querySelector('.r2dt-viewer-root');
+    var root = compareRoot || viewerRoot;
+    if (!root) return;
+    var chrome = document.querySelector('.ws-chrome');
+    var h1 = document.querySelector('body > h1');
+    var meta = document.querySelector('body > .meta');
+    var inf = document.querySelector('body > .mc-inf');
+    var reserved = 24;
+    [chrome, h1, meta, inf].forEach(function (el) {
+      if (el) reserved += el.getBoundingClientRect().height;
+    });
+    var lbn = root.querySelector('.r2dt-compare-lbn, .r2dt-viewer-lbn');
+    var lbnBudget = lbn ? Math.min(200, Math.max(96, window.innerHeight * 0.22)) : 0;
+    var slotChrome = compareRoot ? 36 : 8;
+    var avail = window.innerHeight - reserved - lbnBudget - slotChrome;
+    var panelH = Math.max(240, Math.min(520, avail));
+    if (compareRoot) {
+      compareRoot.style.setProperty('--r2dt-compare-panel-height', panelH + 'px');
+    }
+    if (viewerRoot) {
+      viewerRoot.style.setProperty('--r2dt-viewer-height', panelH + 'px');
+      viewerRoot.style.setProperty('--r2dt-panel-size', Math.min(600, panelH) + 'px');
+    }
+    if (lbn) {
+      var used = reserved + panelH + slotChrome + 12;
+      lbn.style.maxHeight = Math.max(80, window.innerHeight - used) + 'px';
+    }
+  }
+  window.addEventListener('resize', fitWorkstationViewer);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fitWorkstationViewer);
+  } else {
+    fitWorkstationViewer();
+  }
+  // createCompare is async; refit as the mount fills in.
+  var mount = document.getElementById('r2dt-compare-mount')
+    || document.getElementById('r2dt-viewer-mount');
+  if (mount && typeof MutationObserver !== 'undefined') {
+    var obs = new MutationObserver(function () { fitWorkstationViewer(); });
+    obs.observe(mount, { childList: true, subtree: true });
+    setTimeout(function () { obs.disconnect(); }, 8000);
+  }
+  setTimeout(fitWorkstationViewer, 300);
+  setTimeout(fitWorkstationViewer, 1200);
+})();
+</script>
+"""
+
+
 def _inject_viewer_chrome(
     html: str,
     job_id: str,
@@ -96,13 +151,23 @@ def _inject_viewer_chrome(
         html = html.replace("</head>", head + "</head>", 1)
     else:
         html = head + html
-    header = chrome_header(active_path=active_path, job_label=label, job_id=job_id)
+    header = chrome_header(
+        active_path=active_path,
+        job_label=label,
+        job_id=job_id,
+        show_export=bool(job_id),
+    )
     match = re.search(r"<body([^>]*)>", html, flags=re.IGNORECASE)
     if match:
         insert_at = match.end()
         html = html[:insert_at] + "\n" + header + html[insert_at:]
     else:
         html = header + html
+    if "fitWorkstationViewer" not in html:
+        if "</body>" in html:
+            html = html.replace("</body>", _VIEWER_FIT_SCRIPT + "</body>", 1)
+        else:
+            html = html + _VIEWER_FIT_SCRIPT
     return html
 
 
@@ -156,13 +221,17 @@ def run_server(
     server = ThreadingHTTPServer((host, port), WorkstationHandler)
     server.allow_reuse_address = True
 
-    rprint(f"[green]Local workstation: http://127.0.0.1:{port}/[/green]")
+    url = f"http://127.0.0.1:{port}/"
+    rprint("[green]Local workstation[/green]")
+    # Bare URL for copy/paste. Clickable links are unreliable in macOS Terminal
+    # when output is piped from Docker; `just workstation` opens the browser.
+    print(url, flush=True)
     if host != "127.0.0.1":
         rprint(
             f"[yellow]Bound to {host}:{port} inside the process; "
             "publish only to 127.0.0.1 from Docker.[/yellow]"
         )
-    rprint(f"[green]Workspace: {workspace}[/green]")
+    rprint(f"[green]Workspace[/green] {workspace}")
     rprint(f"[dim]{message}. Structures stay on this machine. Ctrl+C to stop.[/dim]")
 
     try:
@@ -273,6 +342,9 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([^/]+)/log", path)
         if method == "GET" and match:
             return self._get_log(match.group(1), parsed)
+        match = re.fullmatch(r"/api/jobs/([^/]+)/export", path)
+        if method == "GET" and match:
+            return self._export_job(match.group(1))
         match = re.fullmatch(r"/api/uploads/([^/]+)/chains", path)
         if method == "GET" and match:
             return self._handle_chains(match.group(1))
@@ -290,6 +362,9 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             return self._put_basepairs(match.group(1))
         if method == "POST" and path == "/api/uploads":
             self._handle_upload()
+            return True
+        if method == "POST" and path == "/api/jobs/import":
+            self._handle_import_job()
             return True
         if method == "POST" and path == "/api/jobs":
             self._handle_create_job()
@@ -398,6 +473,36 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             return True
         self._send(*_json_bytes({"ok": True}))
         return True
+
+    def _export_job(self, job_id: str) -> bool:
+        if not self.app.catalog.get_job(job_id):
+            self._send(*_json_bytes({"error": "not found"}, 404))
+            return True
+        data, filename = export_job_bytes(self.app.catalog, job_id)
+        self._send(
+            200,
+            data,
+            "application/zip",
+            extra_headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+        return True
+
+    def _handle_import_job(self) -> None:
+        length = int(self.headers.get("Content-Length") or "0")
+        if length <= 0:
+            raise ValueError("Empty package")
+        data = self.rfile.read(length)
+        label = self.headers.get("X-Label") or self.headers.get("x-label") or ""
+        notes = self.headers.get("X-Notes") or self.headers.get("x-notes") or ""
+        result = import_job_bytes(
+            self.app.catalog,
+            data,
+            label=label,
+            notes=notes,
+        )
+        self._send(*_json_bytes(result, 201))
 
     def _runtime_payload(self) -> Dict[str, Any]:
         ok, message = require_runtime()
@@ -573,7 +678,12 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         html = raw.replace("<!--HEAD-->", _HEAD_LINKS)
         html = html.replace(
             "<!--HEADER-->",
-            chrome_header(active_path=active, job_label=label, job_id=job_id),
+            chrome_header(
+                active_path=active,
+                job_label=label,
+                job_id=job_id,
+                show_export=True,
+            ),
         )
         html = html.replace("<!--JOB_LABEL-->", html_lib.escape(label))
         html = html.replace("<!--JOB_ID-->", html_lib.escape(job_id))
@@ -754,10 +864,19 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         data = path.read_bytes()
         self._send(200, data, ctype)
 
-    def _send(self, status: int, body: bytes, content_type: str) -> None:
+    def _send(
+        self,
+        status: int,
+        body: bytes,
+        content_type: str,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if extra_headers:
+            for key, value in extra_headers.items():
+                self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)

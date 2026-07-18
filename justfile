@@ -212,13 +212,33 @@ viewers-serve:
 
 # Private local R2DT workstation (homepage + mode dashboards).
 # Docker required. Publishes only to 127.0.0.1; cache in ~/.r2dt-workstation.
+# Opens the default browser on the host (set R2DT_WORKSTATION_NO_OPEN=1 to skip).
 workstation tag=default_tag ws_port="8765":
     #!/usr/bin/env bash
     set -euo pipefail
     ws="${R2DT_WORKSPACE:-$HOME/.r2dt-workstation}"
+    url="http://127.0.0.1:{{ ws_port }}/"
     mkdir -p "$ws"
     echo "Workspace: $ws"
-    echo "Open http://127.0.0.1:{{ ws_port }}/  (Ctrl+C to stop)"
+    echo "URL: $url"
+    echo "(Ctrl+C to stop)"
+    # macOS Terminal does not reliably make Docker-piped URLs clickable.
+    # Open the browser on the *host* (cannot open from inside the container).
+    if [[ "${R2DT_WORKSTATION_NO_OPEN:-}" != "1" ]]; then
+        (
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if curl -sf -o /dev/null "$url"; then
+                    if command -v open >/dev/null 2>&1; then
+                        open "$url"
+                    elif command -v xdg-open >/dev/null 2>&1; then
+                        xdg-open "$url"
+                    fi
+                    exit 0
+                fi
+                sleep 0.5
+            done
+        ) >/dev/null 2>&1 &
+    fi
     docker run {{ platform_arg }} --rm \
         -p "127.0.0.1:{{ ws_port }}:{{ ws_port }}" \
         -v "$(pwd):/rna/r2dt" \
@@ -230,6 +250,19 @@ workstation tag=default_tag ws_port="8765":
             --port {{ ws_port }} \
             --bind 0.0.0.0 \
             --docker-image {{ image }}:{{ tag }}
+
+# Import CASP15/16 compare viewers into the workstation catalog (symlinks).
+# Requires existing output/site/casp15 and output/site/casp16 from the CASP pipeline.
+# Uses docker-style symlink targets so viewers resolve under `just workstation`.
+workstation-import-casp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ws="${R2DT_WORKSPACE:-$HOME/.r2dt-workstation}"
+    python3 scripts/workstation_import_casp.py \
+        --workspace "$ws" \
+        --seasons casp15,casp16 \
+        --link-style docker \
+        --force
 
 # Publish the viewer gallery (incl. workstream1/) to Cloudflare Pages
 # (needs wrangler + CLOUDFLARE_API_TOKEN). Deploys all of viewers_dir, so run

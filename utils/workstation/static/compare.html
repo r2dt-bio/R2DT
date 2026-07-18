@@ -13,7 +13,10 @@
   <div class="toolbar">
     <input id="filter" type="search" placeholder="Filter by label or filename…" autocomplete="off">
     <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="import-btn" title="Import a .r2dt-job.zip package">Import</button>
+    <input type="file" id="import-file" accept=".zip,.r2dt-job.zip,application/zip" hidden>
     <span class="count" id="count"></span>
+    <span id="import-status" class="form-status"></span>
     <a class="cta" id="new-comparison" href="/compare/new">New comparison</a>
   </div>
   <div class="table-wrap">
@@ -107,6 +110,7 @@
   <span id="runtime"></span>
 </footer>
 
+<script src="/static/transfer.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

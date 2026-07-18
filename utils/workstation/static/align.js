@@ -171,6 +171,7 @@
         open.rel = "noopener";
         actions.appendChild(open);
       }
+      if (window.R2DTTransfer) window.R2DTTransfer.addExportButton(actions, j);
       if (j.status === "running" || j.status === "queued" || j.status === "failed") {
         var logBtn = document.createElement("button");
         logBtn.type = "button";
@@ -318,6 +319,11 @@
     initExamples();
     $("filter").addEventListener("input", renderJobs);
     $("refresh").addEventListener("click", function () { loadJobs(); loadRuntime(); });
+    if (window.R2DTTransfer) {
+      window.R2DTTransfer.wireImportControls({
+        onDone: function () { loadJobs(); loadRuntime(); },
+      });
+    }
     $("stk-file").addEventListener("change", function (ev) {
       var f = ev.target.files && ev.target.files[0];
       if (!f) return;

@@ -63,6 +63,7 @@ def chrome_header(
     *,
     job_label: str = "",
     job_id: str = "",
+    show_export: bool = False,
 ) -> str:
     """Return the sticky header HTML used on every workstation page."""
     brand = (
@@ -94,7 +95,20 @@ def chrome_header(
         display = (job_label or "").strip() or job_id
         safe_label = html_lib.escape(display, quote=True)
         safe_id = html_lib.escape(job_id or display, quote=True)
-        job = f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
+        export = ""
+        if show_export and job_id:
+            export_href = f"/api/jobs/{html_lib.escape(job_id, quote=True)}/export"
+            export = (
+                f'<a class="ws-chrome-export" href="{export_href}" '
+                f'title="Download .r2dt-job.zip to share">'
+                f"Export</a>"
+            )
+        job = (
+            f'<span class="ws-chrome-job-wrap">'
+            f'<span class="ws-chrome-job" title="{safe_id}">{safe_label}</span>'
+            f"{export}"
+            f"</span>"
+        )
     return f'<header class="ws-chrome">{brand}{nav}{ext}{job}</header>\n'
 
 
