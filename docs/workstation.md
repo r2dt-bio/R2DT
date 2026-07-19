@@ -24,8 +24,10 @@ This mounts your workspace, publishes the UI on **http://127.0.0.1:8765/** (loca
 Equivalent CLI entry point (usually you do not need this if you use `just`):
 
 ```bash
-r2dt.py workstation --workspace ~/.r2dt-workstation --port 8765 --bind 0.0.0.0
+r2dt.py workstation --workspace ~/.r2dt-workstation --port 8765
 ```
+
+That defaults to `--bind 127.0.0.1`. Use `--bind 0.0.0.0` only inside Docker together with `-p 127.0.0.1:PORT:PORT` (as `just workstation` does) — never on a host that would listen on the LAN.
 
 Environment overrides:
 
@@ -33,6 +35,17 @@ Environment overrides:
 | --- | --- |
 | `R2DT_WORKSPACE` | Cache directory (default `~/.r2dt-workstation`) |
 | `R2DT_WORKSTATION_NO_OPEN=1` | Do not auto-open the browser |
+
+## Trust model
+
+The workstation is a **local operator tool**, not a multi-user web service:
+
+- There is **no login or API token**. Anyone who can reach the HTTP port can create jobs (which run Docker), upload files, edit base pairs, and delete cached jobs.
+- Prefer **`just workstation`**, which publishes the port to **127.0.0.1 only**. The process may bind `0.0.0.0` *inside* Docker so the published port works; that must not be confused with exposing the UI on the LAN.
+- Mutating requests (`POST` / `PUT` / `DELETE`) require a loopback `Host` (`localhost` / `127.0.0.1` / `::1`). When a browser sends `Origin` or `Referer`, that must be loopback too. This blocks casual cross-origin CSRF and DNS rebinding; it is not a substitute for keeping the port off the network.
+- Open the UI as `http://127.0.0.1:8765/` (or `http://localhost:8765/`). Stop the server when you are done.
+
+Do not publish the port beyond loopback (for example `-p 0.0.0.0:8765:8765` or `--bind 0.0.0.0` on a host without Docker port filtering).
 
 ## Modes
 

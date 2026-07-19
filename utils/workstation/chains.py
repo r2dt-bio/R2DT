@@ -6,7 +6,7 @@ import gzip
 import shutil
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from utils import fr3d as fr3d_utils
 
@@ -104,3 +104,33 @@ def list_rna_chains(structure_path: Path) -> Dict[str, Any]:
         "compare_ready": True,
         "needs_cif_conversion": fmt == "pdb",
     }
+
+
+def assert_chains_known(
+    requested: Sequence[str],
+    available: Sequence[str],
+    *,
+    side: str,
+) -> List[str]:
+    """Return stripped chain ids, or raise ValueError if any are unknown."""
+    cleaned = [str(chain).strip() for chain in requested if str(chain).strip()]
+    available_list = [str(chain) for chain in available]
+    available_set = set(available_list)
+    unknown = [chain for chain in cleaned if chain not in available_set]
+    if unknown:
+        avail = ", ".join(available_list) if available_list else "(none)"
+        raise ValueError(
+            f"Unknown {side} chain(s): {', '.join(unknown)}. Available: {avail}"
+        )
+    return cleaned
+
+
+def require_rna_chains(
+    structure_path: Path,
+    requested: Sequence[str],
+    *,
+    side: str,
+) -> List[str]:
+    """Validate ``requested`` against ``list_rna_chains`` for ``structure_path``."""
+    info = list_rna_chains(structure_path)
+    return assert_chains_known(requested, info.get("chains") or [], side=side)

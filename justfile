@@ -212,6 +212,7 @@ viewers-serve:
 
 # Private local R2DT workstation (homepage + mode dashboards).
 # Docker required. Publishes only to 127.0.0.1; cache in ~/.r2dt-workstation.
+# Unauthenticated; mutating API requires loopback Host/Origin (see docs).
 # Opens the default browser on the host (set R2DT_WORKSTATION_NO_OPEN=1 to skip).
 workstation tag=default_tag ws_port="8765":
     #!/usr/bin/env bash

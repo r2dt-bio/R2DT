@@ -41,6 +41,7 @@ from utils.workstation.jobs import (
 )
 from utils.workstation.package import export_job_bytes, import_job_bytes
 from utils.workstation.publish import export_shareable_html_bytes
+from utils.workstation.security import local_mutating_request_error, path_is_within
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -243,10 +244,14 @@ def run_server(
     if host != "127.0.0.1":
         rprint(
             f"[yellow]Bound to {host}:{port} inside the process; "
-            "publish only to 127.0.0.1 from Docker.[/yellow]"
+            "publish only to 127.0.0.1 from Docker. "
+            "Mutating API calls still require Host/Origin localhost.[/yellow]"
         )
     rprint(f"[green]Workspace[/green] {workspace}")
-    rprint(f"[dim]{message}. Structures stay on this machine. Ctrl+C to stop.[/dim]")
+    rprint(
+        f"[dim]{message}. No auth — trust is loopback only. "
+        "Structures stay on this machine. Ctrl+C to stop.[/dim]"
+    )
 
     try:
         server.serve_forever()
@@ -293,6 +298,10 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            blocked = local_mutating_request_error(method, self.headers)
+            if blocked:
+                self._send(*_json_bytes({"error": blocked}, 403))
+                return
             if not self._route(method, path, parsed):
                 self._send(*_json_bytes({"error": "not found"}, 404))
         except ValueError as exc:
@@ -423,7 +432,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send(*_json_bytes({"error": "unknown example"}, 404))
             return True
         path = (self.app.repo_root / rel).resolve()
-        if not path.is_file() or not str(path).startswith(str(self.app.repo_root)):
+        if not path.is_file() or not path_is_within(path, self.app.repo_root):
             self._send(*_json_bytes({"error": "example file missing"}, 404))
             return True
         text = path.read_text(encoding="utf-8")
@@ -698,7 +707,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send_results_page(job_id, meta, job_dir)
             return
         target = (job_dir / rel).resolve()
-        if not str(target).startswith(str(job_dir)):
+        if not path_is_within(target, job_dir):
             self._send(*_json_bytes({"error": "forbidden"}, 403))
             return
         if not target.is_file():
@@ -907,7 +916,7 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             self._send(*_json_bytes({"error": "viewer not ready"}, 404))
             return
         target = (base / rel).resolve()
-        if not str(target).startswith(str(base)):
+        if not path_is_within(target, base):
             self._send(*_json_bytes({"error": "forbidden"}, 403))
             return
         if target.is_dir():
@@ -931,8 +940,9 @@ class WorkstationHandler(BaseHTTPRequestHandler):
         self._send_file(target)
 
     def _serve_static(self, rel: str) -> None:
+        base = STATIC_DIR.resolve()
         target = (STATIC_DIR / rel).resolve()
-        if not str(target).startswith(str(STATIC_DIR.resolve())):
+        if not path_is_within(target, base):
             self._send(*_json_bytes({"error": "forbidden"}, 403))
             return
         if not target.is_file():

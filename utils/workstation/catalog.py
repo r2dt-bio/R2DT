@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,6 +16,28 @@ from utils.workstation.chrome import normalize_job_mode
 def utc_now() -> str:
     """Return an ISO-8601 UTC timestamp."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` via a same-directory temp file + ``os.replace``."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 class Catalog:
@@ -30,15 +54,12 @@ class Catalog:
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
 
     def list_jobs(self, mode: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Return jobs, newest first. Optional ``mode`` filters by job type."""
-        jobs = []
-        for child in sorted(self.jobs_dir.iterdir(), reverse=True):
-            if not child.is_dir():
-                continue
-            meta = self.read_meta(child.name)
-            if meta:
-                jobs.append(meta)
-        self._write_catalog(jobs)
+        """Return jobs, newest first. Optional ``mode`` filters by job type.
+
+        Read-only: does not rewrite ``catalog.json`` (refresh happens on
+        ``write_meta`` / ``delete_job``).
+        """
+        jobs = self._scan_jobs()
         if mode:
             want = normalize_job_mode(mode)
             return [j for j in jobs if normalize_job_mode(j.get("mode")) == want]
@@ -79,8 +100,9 @@ class Catalog:
         """Write meta.json without refreshing the catalog (avoids recursion)."""
         job_path = self.job_dir(job_id)
         job_path.mkdir(parents=True, exist_ok=True)
-        (job_path / "meta.json").write_text(
-            json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+        atomic_write_text(
+            job_path / "meta.json",
+            json.dumps(meta, indent=2) + "\n",
         )
 
     def write_meta(self, job_id: str, meta: Dict[str, Any]) -> None:
@@ -89,7 +111,7 @@ class Catalog:
         meta["id"] = job_id
         meta["mode"] = normalize_job_mode(meta.get("mode"))
         self._persist_meta_file(job_id, meta)
-        self.list_jobs()
+        self._refresh_catalog()
 
     def update_meta(self, job_id: str, **fields: Any) -> Optional[Dict[str, Any]]:
         """Merge fields into meta.json."""
@@ -109,7 +131,7 @@ class Catalog:
         inputs = self.inputs_job_dir(job_id)
         if inputs.exists():
             shutil.rmtree(inputs, ignore_errors=True)
-        self.list_jobs()
+        self._refresh_catalog()
         return True
 
     def find_by_content_hash(
@@ -174,8 +196,24 @@ class Catalog:
         lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
         return "\n".join(lines[-tail:])
 
+    def _scan_jobs(self) -> List[Dict[str, Any]]:
+        """Scan ``jobs/`` and return meta dicts, newest first."""
+        jobs = []
+        for child in sorted(self.jobs_dir.iterdir(), reverse=True):
+            if not child.is_dir():
+                continue
+            meta = self.read_meta(child.name)
+            if meta:
+                jobs.append(meta)
+        return jobs
+
+    def _refresh_catalog(self) -> None:
+        """Rewrite ``catalog.json`` from the current jobs/ scan."""
+        self._write_catalog(self._scan_jobs())
+
     def _write_catalog(self, jobs: List[Dict[str, Any]]) -> None:
         payload = {"updated": utc_now(), "jobs": jobs}
-        self.catalog_path.write_text(
-            json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+        atomic_write_text(
+            self.catalog_path,
+            json.dumps(payload, indent=2) + "\n",
         )

@@ -2369,5 +2369,207 @@ class TestStockholmColoring(unittest.TestCase):
         )
 
 
+class TestWorkstationLocalRequestGuard(unittest.TestCase):
+    """Unit tests for workstation Host/Origin checks on mutating routes."""
+
+    def test_get_always_allowed(self):
+        """GET is not subject to the mutating-request guard."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error("GET", {"Host": "evil.example:8765"})
+        )
+
+    def test_post_loopback_without_origin(self):
+        """Local curl-style POST with loopback Host is allowed."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error("POST", {"Host": "127.0.0.1:8765"})
+        )
+        self.assertIsNone(
+            local_mutating_request_error("DELETE", {"Host": "localhost:8765"})
+        )
+
+    def test_post_rejects_non_loopback_host(self):
+        """DNS-rebinding style Host headers are rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error("POST", {"Host": "evil.example:8765"})
+        self.assertIsNotNone(err)
+        self.assertIn("Host", err)
+
+    def test_post_rejects_cross_origin(self):
+        """Browser CSRF with foreign Origin is rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {
+                "Host": "127.0.0.1:8765",
+                "Origin": "https://evil.example",
+            },
+        )
+        self.assertEqual(err, "Origin not allowed")
+
+    def test_post_allows_loopback_origin(self):
+        """Same-origin browser POSTs from the UI are allowed."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error(
+                "PUT",
+                {
+                    "Host": "127.0.0.1:8765",
+                    "Origin": "http://127.0.0.1:8765",
+                },
+            )
+        )
+
+    def test_post_rejects_null_origin(self):
+        """Opaque null Origin is rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {"Host": "127.0.0.1:8765", "Origin": "null"},
+        )
+        self.assertEqual(err, "Origin not allowed")
+
+    def test_post_rejects_bad_referer_when_no_origin(self):
+        """Referer is checked when Origin is absent."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {
+                "Host": "127.0.0.1:8765",
+                "Referer": "https://evil.example/page",
+            },
+        )
+        self.assertEqual(err, "Referer not allowed")
+
+    def test_ipv6_loopback_host(self):
+        """Bracketed IPv6 loopback Host is accepted."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(local_mutating_request_error("POST", {"Host": "[::1]:8765"}))
+
+
+class TestWorkstationPathIsWithin(unittest.TestCase):
+    """Unit tests for path containment used by workstation file serving."""
+
+    def test_allows_base_and_descendants(self):
+        """Base itself and files under it are allowed."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "jobs" / "abc"
+            base.mkdir(parents=True)
+            child = base / "viewer" / "index.html"
+            child.parent.mkdir(parents=True)
+            child.write_text("ok", encoding="utf-8")
+            self.assertTrue(path_is_within(base, base))
+            self.assertTrue(path_is_within(child, base))
+
+    def test_rejects_prefix_sibling(self):
+        """A sibling that only shares a string prefix is rejected."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "jobs" / "abc"
+            sibling = Path(tmp) / "jobs" / "abc-evil" / "secret"
+            base.mkdir(parents=True)
+            sibling.parent.mkdir(parents=True)
+            sibling.write_text("nope", encoding="utf-8")
+            self.assertFalse(path_is_within(sibling, base))
+            # Classic startswith would incorrectly allow this:
+            self.assertTrue(str(sibling.resolve()).startswith(str(base.resolve())))
+
+    def test_rejects_parent_escape(self):
+        """Resolved paths that escape via .. are rejected."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "static"
+            base.mkdir()
+            outside = Path(tmp) / "secret.txt"
+            outside.write_text("nope", encoding="utf-8")
+            escaped = (base / ".." / "secret.txt").resolve()
+            self.assertFalse(path_is_within(escaped, base))
+
+
+class TestWorkstationAssertChainsKnown(unittest.TestCase):
+    """Unit tests for client chain-id validation."""
+
+    def test_accepts_known_chains(self):
+        """Known ids are returned stripped."""
+        from utils.workstation.chains import assert_chains_known
+
+        self.assertEqual(
+            assert_chains_known([" A ", "B"], ["A", "B", "C"], side="reference"),
+            ["A", "B"],
+        )
+
+    def test_rejects_unknown_chains(self):
+        """Unknown ids raise a clear ValueError."""
+        from utils.workstation.chains import assert_chains_known
+
+        with self.assertRaises(ValueError) as ctx:
+            assert_chains_known(["A", "Z"], ["A", "B"], side="model")
+        message = str(ctx.exception)
+        self.assertIn("Unknown model chain(s): Z", message)
+        self.assertIn("Available: A, B", message)
+
+
+class TestWorkstationCatalog(unittest.TestCase):
+    """Unit tests for catalog list/write behaviour."""
+
+    def test_list_jobs_does_not_rewrite_catalog(self):
+        """GET-style listing must not rewrite catalog.json as a side effect."""
+        from utils.workstation.catalog import Catalog
+
+        with tempfile.TemporaryDirectory() as tmp:
+            catalog = Catalog(Path(tmp))
+            job_id = "job-1"
+            catalog.write_meta(
+                job_id,
+                {
+                    "id": job_id,
+                    "mode": "draw",
+                    "label": "one",
+                    "status": "ready",
+                },
+            )
+            stamp = catalog.catalog_path.stat().st_mtime_ns
+            content = catalog.catalog_path.read_bytes()
+            listed = catalog.list_jobs()
+            self.assertEqual(len(listed), 1)
+            self.assertEqual(catalog.catalog_path.stat().st_mtime_ns, stamp)
+            self.assertEqual(catalog.catalog_path.read_bytes(), content)
+
+    def test_write_meta_is_atomic_and_refreshes_catalog(self):
+        """write_meta updates meta.json and rewrites catalog.json."""
+        import json
+
+        from utils.workstation.catalog import Catalog, atomic_write_text
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "meta.json"
+            atomic_write_text(target, '{"ok": true}\n')
+            self.assertEqual(target.read_text(encoding="utf-8"), '{"ok": true}\n')
+            self.assertEqual(list(root.glob(".meta.json.*.tmp")), [])
+
+            catalog = Catalog(root)
+            catalog.write_meta(
+                "job-a",
+                {"id": "job-a", "mode": "pdb", "label": "a", "status": "queued"},
+            )
+            payload = json.loads(catalog.catalog_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(payload["jobs"]), 1)
+            self.assertEqual(payload["jobs"][0]["id"], "job-a")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4161,7 +4161,10 @@ def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
     "--bind",
     default="127.0.0.1",
     show_default=True,
-    help="Bind address. Use 0.0.0.0 only inside Docker with -p 127.0.0.1:PORT:PORT.",
+    help=(
+        "Bind address. Use 0.0.0.0 only inside Docker with "
+        "-p 127.0.0.1:PORT:PORT. No auth; mutating routes require loopback Host/Origin."
+    ),
 )
 @click.option(
     "--docker-image",
@@ -4176,6 +4179,9 @@ def workstation(workspace, port, bind, docker_image):
     Homepage plus mode dashboards for 2D, 2D+3D, compare, and alignments.
     Requires Docker. Prefer ``just workstation``, which publishes the port
     to 127.0.0.1 only and mounts ~/.r2dt-workstation.
+
+    Unauthenticated local tool: trust is loopback binding plus Host/Origin
+    checks on state-changing routes (see docs/workstation.md).
     """
     ws = (
         Path(workspace).expanduser() if workspace else Path.home() / ".r2dt-workstation"

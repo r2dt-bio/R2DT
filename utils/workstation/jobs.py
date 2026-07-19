@@ -31,7 +31,12 @@ from utils.workstation.align import (
     svg_gallery_entry,
 )
 from utils.workstation.catalog import Catalog, utc_now
-from utils.workstation.chains import ensure_mmcif, normalize_suffix, structure_stem
+from utils.workstation.chains import (
+    ensure_mmcif,
+    normalize_suffix,
+    require_rna_chains,
+    structure_stem,
+)
 from utils.workstation.fasta import FastaRecord, parse_fasta_records
 
 
@@ -760,16 +765,18 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
         raise ValueError("Select at least one reference chain")
     if not model_chains:
         raise ValueError("Select at least one model chain")
-    if len(chains) != len(model_chains):
-        raise ValueError(
-            "Reference and model must have the same number of chains "
-            f"(got {len(chains)} vs {len(model_chains)})"
-        )
     if not ref_upload_id or not model_upload_id:
         raise ValueError("Missing upload id(s)")
 
     ref_src = _resolve_upload(catalog, ref_upload_id)
     model_src = _resolve_upload(catalog, model_upload_id)
+    chains = require_rna_chains(ref_src, chains, side="reference")
+    model_chains = require_rna_chains(model_src, model_chains, side="model")
+    if len(chains) != len(model_chains):
+        raise ValueError(
+            "Reference and model must have the same number of chains "
+            f"(got {len(chains)} vs {len(model_chains)})"
+        )
 
     chains_csv = ",".join(chains)
     model_chains_csv = ",".join(model_chains)
@@ -852,6 +859,7 @@ def create_pdb_job_from_upload(  # pylint: disable=too-many-arguments,too-many-l
         raise ValueError("Missing upload id")
 
     src = _resolve_upload(catalog, upload_id)
+    chain = require_rna_chains(src, [chain], side="structure")[0]
     adv = normalize_structure_advanced(advanced)
     digest = pdb_content_hash(src, chain, mode, basepairs, adv)
     if not force:
