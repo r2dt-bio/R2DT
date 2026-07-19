@@ -21,15 +21,41 @@ can use Docker without special admin steps each time. Ask IT if unsure.
 
 Start
 -----
-Double-click the file for your computer:
+Pick the file for your computer:
 
-  Mac     →  Start-macOS.command
-  Windows →  Start-Windows.bat
+  Mac     →  Start-macOS.command   (see “Mac security warning” below — do this first)
+  Windows →  Start-Windows.bat     (double-click)
   Linux   →  Start-Linux.sh
              (if a double-click does nothing, open a Terminal in this folder
               and type:  ./Start-Linux.sh )
 
 A Terminal / Command window will open. Leave it open while you work.
+
+
+Mac security warning (expected)
+-------------------------------
+macOS often blocks the starter the first time with a message like:
+
+  “Apple could not verify Start-macOS.command is free of malware…”
+
+That is normal for an unsigned script you downloaded. It is not a virus scan
+of R2DT itself. Clear it once like this:
+
+  1. In Finder, go to this folder.
+  2. Control-click (or right-click) Start-macOS.command — do not double-click yet.
+  3. Choose Open.
+  4. In the dialog, click Open again.
+
+After that, double-click works as usual.
+
+If macOS only offers “Done” / “Move to Bin”, open System Settings →
+Privacy & Security, scroll to the message about Start-macOS.command, and
+click Open Anyway. Then try Open again from Finder.
+
+Alternative (Terminal), from this folder:
+
+  xattr -d com.apple.quarantine Start-macOS.command
+  ./Start-macOS.command
 
 
 First time
@@ -68,8 +94,12 @@ If something goes wrong
 • “Docker is not running” or “Docker was not found”
     Open Docker Desktop, wait until it is ready, then try Start again.
 
-• Mac says the file cannot be opened (security warning)
-    Right-click Start-macOS.command → Open → Open.
+• Mac: “Apple could not verify … malware” / cannot be opened
+    Control-click Start-macOS.command → Open → Open.
+    Or: System Settings → Privacy & Security → Open Anyway.
+    Or in Terminal (in this folder):
+      xattr -d com.apple.quarantine Start-macOS.command
+      ./Start-macOS.command
 
 • Linux says “Permission denied”
     In Terminal, in this folder, run:  chmod +x Start-Linux.sh

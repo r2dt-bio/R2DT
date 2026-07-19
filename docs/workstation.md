@@ -20,9 +20,11 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or D
 
    | Computer | Start this file |
    | --- | --- |
-   | Mac | `Start-macOS.command` (double-click; if blocked, right-click → Open) |
+   | Mac | `Start-macOS.command` — see Mac note below (Gatekeeper will block a plain double-click the first time) |
    | Windows | `Start-Windows.bat` (double-click) |
    | Linux | `Start-Linux.sh` (run `./Start-Linux.sh` in a terminal) |
+
+   **Mac note:** the first time, macOS shows *“Apple could not verify … is free of malware”*. That is expected for an unsigned downloaded script. **Control-click** (right-click) `Start-macOS.command` → **Open** → **Open**. If you only see Done / Move to Bin, use **System Settings → Privacy & Security → Open Anyway**, then Control-click → Open again. Or in Terminal, in the unzipped folder: `xattr -d com.apple.quarantine Start-macOS.command` then `./Start-macOS.command`.
 
 4. The first start may download a large toolkit and take several minutes. Leave the Terminal / Command window open.
 5. Your browser should open **Compare**:
@@ -40,7 +42,7 @@ Jobs and edits are saved under `.r2dt-workstation` in your home folder (they sur
 
 - **Docker not found / not running** — open Docker Desktop, wait until it is ready, try Start again.
 - **Browser did not open** — paste `http://127.0.0.1:8765/compare` into the address bar.
-- **Mac security warning** — right-click `Start-macOS.command` → Open → Open.
+- **Mac: “Apple could not verify … malware”** — Control-click `Start-macOS.command` → Open → Open (or Privacy & Security → Open Anyway). See the Mac note under Install.
 - **Linux “Permission denied”** — `chmod +x Start-Linux.sh`, then run it again.
 
 ## What you can do
