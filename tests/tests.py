@@ -1532,16 +1532,23 @@ class TestPdbCommand(unittest.TestCase):
 
         svg_text = svg_path.read_text()
 
-        # Count nucleotide <text> elements with gray vs black classes.
-        # Each nucleotide is a single-letter <text> (A/C/G/U) inside a <g>.
+        # Count nucleotide <text> elements (each nucleotide is a single-letter
+        # A/C/G/U <text> inside a <g>) by class. Scoped to <text> specifically:
+        # backbone/connector <line> elements share these same class names, so an
+        # unscoped `class="gray"` count mixes nucleotide letters with unrelated
+        # line segments. Resolved nucleotides are "any non-gray class" rather
+        # than assumed "black": a templated (colored) layout paints resolved
+        # residues per structural domain (green/red/brown/blue/...), while a
+        # templatefree layout paints them uniformly black -- either is valid.
         import re  # pylint: disable=import-outside-toplevel
 
-        gray_nts = len(re.findall(r'class="gray"', svg_text))
-        black_nts = len(re.findall(r'class="black"', svg_text))
+        text_classes = re.findall(r'<text[^>]*\bclass="([a-zA-Z0-9_-]+)"', svg_text)
+        gray_nts = sum(1 for c in text_classes if c == "gray")
+        resolved_nts = sum(1 for c in text_classes if c != "gray")
 
-        # 9MME has ~59 unresolved nucleotides; allow some tolerance
+        # 9MME has ~59 unresolved nucleotides (of 582 total); allow some tolerance
         self.assertGreater(gray_nts, 30, "Too few gray (unresolved) elements")
-        self.assertGreater(black_nts, 400, "Too few black (resolved) elements")
+        self.assertGreater(resolved_nts, 400, "Too few resolved (non-gray) elements")
 
         # 9MME contains pseudoknots that must appear as polyline arcs
         pk_polylines = len(re.findall(r"<polyline[^>]*pseudoknot_", svg_text))
