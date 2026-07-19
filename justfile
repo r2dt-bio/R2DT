@@ -252,6 +252,25 @@ workstation tag=default_tag ws_port="8765":
             --bind 0.0.0.0 \
             --docker-image {{ image }}:{{ tag }}
 
+# Rebuild docs/files/r2dt-workstation-start.zip from scripts/workstation/.
+workstation-pack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    stage="$(mktemp -d)"
+    trap 'rm -rf "$stage"' EXIT
+    mkdir -p "$stage/r2dt-workstation-start" docs/files
+    cp scripts/workstation/README.txt \
+       scripts/workstation/Start-macOS.command \
+       scripts/workstation/Start-Windows.bat \
+       scripts/workstation/Start-Linux.sh \
+       "$stage/r2dt-workstation-start/"
+    chmod +x "$stage/r2dt-workstation-start/Start-macOS.command" \
+             "$stage/r2dt-workstation-start/Start-Linux.sh"
+    out="$(pwd)/docs/files/r2dt-workstation-start.zip"
+    rm -f "$out"
+    (cd "$stage" && zip -r -X "$out" r2dt-workstation-start)
+    echo "Wrote $out"
+
 # Import CASP15/16 compare viewers into the workstation catalog (symlinks).
 # Requires existing output/site/casp15 and output/site/casp16 from the CASP pipeline.
 # Uses docker-style symlink targets so viewers resolve under `just workstation`.
