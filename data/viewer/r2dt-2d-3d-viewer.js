@@ -1606,13 +1606,16 @@
   const unobserved = apiData.unobserved_label_seq_ids || [];
   const CWW_STROKE = '#888888';
   const CWW_CROSSING_STROKE = '#aaaaaa';
-  // Compare-mode diff highlight: recolour base pairs that disagree with the
-  // other structure so they stand out at a glance. In the reference panel that
-  // means FN (blue) — pairs the model missed; in the model panel FP (red) —
-  // pairs the model added that aren't in the reference. TP pairs keep their
-  // neutral colour. Same palette as the LBN rows / base-pair-list badges.
+  // Compare-mode diff highlight: recolour every listed pair so list / 2D / LBN
+  // agree. TP green, FN blue (reference-only), FP red (model-only).
+  const DIFF_TP_COLOR = '#16a34a';
   const DIFF_FN_COLOR = '#4363d8';
   const DIFF_FP_COLOR = '#e6194b';
+  const DIFF_COLORS = {
+    TP: DIFF_TP_COLOR,
+    FN: DIFF_FN_COLOR,
+    FP: DIFF_FP_COLOR,
+  };
   // Crossing pairs are drawn thinner than nested cWW; width scales with the
   // same layout metric the plugin uses (calculateFontSize / 6), not a fixed px.
   const CROSSING_BP_WIDTH_RATIO = 0.5;
@@ -1724,15 +1727,15 @@
       if (isCrossing) {
         el.setAttribute('stroke-width', getCrossingBpStrokeWidth());
       }
-      // Compare-mode: recolour disagreements (FN in the reference panel, FP in
-      // the model panel). Runs after the cWW/glyph default colouring above, for
-      // every family. Preserve open (fill:none) vs filled glyphs — only recolour
-      // a fill that was actually painted. Skip selected pairs so the orange
-      // selection wins; store the diff colour as the restore value.
+      // Compare-mode: paint TP/FN/FP with the same colours as the list badges
+      // and LBN rows. Runs after the cWW default colouring above, for every
+      // family. Preserve open (fill:none) vs filled glyphs — only recolour a
+      // fill that was actually painted. Skip selected pairs so the selection
+      // colour wins; store the diff colour as the restore value.
       if (!bpHighlightedPaths.has(el)) {
         const kind = classifyBpPair(+parsed.a, +parsed.b);
-        if (kind === 'FN' || kind === 'FP') {
-          const color = kind === 'FN' ? DIFF_FN_COLOR : DIFF_FP_COLOR;
+        const color = kind && DIFF_COLORS[kind];
+        if (color) {
           el.setAttribute('stroke', color);
           const fill = el.getAttribute('fill');
           if (fill && fill !== 'none') el.setAttribute('fill', color);
@@ -1763,7 +1766,10 @@
         injectBackboneOverlay();
         maybeRefit2D();
         bindFitControls();
-        setupToolbar();
+        // Intentionally omit setupToolbar(): it rewrites filter chrome
+        // (glyphs, titles) with childList mutations inside this same
+        // container, which re-enters the observer and pegs the CPU.
+        // Initial toolbar setup is handled by initToolbar()'s poll.
       }, 0);
     });
     mo.observe(container, { childList: true, subtree: true });
@@ -1862,10 +1868,15 @@
         if (!spec) return;
         const textEl = wrapFilterLabelText(cb, family);
         let glyphWrap = label.querySelector('.r2dt-bp-glyph-wrap');
+        // Idempotent: rewriting innerHTML every pass is a childList mutation
+        // inside #checkboxes (docked in panel2d), which re-fires the panel
+        // MutationObserver and pegs the CPU.
+        if (glyphWrap && glyphWrap.dataset.r2dtFamily === family) return;
         if (!glyphWrap) {
           glyphWrap = document.createElement('span');
           glyphWrap.className = 'r2dt-bp-glyph-wrap';
         }
+        glyphWrap.dataset.r2dtFamily = family;
         glyphWrap.innerHTML = buildBpSymbolSvg(spec.shapes, spec.filled);
         if (textEl) {
           textEl.insertAdjacentElement('afterend', glyphWrap);
@@ -1950,6 +1961,7 @@
     const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
     if (!dialog) return;
     dialog.querySelectorAll('ul > li').forEach((li) => {
+      if (li.classList.contains('r2dt-bp-list-section')) return;
       if (li.querySelector('.r2dt-bp-list-pair')) return;
       const raw = (li.textContent || '').trim();
       const m = raw.match(/^(.+?)\s*;\s*(\S+)\s*$/);
@@ -1983,6 +1995,8 @@
             FN: 'False negative — this pair is in the reference but missing from the model',
           }[kind];
           li.classList.add(`r2dt-bp-list-item--${kind.toLowerCase()}`);
+          // Tint the pair text to match 2D / LBN so the three views agree.
+          pair.style.color = DIFF_COLORS[kind];
         }
       }
 
@@ -2001,7 +2015,98 @@
       // pair flex-grows so non-WC, family and the TP/FP/FN badge pin to the
       // right edge and line up in their own aligned columns.
       li.append(pair, tag, family, ...(cmp ? [cmp] : []));
+      if (ntMatch) {
+        li.dataset.r2dtBpA = String(+ntMatch[2]);
+        li.dataset.r2dtBpB = String(+ntMatch[4]);
+      }
     });
+    groupBpListByChain();
+    // Re-apply selection highlight after a rebuild.
+    if (lastBpListSelection) {
+      syncBpListSelection(lastBpListSelection.a, lastBpListSelection.b);
+    }
+  }
+
+  function chainOrderFromApi() {
+    const seen = [];
+    const set = new Set();
+    (apiData.label_seq_ids || []).forEach((label) => {
+      const c = labelToChain[label];
+      if (c == null || set.has(c)) return;
+      set.add(c);
+      seen.push(c);
+    });
+    return seen;
+  }
+
+  function pairListScopeKey(a, b) {
+    const c1 = labelToChain[a];
+    const c2 = labelToChain[b];
+    if (c1 == null || c2 == null) return null;
+    if (c1 === c2) {
+      return { key: `intra:${c1}`, label: `Chain ${c1}`, sort: `0:${c1}` };
+    }
+    const order = chainOrderFromApi();
+    const i1 = order.indexOf(c1);
+    const i2 = order.indexOf(c2);
+    const left = (i1 >= 0 && i2 >= 0 && i1 <= i2) || (i1 < 0 && c1 < c2) ? c1 : c2;
+    const right = left === c1 ? c2 : c1;
+    return {
+      key: `inter:${left}-${right}`,
+      label: `Between ${left} and ${right}`,
+      sort: `1:${left}:${right}`,
+    };
+  }
+
+  function groupBpListByChain() {
+    if (!hasMultipleChains) return;
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
+    const ul = dialog?.querySelector('ul');
+    if (!ul) return;
+    ul.querySelectorAll('li.r2dt-bp-list-section').forEach((el) => el.remove());
+    const items = [...ul.querySelectorAll('li')].filter(
+      (li) => !li.classList.contains('r2dt-bp-list-section')
+    );
+    if (items.length === 0) return;
+    const buckets = new Map();
+    items.forEach((li) => {
+      const a = +li.dataset.r2dtBpA;
+      const b = +li.dataset.r2dtBpB;
+      const scope = (a && b) ? pairListScopeKey(a, b) : null;
+      const meta = scope || { key: 'other', label: 'Other', sort: '9:other' };
+      if (!buckets.has(meta.key)) {
+        buckets.set(meta.key, { ...meta, items: [] });
+      }
+      buckets.get(meta.key).items.push(li);
+    });
+    if (buckets.size < 2) return;
+    const ordered = [...buckets.values()].sort((x, y) => (
+      x.sort < y.sort ? -1 : x.sort > y.sort ? 1 : 0
+    ));
+    ordered.forEach((bucket) => {
+      const header = document.createElement('li');
+      header.className = 'r2dt-bp-list-section';
+      header.textContent = bucket.label;
+      header.setAttribute('role', 'presentation');
+      ul.appendChild(header);
+      bucket.items.forEach((li) => ul.appendChild(li));
+    });
+  }
+
+  let lastBpListSelection = null;
+
+  function syncBpListSelection(a, b) {
+    const dialog = root.querySelector(`#bpListDialog-${PDB_LOWER}`);
+    if (!dialog) return;
+    dialog.querySelectorAll('ul > li').forEach((li) => {
+      if (li.classList.contains('r2dt-bp-list-section')) return;
+      const ia = +li.dataset.r2dtBpA;
+      const ib = +li.dataset.r2dtBpB;
+      const match = a != null && b != null
+        && ((ia === a && ib === b) || (ia === b && ib === a));
+      li.classList.toggle('r2dt-bp-list-item--selected', match);
+    });
+    lastBpListSelection = (a != null && b != null) ? { a, b } : null;
   }
 
   function normalizeBpListScroll() {
@@ -2696,6 +2801,7 @@
   function clearResidueSelection() {
     lastResidueSelection = null;
     clearBasePairHighlights();
+    syncBpListSelection(null, null);
     setPartnerLabels([]);
     rnaPlugin.clearSelection(undefined, true);
     rnaPlugin.clearHighlight(true);
@@ -2715,6 +2821,9 @@
     lastResidueSelection = { label: id, partners };
     clearBasePairHighlights();
     partners.forEach((p) => highlightBPPath(findBPPath(id, p)));
+    // When a residue has exactly one partner, treat it as that pair for list sync.
+    if (partners.length === 1) syncBpListSelection(id, partners[0]);
+    else syncBpListSelection(null, null);
     selectNucleotidesIn2d(id, partners);
     if (link3d && molstar) selectInMolstar([id, ...partners]);
     if (lbnHighlightFn) lbnHighlightFn(id, partners.map((p) => [id, p]));
@@ -2745,6 +2854,7 @@
     lastResidueSelection = null;
     clearBasePairHighlights();
     highlightBPPath(pathEl);
+    syncBpListSelection(a, b);
     const svc = window.UiActionsService;
     setPartnerLabels([]);
     rnaPlugin.clearSelection(undefined, true);
@@ -2833,6 +2943,7 @@
   document.addEventListener('click', (ev) => {
     const li = ev.target.closest?.('#' + bpListId + ' li');
     if (!li || !root.contains(li)) return;
+    if (li.classList.contains('r2dt-bp-list-section')) return;
     const pairText =
       li.querySelector('.r2dt-bp-list-pair')?.textContent || li.textContent || '';
     const m = pairText.match(/(\d+)\D*?-\D*?(\d+)/);

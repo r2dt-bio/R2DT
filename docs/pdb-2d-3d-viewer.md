@@ -107,6 +107,8 @@ Output layout adds to `viewer/`:
 ├── api.json, fr3d.json                 # root-level copy of ref/'s data, used
 │                                        # by the shared Mol* pane
 ├── metrics.json                        # INF + matched/lost/added base pairs
+├── inf-pairs.json                      # INF scores + reference/model pair lists (download)
+├── inf-pairs.csv                       # same data, spreadsheet-friendly
 ├── <reference_id>.cif                  # reference structure
 ├── <model_id>.aligned.cif              # model superposed onto the reference
 └── … the same vendored viewer assets as above
@@ -312,7 +314,9 @@ Several `viewer/` folders can be combined into a browsable gallery with `utils/b
 ## Interaction model
 
 - **2D → 3D.** Clicking a nucleotide in the 2D diagram selects and focuses the corresponding residue in the 3D view.
-- **2D → 3D (base pairs).** Clicking a base-pair line selects both partner residues in 3D and highlights the line in orange (the same colour the plugin uses for a clicked nucleotide). Only one base pair stays highlighted at a time.
+- **2D → 3D (base pairs).** Clicking a base-pair line selects both partner residues in 3D and highlights the line with the panel selection colour. The matching row in the base-pair list is marked selected. Only one base pair stays highlighted at a time.
+- **Compare TP/FP/FN colours.** In compare mode, true-positive pairs are green, false negatives blue, and false positives red — the same colours in the base-pair list, 2D diagram, and LBN.
+- **Multi-chain pair list.** When more than one chain is present, the base-pair list is grouped into per-chain and between-chain sections; the INF bar can expand a by-chain score breakdown. **Download scores** (JSON / CSV) exports `inf-pairs.json` / `inf-pairs.csv` with the scores and the underlying pair lists.
 - **3D → 2D.** Clicking or hovering a residue in molstar highlights the matching nucleotide in the 2D diagram.
 - **Hover does nothing in 2D.** Hovering nucleotides or base pairs in the 2D diagram has no effect — only clicks drive a 3D response.
 - **Backbone path overlay.** A faint line tracing the backbone is drawn under the nucleotide letters, on by default. A "Backbone" toggle in the toolbar shows or hides it.

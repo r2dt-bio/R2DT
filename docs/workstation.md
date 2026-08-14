@@ -70,7 +70,7 @@ Use the header to switch modes. Each mode has its own job list and a **New …**
 
 ![R1108 compare viewer with 2D panels and 3D](./images/workstation/compare-viewer-r1108.png)
 
-*Compare viewer for **R1108** — reference 2D, model 2D (same layout), and shared 3D, with INF scores above.*
+*Compare viewer for **R1108** — reference 2D, model 2D (same layout), and shared 3D, with INF scores above. Use **Download scores** / **CSV** for the INF values and the underlying base-pair lists; open **By chain** when comparing multi-chain complexes.*
 
 ### Editing base pairs
 
@@ -97,6 +97,8 @@ Ready jobs have an **Export** menu:
 
 1. **R2DT work package** (`.r2dt-job.zip`) — full job for another workstation (inputs, results, edits). Re-open with **Import** on a dashboard.
 2. **Shareable HTML** (`.r2dt-viewer.zip`) — static interactive viewer with edits baked in. Unzip and open `index.html`, or [embed it](./pdb-2d-3d-viewer.md#embedding-on-your-own-site). No workstation required to view.
+
+On Compare pages, the INF bar also has a **Download scores** dropdown (**JSON** / **CSV**) for the INF values and the base-pair lists used to compute them.
 
 Shareable HTML is for jobs with an interactive viewer (typically **2D + 3D** and **Compare**). Draw and alignment jobs use work packages / SVG pages.
 

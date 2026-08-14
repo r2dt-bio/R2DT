@@ -32,7 +32,7 @@ _MOLSTAR_CDN_CSS = (
 VIEWER_PLUGIN_FILENAME = "pdb-rna-viewer-plugin-0.3.0.js"
 VIEWER_CSS_FILENAME = "pdb-rna-viewer-0.3.0.css"
 # Bump when r2dt-2d-3d-viewer.css / r2dt-2d-3d-viewer.js change materially (cache-bust query).
-_R2DT_ASSETS_VERSION = "132"
+_R2DT_ASSETS_VERSION = "136"
 # R2DT-owned overrides (toolbar chrome, toggles, floating buttons).
 R2DT_CSS_FILENAME = "r2dt-2d-3d-viewer.css"
 # The interaction glue (``R2DTViewer.create`` API).
@@ -174,10 +174,29 @@ _COMPARE_TEMPLATE = """<!DOCTYPE html>
   .mc-inf-item {{ display: inline-flex; align-items: baseline; gap: 6px; cursor: help; }}
   .mc-inf-key {{ color: #6b7280; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }}
   .mc-inf-val {{ font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }}
-  @media (prefers-color-scheme: dark) {{
-    .mc-inf {{ background: #1f2937; border-color: #374151; }}
-    .mc-inf-title {{ color: #d1d5db; }}
-  }}
+  .mc-inf-downloads {{ position: relative; margin-left: auto; }}
+  .mc-inf-download-summary {{ list-style: none; cursor: pointer; user-select: none;
+                              font-size: 12px; font-weight: 600; color: #1d4ed8;
+                              white-space: nowrap; }}
+  .mc-inf-download-summary::-webkit-details-marker {{ display: none; }}
+  .mc-inf-download-summary::marker {{ content: ""; }}
+  .mc-inf-download-summary::after {{ content: " ▾"; font-size: 10px; }}
+  .mc-inf-download-summary:hover {{ text-decoration: underline; }}
+  .mc-inf-download-panel {{ display: none; position: absolute; right: 0; top: calc(100% + 4px);
+                            z-index: 20; min-width: 9em; padding: 4px 0;
+                            background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+                            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); }}
+  .mc-inf-downloads[open] > .mc-inf-download-panel {{ display: flex; flex-direction: column; }}
+  .mc-inf-download {{ display: block; padding: 8px 12px; font-size: 12px; font-weight: 600;
+                      color: #111827; text-decoration: none; white-space: nowrap; }}
+  .mc-inf-download:hover {{ background: #f3f4f6; color: #1d4ed8; }}
+  .mc-inf-scopes {{ flex: 1 0 100%; margin: 4px 0 0; }}
+  .mc-inf-scopes > summary {{ cursor: pointer; color: #4b5563; font-size: 12px;
+                              font-weight: 600; user-select: none; }}
+  .mc-inf-scope {{ display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px;
+                   margin: 6px 0 0; padding: 6px 8px; background: #fff;
+                   border: 1px solid #e5e7eb; border-radius: 6px; }}
+  .mc-inf-scope-label {{ min-width: 9em; color: #111827; font-weight: 600; font-size: 12px; }}
 </style>
 </head>
 <body>
@@ -218,8 +237,48 @@ def _inf_colour(value: Optional[float]) -> str:
     return "#dc2626"
 
 
-def _format_inf_metrics(metrics: Optional[Dict[str, Any]]) -> str:
-    """Render the INF (Interaction Network Fidelity) bar, or '' if no metrics."""
+def _inf_block_html(m: Dict[str, Any], label: str, desc: str) -> str:
+    value = m.get("inf")
+    text = "n/a" if value is None else f"{value:.3f}"
+    colour = _inf_colour(value)
+    title = (
+        f"{desc} — TP {m.get('tp', 0)}, "
+        f"FP {m.get('fp', 0)} (model-only), "
+        f"FN {m.get('fn', 0)} (missing in model)"
+    )
+    return (
+        f'<span class="mc-inf-item" title="{title}">'
+        f'<span class="mc-inf-key">{label}</span>'
+        f'<span class="mc-inf-val" style="color:{colour}">{text}</span></span>'
+    )
+
+
+def _format_scope_inf(scope: Dict[str, Any]) -> str:
+    """One by-chain / inter-chain INF row (spans only — no nested divs)."""
+    inf = scope.get("inf") or {}
+    label = scope.get("label") or scope.get("id") or ""
+    bits = [
+        _inf_block_html(inf.get(k) or {}, lab, desc)
+        for k, lab, desc in (
+            ("wc", "WC", "canonical (cis Watson–Crick) base pairs"),
+            ("nwc", "non-WC", "non-canonical base pairs"),
+            ("all", "all", "all base pairs"),
+        )
+    ]
+    return (
+        f'<span class="mc-inf-scope" data-scope="{scope.get("id", "")}">'
+        f'<span class="mc-inf-scope-label">{label}</span>'
+        f'{"".join(bits)}</span>'
+    )
+
+
+def _format_inf_metrics(
+    metrics: Optional[Dict[str, Any]],
+    *,
+    scopes: Optional[List[Dict[str, Any]]] = None,
+    download_href: str = "./inf-pairs.json",
+) -> str:
+    """Render the INF bar (with optional by-chain scopes + download), or ''."""
     if not metrics:
         return ""
     rows = [
@@ -227,26 +286,43 @@ def _format_inf_metrics(metrics: Optional[Dict[str, Any]]) -> str:
         ("nwc", "INF non-WC", "non-canonical base pairs"),
         ("all", "INF all", "all base pairs (canonical + non-canonical)"),
     ]
-    items = []
-    for key, label, desc in rows:
-        m = metrics.get(key) or {}
-        value = m.get("inf")
-        text = "n/a" if value is None else f"{value:.3f}"
-        colour = _inf_colour(value)
-        title = (
-            f"{desc} — TP {m.get('tp', 0)}, "
-            f"FP {m.get('fp', 0)} (model-only), "
-            f"FN {m.get('fn', 0)} (missing in model)"
-        )
-        items.append(
-            f'<span class="mc-inf-item" title="{title}">'
-            f'<span class="mc-inf-key">{label}</span>'
-            f'<span class="mc-inf-val" style="color:{colour}">{text}</span></span>'
+    items = [
+        _inf_block_html(metrics.get(key) or {}, label, desc)
+        for key, label, desc in rows
+    ]
+    download = (
+        '<details class="mc-inf-downloads">'
+        '<summary class="mc-inf-download-summary" '
+        'title="Download INF scores and the reference/model base-pair lists">'
+        "Download scores</summary>"
+        '<span class="mc-inf-download-panel" role="menu">'
+        f'<a class="mc-inf-download" role="menuitem" href="{download_href}" '
+        'download="inf-pairs.json" title="Structured JSON report">JSON</a>'
+        '<a class="mc-inf-download" role="menuitem" href="./inf-pairs.csv" '
+        'download="inf-pairs.csv" title="Spreadsheet-friendly CSV">CSV</a>'
+        "</span></details>"
+    )
+    # By-chain / inter-chain breakdown: skip the aggregate "all" entry and any
+    # empty-looking scopes. Use <details>/<span> only (no nested <div>) so the
+    # workstation export-menu injector can still match the outer .mc-inf.
+    scope_html = ""
+    subset = [s for s in (scopes or []) if s.get("type") in ("intra", "inter")]
+    if subset:
+        scope_rows = "".join(_format_scope_inf(s) for s in subset)
+        scope_html = (
+            '<details class="mc-inf-scopes">'
+            "<summary>By chain</summary>"
+            f"{scope_rows}"
+            "</details>"
         )
     return (
         '<div class="mc-inf">'
         '<span class="mc-inf-title">Interaction Network Fidelity '
-        "(base pairs, model vs reference)</span>" + "".join(items) + "</div>"
+        "(base pairs, model vs reference)</span>"
+        + "".join(items)
+        + download
+        + scope_html
+        + "</div>"
     )
 
 
@@ -260,6 +336,7 @@ def render_compare(
     molstar: Optional[Dict[str, Any]] = None,
     fetch_shim: bool = True,
     metrics: Optional[Dict[str, Any]] = None,
+    scopes: Optional[List[Dict[str, Any]]] = None,
 ) -> Path:
     """Write a multi-panel ``index.html`` that calls ``R2DTViewer.createCompare()``.
 
@@ -267,12 +344,13 @@ def render_compare(
     ``fr3dData``): there is nothing to fetch, so the PDB-id fetch router — which
     cannot tell apart panels that share a structure id — is disabled.
     ``metrics`` is the INF dict from ``utils.multichain.compute_inf``.
+    ``scopes`` is the optional by-chain / inter-chain INF breakdown.
     """
     html = _COMPARE_TEMPLATE.format(
         page_title=page_title,
         heading=heading,
         subtitle=subtitle,
-        metrics_html=_format_inf_metrics(metrics),
+        metrics_html=_format_inf_metrics(metrics, scopes=scopes),
         panels_json=json.dumps(panels, indent=2),
         molstar_json=json.dumps(molstar or {}, indent=2),
         fetch_shim_json=json.dumps(fetch_shim),

@@ -36,7 +36,7 @@ import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from utils import fr3d as fr3d_utils
 
@@ -46,9 +46,9 @@ _CHAIN_PALETTE = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab0
 _OVERLAY_STROKE = "#e6194b"
 
 # Reference/model base-pair diff colours (approach B: draw the model's pairs on
-# the reference layout).  Matched pairs are de-emphasised so the eye lands on
-# the differences.
-_DIFF_MATCHED = "#999999"  # agreement
+# the reference layout).  Same palette as the interactive viewer list / 2D / LBN
+# TP (green) / FN (blue) / FP (red) badges.
+_DIFF_MATCHED = "#16a34a"  # agreement (true positive)
 _DIFF_LOST = "#4363d8"  # in reference, missing from model (false negative)
 _DIFF_ADDED = "#e6194b"  # in model only (false positive)
 
@@ -676,6 +676,354 @@ def compute_inf(
     }
 
 
+def _chain_at(boundaries: List[Tuple[str, int, int]], pos: int) -> str:
+    """Return the chain id covering 0-based position ``pos``, or ``""``."""
+    for cid, start, end in boundaries:
+        if start <= pos < end:
+            return cid
+    return ""
+
+
+def pair_scope(
+    i: int, j: int, boundaries: List[Tuple[str, int, int]]
+) -> Tuple[str, Tuple[str, ...]]:
+    """Classify a 0-based pair as intra- or inter-chain.
+
+    Returns ``("intra", (chain,))`` or ``("inter", (c1, c2))`` with ``c1``/``c2``
+    ordered by ``boundaries`` (concatenation order), falling back to
+    lexicographic order when a chain is missing from ``boundaries``.
+    """
+    c_i = _chain_at(boundaries, i)
+    c_j = _chain_at(boundaries, j)
+    if c_i and c_i == c_j:
+        return "intra", (c_i,)
+    order = {cid: n for n, (cid, _s, _e) in enumerate(boundaries)}
+
+    def _rank(cid: str) -> Tuple[int, str]:
+        return (order.get(cid, 10_000), cid)
+
+    c1, c2 = sorted((c_i, c_j), key=_rank)
+    return "inter", (c1, c2)
+
+
+def _scope_id(kind: str, chains: Tuple[str, ...]) -> str:
+    if kind == "intra":
+        return f"intra:{chains[0]}"
+    return f"inter:{chains[0]}-{chains[1]}"
+
+
+def _scope_label(kind: str, chains: Tuple[str, ...]) -> str:
+    if kind == "intra":
+        return f"Chain {chains[0]}"
+    return f"Between {chains[0]} and {chains[1]}"
+
+
+def _filter_pairs_to_scope(
+    pairs: List[Tuple[int, int, str]],
+    kind: str,
+    chains: Tuple[str, ...],
+    boundaries: List[Tuple[str, int, int]],
+) -> List[Tuple[int, int, str]]:
+    out: List[Tuple[int, int, str]] = []
+    for i, j, fam in pairs:
+        skind, schains = pair_scope(i, j, boundaries)
+        if skind == kind and schains == chains:
+            out.append((i, j, fam))
+    return out
+
+
+def _pair_index(
+    pairs: List[Tuple[int, int, str]],
+) -> Dict[Tuple[int, int], str]:
+    """Map ``(i, j)`` → family (last write wins if duplicates)."""
+    out: Dict[Tuple[int, int], str] = {}
+    for i, j, fam in pairs:
+        a, b = (i, j) if i < j else (j, i)
+        out[(a, b)] = fam
+    return out
+
+
+def _classify_pair_lists(
+    ref_pairs: List[Tuple[int, int, str]],
+    model_pairs: List[Tuple[int, int, str]],
+    boundaries: Optional[List[Tuple[str, int, int]]] = None,
+    *,
+    one_based: bool = False,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Build TP / FP / FN pair detail lists for a downloadable report.
+
+    Output positions are always 1-based labels. Inputs are 0-based unless
+    ``one_based`` is True (annotation / FR3D seq_id space).
+    """
+    ref_idx = _pair_index(ref_pairs)
+    model_idx = _pair_index(model_pairs)
+    shift = 0 if one_based else 1
+
+    def _lookup_pos(pos: int) -> int:
+        return pos - 1 if one_based else pos
+
+    def _row(a: int, b: int, kind: str) -> Dict[str, Any]:
+        row: Dict[str, Any] = {
+            "i": a + shift,
+            "j": b + shift,
+            "kind": kind,
+            "family_ref": ref_idx.get((a, b)),
+            "family_model": model_idx.get((a, b)),
+        }
+        if boundaries:
+            row["chain_i"] = _chain_at(boundaries, _lookup_pos(a))
+            row["chain_j"] = _chain_at(boundaries, _lookup_pos(b))
+        return row
+
+    return {
+        "tp": [_row(a, b, "TP") for a, b in sorted(set(ref_idx) & set(model_idx))],
+        "fn": [_row(a, b, "FN") for a, b in sorted(set(ref_idx) - set(model_idx))],
+        "fp": [_row(a, b, "FP") for a, b in sorted(set(model_idx) - set(ref_idx))],
+    }
+
+
+def list_pair_scopes(
+    ref_pairs: List[Tuple[int, int, str]],
+    model_pairs: List[Tuple[int, int, str]],
+    boundaries: List[Tuple[str, int, int]],
+) -> List[Tuple[str, Tuple[str, ...]]]:
+    """Ordered unique scopes that have at least one pair in ref or model.
+
+    Intra-chain scopes follow ``boundaries`` order; inter-chain scopes follow
+    the order of first appearance when scanning concatenation-adjacent pairs.
+    """
+    seen = set()
+    scopes: List[Tuple[str, Tuple[str, ...]]] = []
+    # Prefer intra scopes in concatenation order first.
+    for cid, _s, _e in boundaries:
+        key = ("intra", (cid,))
+        # Only include if either side has a pair in this chain.
+        has = any(
+            pair_scope(i, j, boundaries) == key
+            for i, j, _ in list(ref_pairs) + list(model_pairs)
+        )
+        if has and key not in seen:
+            seen.add(key)
+            scopes.append(key)
+    for i, j, _ in list(ref_pairs) + list(model_pairs):
+        key = pair_scope(i, j, boundaries)
+        if key[0] != "inter" or key in seen:
+            continue
+        seen.add(key)
+        scopes.append(key)
+    return scopes
+
+
+def compute_inf_scopes(
+    ref_pairs: List[Tuple[int, int, str]],
+    model_pairs: List[Tuple[int, int, str]],
+    boundaries: List[Tuple[str, int, int]],
+    *,
+    one_based: bool = False,
+) -> List[Dict[str, Any]]:
+    """INF for the full set plus every intra-/inter-chain subset.
+
+    ``boundaries`` are always 0-based half-open ranges. When ``one_based`` is
+    True, ``ref_pairs`` / ``model_pairs`` use 1-based positions (annotation
+    space) and are converted before partitioning.
+    """
+    if one_based:
+        ref_pairs = [(i - 1, j - 1, fam) for i, j, fam in ref_pairs]
+        model_pairs = [(i - 1, j - 1, fam) for i, j, fam in model_pairs]
+
+    scopes: List[Dict[str, Any]] = [
+        {
+            "id": "all",
+            "label": "All chains",
+            "type": "all",
+            "chains": [cid for cid, _s, _e in boundaries],
+            "inf": compute_inf(ref_pairs, model_pairs),
+            "pairs": _classify_pair_lists(ref_pairs, model_pairs, boundaries),
+        }
+    ]
+    if len(boundaries) < 2:
+        return scopes
+
+    for kind, chains in list_pair_scopes(ref_pairs, model_pairs, boundaries):
+        r_sub = _filter_pairs_to_scope(ref_pairs, kind, chains, boundaries)
+        m_sub = _filter_pairs_to_scope(model_pairs, kind, chains, boundaries)
+        scopes.append(
+            {
+                "id": _scope_id(kind, chains),
+                "label": _scope_label(kind, chains),
+                "type": kind,
+                "chains": list(chains),
+                "inf": compute_inf(r_sub, m_sub),
+                "pairs": _classify_pair_lists(r_sub, m_sub, boundaries),
+            }
+        )
+    return scopes
+
+
+def build_inf_report(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    *,
+    structure_id: str,
+    model_id: str,
+    chains: List[str],
+    boundaries: List[Tuple[str, int, int]],
+    ref_pairs: List[Tuple[int, int, str]],
+    model_pairs: List[Tuple[int, int, str]],
+    inf: Optional[Dict[str, Dict[str, Optional[float]]]] = None,
+    one_based: bool = False,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Full downloadable INF report: scores, scopes, and underlying pairs."""
+    scopes = compute_inf_scopes(ref_pairs, model_pairs, boundaries, one_based=one_based)
+    if one_based:
+        ref0 = [(i - 1, j - 1, fam) for i, j, fam in ref_pairs]
+        model0 = [(i - 1, j - 1, fam) for i, j, fam in model_pairs]
+    else:
+        ref0, model0 = ref_pairs, model_pairs
+    if inf is None:
+        inf = compute_inf(ref0, model0)
+
+    def _export_pairs(pairs_0: List[Tuple[int, int, str]]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        for i, j, fam in pairs_0:
+            a, b = (i, j) if i < j else (j, i)
+            rows.append(
+                {
+                    "i": a + 1,
+                    "j": b + 1,
+                    "family": fam,
+                    "chain_i": _chain_at(boundaries, a),
+                    "chain_j": _chain_at(boundaries, b),
+                }
+            )
+        rows.sort(key=lambda r: (int(r["i"]), int(r["j"])))
+        return rows
+
+    report: Dict[str, Any] = {
+        "structure_id": structure_id,
+        "model_id": model_id,
+        "chains": list(chains),
+        "boundaries": [
+            {"chain": cid, "start": start, "end": end} for cid, start, end in boundaries
+        ],
+        "inf": inf,
+        "scopes": scopes,
+        "reference_pairs": _export_pairs(ref0),
+        "model_pairs": _export_pairs(model0),
+    }
+    if extra:
+        report.update(extra)
+    return report
+
+
+def inf_report_to_csv(report: Dict[str, Any]) -> str:
+    """Flatten an INF report into a CSV string (scores + pair rows)."""
+    import csv  # pylint: disable=import-outside-toplevel
+    import io  # pylint: disable=import-outside-toplevel
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(
+        [
+            "section",
+            "scope_id",
+            "scope_label",
+            "metric",
+            "inf",
+            "ppv",
+            "sty",
+            "tp",
+            "fp",
+            "fn",
+            "pair_kind",
+            "i",
+            "j",
+            "family",
+            "family_ref",
+            "family_model",
+            "chain_i",
+            "chain_j",
+        ]
+    )
+    for scope in report.get("scopes") or []:
+        sid = scope.get("id", "")
+        slabel = scope.get("label", "")
+        inf = scope.get("inf") or {}
+        for metric in ("wc", "nwc", "all"):
+            m = inf.get(metric) or {}
+            writer.writerow(
+                [
+                    "score",
+                    sid,
+                    slabel,
+                    metric,
+                    m.get("inf"),
+                    m.get("ppv"),
+                    m.get("sty"),
+                    m.get("tp"),
+                    m.get("fp"),
+                    m.get("fn"),
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+        pairs = scope.get("pairs") or {}
+        for kind in ("tp", "fn", "fp"):
+            for row in pairs.get(kind) or []:
+                writer.writerow(
+                    [
+                        "pair",
+                        sid,
+                        slabel,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        kind.upper(),
+                        row.get("i"),
+                        row.get("j"),
+                        "",
+                        row.get("family_ref"),
+                        row.get("family_model"),
+                        row.get("chain_i"),
+                        row.get("chain_j"),
+                    ]
+                )
+    for side, key in (("reference", "reference_pairs"), ("model", "model_pairs")):
+        for row in report.get(key) or []:
+            writer.writerow(
+                [
+                    side,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    row.get("i"),
+                    row.get("j"),
+                    row.get("family"),
+                    "",
+                    "",
+                    row.get("chain_i"),
+                    row.get("chain_j"),
+                ]
+            )
+    return buf.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Combined-SVG post-processing: junction break, per-chain 5'/3', overlay arcs
 # ---------------------------------------------------------------------------
@@ -1134,7 +1482,7 @@ def render_model_panel(
 
     Reuses the reference SVG's coordinates, backbone, nucleotides and termini
     verbatim (approach B), strips the reference's own base-pair rendering, and
-    redraws every pair by diff category: matched (grey), missing-in-model
+    redraws every pair by diff category: matched (green), missing-in-model
     (blue, dashed), model-only (red).
     """
     content = Path(ref_svg_path).read_text()

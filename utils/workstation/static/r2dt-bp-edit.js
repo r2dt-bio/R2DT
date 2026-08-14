@@ -72,6 +72,95 @@
     };
   }
 
+  function chainAtFromIds(chainIds, label1based) {
+    if (!chainIds || !chainIds.length) return null;
+    var idx = (+label1based) - 1;
+    if (idx < 0 || idx >= chainIds.length) return null;
+    return chainIds[idx];
+  }
+
+  function pairScopeFromIds(chainIds, i, j) {
+    var c1 = chainAtFromIds(chainIds, i);
+    var c2 = chainAtFromIds(chainIds, j);
+    if (c1 == null || c2 == null) return null;
+    if (c1 === c2) return { type: 'intra', chains: [c1], id: 'intra:' + c1 };
+    var left = c1 < c2 ? c1 : c2;
+    var right = left === c1 ? c2 : c1;
+    // Prefer concatenation order when both appear in chainIds.
+    var order = [];
+    var seen = {};
+    chainIds.forEach(function (c) {
+      if (c != null && !seen[c]) {
+        seen[c] = true;
+        order.push(c);
+      }
+    });
+    var i1 = order.indexOf(c1);
+    var i2 = order.indexOf(c2);
+    if (i1 >= 0 && i2 >= 0) {
+      left = i1 <= i2 ? c1 : c2;
+      right = left === c1 ? c2 : c1;
+    }
+    return {
+      type: 'inter',
+      chains: [left, right],
+      id: 'inter:' + left + '-' + right,
+    };
+  }
+
+  function filterPairsToScope(pairs, chainIds, scope) {
+    return (pairs || []).filter(function (p) {
+      var s = pairScopeFromIds(chainIds, p.i, p.j);
+      return s && s.id === scope.id;
+    });
+  }
+
+  function computeInfScopes(refPairs, modelPairs, chainIds) {
+    var scopes = [{
+      id: 'all',
+      label: 'All chains',
+      type: 'all',
+      inf: computeInf(refPairs, modelPairs),
+    }];
+    if (!chainIds || chainIds.length < 2) return scopes;
+    var order = [];
+    var seen = {};
+    chainIds.forEach(function (c) {
+      if (c != null && !seen[c]) {
+        seen[c] = true;
+        order.push(c);
+      }
+    });
+    if (order.length < 2) return scopes;
+    order.forEach(function (cid) {
+      var scope = { type: 'intra', chains: [cid], id: 'intra:' + cid, label: 'Chain ' + cid };
+      var r = filterPairsToScope(refPairs, chainIds, scope);
+      var m = filterPairsToScope(modelPairs, chainIds, scope);
+      if (r.length || m.length) {
+        scope.inf = computeInf(r, m);
+        scopes.push(scope);
+      }
+    });
+    var interSeen = {};
+    [].concat(refPairs || [], modelPairs || []).forEach(function (p) {
+      var s = pairScopeFromIds(chainIds, p.i, p.j);
+      if (!s || s.type !== 'inter' || interSeen[s.id]) return;
+      interSeen[s.id] = true;
+      var scope = {
+        type: 'inter',
+        chains: s.chains,
+        id: s.id,
+        label: 'Between ' + s.chains[0] + ' and ' + s.chains[1],
+      };
+      scope.inf = computeInf(
+        filterPairsToScope(refPairs, chainIds, scope),
+        filterPairsToScope(modelPairs, chainIds, scope)
+      );
+      scopes.push(scope);
+    });
+    return scopes;
+  }
+
   function diffCounts(refPairs, modelPairs) {
     var ref = new Set((refPairs || []).map(function (p) { return pairKey(p.i, p.j); }));
     var model = new Set((modelPairs || []).map(function (p) { return pairKey(p.i, p.j); }));
@@ -448,13 +537,15 @@
     return '#dc2626';
   }
 
-  function updateInfBar(metrics) {
+  function updateInfBar(metrics, scopes) {
     var bar = document.querySelector('.mc-inf');
     if (!bar || !metrics) return;
     ['wc', 'nwc', 'all'].forEach(function (key) {
       var label = key === 'wc' ? 'INF WC' : key === 'nwc' ? 'INF non-WC' : 'INF all';
       var item = null;
       bar.querySelectorAll('.mc-inf-item').forEach(function (el) {
+        // Only match top-level score items (not the by-chain rows).
+        if (el.closest('.mc-inf-scope')) return;
         var k = el.querySelector('.mc-inf-key');
         if (k && k.textContent === label) item = el;
       });
@@ -467,9 +558,37 @@
         v.textContent = text;
         v.style.color = infColour(val);
       }
-      item.title = (item.title || '').replace(/TP \d+.*/, '') +
+      item.title =
         'TP ' + (m.tp || 0) + ', FP ' + (m.fp || 0) + ' (model-only), FN ' +
         (m.fn || 0) + ' (missing in model)';
+    });
+    if (!scopes) return;
+    scopes.forEach(function (scope) {
+      if (!scope || scope.type === 'all') return;
+      var row = bar.querySelector(
+        '.mc-inf-scope[data-scope="' + String(scope.id || '').replace(/"/g, '') + '"]'
+      );
+      if (!row) return;
+      var inf = scope.inf || {};
+      [
+        { key: 'wc', label: 'WC' },
+        { key: 'nwc', label: 'non-WC' },
+        { key: 'all', label: 'all' },
+      ].forEach(function (spec) {
+        var item = null;
+        row.querySelectorAll('.mc-inf-item').forEach(function (el) {
+          var k = el.querySelector('.mc-inf-key');
+          if (k && k.textContent === spec.label) item = el;
+        });
+        if (!item) return;
+        var m = inf[spec.key] || {};
+        var val = m.inf;
+        var v = item.querySelector('.mc-inf-val');
+        if (v) {
+          v.textContent = val == null ? 'n/a' : Number(val).toFixed(3);
+          v.style.color = infColour(val);
+        }
+      });
     });
   }
 
@@ -684,9 +803,12 @@
       surfaces[1].setOtherPairKeys(pairKeysFromAnns(anns0));
       syncPanelGeometry(surfaces[1], anns1);
       rebuildBpList(surfaces[1]);
-      var infMetrics = computeInf(annsToPairs(anns0), annsToPairs(anns1));
-      updateInfBar(infMetrics);
-      var diff = diffCounts(annsToPairs(anns0), annsToPairs(anns1));
+      var refPairs = annsToPairs(anns0);
+      var modelPairs = annsToPairs(anns1);
+      var infMetrics = computeInf(refPairs, modelPairs);
+      var chainIds = (panelCtxs[0] && panelCtxs[0].apiData && panelCtxs[0].apiData.chain_ids) || null;
+      updateInfBar(infMetrics, computeInfScopes(refPairs, modelPairs, chainIds));
+      var diff = diffCounts(refPairs, modelPairs);
       setStatus(
         'edits ' + overrides.ref.length + '/' + overrides.model.length +
         ' · BP ' + diff.matched + '/' + diff.lost + '/' + diff.added,

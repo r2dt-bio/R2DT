@@ -3292,6 +3292,30 @@ def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positio
         panels[0]["baseColor"] = _CASP_RNA_GREEN
         panels[1]["baseColor"] = _CASP_MODEL_BLUE
     heading = f"{structure_id} — reference vs {model_tag}"
+    # Score-chain boundaries in the (possibly widened) reference label space.
+    if score_chains:
+        by_chain = {cid: (start, end) for cid, start, end in result.boundaries}
+        score_boundaries = [
+            (cid, by_chain[cid][0], by_chain[cid][1])
+            for cid in score_chains
+            if cid in by_chain
+        ]
+    else:
+        score_boundaries = list(result.boundaries)
+    inf_report = multichain.build_inf_report(
+        structure_id=structure_id,
+        model_id=model_id,
+        chains=[cid for cid, _s, _e in score_boundaries],
+        boundaries=score_boundaries,
+        ref_pairs=scoped_ref_all_pairs,
+        model_pairs=model_all_pairs,
+        inf=inf_metrics,
+        extra={
+            "model_simulated": model_is_simulated,
+            "model_own_layout": bool(model_own_layout),
+        },
+    )
+    inf_scopes = inf_report.get("scopes") or []
     html_path = viewer_html.render_compare(
         viewer_dir,
         page_title=f"{structure_id} — reference vs model",
@@ -3300,6 +3324,7 @@ def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positio
         panels=panels,
         molstar=molstar,
         metrics=inf_metrics,
+        scopes=inf_scopes,
     )
 
     # Structured metrics for the batch dashboard (avoids parsing stdout).
@@ -3312,13 +3337,34 @@ def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positio
         m = inf_metrics.get(key) or {}
         return {k: m.get(k) for k in ("inf", "ppv", "sty", "tp", "fp", "fn")}
 
+    def _scope_summary(scope):
+        inf = scope.get("inf") or {}
+        keys = ("inf", "ppv", "sty", "tp", "fp", "fn")
+
+        def _block(metric):
+            m = inf.get(metric) or {}
+            return {k: m.get(k) for k in keys}
+
+        return {
+            "id": scope.get("id"),
+            "label": scope.get("label"),
+            "type": scope.get("type"),
+            "chains": scope.get("chains"),
+            "inf": {k: _block(k) for k in ("wc", "nwc", "all")},
+        }
+
     metrics_payload = {
         "structure_id": structure_id,
         "model_id": model_id,
         "model_simulated": model_is_simulated,
         "model_own_layout": bool(model_own_layout),
-        "chains": result.order,
+        "chains": [cid for cid, _s, _e in score_boundaries],
+        "boundaries": [
+            {"chain": cid, "start": start, "end": end}
+            for cid, start, end in score_boundaries
+        ],
         "inf": {k: _inf_block(k) for k in ("wc", "nwc", "all")},
+        "scopes": [_scope_summary(s) for s in inf_scopes],
         "superpose_rmsd": superpose_rmsd,
         "superpose_n_atoms": superpose_n,
         "diff": {
@@ -3330,6 +3376,8 @@ def _emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-positio
     (viewer_dir / "metrics.json").write_text(
         json.dumps(metrics_payload, indent=2) + "\n"
     )
+    (viewer_dir / "inf-pairs.json").write_text(json.dumps(inf_report, indent=2) + "\n")
+    (viewer_dir / "inf-pairs.csv").write_text(multichain.inf_report_to_csv(inf_report))
 
     if not quiet:
         rprint(

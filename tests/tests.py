@@ -1357,6 +1357,92 @@ class TestViewerExport(unittest.TestCase):
         self.assertEqual(pairs[frozenset((18, 35))], "cHW")
 
 
+class TestInfScopes(unittest.TestCase):
+    """Per-chain / inter-chain INF partitioning."""
+
+    def test_pair_scope_intra_and_inter(self):
+        """Classify pairs as intra-chain or inter-chain by residue bounds."""
+        from utils.multichain import pair_scope
+
+        boundaries = [("0", 0, 10), ("1", 10, 20)]
+        self.assertEqual(pair_scope(1, 5, boundaries), ("intra", ("0",)))
+        self.assertEqual(pair_scope(12, 15, boundaries), ("intra", ("1",)))
+        self.assertEqual(pair_scope(2, 14, boundaries), ("inter", ("0", "1")))
+
+    def test_compute_inf_scopes_separates_chains(self):
+        """Partition INF into per-chain and inter-chain scopes."""
+        from utils.multichain import compute_inf, compute_inf_scopes
+
+        boundaries = [("A", 0, 5), ("B", 5, 10)]
+        # Intra A: ref and model agree on (0,4); model adds (1,3).
+        # Inter A-B: ref has (2,7); model misses it and adds (3,8).
+        # Intra B: both have (6,9).
+        ref = [
+            (0, 4, "cWW"),
+            (2, 7, "cWW"),
+            (6, 9, "tHS"),
+        ]
+        model = [
+            (0, 4, "cWW"),
+            (1, 3, "cWW"),
+            (3, 8, "cWW"),
+            (6, 9, "tHS"),
+        ]
+        scopes = {s["id"]: s for s in compute_inf_scopes(ref, model, boundaries)}
+        self.assertIn("all", scopes)
+        self.assertIn("intra:A", scopes)
+        self.assertIn("intra:B", scopes)
+        self.assertIn("inter:A-B", scopes)
+
+        # Intra A: ref={(0,4)}, model={(0,4),(1,3)} → TP1 FP1 FN0
+        a = scopes["intra:A"]["inf"]["all"]
+        self.assertEqual(a["tp"], 1)
+        self.assertEqual(a["fp"], 1)
+        self.assertEqual(a["fn"], 0)
+
+        # Intra B: perfect match on the one non-WC pair
+        b = scopes["intra:B"]["inf"]
+        self.assertEqual(b["all"]["inf"], 1.0)
+        self.assertEqual(b["nwc"]["tp"], 1)
+
+        # Inter: ref={(2,7)}, model={(3,8)} → TP0 FP1 FN1 → INF 0
+        inter = scopes["inter:A-B"]["inf"]["all"]
+        self.assertEqual(inter["tp"], 0)
+        self.assertEqual(inter["fp"], 1)
+        self.assertEqual(inter["fn"], 1)
+        self.assertEqual(inter["inf"], 0.0)
+
+        # Global INF matches compute_inf on the full sets.
+        self.assertEqual(scopes["all"]["inf"], compute_inf(ref, model))
+
+    def test_build_inf_report_one_based_and_csv(self):
+        """Build a downloadable INF report with 1-based coords and CSV."""
+        from utils.multichain import build_inf_report, inf_report_to_csv
+
+        boundaries = [("0", 0, 4), ("1", 4, 8)]
+        # 1-based annotation positions.
+        ref = [(1, 4, "cWW"), (2, 6, "cWW")]
+        model = [(1, 4, "cWW"), (5, 8, "cHS")]
+        report = build_inf_report(
+            structure_id="ref",
+            model_id="model",
+            chains=["0", "1"],
+            boundaries=boundaries,
+            ref_pairs=ref,
+            model_pairs=model,
+            one_based=True,
+        )
+        self.assertEqual(report["reference_pairs"][0]["i"], 1)
+        self.assertEqual(report["reference_pairs"][0]["chain_i"], "0")
+        scope_ids = [s["id"] for s in report["scopes"]]
+        self.assertIn("intra:0", scope_ids)
+        self.assertIn("inter:0-1", scope_ids)
+        csv_text = inf_report_to_csv(report)
+        self.assertIn("intra:0", csv_text)
+        self.assertIn("score", csv_text)
+        self.assertIn("pair", csv_text)
+
+
 class TestPdbCommand(unittest.TestCase):
     """End-to-end tests for r2dt.py pdb command."""
 

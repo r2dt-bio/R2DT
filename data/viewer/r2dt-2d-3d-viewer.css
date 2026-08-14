@@ -668,6 +668,31 @@
 .r2dt-bp-list-cmp--fp { background: #e6194b; }
 .r2dt-bp-list-cmp--fn { background: #4363d8; }
 
+.r2dt-bp-list-item--selected {
+  outline: 2px solid #ff7043;
+  outline-offset: -2px;
+  background: #fff7ed;
+}
+
+.r2dt-bp-list-section {
+  list-style: none;
+  margin: 8px 0 2px;
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  cursor: default;
+  pointer-events: none;
+}
+
+.r2dt-panel--2d .bp-list-dialog li.r2dt-bp-list-section:hover {
+  background: #f3f4f6;
+}
+
 .r2dt-panel--2d .bp-list-dialog li:hover,
 .r2dt-panel--2d .bp-list-dialog li:hover {
   background: #f3f4f6;
@@ -1147,8 +1172,9 @@
 }
 
 /* Bracket agreement colours, same palette as the base-pair-list TP/FP/FN
-   badges (.r2dt-bp-list-cmp--*): TP green, FP red, FN blue. Lower specificity
-   than .lbn-bp.lbn-bp-hidden, so the "hidden" dim always wins over these. */
+   badges (.r2dt-bp-list-cmp--*) and compare 2D strokes: TP green, FP red,
+   FN blue. Lower specificity than .lbn-bp.lbn-bp-hidden, so the "hidden"
+   dim always wins over these. */
 .lbn-bp--tp { color: #16a34a; }
 .lbn-bp--fp { color: #e6194b; }
 .lbn-bp--fn { color: #4363d8; }
