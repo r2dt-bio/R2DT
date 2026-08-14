@@ -61,3 +61,27 @@ Alternatively, if you prefer not to use `just`, you can manually execute the com
 ## Manual installation
 
 If it is not possible to use containers, follow instructions in the [base Dockerfile](https://github.com/r2dt-bio/R2DT/blob/main/base_image/Dockerfile) and [main Dockerfile](https://github.com/r2dt-bio/R2DT/blob/main/Dockerfile) to install all the requirements manually.
+
+R2DT looks for the Traveler `utils` folder (providing `infernal2mapping.py`, `enrich_json.py`, and `json2svg.py`) in the following locations:
+
+1. the `R2DT_TRAVELER_UTILS` environment variable,
+2. `/rna/traveler/utils` (the location used in the Docker image),
+3. the `utils` folder of the Traveler installation containing the `traveler` executable found in `PATH`.
+
+If the folder cannot be found, R2DT prints a warning and falls back to `traveler --all`, which computes its own template mapping. The layouts may differ from the standard `traveler --draw` output and the enriched JSON/SVG files are not generated, so when installing manually make sure the Traveler `utils` folder is available, for example:
+
+```bash
+export R2DT_TRAVELER_UTILS=/path/to/traveler/utils
+```
+
+### Minimal installation for drawing with known templates
+
+Running `r2dt.py draw --force_template <model_id>` (including [custom templates](./templates.md) in `local_data`) requires only a subset of the R2DT dependencies:
+
+- [Traveler](https://github.com/cusbg/traveler) (including its `utils` folder, see above)
+- [Infernal](http://eddylab.org/infernal/) (also provides the `esl-*` Easel programs)
+- [Bio-Easel](https://github.com/nawrockie/Bio-Easel) (provides `esl-alidepair.pl` and the Perl modules used by the jiffy scripts)
+- [jiffy-infernal-hmmer-scripts](https://github.com/nawrockie/jiffy-infernal-hmmer-scripts) (provides `ali-pfam-lowercase-rf-gap-columns.pl` and `ali-pfam-sindi2dot-bracket.pl`)
+- the Python packages from [requirements.txt](https://github.com/r2dt-bio/R2DT/blob/main/requirements.txt)
+
+tRNAscan-SE, Ribovore, RNAView, RNArtist, R-scape, and RNAstructure are not used by this code path. Note that template selection (running `draw` without `--force_template`) and template-free mode require the full installation.

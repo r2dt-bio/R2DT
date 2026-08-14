@@ -2334,5 +2334,60 @@ class TestStockholmColoring(unittest.TestCase):
         )
 
 
+class TestTravelerUtilsResolution(unittest.TestCase):
+    """Unit tests for locating the Traveler utils folder outside Docker."""
+
+    def setUp(self):
+        self.temp_dir = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.temp_dir, ignore_errors=True)
+        self.saved_env = os.environ.get("R2DT_TRAVELER_UTILS")
+        self.addCleanup(self._restore_env)
+
+    def _restore_env(self):
+        if self.saved_env is None:
+            os.environ.pop("R2DT_TRAVELER_UTILS", None)
+        else:
+            os.environ["R2DT_TRAVELER_UTILS"] = self.saved_env
+
+    def _make_utils_folder(self):
+        utils_dir = os.path.join(self.temp_dir, "traveler", "utils")
+        os.makedirs(utils_dir, exist_ok=True)
+        Path(utils_dir, "infernal2mapping.py").touch()
+        return utils_dir
+
+    def test_env_variable_takes_priority(self):
+        """R2DT_TRAVELER_UTILS wins over all other candidates."""
+        utils_dir = self._make_utils_folder()
+        os.environ["R2DT_TRAVELER_UTILS"] = utils_dir
+        self.assertEqual(config.find_traveler_utils(), utils_dir)
+
+    def test_env_variable_without_scripts_is_skipped(self):
+        """A folder without infernal2mapping.py is not accepted."""
+        empty_dir = os.path.join(self.temp_dir, "empty")
+        os.makedirs(empty_dir)
+        os.environ["R2DT_TRAVELER_UTILS"] = empty_dir
+        self.assertNotEqual(config.find_traveler_utils(), empty_dir)
+
+    @unittest.skipIf(
+        os.path.isdir("/rna/traveler/utils"),
+        "Docker location takes priority over the PATH-based candidate",
+    )
+    def test_traveler_executable_location(self):
+        """The utils folder is found relative to the traveler executable."""
+        utils_dir = self._make_utils_folder()
+        bin_dir = os.path.join(self.temp_dir, "traveler", "bin")
+        os.makedirs(bin_dir)
+        traveler_bin = Path(bin_dir, "traveler")
+        traveler_bin.touch()
+        traveler_bin.chmod(0o755)
+        os.environ.pop("R2DT_TRAVELER_UTILS", None)
+        saved_path = os.environ["PATH"]
+        os.environ["PATH"] = bin_dir
+        try:
+            self.assertEqual(config.find_traveler_utils(), utils_dir)
+        finally:
+            os.environ["PATH"] = saved_path
+
+
 if __name__ == "__main__":
     unittest.main()

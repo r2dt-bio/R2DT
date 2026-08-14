@@ -27,6 +27,28 @@ from .svg import (
     soften_long_basepair_lines,
 )
 
+_TRAVELER_UTILS_WARNING_SHOWN = False
+
+
+def warn_missing_traveler_utils():
+    """
+    Warn once per run when the Traveler utils folder cannot be found,
+    e.g. when running outside the Docker image without R2DT_TRAVELER_UTILS.
+    """
+    global _TRAVELER_UTILS_WARNING_SHOWN  # pylint: disable=global-statement
+    if _TRAVELER_UTILS_WARNING_SHOWN:
+        return
+    _TRAVELER_UTILS_WARNING_SHOWN = True
+    rprint(
+        "[red]WARNING: Traveler utils folder not found "
+        "(checked $R2DT_TRAVELER_UTILS, /rna/traveler/utils, and the "
+        "location of the traveler executable in PATH). "
+        "Falling back to `traveler --all`: layouts may differ from the "
+        "standard `traveler --draw` output and enriched JSON/SVG files "
+        "will not be generated. Set the R2DT_TRAVELER_UTILS environment "
+        "variable to the utils folder of your Traveler installation.[/red]"
+    )
+
 
 def update_fasta_with_original_sequence(
     result_base_fasta, temp_fasta, insertion_removed
@@ -327,8 +349,14 @@ def visualise(
     # generate traveler infernal mapping file
     infernal_mapping_failed = True
     if not insertion_removed:
-        cmd = f"python3 /rna/traveler/utils/infernal2mapping.py -i {temp_afa} > {temp_map}"
-        infernal_mapping_failed = runner.run(cmd)
+        if config.TRAVELER_UTILS:
+            infernal2mapping = os.path.join(
+                config.TRAVELER_UTILS, "infernal2mapping.py"
+            )
+            cmd = f"python3 {infernal2mapping} -i {temp_afa} > {temp_map}"
+            infernal_mapping_failed = runner.run(cmd)
+        else:
+            warn_missing_traveler_utils()
 
     if rna_type == "gtrnadb":
         result_base = os.path.join(
@@ -427,19 +455,24 @@ def visualise(
     # add metadata to json file
     result_json = result_base + ".colored.json"
     if os.path.exists(result_json) and os.path.getsize(result_json) > 0:
-        cmd = (
-            f"python3 /rna/traveler/utils/enrich_json.py --input-json {result_base}.colored.json "
-            f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
-        )
-        result = runner.run(cmd)
-
-        # add colors
-        if result == 0:
+        if config.TRAVELER_UTILS:
+            enrich_json = os.path.join(config.TRAVELER_UTILS, "enrich_json.py")
             cmd = (
-                f"python3 /rna/traveler/utils/json2svg.py -p /rna/r2dt/utils/colorscheme.json "
-                f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+                f"python3 {enrich_json} --input-json {result_base}.colored.json "
+                f"--input-data {temp_post_prob} --output {result_base}.enriched.json"
             )
-            runner.run(cmd)
+            result = runner.run(cmd)
+
+            # add colors
+            if result == 0:
+                json2svg = os.path.join(config.TRAVELER_UTILS, "json2svg.py")
+                cmd = (
+                    f"python3 {json2svg} -p {config.COLORSCHEME_JSON} "
+                    f"-i {result_base}.enriched.json -o {result_base}.enriched.svg"
+                )
+                runner.run(cmd)
+        else:
+            warn_missing_traveler_utils()
 
     # Layout-aware font-size adjustment (all RNA types).
     for suffix in [".colored.svg", ".enriched.svg", ".svg"]:
