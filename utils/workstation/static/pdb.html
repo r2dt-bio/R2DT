@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2D + 3D · R2DT workstation</title>
+<!--HEAD-->
+</head>
+<body class="ws-dashboard">
+<!--HEADER-->
+
+<section id="panel-dashboard" class="panel active">
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="Filter by label or filename…" autocomplete="off">
+    <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="import-btn" title="Import a .r2dt-job.zip package">Import</button>
+    <input type="file" id="import-file" accept=".zip,.r2dt-job.zip,application/zip" hidden>
+    <span id="import-status" class="form-status"></span>
+    <a class="cta" id="new-job" href="/pdb/new">New 2D + 3D job</a>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="num" data-sort="seq" title="Stable job number (oldest first)">#</th>
+          <th data-sort="label">Label</th>
+          <th data-sort="status">Status</th>
+          <th class="actions-col">Actions</th>
+          <th data-sort="structure">Structure</th>
+          <th data-sort="chain">Chain</th>
+          <th data-sort="created">Created</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <pre id="log" class="log hidden" aria-live="polite"></pre>
+</section>
+
+<section id="panel-new" class="panel">
+  <div class="new-head">
+    <a class="linkish" href="/pdb">← Back to jobs</a>
+    <h2>New 2D + 3D job</h2>
+  </div>
+  <form id="new-form">
+    <fieldset>
+      <legend>Structure</legend>
+      <div class="ws-dropzone" id="struct-drop" tabindex="0" role="button"
+           aria-label="Drop PDB or mmCIF here, or click to browse">
+        <input type="file" id="struct-file" class="ws-dropzone-input"
+               accept=".cif,.pdb,.cif.gz,.pdb.gz,.CIF,.PDB" tabindex="-1">
+        <p class="ws-dropzone-title">Drop PDB or mmCIF here</p>
+        <p class="ws-dropzone-sub">or click to browse · .cif / .pdb (also .gz)</p>
+        <p class="ws-dropzone-file hidden" id="struct-drop-name"></p>
+      </div>
+      <div id="struct-chains" class="chains hidden" aria-live="polite"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="row opts">
+        <label>Layout mode
+          <select id="layout-mode">
+            <option value="auto" selected>auto</option>
+            <option value="templated">templated</option>
+            <option value="templatefree">templatefree</option>
+          </select>
+        </label>
+        <label>Base pairs
+          <select id="basepairs">
+            <option value="fr3d" selected>fr3d</option>
+            <option value="cif">cif</option>
+            <option value="rnaview">rnaview</option>
+          </select>
+        </label>
+        <label>Label
+          <input type="text" id="label" placeholder="Optional display name">
+        </label>
+      </div>
+      <label class="notes">Notes
+        <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="force"> Force re-run even if an identical job is cached
+      </label>
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <label class="check">
+          <input type="checkbox" id="adv-pseudoknots" checked> Include pseudoknots (FR3D)
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-rnapuzzler"> Use RNAPuzzler for templatefree layout
+        </label>
+      </details>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="generate">Generate</button>
+      <span id="form-status" class="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<footer class="ws-footer">
+  <nav class="ws-footer-links" aria-label="R2DT links">
+    <a href="https://docs.r2dt.bio" target="_blank" rel="noopener">Docs</a>
+    <a href="https://r2dt.bio" target="_blank" rel="noopener">r2dt.bio</a>
+    <a href="https://github.com/r2dt-bio/r2dt" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <span id="runtime"></span>
+</footer>
+
+<script src="/static/transfer.js"></script>
+<script src="/static/dropzone.js"></script>
+<script src="/static/pdb.js"></script>
+</body>
+</html>

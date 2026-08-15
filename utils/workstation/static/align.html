@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alignments · R2DT workstation</title>
+<!--HEAD-->
+</head>
+<body class="ws-dashboard">
+<!--HEADER-->
+
+<section id="panel-dashboard" class="panel active">
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="Filter by label…" autocomplete="off">
+    <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="import-btn" title="Import a .r2dt-job.zip package">Import</button>
+    <input type="file" id="import-file" accept=".zip,.r2dt-job.zip,application/zip" hidden>
+    <span id="import-status" class="form-status"></span>
+    <a class="cta" href="/align/new">New alignment job</a>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="num" data-sort="seq" title="Stable job number (oldest first)">#</th>
+          <th data-sort="label">Label</th>
+          <th data-sort="status">Status</th>
+          <th class="actions-col">Actions</th>
+          <th data-sort="rscape">R-scape</th>
+          <th data-sort="stitch">Stitch</th>
+          <th data-sort="created">Created</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <pre id="log" class="log hidden" aria-live="polite"></pre>
+</section>
+
+<section id="panel-new" class="panel">
+  <div class="new-head">
+    <a class="linkish" href="/align">← Back to jobs</a>
+    <h2>New alignment job</h2>
+  </div>
+  <form id="new-form">
+    <fieldset>
+      <legend>Stockholm alignment</legend>
+      <p class="hint-block">
+        Paste or upload a Stockholm file. If it lacks R-scape
+        <code>cov_SS_cons</code> / <code>cov_h_SS_cons</code> annotations,
+        R-scape (<code>--cacofold</code>) runs automatically before drawing.
+      </p>
+      <div class="ws-examples" id="examples" aria-label="Example alignments">
+        <span class="ws-examples-label">Examples</span>
+      </div>
+      <label>Stockholm
+        <textarea id="stockholm" rows="12" placeholder="# STOCKHOLM 1.0&#10;…"></textarea>
+      </label>
+      <label class="file-inline">Or upload a file
+        <input type="file" id="stk-file" accept=".stk,.sto,.stockholm,.txt,.STK,.STO">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="row opts">
+        <label>Label
+          <input type="text" id="label" placeholder="Optional (defaults to #=GF ID)">
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="stitch" checked>
+        Stitch multi-region SVGs into one overview
+      </label>
+      <label class="notes">Notes
+        <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="force"> Force re-run even if an identical job is cached
+      </label>
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <label class="check">
+          <input type="checkbox" id="adv-include-novel"> Include novelSS_names regions
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-all-structures"> Include unnamed segments with secondary structure
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-auto-repair"> Auto-repair unbalanced brackets
+        </label>
+        <label class="check">
+          <input type="checkbox" id="adv-monochrome" checked> Monochrome stitched output
+        </label>
+        <div class="row opts">
+          <label>Max unpaired stretch
+            <input type="number" id="adv-max-unpaired" min="0" step="1" value="30">
+          </label>
+          <label>Colour panels by
+            <select id="adv-color-by">
+              <option value="none" selected>none</option>
+              <option value="structure">structure</option>
+              <option value="region">region</option>
+            </select>
+          </label>
+        </div>
+      </details>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="generate">Generate</button>
+      <span id="form-status" class="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<footer class="ws-footer">
+  <nav class="ws-footer-links" aria-label="R2DT links">
+    <a href="https://docs.r2dt.bio" target="_blank" rel="noopener">Docs</a>
+    <a href="https://r2dt.bio" target="_blank" rel="noopener">r2dt.bio</a>
+    <a href="https://github.com/r2dt-bio/r2dt" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <span id="runtime"></span>
+</footer>
+
+<script src="/static/examples.js"></script>
+<script src="/static/transfer.js"></script>
+<script src="/static/align.js"></script>
+</body>
+</html>

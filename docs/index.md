@@ -43,6 +43,7 @@ R2DT can be used in a number of ways:
 * [Web application](https://rnacentral.org/r2dt) hosted by RNAcentral
 * [API](https://www.ebi.ac.uk/Tools/common/tools/help/index.html?tool=r2dt) powered by EMBL-EBI Web Services (see [](api.md))
 * As a command line tool with [Docker](https://www.docker.com), [Podman](https://podman.io), [Singularity](https://sylabs.io/docs/), or as bare metal [installation](./installation.md)
+* Local [workstation](./workstation.md) UI (`just workstation`) for interactive draw, PDB, compare, and alignment jobs
 
 ## Who uses R2DT?
 
@@ -97,6 +98,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
 
    installation
    usage
+   workstation
    annotations
    editors
    api
@@ -111,6 +113,7 @@ If you have any questions or feedback, feel free to [submit a GitHub issue](http
    :maxdepth: 1
 
    pdb
+   pdb-2d-3d-viewer
 ```
 
 ```{eval-rst}

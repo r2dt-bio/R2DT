@@ -60,3 +60,40 @@ if os.environ.get("READTHEDOCS", "") == "True":
 
 # -- Logo and favicon -------------------------------------------------
 html_logo = "images/r2dt-banner-logo.png"
+
+# -- Workstation starter-pack download ----------------------------------------
+# docs/files/r2dt-workstation-start.zip is generated here, at build time, from
+# scripts/workstation/ -- it is deliberately not committed, so it can never go
+# stale. workstation.md links it with {download}. `just workstation-pack`
+# builds the same zip locally.
+
+
+def _pack_workstation_zip(app):
+    import zipfile
+    from pathlib import Path
+
+    docs_dir = Path(app.srcdir).resolve()
+    src_dir = docs_dir.parent / "scripts" / "workstation"
+    out = docs_dir / "files" / "r2dt-workstation-start.zip"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    members = [
+        "README.txt",
+        "Start-macOS.command",
+        "Start-Windows.bat",
+        "Start-Linux.sh",
+    ]
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in members:
+            src = src_dir / name
+            info = zipfile.ZipInfo(f"r2dt-workstation-start/{name}")
+            # Fixed timestamp and mode keep the zip reproducible; launchers
+            # need the executable bit.
+            info.date_time = (2026, 1, 1, 0, 0, 0)
+            mode = 0o755 if name != "README.txt" else 0o644
+            info.external_attr = mode << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, src.read_bytes())
+
+
+def setup(app):
+    app.connect("builder-inited", _pack_workstation_zip)

@@ -1,0 +1,1313 @@
+/*
+ * R2DT 2D+3D viewer styles (r2dt-2d-3d-viewer.css).
+ * Loaded after pdb-rna-viewer-0.3.0.css in generated index.html.
+ */
+
+/* --- Toolbar accents (match toggle on-state) --------------------------- */
+
+:root {
+  --r2dt-accent: #7a96b0;
+  --r2dt-accent-soft-bg: #e8eef3;
+  --r2dt-accent-soft-border: #a8bac9;
+  --r2dt-accent-badge-bg: #dde5ec;
+  --r2dt-accent-badge-text: #5c7388;
+  --r2dt-bp-glyph: #909090;
+  --r2dt-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --r2dt-font-diagram: Helvetica, Arial, sans-serif;
+}
+
+/* --- 2D panel fonts ---------------------------------------------------- */
+
+#pdb-rna-viewer,
+.r2dt-panel--2d,
+#mainMenu.r2dt-toolbar {
+  font-family: var(--r2dt-font-ui);
+}
+
+#pdb-rna-viewer svg.rnaTopoSvg text,
+.r2dt-panel--2d svg.rnaTopoSvg text {
+  font-family: var(--r2dt-font-diagram);
+  font-weight: 700;
+}
+
+/* --- Toolbar ----------------------------------------------------------- */
+
+#mainMenu.r2dt-toolbar {
+  height: auto;
+  min-height: 40px;
+  line-height: normal;
+  background: #f8f9fa;
+  color: #374151;
+  border: none;
+  position: relative;
+  z-index: 30;
+  overflow: visible;
+  flex: none;
+  width: 100%;
+  display: block;
+}
+
+#mainMenu.r2dt-toolbar form {
+  margin: 0;
+  padding: 8px 12px;
+  gap: 10px 12px;
+  /* Wrap to a second row when the panel is too narrow even for short labels. */
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: visible;
+}
+
+#mainMenu.r2dt-toolbar .menu-dropdown {
+  position: relative;
+}
+
+.r2dt-toolbar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+  margin-right: 2px;
+}
+
+.r2dt-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.r2dt-toolbar-group + .r2dt-toolbar-group {
+  padding-left: 12px;
+  border-left: 1px solid #e5e7eb;
+}
+
+/* Section labels add noise at the 600px panel width — hide them. */
+.r2dt-toolbar-group-label {
+  display: none;
+}
+
+/* --- Toggle switches --------------------------------------------------- */
+
+.r2dt-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: #374151;
+  min-height: 32px;
+}
+
+.r2dt-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.r2dt-toggle-track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.r2dt-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease;
+}
+
+.r2dt-toggle input:checked + .r2dt-toggle-track {
+  background: var(--r2dt-accent);
+}
+
+.r2dt-toggle input:checked + .r2dt-toggle-track::after {
+  transform: translateX(14px);
+}
+
+.r2dt-toggle input:focus-visible + .r2dt-toggle-track {
+  outline: 2px solid #b8c9d9;
+  outline-offset: 2px;
+}
+
+.r2dt-toggle-label {
+  line-height: 1.2;
+}
+
+/* Nested-BP row injected by the plugin — restyle in place */
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  position: relative;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: #374151;
+  min-height: 32px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span {
+  position: relative;
+  padding-left: 42px;
+  line-height: 20px;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-toggle > span::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease;
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle > span::before {
+  background: var(--r2dt-accent);
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:checked + .r2dt-nested-toggle > span::after {
+  transform: translateX(14px);
+}
+
+.r2dt-toolbar-group--pairs .r2dt-nested-wrap input:focus-visible + .r2dt-nested-toggle > span::before {
+  outline: 2px solid #b8c9d9;
+  outline-offset: 2px;
+}
+
+/* --- Filter dropdown button -------------------------------------------- */
+
+#mainMenu.r2dt-toolbar .menu-dropdown button,
+.r2dt-btn {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#mainMenu.r2dt-toolbar .menu-dropdown button:hover,
+.r2dt-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+#mainMenu.r2dt-toolbar .menu-dropdown.show button {
+  background: var(--r2dt-accent-soft-bg);
+  border-color: var(--r2dt-accent-soft-border);
+}
+
+.r2dt-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.menu-dropdown.show .r2dt-filter-badge {
+  background: var(--r2dt-accent-badge-bg);
+  color: var(--r2dt-accent-badge-text);
+}
+
+#bpFilterBtnIcon {
+  margin-left: 0;
+  font-size: 11px;
+  color: #6b7280;
+  transition: transform 0.15s ease;
+}
+
+.menu-dropdown.show #bpFilterBtnIcon {
+  transform: rotate(180deg) translate(0, -1px);
+}
+
+#bpFilterBtnHelp,
+#bpFilterBtn .help-icon {
+  display: none !important;
+}
+
+/* --- Filter dropdown panel --------------------------------------------- */
+
+#mainMenu.r2dt-toolbar .menu-dropdown-content {
+  display: none;
+}
+
+/* Docked in the 2D panel (like the base-pair list) so it is not clipped by
+   the toolbar or covered by the SVG diagram. */
+.r2dt-panel--2d #checkboxes.r2dt-bp-filter-panel {
+  display: none;
+  position: absolute;
+  left: auto;
+  right: 8px;
+  bottom: 48px;
+  top: auto;
+  width: auto;
+  min-width: 280px;
+  max-width: 340px;
+  max-height: min(480px, 60vh);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  padding: 10px;
+  z-index: 100;
+  float: none;
+  box-sizing: border-box;
+}
+
+.r2dt-filter-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef0f2;
+  line-height: 1.3;
+}
+
+#checkboxes.r2dt-bp-filter-panel table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#checkboxes.r2dt-bp-filter-panel tbody,
+#checkboxes.r2dt-bp-filter-panel tr {
+  display: contents;
+}
+
+#checkboxes.r2dt-bp-filter-panel td {
+  display: block;
+  padding: 0;
+}
+
+#checkboxes.r2dt-bp-filter-panel td:has(#Checkbox_All) {
+  grid-column: 1 / -1;
+}
+
+#checkboxes.r2dt-bp-filter-panel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.r2dt-bp-family-label {
+  flex: none;
+}
+
+.r2dt-bp-glyph-wrap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  margin-left: auto;
+}
+
+.r2dt-bp-glyph {
+  display: block;
+  color: var(--r2dt-bp-glyph);
+}
+
+/* Residue readout (bottom-right: hover + selected) ---------------------- */
+
+#pdb-rna-viewer .pdb-rna-view-tooltip,
+#pdb-rna-viewer .pdb-rna-view-tooltip-highlight {
+  font-size: calc(11px + 4pt);
+  font-weight: 400;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+#pdb-rna-viewer .pdb-rna-view-tooltip strong,
+#pdb-rna-viewer .pdb-rna-view-tooltip-highlight strong {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* Clear-selection (×) button inside the selection tooltip. */
+.r2dt-deselect-btn {
+  appearance: none;
+  margin-left: 6px;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  background: #fff;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.r2dt-deselect-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.r2dt-deselect-btn:focus-visible {
+  outline: 2px solid #b8c9d9;
+  outline-offset: 1px;
+}
+
+#checkboxes.r2dt-bp-filter-panel label:hover {
+  background: #f3f4f6;
+}
+
+#checkboxes.r2dt-bp-filter-panel input[type="checkbox"] {
+  accent-color: var(--r2dt-accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  flex: none;
+}
+
+/* --- Legend inside base-pairs panel ------------------------------------ */
+
+.r2dt-bp-legend-more {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eef0f2;
+}
+
+.r2dt-bp-legend-more summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5c7388;
+  list-style: none;
+  user-select: none;
+}
+
+.r2dt-bp-legend-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.r2dt-bp-legend-more summary::before {
+  content: "▸ ";
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.r2dt-bp-legend-more[open] summary::before {
+  content: "▾ ";
+}
+
+.r2dt-bp-legend-more .r2dt-bp-legend-panel {
+  margin-top: 8px;
+}
+
+.r2dt-bp-legend-intro {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.r2dt-bp-legend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: #374151;
+}
+
+.r2dt-bp-legend-table th,
+.r2dt-bp-legend-table td {
+  border: 1px solid #e5e7eb;
+  padding: 3px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.r2dt-bp-legend-table thead th {
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.r2dt-bp-legend-table tbody th {
+  white-space: nowrap;
+  font-weight: 600;
+  text-align: left;
+}
+
+.r2dt-bp-legend-table svg {
+  display: inline-block;
+  vertical-align: middle;
+  height: 14px;
+  width: auto;
+}
+
+.r2dt-bp-legend-cite {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.r2dt-bp-legend-cite a {
+  color: #5c7388;
+}
+
+/* --- Base pair list (docked inside 2D panel) --------------------------- */
+
+.r2dt-bp-list-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+#mainMenu.r2dt-toolbar .bp-list-btn {
+  white-space: nowrap;
+}
+
+.r2dt-panel--2d .bp-list-dialog.r2dt-bp-list-panel {
+  position: absolute;
+  left: auto;
+  right: 8px;
+  bottom: 48px;
+  top: auto;
+  flex-direction: column;
+  width: min(248px, calc(100% - 16px));
+  height: min(220px, 38%);
+  max-height: min(220px, 38%);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+  padding: 6px 8px;
+  z-index: 25;
+  font-size: 12px;
+  color: #374151;
+  box-sizing: border-box;
+}
+
+.r2dt-bp-list-panel-title {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eef0f2;
+  line-height: 1.2;
+}
+
+.r2dt-panel--2d .bp-list-dialog ul {
+  flex: 1 1 auto;
+  min-height: 0;
+  list-style: none !important;
+  margin: 0;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.r2dt-panel--2d .bp-list-dialog li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #374151;
+  transition: background 0.12s ease;
+}
+
+.r2dt-bp-list-pair {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.r2dt-bp-list-family {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+
+.r2dt-bp-list-item--nonwc .r2dt-bp-list-pair {
+  color: #6b7280;
+}
+
+.r2dt-bp-list-item--nonwc .r2dt-bp-list-family {
+  color: #9ca3af;
+}
+
+.r2dt-bp-list-tag {
+  flex: none;
+  width: 4.2em;            /* fixed column so the family column stays aligned */
+  box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;     /* keep "non-WC" on one line */
+  font-size: 10px;
+  font-weight: 500;
+  color: #9ca3af;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f3f4f6;
+  line-height: 1.3;
+}
+
+/* Canonical rows: reserve the column width but show nothing. */
+.r2dt-bp-list-tag--empty {
+  background: transparent;
+  visibility: hidden;
+}
+
+/* TP/FP/FN badge in the base-pair list (compare mode). TP green, FP red
+   (matches the model-only diff colour), FN blue (matches the missing diff). */
+.r2dt-bp-list-cmp {
+  flex: none;
+  width: 2.2em;             /* fixed width so TP/FP/FN line up in one column */
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 0;
+  border-radius: 3px;
+  line-height: 1.3;
+  color: #fff;
+}
+.r2dt-bp-list-cmp--tp { background: #16a34a; }
+.r2dt-bp-list-cmp--fp { background: #e6194b; }
+.r2dt-bp-list-cmp--fn { background: #4363d8; }
+
+.r2dt-bp-list-item--selected {
+  outline: 2px solid #ff7043;
+  outline-offset: -2px;
+  background: #fff7ed;
+}
+
+/* Selected base-pair path (.r2dt-bp-selected): thicker stroke + same-hue
+   glow are applied in JS so TP/FN/FP colours stay readable. */
+
+.r2dt-bp-list-section {
+  list-style: none;
+  margin: 8px 0 2px;
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  cursor: default;
+  pointer-events: none;
+}
+
+.r2dt-panel--2d .bp-list-dialog li.r2dt-bp-list-section:hover {
+  background: #f3f4f6;
+}
+
+.r2dt-panel--2d .bp-list-dialog li:hover,
+.r2dt-panel--2d .bp-list-dialog li:hover {
+  background: #f3f4f6;
+}
+
+.r2dt-bp-list-item--nonwc:hover .r2dt-bp-list-tag {
+  background: #e8eaed;
+}
+
+/* --- Floating panel controls (top-right zoom) -------------------------- */
+
+#pdb-rna-viewer .pdb-rna-view-btn-group {
+  display: flex;
+  gap: 4px;
+}
+
+#pdb-rna-viewer .pdb-rna-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+#pdb-rna-viewer .pdb-rna-view-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.pdb-rna-view-btn {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 5px 7px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.pdb-rna-view-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+#pdb-rna-viewer,
+.r2dt-panel--2d {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+#pdb-molstar,
+.r2dt-panel--3d {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+  position: relative;
+  /* Allow Mol* "outside" control panels when there is no chin. */
+  overflow: visible;
+}
+
+/* Compare 3D with canvas host + optional chin: flex column inside the pane. */
+.r2dt-panel--3d:has(.r2dt-3d-canvas) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.r2dt-3d-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 7px;
+}
+
+.r2dt-panel--3d:has(.r2dt-3d-chin) .r2dt-3d-canvas {
+  border-radius: 7px 7px 0 0;
+}
+
+#pdb-molstar .msp-layout-main,
+.r2dt-panel--3d .msp-layout-main,
+.r2dt-3d-canvas .msp-layout-main {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* Mol* sets border on `.msp-plugin .msp-layout-standard` and loads after this
+   file, so compare panels (no #pdb-molstar id) need equal-or-higher specificity. */
+#pdb-molstar .msp-plugin-content,
+#pdb-molstar .msp-layout-standard,
+.r2dt-panel--3d .msp-plugin .msp-layout-standard {
+  border: none;
+}
+
+.pdb-rna-view-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
+  height: auto !important;
+  width: 100%;
+  display: block;
+}
+
+.r2dt-toolbar {
+  height: auto !important;
+  line-height: normal !important;
+  min-height: 44px;
+}
+
+/* --- Responsive toolbar: compact labels when narrow, wrap as last resort --- */
+/* The toolbar is a size-query container; its labels swap to short variants
+   below a width where the full labels would overflow. */
+.r2dt-toolbar {
+  container-type: inline-size;
+}
+.r2dt-lbl-short {
+  display: none;
+}
+@container (max-width: 470px) {
+  .r2dt-lbl-full {
+    display: none;
+  }
+  .r2dt-lbl-short {
+    display: inline;
+  }
+}
+
+.help-tooltip {
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+}
+
+/* --- Embed root layout (R2DTViewer.create) -------------------------------- */
+
+.r2dt-viewer-root {
+  --r2dt-panel-size: 600px;
+  --r2dt-viewer-height: 600px;
+  max-width: calc(var(--r2dt-panel-size) * 2 + 16px);
+}
+
+.r2dt-viewer-root[data-layout="stacked"] .r2dt-viewer-vis {
+  flex-direction: column;
+}
+
+.r2dt-viewer-root[data-layout="2d-only"] .r2dt-panel--3d,
+.r2dt-viewer-root[data-layout="3d-only"] .r2dt-panel--2d {
+  display: none;
+}
+
+.r2dt-viewer-vis {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.r2dt-viewer-root #pdb-rna-viewer,
+.r2dt-viewer-root #pdb-molstar {
+  width: var(--r2dt-panel-size);
+  height: var(--r2dt-viewer-height);
+  flex: none;
+}
+
+.r2dt-viewer-root #pdb-molstar {
+  position: relative;
+}
+
+.r2dt-viewer-lbn {
+  margin-top: 20px;
+  max-width: calc(var(--r2dt-panel-size) * 2 + 16px);
+}
+
+.r2dt-viewer-lbn-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+/* --- Compare layout (R2DTViewer.createCompare) --------------------------- */
+
+.r2dt-compare-root {
+  --r2dt-compare-panel-height: 480px;
+}
+
+.r2dt-compare-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.r2dt-compare-slot {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.r2dt-compare-slot-title {
+  font-size: 13px;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.r2dt-compare-tag {
+  color: #888;
+  font-weight: 400;
+}
+
+.r2dt-chain-select {
+  display: block;
+  margin: -4px 0 8px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  max-width: 100%;
+}
+
+.r2dt-layout-toggle {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.r2dt-layout-toggle-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-right: 2px;
+}
+.r2dt-layout-toggle-btn {
+  appearance: none;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.r2dt-layout-toggle-btn:hover {
+  border-color: #c7c9d1;
+  color: #374151;
+}
+.r2dt-layout-toggle-btn.is-active {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px #d1d5db;
+}
+.r2dt-compare-slot-body {
+  min-width: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .r2dt-chain-select {
+    background: #111827;
+    border-color: #374151;
+  }
+  .r2dt-layout-toggle-label {
+    color: #9ca3af;
+  }
+  .r2dt-layout-toggle-btn {
+    background: #111827;
+    border-color: #374151;
+    color: #9ca3af;
+  }
+  .r2dt-layout-toggle-btn:hover {
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+  .r2dt-layout-toggle-btn.is-active {
+    background: #1f2937;
+    border-color: #6b7280;
+    color: #f3f4f6;
+    box-shadow: inset 0 0 0 1px #4b5563;
+  }
+}
+
+.r2dt-compare-root .r2dt-viewer-root {
+  max-width: none;
+}
+
+.r2dt-compare-root .r2dt-panel--2d,
+.r2dt-compare-root .r2dt-panel--3d {
+  width: 100%;
+  height: var(--r2dt-compare-panel-height);
+  flex: none;
+}
+
+.r2dt-compare-molstar-root .r2dt-panel--3d {
+  position: relative;
+}
+
+/* Loading a second (overlay) structure via visual.update re-shows Mol*'s side
+   controls panels, which can't be re-hidden through the layout API post-init.
+   Hide both the right panel and the collapsed-left strip (which otherwise juts
+   ~295px below the canvas) and let the canvas reclaim the width. */
+.r2dt-compare-molstar-root .msp-layout-right,
+.r2dt-compare-molstar-root .msp-layout-left {
+  display: none !important;
+}
+
+.r2dt-compare-molstar-root .msp-layout-main {
+  right: 0 !important;
+}
+
+/* Hide the "Toggle Expanded Viewport" (fullscreen) button — expanding the
+   embedded Mol* pane doesn't behave well in this side-by-side layout. Loading
+   the overlay re-shows the canvas controls, so the init-time hideCanvasControls
+   no longer applies; hide the button (and its hover wrapper) via CSS instead. */
+.r2dt-compare-molstar-root .msp-hover-box-wrapper:has(button[title="Toggle Expanded Viewport"]),
+.r2dt-compare-molstar-root button[title="Toggle Expanded Viewport"] {
+  display: none !important;
+}
+
+/* 3D bottom chin — same role as the 2D #mainMenu toolbar. */
+.r2dt-3d-chin {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  background: #f8f9fa;
+  border-top: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  z-index: 30;
+  font-family: var(--r2dt-font-ui);
+}
+
+/* Reference/model visibility — same switch style as Backbone / Nested. */
+.r2dt-3d-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 0;
+}
+
+.r2dt-3d-toggle .r2dt-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.r2dt-3d-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  flex: none;
+}
+
+.r2dt-viewer-lbn .lbn-body {
+  overflow-x: auto;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.lbn-row {
+  /* max-content so the row box spans the full sequence; otherwise sticky
+     labels only work for ~one viewport width, then scroll away. */
+  width: max-content;
+  min-width: 100%;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  white-space: pre;
+  line-height: 1.6;
+}
+
+/* Sticky left gutter: labels stay put while the sequence scrolls horizontally.
+   Opaque background + right mask so glyphs never show through underneath. */
+.lbn-label {
+  display: inline-block;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 8ch; /* 7ch text + trailing ":" */
+  color: #111827;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  background: #fafafa;
+  /* Hard mask to the right of the label (shadow alone can look soft/grey). */
+  box-shadow: 1ch 0 0 #fafafa;
+  padding: 0 1ch 0 0;
+  margin-right: 0.25ch;
+  box-sizing: content-box;
+}
+
+.lbn-nt,
+.lbn-bp,
+.lbn-dot {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.lbn-nt {
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.lbn-nt:hover {
+  background: #d0eaf8;
+}
+
+.lbn-bp {
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 2px;
+}
+
+.lbn-bp:hover {
+  background: #d0eaf8;
+}
+
+.lbn-selected {
+  background: #ffe066 !important;
+  outline: 1px solid #e6b800;
+}
+
+.lbn-partner {
+  background: #ffc0cb !important;
+  outline: 1px solid #d0607a;
+}
+
+/* Pairs hidden in the current 2D view are dimmed (kept in place so the
+   columns stay aligned). Selection highlight still overrides this. */
+.lbn-bp.lbn-bp-hidden {
+  color: #c9ced6;
+  font-weight: normal;
+}
+
+.lbn-row--hidden .lbn-label {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.r2dt-viewer-lbn-caption {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.lbn-legend {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* --- Shared compare-mode LBN widget (both structures, TP/FP/FN) -------- */
+
+.r2dt-compare-lbn {
+  max-width: none;
+}
+
+/* Bracket agreement colours, same palette as the base-pair-list TP/FP/FN
+   badges (.r2dt-bp-list-cmp--*) and compare 2D strokes: TP green, FP red,
+   FN blue. Lower specificity than .lbn-bp.lbn-bp-hidden, so the "hidden"
+   dim always wins over these. */
+.lbn-bp--tp { color: #16a34a; }
+.lbn-bp--fp { color: #e6194b; }
+.lbn-bp--fn { color: #4363d8; }
+
+/* Wider than the single-viewer gutter so "cWW(2) · mdl:" still fits;
+   every row (incl. the shared seq row) must share one width so nucleotide
+   columns stay aligned down the page. */
+.r2dt-compare-lbn .lbn-label {
+  width: 13ch; /* 12ch text + trailing ":" */
+}
+
+/* Each row belongs to one source structure: colour its sticky label + a
+   left-edge stripe (reference green / model blue, matching the 3D overlay
+   colours) so "which structure is this row" reads at a glance without
+   relying on the TP/FP/FN bracket colours alone. */
+.r2dt-compare-lbn .lbn-row[data-panel-idx] {
+  border-left: 3px solid transparent;
+  padding-left: 6px;
+  margin-left: -9px;
+}
+
+.lbn-row--reference {
+  border-left-color: #00a651;
+}
+.lbn-label--reference {
+  color: #047857;
+}
+
+.lbn-row--model {
+  border-left-color: #1a3a8c;
+}
+.lbn-label--model {
+  color: #1e3a8a;
+}
+
+/* ── Workstation base-pair editing (top-left, matches zoom btn style) ─── */
+.r2dt-panel--2d .r2dt-bp-edit {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 45;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  user-select: none;
+}
+.r2dt-panel--2d:has(.r2dt-bp-edit.is-open) {
+  box-shadow: inset 0 0 0 2px #d1d5db;
+}
+.r2dt-bp-edit > * {
+  pointer-events: auto;
+}
+.r2dt-bp-edit .r2dt-bp-edit-tools {
+  display: none;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+}
+.r2dt-bp-edit.is-open .r2dt-bp-edit-toggle {
+  display: none;
+}
+.r2dt-bp-edit.is-open .r2dt-bp-edit-tools {
+  display: flex;
+}
+.r2dt-bp-edit .pdb-rna-view-btn {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  min-height: 32px;
+  box-sizing: border-box;
+}
+.r2dt-bp-edit .pdb-rna-view-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.r2dt-bp-edit .pdb-rna-view-btn.active {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+.r2dt-bp-edit-iconbtn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 6px !important;
+  font-size: 15px !important;
+}
+.r2dt-bp-edit-ico {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.r2dt-bp-edit-select {
+  height: 32px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+}
+.r2dt-bp-edit-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.r2dt-bp-edit-select:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  .r2dt-panel--2d:has(.r2dt-bp-edit.is-open) {
+    box-shadow: inset 0 0 0 2px #374151;
+  }
+  .r2dt-bp-edit-select {
+    background: #111827;
+    border-color: #374151;
+    color: #e5e7eb;
+  }
+  .r2dt-bp-edit-select:hover:not(:disabled) {
+    background: #1f2937;
+    border-color: #6b7280;
+  }
+  .r2dt-bp-edit .pdb-rna-view-btn.active {
+    background: #374151;
+    border-color: #6b7280;
+  }
+}

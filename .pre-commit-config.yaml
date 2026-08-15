@@ -34,4 +34,6 @@ repos:
   hooks:
     - id: auto-walrus
       name: Auto-apply the walrus operator :=
-exclude: .+?\.(cm|ps|bpseq|tr|fasta|xml|svg)$
+# Skip data/binary files, and the vendored layered-bp-notation script
+# (kept byte-identical to upstream; refresh with `just sync-lbn`).
+exclude: (.+?\.(cm|ps|bpseq|tr|fasta|xml|svg)$|^utils/layered_bp_notation/)

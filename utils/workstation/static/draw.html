@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2D · R2DT workstation</title>
+<!--HEAD-->
+</head>
+<body class="ws-dashboard">
+<!--HEADER-->
+
+<section id="panel-dashboard" class="panel active">
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="Filter by label or sequence id…" autocomplete="off">
+    <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="import-btn" title="Import a .r2dt-job.zip package">Import</button>
+    <input type="file" id="import-file" accept=".zip,.r2dt-job.zip,application/zip" hidden>
+    <span id="import-status" class="form-status"></span>
+    <a class="cta" href="/2d/new">New 2D job</a>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="num" data-sort="seq" title="Stable job number (oldest first)">#</th>
+          <th data-sort="label">Label</th>
+          <th data-sort="status">Status</th>
+          <th class="actions-col">Actions</th>
+          <th data-sort="seq_id">Sequence</th>
+          <th class="num" data-sort="length">Length</th>
+          <th data-sort="layout">Layout</th>
+          <th data-sort="created">Created</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <pre id="log" class="log hidden" aria-live="polite"></pre>
+</section>
+
+<section id="panel-new" class="panel">
+  <div class="new-head">
+    <a class="linkish" href="/2d">← Back to jobs</a>
+    <h2>New 2D job</h2>
+  </div>
+  <form id="new-form">
+    <fieldset>
+      <legend>Sequences</legend>
+      <p class="hint-block">Paste or upload FASTA. Multi-FASTA is split into one job per sequence.</p>
+      <div class="ws-examples" id="examples" aria-label="Example sequences">
+        <span class="ws-examples-label">Examples</span>
+      </div>
+      <label>FASTA
+        <textarea id="fasta" rows="10" placeholder=">seq1&#10;GGAAC…"></textarea>
+      </label>
+      <label class="file-inline">Or upload a file
+        <input type="file" id="fasta-file" accept=".fasta,.fa,.fna,.txt,.FASTA,.FA">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="row opts">
+        <label>Layout
+          <select id="layout">
+            <option value="auto" selected>auto (template cascade)</option>
+            <option value="templatefree">templatefree (needs structure line)</option>
+          </select>
+        </label>
+        <label id="adv-tf-opts" class="hidden">Templatefree engine
+          <select id="adv-tf-engine">
+            <option value="auto" selected>auto</option>
+            <option value="rscape">R-scape</option>
+            <option value="rnartist">RNArtist</option>
+            <option value="rnapuzzler">RNAPuzzler</option>
+          </select>
+        </label>
+        <label>Label
+          <input type="text" id="label" placeholder="Optional batch / display name">
+        </label>
+      </div>
+      <label class="notes">Notes
+        <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="force"> Force re-run even if identical jobs are cached
+      </label>
+
+      <details class="ws-advanced">
+        <summary>Advanced</summary>
+        <p class="hint-block">Template-cascade flags (<code>r2dt.py draw</code>). Hidden when layout is templatefree.</p>
+        <div id="adv-draw-body">
+          <div class="row opts" id="adv-draw-opts">
+            <label>Force template
+              <input type="text" id="adv-force-template" placeholder="e.g. RF00005" autocomplete="off">
+            </label>
+          </div>
+          <label class="check" id="adv-constraint-wrap">
+            <input type="checkbox" id="adv-constraint"> Fold insertions with RNAfold (<code>--constraint</code>)
+          </label>
+          <label class="check" id="adv-skip-ribovore-wrap">
+            <input type="checkbox" id="adv-skip-ribovore"> Skip ribovore filters
+          </label>
+        </div>
+        <p class="hint-block hidden" id="adv-draw-tf-note">No extra draw flags for templatefree — pick the engine above.</p>
+      </details>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" id="generate">Generate</button>
+      <span id="form-status" class="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<footer class="ws-footer">
+  <nav class="ws-footer-links" aria-label="R2DT links">
+    <a href="https://docs.r2dt.bio" target="_blank" rel="noopener">Docs</a>
+    <a href="https://r2dt.bio" target="_blank" rel="noopener">r2dt.bio</a>
+    <a href="https://github.com/r2dt-bio/r2dt" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <span id="runtime"></span>
+</footer>
+
+<script src="/static/examples.js"></script>
+<script src="/static/transfer.js"></script>
+<script src="/static/draw.js"></script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+/* Shared workstation chrome (dashboard + job viewer pages).
+   Brand colour/font match https://r2dt.bio (#393185, Helvetica Neue). */
+
+:root {
+  --ws-brand: #393185;
+  --ws-brand-soft: #5b52a3;
+}
+
+.ws-chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(57, 49, 133, 0.12);
+  color: #222;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  box-sizing: border-box;
+}
+
+body.ws-dashboard .ws-chrome,
+body.ws-home .ws-chrome {
+  margin: 0 0 20px;
+  flex-shrink: 0;
+}
+
+/* ---- Viewer pages: fit chrome + panels into one viewport (no page scroll) ---- */
+html:has(body > .ws-chrome):not(:has(body.ws-dashboard)):not(:has(body.ws-home)),
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) {
+  display: flex;
+  flex-direction: column;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .ws-chrome {
+  margin: 0 !important;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  gap: 8px 14px;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > h1 {
+  flex-shrink: 0;
+  font-size: 15px !important;
+  margin: 8px 16px 2px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .meta {
+  flex-shrink: 0;
+  margin: 0 16px 6px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > .mc-inf {
+  flex-shrink: 0;
+  margin: 0 16px 8px !important;
+  padding: 4px 10px !important;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > #r2dt-compare-mount,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) > #r2dt-viewer-mount {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-root,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+}
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-grid,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-vis {
+  flex: 0 0 auto;
+}
+/* LBN scrolls inside its own pane so the page itself does not. */
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-compare-lbn,
+body:has(> .ws-chrome):not(.ws-dashboard):not(.ws-home) .r2dt-viewer-lbn {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 8px;
+}
+
+.ws-chrome-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--ws-brand);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.ws-chrome-brand:hover {
+  color: var(--ws-brand-soft);
+}
+.ws-chrome-logo {
+  width: 36px;
+  height: 36px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.ws-chrome-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+  align-items: center;
+}
+
+.ws-chrome-link {
+  color: #666;
+  text-decoration: none;
+  padding: 4px 0 5px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.ws-chrome-link:hover {
+  color: var(--ws-brand);
+}
+.ws-chrome-link.is-active {
+  color: var(--ws-brand);
+  font-weight: 600;
+  border-bottom-color: var(--ws-brand);
+}
+
+.ws-chrome-ext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+  margin-left: auto;
+  font-size: 15px;
+}
+.ws-chrome-ext a {
+  color: #555;
+  text-decoration: none;
+  font-weight: 500;
+}
+.ws-chrome-ext a:hover {
+  color: var(--ws-brand);
+  text-decoration: underline;
+}
+
+.ws-chrome-job {
+  color: #666;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  max-width: min(280px, 28vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-chrome-job-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.ws-chrome-export {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: var(--ws-brand);
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+.ws-chrome-export::-webkit-details-marker { display: none; }
+.ws-chrome-export::marker { content: ""; }
+.ws-chrome-export:hover {
+  background: var(--ws-brand-soft);
+}
+
+/* Export dropdown (header, INF bar, dashboard rows). */
+.ws-export-menu {
+  position: relative;
+  display: inline-block;
+}
+.ws-export-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 400;
+  min-width: 190px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid rgba(57, 49, 133, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-export-menu-panel a,
+.ws-export-menu-panel button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #222;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.ws-export-menu-panel a:hover,
+.ws-export-menu-panel button:hover {
+  background: rgba(57, 49, 133, 0.08);
+  color: var(--ws-brand);
+}
+
+/* Export on the compare INF bar (injected by workstation chrome). */
+.mc-inf .ws-export-menu--inf {
+  margin-left: 0;
+}
+.mc-inf .mc-inf-downloads {
+  margin-left: auto;
+}
+.mc-inf .ws-inf-export {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #393185;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+.mc-inf .ws-inf-export::-webkit-details-marker { display: none; }
+.mc-inf .ws-inf-export::marker { content: ""; }
+.mc-inf .ws-inf-export:hover {
+  background: #5b52a3;
+}
+@media (prefers-color-scheme: dark) {
+  .ws-export-menu-panel {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  .ws-export-menu-panel a,
+  .ws-export-menu-panel button {
+    color: #e5e7eb;
+  }
+  .ws-export-menu-panel a:hover,
+  .ws-export-menu-panel button:hover {
+    background: #374151;
+    color: #fff;
+  }
+  .mc-inf .ws-inf-export {
+    background: #5b52a3;
+  }
+  .mc-inf .ws-inf-export:hover {
+    background: #6d64b5;
+  }
+}

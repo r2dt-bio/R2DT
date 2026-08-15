@@ -30,18 +30,18 @@ import click  # pylint: disable=import-error
 from rich import print as rprint
 
 from tests import tests
-from utils import config, core
+from utils import cif_basepairs, compare_viewer, config, core
 from utils import fr3d as fr3d_utils
 from utils import generate_cm_library as gcl
 from utils import generate_model_info as gmi
-from utils import gtrnadb
+from utils import gtrnadb, lbn_export
 from utils import list_models as lm
-from utils import pdb_fetch, pdb_post, r2r, rfam
+from utils import pdb_fetch, pdb_pipeline, pdb_post, r2r, rfam
 from utils import rna2djsonschema as r2djs
-from utils import rnapuzzler
-from utils import rnaview as rnaview_utils
-from utils import shared
+from utils import rnapuzzler, shared
 from utils import stockholm as stockholm_utils
+from utils import viewer_export, viewer_html
+from utils import workstation as workstation_mod
 from utils.rnartist import RnaArtist
 from utils.runner import runner
 from utils.scale_template import scale_coordinates
@@ -2444,14 +2444,22 @@ def generate_template(json_file, quiet):
         rprint(f"Created a new {template}")
 
 
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+# pylint: disable=too-many-branches,too-many-statements
+
+
 @cli.command()
 @click.argument("pdb-input", type=click.STRING)
 @click.argument("output-folder", type=click.Path())
 @click.option(
     "--basepairs",
-    type=click.Choice(["auto", "rnaview", "fr3d"]),
+    type=click.Choice(["auto", "rnaview", "fr3d", "cif"]),
     default="auto",
-    help="Tool for base pair extraction (default: auto = prefer FR3D)",
+    help=(
+        "Tool for base pair extraction (default: auto = prefer FR3D). "
+        "'cif' reads pairs from the mmCIF's own DNATCO/NDB annotation, no "
+        "FR3D run."
+    ),
 )
 @click.option(
     "--format",
@@ -2476,12 +2484,92 @@ def generate_template(json_file, quiet):
     "rnapuzzler_flag",
     default=False,
     is_flag=True,
-    help="Use RNApuzzler for overlap-free layout (ViennaRNA)",
+    help="Use RNApuzzler for overlap-free layout (ViennaRNA, templatefree only)",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["auto", "templated", "templatefree"]),
+    default="auto",
+    help=(
+        "Layout mode. 'auto' (default) tries the template search first and "
+        "falls back to templatefree if no template matches. 'templated' runs "
+        "the full R2DT template search (CRW/RiboVision/Rfam/GtRNAdb/RNase P/"
+        "tmRNA) and fails if nothing matches. 'templatefree' uses the "
+        "FR3D-derived dot-bracket with R2R/RNApuzzler/RNArtist."
+    ),
+)
+@click.option(
+    "--all-chains",
+    "all_chains",
+    is_flag=True,
+    default=False,
+    help=(
+        "Combine every RNA chain into one diagram, auto-ordering the "
+        "concatenation to minimise crossing inter-chain pairs (mmCIF only, "
+        "templatefree)."
+    ),
+)
+@click.option(
+    "--chains",
+    "chains",
+    type=str,
+    default=None,
+    help=(
+        "Combine the listed RNA chains into one diagram, in the given "
+        "concatenation order (e.g. 'A,B'). Implies multi-chain templatefree."
+    ),
+)
+@click.option(
+    "--simulate-model",
+    "simulate_model",
+    is_flag=True,
+    default=False,
+    help=(
+        "TESTING: also emit a <id>.model.svg by randomly perturbing the "
+        "reference base pairs, to preview the reference/model diff without a "
+        "real predicted structure (multi-chain only)."
+    ),
+)
+@click.option(
+    "--simulate-seed",
+    "simulate_seed",
+    type=int,
+    default=2,
+    help="Seed for --simulate-model perturbation (default: 2).",
+)
+@click.option(
+    "--compare",
+    "compare",
+    is_flag=True,
+    default=False,
+    help=(
+        "Emit an interactive 3-panel viewer/ page: reference 2D, model 2D, "
+        "and a shared Mol* 3D (multi-chain only). Without --model the model "
+        "panel is a simulated perturbation of the reference."
+    ),
+)
+@click.option(
+    "--model",
+    "model_file",
+    type=click.Path(exists=True),
+    default=None,
+    help=(
+        "Predicted model structure (.pdb/.cif) to compare against this "
+        "structure as reference. Must share the reference's sequence in the "
+        "same chain order. Implies --compare."
+    ),
+)
+@click.option(
+    "--model-chains",
+    "model_chains",
+    type=str,
+    default=None,
+    help="RNA chains of --model, in order matching --chains (default: all).",
 )
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
 # pylint: disable=too-many-arguments,too-many-branches,too-many-statements,too-many-locals
-# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-positional-arguments,too-many-return-statements
 def pdb(
     ctx,
     pdb_input,
@@ -2491,6 +2579,14 @@ def pdb(
     chain,
     pseudoknots,
     rnapuzzler_flag,
+    mode,
+    all_chains,
+    chains,
+    simulate_model,
+    simulate_seed,
+    compare,
+    model_file,
+    model_chains,
     quiet,
 ):
     """
@@ -2566,9 +2662,9 @@ def pdb(
 
         # Determine preferred format based on basepairs tool
         if structure_format == "auto":
-            # If user wants fr3d, prefer CIF (FR3D works best with CIF)
-            # If user wants rnaview, must use PDB
-            if basepairs == "fr3d":
+            # If user wants fr3d/cif, prefer CIF (FR3D works best with CIF; the
+            # cif source reads CIF-only annotation). rnaview must use PDB.
+            if basepairs in ("fr3d", "cif"):
                 prefer_format = "cif"
             else:
                 prefer_format = "pdb"
@@ -2589,6 +2685,25 @@ def pdb(
         if not quiet:
             rprint(f"Downloaded: {file_path} (format: {actual_format})")
 
+    # --- Multi-chain combined diagram (experimental) ---
+    if all_chains or chains:
+        pdb_pipeline.run_multichain_pdb(
+            ctx,
+            file_path=file_path,
+            actual_format=actual_format,
+            structure_id=structure_id,
+            output_path=output_path,
+            chains=chains,
+            rnapuzzler_flag=rnapuzzler_flag,
+            simulate_model=simulate_model or compare or bool(model_file),
+            simulate_seed=simulate_seed,
+            compare=compare or bool(model_file),
+            model_file=model_file,
+            model_chains=model_chains,
+            quiet=quiet,
+        )
+        return
+
     # Determine which basepairs tool to use
     if basepairs == "auto":
         # Prefer FR3D: it supports pseudoknots and handles both PDB and CIF
@@ -2599,6 +2714,21 @@ def pdb(
             "Use --basepairs fr3d or --format pdb[/red]"
         )
         return
+    elif basepairs == "cif":
+        if actual_format != "cif":
+            rprint(
+                "[red]Error: --basepairs cif needs an mmCIF input "
+                "(use --format cif or provide a .cif file)[/red]"
+            )
+            return
+        if not cif_basepairs.has_annotation(file_path):
+            rprint(
+                "[red]Error: this mmCIF has no base-pair annotation "
+                "(_ndb_base_pair_list / _ndb_base_pair_annotation). Use a "
+                "DNATCO/NDB-annotated CIF, or --basepairs fr3d[/red]"
+            )
+            return
+        use_basepairs = "cif"
     else:
         use_basepairs = basepairs
 
@@ -2619,7 +2749,19 @@ def pdb(
 
     if use_basepairs == "rnaview":
         # Use existing rnaview module
-        sequence, dot_bracket = _extract_with_rnaview(str(file_path), chain, quiet)
+        sequence, dot_bracket = pdb_pipeline.extract_with_rnaview(
+            str(file_path), chain, quiet
+        )
+    elif use_basepairs == "cif":
+        # Read pairs from the CIF's own annotation; no FR3D run.
+        sequence, dot_bracket = cif_basepairs.get_secondary_structure_cif(
+            str(file_path),
+            str(extraction_dir),
+            structure_id=structure_id,
+            chain_id=chain,
+            include_pseudoknots=pseudoknots,
+            quiet=quiet,
+        )
     else:
         # Use FR3D
         sequence, dot_bracket = fr3d_utils.get_secondary_structure_fr3d(
@@ -2643,7 +2785,9 @@ def pdb(
                     "[yellow]FR3D found no base pairs, "
                     "trying RNAView as fallback...[/yellow]"
                 )
-            rv_seq, rv_db = _extract_with_rnaview(str(file_path), chain, quiet)
+            rv_seq, rv_db = pdb_pipeline.extract_with_rnaview(
+                str(file_path), chain, quiet
+            )
             if rv_seq and rv_db and rv_db.count("(") > 0:
                 sequence, dot_bracket = rv_seq, rv_db
                 if not quiet:
@@ -2685,7 +2829,7 @@ def pdb(
     elif not quiet and full_sequence:
         rprint("No missing residues detected")
 
-    # Write FASTA file for R2DT
+    # Write FASTA file for R2DT (3-line: seq + dot-bracket, for templatefree)
     fasta_path = output_path / f"{structure_id}.fasta"
     with open(fasta_path, "w") as f:
         f.write(f">{structure_id}\n")
@@ -2695,20 +2839,71 @@ def pdb(
     if not quiet:
         rprint(f"Created FASTA: {fasta_path}")
 
-    # Run R2DT templatefree
-    if not quiet:
-        rprint("Generating 2D diagram with R2DT...")
-
     results_folder = output_path / "results"
-    ctx.invoke(
-        templatefree,
-        fasta_input=str(fasta_path),
-        output_folder=str(results_folder),
-        rnartist=False,
-        rscape=not rnapuzzler_flag,
-        rnapuzzler_flag=rnapuzzler_flag,
-        quiet=quiet,
-    )
+
+    def run_templatefree():
+        # Hand the FR3D dot-bracket to R2R / RNApuzzler / RNArtist.
+        if not quiet:
+            rprint("Generating 2D diagram with R2DT (templatefree mode)...")
+        ctx.invoke(
+            templatefree,
+            fasta_input=str(fasta_path),
+            output_folder=str(results_folder),
+            rnartist=False,
+            rscape=not rnapuzzler_flag,
+            rnapuzzler_flag=rnapuzzler_flag,
+            quiet=quiet,
+        )
+
+    def run_templated():
+        # Feed a sequence-only fasta into `draw`, which picks a template
+        # (CRW / RiboVision / Rfam / GtRNAdb / RNase P / tmRNA / Rfam-tRNA)
+        # and lays the diagram out via Traveler. Returns the matched
+        # template id, or None if nothing matched.
+        if not quiet:
+            rprint("Generating 2D diagram with R2DT (templated mode)...")
+        draw_fasta = output_path / f"{structure_id}.draw.fasta"
+        with open(draw_fasta, "w") as f:
+            f.write(f">{structure_id}\n")
+            f.write(f"{sequence}\n")
+        ctx.invoke(
+            draw,
+            fasta_input=str(draw_fasta),
+            output_folder=str(results_folder),
+            quiet=quiet,
+        )
+        # `draw` names its outputs ``<structure_id>-<template_id>.colored.*``.
+        # Downstream code (grey-out, viewer-export) keys on the plain
+        # ``<structure_id>`` basename, so collapse the template suffix here.
+        return pdb_pipeline.rename_templated_outputs(results_folder, structure_id)
+
+    if mode == "templatefree":
+        run_templatefree()
+    else:
+        # 'templated' and 'auto' both try the template search first.
+        matched_template = run_templated()
+        if matched_template is not None:
+            if not quiet:
+                rprint(f"[green]Matched template: {matched_template}[/green]")
+        elif mode == "templated":
+            rprint("[red]No template matched this structure in templated mode.[/red]")
+            rprint(
+                "[yellow]Try --mode templatefree, or --mode auto, which "
+                "falls back to the FR3D-derived layout automatically.[/yellow]"
+            )
+            return
+        else:
+            # auto: no template matched -> fall back to templatefree. Clear
+            # the partial `draw` output first so it can't shadow the
+            # templatefree results.
+            if not quiet:
+                rprint(
+                    "[yellow]No template matched; falling back to "
+                    "templatefree layout.[/yellow]"
+                )
+            if results_folder.exists():
+                shutil.rmtree(results_folder)
+            run_templatefree()
 
     # --- Post-process: grey out unresolved nucleotides ---
     if resolved_mask is not None:
@@ -2733,51 +2928,268 @@ def pdb(
             )
 
 
-def _extract_with_rnaview(pdb_file: str, chain_id=None, quiet=False):
+@cli.command("pdb_2d_3d")
+@click.argument("pdb-input", type=click.STRING)
+@click.argument("output-folder", type=click.Path())
+@click.option(
+    "--basepairs",
+    type=click.Choice(["auto", "rnaview", "fr3d", "cif"]),
+    default="auto",
+)
+@click.option(
+    "--format",
+    "structure_format",
+    type=click.Choice(["auto", "pdb", "cif"]),
+    default="auto",
+)
+@click.option("--chain", type=str, default=None)
+@click.option("--pseudoknots/--no-pseudoknots", default=True)
+@click.option("--rnapuzzler", "rnapuzzler_flag", default=False, is_flag=True)
+@click.option(
+    "--mode",
+    type=click.Choice(["auto", "templated", "templatefree"]),
+    default="auto",
+)
+@click.option("--quiet", "-q", is_flag=True, default=False)
+@click.pass_context
+# pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
+# pylint: disable=too-many-statements,too-many-branches
+def pdb_2d_3d(
+    ctx,
+    pdb_input,
+    output_folder,
+    basepairs,
+    structure_format,
+    chain,
+    pseudoknots,
+    rnapuzzler_flag,
+    mode,
+    quiet,
+):
     """
-    Extract secondary structure using RNAView.
+    Generate an interactive 2D+3D viewer page from a PDB structure.
 
-    Supports gzip-compressed PDB files (.pdb.gz).
+    Runs the same pipeline as ``pdb`` and additionally writes a
+    ``viewer/`` folder containing ``index.html``, the two JSON blobs
+    consumed by pdb-rna-viewer, the structure file, and the viewer
+    assets.  Opening ``index.html`` in a browser shows the linked 2D
+    diagram + 3D molstar view.
 
-    Args:
-        pdb_file: Path to PDB file (may be gzip-compressed).
-        chain_id: Optional chain ID. If None, uses first chain only.
-        quiet: If True, suppress verbose output.
+    Examples:
 
-    Returns:
-        Tuple of (sequence, dot_bracket) or (None, None).
+        r2dt.py pdb_2d_3d 1Y26 output/
+
+        r2dt.py pdb_2d_3d ./my_rna.cif output/ --basepairs fr3d
     """
-    try:
-        # Use DecompressedStructureFile to handle .gz files
-        # RNAView requires uncompressed file on disk
-        with pdb_fetch.DecompressedStructureFile(Path(pdb_file)) as decompressed_path:
-            # Extract sequence using rnaview module
-            # If no chain specified, use first chain only (consistent with FR3D behavior)
-            sequence = rnaview_utils.extract_sequence(
-                str(decompressed_path), chain_id=chain_id, quiet=quiet
+    # 1) Run the existing pdb pipeline.
+    ctx.invoke(
+        pdb,
+        pdb_input=pdb_input,
+        output_folder=output_folder,
+        basepairs=basepairs,
+        structure_format=structure_format,
+        chain=chain,
+        pseudoknots=pseudoknots,
+        rnapuzzler_flag=rnapuzzler_flag,
+        mode=mode,
+        quiet=quiet,
+    )
+
+    # 2) Resolve the file paths the pdb command wrote.
+    output_path = Path(output_folder)
+    is_local_file = pdb_fetch.is_local_structure_file(pdb_input)
+    if is_local_file:
+        file_path = Path(pdb_input)
+        structure_id = file_path.stem
+        if structure_id.endswith((".pdb", ".cif")):
+            structure_id = structure_id.rsplit(".", 1)[0]
+        _, actual_format, _ = pdb_fetch.validate_structure_file(file_path)
+        source_structure_path = file_path
+    else:
+        structure_id = pdb_input
+        downloads = output_path / "downloads"
+        # The pdb command preserves the original-case PDB ID in the
+        # downloaded filename; lowercasing it would break the unit_id
+        # key match against the FR3D basepair file.
+        cands = (
+            list(downloads.glob(f"{structure_id}.cif"))
+            + list(downloads.glob(f"{structure_id}.pdb"))
+            + list(downloads.glob(f"{structure_id}.*"))
+        )
+        cands = [c for c in cands if c.is_file()]
+        if not cands:
+            rprint("[red]Viewer step: cannot locate downloaded structure[/red]")
+            return
+        source_structure_path = cands[0]
+        actual_format = source_structure_path.suffix.lstrip(".")
+
+    colored_json = (
+        output_path / "results" / "results" / "json" / f"{structure_id}.colored.json"
+    )
+    colored_svg = (
+        output_path / "results" / "results" / "svg" / f"{structure_id}.colored.svg"
+    )
+    basepair_txt = output_path / "extraction" / f"{structure_id}_basepair.txt"
+    # If `pdb` bailed (e.g. templated mode with no template match) there
+    # is no colored SVG/JSON to build a viewer from -- abort quietly; the
+    # pdb step has already explained why.
+    if not colored_json.exists():
+        return
+
+    # 3) Re-derive resolved_mask and unit_id_to_position so we can write
+    # both the apiData mapping and the FR3D label remap.  These calls
+    # are the same the pdb command makes internally.
+    if basepairs == "cif":
+        # CIF source: read sequence/positions from the vendored script (no
+        # fr3d-python), keyed identically to the basepair file written above.
+        cif_chain = cif_basepairs.resolve_chain(str(source_structure_path), chain)
+        _, resolved_mask, _ = fr3d_utils.get_full_sequence(
+            str(source_structure_path), cif_chain
+        )
+        _, unit_id_to_position, used_chain = cif_basepairs.read_sequence_and_positions(
+            str(source_structure_path), cif_chain, quiet=quiet
+        )
+    else:
+        _, resolved_mask, used_chain = fr3d_utils.get_full_sequence(
+            str(source_structure_path), chain
+        )
+        if str(source_structure_path).lower().endswith(".cif"):
+            _, unit_id_to_position = fr3d_utils.extract_sequence_from_cif(
+                str(source_structure_path), used_chain or chain, quiet=quiet
             )
-
-            if not sequence:
-                return None, None
-
-            # Run RNAView
-            rnaview_output = rnaview_utils.run_rnaview(str(decompressed_path))
-
-            # Parse output to dot-bracket
-            dot_bracket = rnaview_utils.parse_rnaview_output(
-                rnaview_output, sequence, quiet
+        else:
+            _, unit_id_to_position = fr3d_utils.extract_sequence_from_pdb(
+                str(source_structure_path), used_chain or chain, quiet=quiet
             )
+    if not resolved_mask:
+        resolved_mask = None
 
-            # Clean up temporary files created by RNAView
-            rnaview_utils.cleanup_rnaview_files(str(decompressed_path))
+    # Fall back to deriving the chain from a FR3D unit_id when neither the
+    # user nor the upstream auto-detect supplied one. Without this the
+    # viewer ends up with auth_asym_id="" and molstar's visual.select()
+    # matches no residue.
+    effective_chain = used_chain or chain
+    if not effective_chain and unit_id_to_position:
+        for unit in unit_id_to_position:
+            parts = unit.split("|")
+            if len(parts) >= 3 and parts[2]:
+                effective_chain = parts[2]
+                break
 
-            return sequence, dot_bracket
+    # 4) Build the JSON blobs.
+    colored = json.loads(colored_json.read_text())
+    n_full = sum(
+        1
+        for nuc in colored["rnaComplexes"][0]["rnaMolecules"][0]["sequence"]
+        if nuc.get("residueName") not in ("5'", "3'")
+        and len(nuc.get("residueName", "")) == 1
+    )
+    api_data = viewer_export.build_api_data(
+        colored_json,
+        structure_id=structure_id,
+        chain_id=effective_chain,
+        resolved_mask=resolved_mask,
+        unit_id_to_position=unit_id_to_position,
+        colored_svg_path=colored_svg if colored_svg.exists() else None,
+    )
+    fr3d_data = viewer_export.build_fr3d_data(
+        basepair_txt,
+        structure_id=structure_id,
+        chain_id=effective_chain,
+        unit_id_to_position=unit_id_to_position or {},
+        resolved_mask=resolved_mask,
+        n_full=n_full,
+    )
 
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        if not quiet:
-            print(f"Error in RNAView extraction: {e}")
-        return None, None
+    # 5) Lay out the viewer folder.
+    viewer_dir = output_path / "viewer"
+    viewer_dir.mkdir(exist_ok=True)
+    (viewer_dir / "api.json").write_text(json.dumps(api_data))
+    (viewer_dir / "fr3d.json").write_text(json.dumps(fr3d_data))
+    lbn_data = lbn_export.build_lbn_data(api_data, fr3d_data)
+    (viewer_dir / "lbn.json").write_text(json.dumps(lbn_data))
+    structure_dest_name = f"{structure_id}.{actual_format}"
+    shutil.copyfile(source_structure_path, viewer_dir / structure_dest_name)
 
+    # Copy the vendored pdb-rna-viewer build files next to index.html.
+    compare_viewer.copy_viewer_assets(viewer_dir)
+
+    html_path = viewer_html.render(
+        viewer_dir,
+        structure_id=structure_id,
+        chain_id=effective_chain,
+        structure_filename=structure_dest_name,
+        structure_format=actual_format,
+        annotation_source=viewer_html.ANNOTATION_SOURCE_HTML.get(
+            basepairs if basepairs != "auto" else "fr3d"
+        ),
+    )
+
+    if not quiet:
+        rprint(f"[dim]Viewer chain: {effective_chain or '(none)'}[/dim]")
+        # The viewer fetches api.json / fr3d.json / the structure file via
+        # relative URLs, which browsers block over file://. Tell the user
+        # to serve the folder instead of double-clicking the HTML.
+        rprint(f"[green]Viewer ready: {html_path.resolve()}[/green]")
+        rprint(
+            "[dim]Serve it over HTTP, e.g.:\n"
+            f"  python3 -m http.server -d {viewer_dir.resolve()} 8000\n"
+            "then open http://localhost:8000/[/dim]"
+        )
+
+
+@cli.command("workstation")
+@click.option(
+    "--workspace",
+    type=click.Path(),
+    default=None,
+    help="Local cache directory (default: ~/.r2dt-workstation).",
+)
+@click.option("--port", default=8765, show_default=True, type=int)
+@click.option(
+    "--bind",
+    default="127.0.0.1",
+    show_default=True,
+    help=(
+        "Bind address. Use 0.0.0.0 only inside Docker with "
+        "-p 127.0.0.1:PORT:PORT. No auth; mutating routes require loopback Host/Origin."
+    ),
+)
+@click.option(
+    "--docker-image",
+    default="rnacentral/r2dt:latest",
+    show_default=True,
+    help="Image used when the server runs on the host and spawns job containers.",
+)
+def workstation(workspace, port, bind, docker_image):
+    """
+    Start the private local R2DT workstation (web UI).
+
+    Homepage plus mode dashboards for 2D, 2D+3D, compare, and alignments.
+    Requires Docker. Prefer ``just workstation``, which publishes the port
+    to 127.0.0.1 only and mounts ~/.r2dt-workstation.
+
+    Unauthenticated local tool: trust is loopback binding plus Host/Origin
+    checks on state-changing routes (see docs/workstation.md).
+    """
+    ws = (
+        Path(workspace).expanduser() if workspace else Path.home() / ".r2dt-workstation"
+    )
+    repo_root = Path(__file__).resolve().parent
+    workstation_mod.run_server(
+        workspace=ws,
+        repo_root=repo_root,
+        host=bind,
+        port=port,
+        docker_image=docker_image,
+    )
+
+
+# The multichain/compare helpers re-run the 2D layout via
+# ctx.invoke(templatefree, ...); hand them the command object here to
+# avoid importing r2dt from utils (circular).
+pdb_pipeline.templatefree = templatefree
+compare_viewer.templatefree = templatefree
 
 if __name__ == "__main__":
     cli()

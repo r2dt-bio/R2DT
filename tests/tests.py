@@ -1322,6 +1322,127 @@ class TestPdbPostProcessing(unittest.TestCase):
         self.assertIsNone(_get_nucleotide_position("abc"))
 
 
+class TestViewerExport(unittest.TestCase):
+    """Tests for viewer JSON export helpers."""
+
+    def test_build_fr3d_data_dedups_flip_lw_pairs(self):
+        """Direction-reversed FR3D rows with flipped LW codes collapse to one."""
+        import tempfile
+
+        from utils.viewer_export import build_fr3d_data
+
+        unit_map = {
+            "8EYW|1|B|G|18": 17,
+            "8EYW|1|B|G|35": 34,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            bp_file = Path(tmp) / "8EYW_basepair.txt"
+            bp_file.write_text(
+                "8EYW|1|B|G|18\tcHW\t8EYW|1|B|G|35\t1\n"
+                "8EYW|1|B|G|35\tcWH\t8EYW|1|B|G|18\t1\n"
+            )
+            data = build_fr3d_data(
+                bp_file,
+                structure_id="8EYW",
+                chain_id="B",
+                unit_id_to_position=unit_map,
+                resolved_mask=None,
+                n_full=49,
+            )
+        pairs = {
+            frozenset((int(a["seq_id1"]), int(a["seq_id2"]))): a["bp"]
+            for a in data["annotations"]
+        }
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[frozenset((18, 35))], "cHW")
+
+
+class TestInfScopes(unittest.TestCase):
+    """Per-chain / inter-chain INF partitioning."""
+
+    def test_pair_scope_intra_and_inter(self):
+        """Classify pairs as intra-chain or inter-chain by residue bounds."""
+        from utils.multichain import pair_scope
+
+        boundaries = [("0", 0, 10), ("1", 10, 20)]
+        self.assertEqual(pair_scope(1, 5, boundaries), ("intra", ("0",)))
+        self.assertEqual(pair_scope(12, 15, boundaries), ("intra", ("1",)))
+        self.assertEqual(pair_scope(2, 14, boundaries), ("inter", ("0", "1")))
+
+    def test_compute_inf_scopes_separates_chains(self):
+        """Partition INF into per-chain and inter-chain scopes."""
+        from utils.multichain import compute_inf, compute_inf_scopes
+
+        boundaries = [("A", 0, 5), ("B", 5, 10)]
+        # Intra A: ref and model agree on (0,4); model adds (1,3).
+        # Inter A-B: ref has (2,7); model misses it and adds (3,8).
+        # Intra B: both have (6,9).
+        ref = [
+            (0, 4, "cWW"),
+            (2, 7, "cWW"),
+            (6, 9, "tHS"),
+        ]
+        model = [
+            (0, 4, "cWW"),
+            (1, 3, "cWW"),
+            (3, 8, "cWW"),
+            (6, 9, "tHS"),
+        ]
+        scopes = {s["id"]: s for s in compute_inf_scopes(ref, model, boundaries)}
+        self.assertIn("all", scopes)
+        self.assertIn("intra:A", scopes)
+        self.assertIn("intra:B", scopes)
+        self.assertIn("inter:A-B", scopes)
+
+        # Intra A: ref={(0,4)}, model={(0,4),(1,3)} → TP1 FP1 FN0
+        a = scopes["intra:A"]["inf"]["all"]
+        self.assertEqual(a["tp"], 1)
+        self.assertEqual(a["fp"], 1)
+        self.assertEqual(a["fn"], 0)
+
+        # Intra B: perfect match on the one non-WC pair
+        b = scopes["intra:B"]["inf"]
+        self.assertEqual(b["all"]["inf"], 1.0)
+        self.assertEqual(b["nwc"]["tp"], 1)
+
+        # Inter: ref={(2,7)}, model={(3,8)} → TP0 FP1 FN1 → INF 0
+        inter = scopes["inter:A-B"]["inf"]["all"]
+        self.assertEqual(inter["tp"], 0)
+        self.assertEqual(inter["fp"], 1)
+        self.assertEqual(inter["fn"], 1)
+        self.assertEqual(inter["inf"], 0.0)
+
+        # Global INF matches compute_inf on the full sets.
+        self.assertEqual(scopes["all"]["inf"], compute_inf(ref, model))
+
+    def test_build_inf_report_one_based_and_csv(self):
+        """Build a downloadable INF report with 1-based coords and CSV."""
+        from utils.multichain import build_inf_report, inf_report_to_csv
+
+        boundaries = [("0", 0, 4), ("1", 4, 8)]
+        # 1-based annotation positions.
+        ref = [(1, 4, "cWW"), (2, 6, "cWW")]
+        model = [(1, 4, "cWW"), (5, 8, "cHS")]
+        report = build_inf_report(
+            structure_id="ref",
+            model_id="model",
+            chains=["0", "1"],
+            boundaries=boundaries,
+            ref_pairs=ref,
+            model_pairs=model,
+            one_based=True,
+        )
+        self.assertEqual(report["reference_pairs"][0]["i"], 1)
+        self.assertEqual(report["reference_pairs"][0]["chain_i"], "0")
+        scope_ids = [s["id"] for s in report["scopes"]]
+        self.assertIn("intra:0", scope_ids)
+        self.assertIn("inter:0-1", scope_ids)
+        csv_text = inf_report_to_csv(report)
+        self.assertIn("intra:0", csv_text)
+        self.assertIn("score", csv_text)
+        self.assertIn("pair", csv_text)
+
+
 class TestPdbCommand(unittest.TestCase):
     """End-to-end tests for r2dt.py pdb command."""
 
@@ -1497,16 +1618,23 @@ class TestPdbCommand(unittest.TestCase):
 
         svg_text = svg_path.read_text()
 
-        # Count nucleotide <text> elements with gray vs black classes.
-        # Each nucleotide is a single-letter <text> (A/C/G/U) inside a <g>.
+        # Count nucleotide <text> elements (each nucleotide is a single-letter
+        # A/C/G/U <text> inside a <g>) by class. Scoped to <text> specifically:
+        # backbone/connector <line> elements share these same class names, so an
+        # unscoped `class="gray"` count mixes nucleotide letters with unrelated
+        # line segments. Resolved nucleotides are "any non-gray class" rather
+        # than assumed "black": a templated (colored) layout paints resolved
+        # residues per structural domain (green/red/brown/blue/...), while a
+        # templatefree layout paints them uniformly black -- either is valid.
         import re  # pylint: disable=import-outside-toplevel
 
-        gray_nts = len(re.findall(r'class="gray"', svg_text))
-        black_nts = len(re.findall(r'class="black"', svg_text))
+        text_classes = re.findall(r'<text[^>]*\bclass="([a-zA-Z0-9_-]+)"', svg_text)
+        gray_nts = sum(1 for c in text_classes if c == "gray")
+        resolved_nts = sum(1 for c in text_classes if c != "gray")
 
-        # 9MME has ~59 unresolved nucleotides; allow some tolerance
+        # 9MME has ~59 unresolved nucleotides (of 582 total); allow some tolerance
         self.assertGreater(gray_nts, 30, "Too few gray (unresolved) elements")
-        self.assertGreater(black_nts, 400, "Too few black (resolved) elements")
+        self.assertGreater(resolved_nts, 400, "Too few resolved (non-gray) elements")
 
         # 9MME contains pseudoknots that must appear as polyline arcs
         pk_polylines = len(re.findall(r"<polyline[^>]*pseudoknot_", svg_text))
@@ -2332,6 +2460,208 @@ class TestStockholmColoring(unittest.TestCase):
             (self.test_results / "stitched.svg").exists(),
             "stitched.svg not created with --color-by region",
         )
+
+
+class TestWorkstationLocalRequestGuard(unittest.TestCase):
+    """Unit tests for workstation Host/Origin checks on mutating routes."""
+
+    def test_get_always_allowed(self):
+        """GET is not subject to the mutating-request guard."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error("GET", {"Host": "evil.example:8765"})
+        )
+
+    def test_post_loopback_without_origin(self):
+        """Local curl-style POST with loopback Host is allowed."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error("POST", {"Host": "127.0.0.1:8765"})
+        )
+        self.assertIsNone(
+            local_mutating_request_error("DELETE", {"Host": "localhost:8765"})
+        )
+
+    def test_post_rejects_non_loopback_host(self):
+        """DNS-rebinding style Host headers are rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error("POST", {"Host": "evil.example:8765"})
+        self.assertIsNotNone(err)
+        self.assertIn("Host", err)
+
+    def test_post_rejects_cross_origin(self):
+        """Browser CSRF with foreign Origin is rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {
+                "Host": "127.0.0.1:8765",
+                "Origin": "https://evil.example",
+            },
+        )
+        self.assertEqual(err, "Origin not allowed")
+
+    def test_post_allows_loopback_origin(self):
+        """Same-origin browser POSTs from the UI are allowed."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(
+            local_mutating_request_error(
+                "PUT",
+                {
+                    "Host": "127.0.0.1:8765",
+                    "Origin": "http://127.0.0.1:8765",
+                },
+            )
+        )
+
+    def test_post_rejects_null_origin(self):
+        """Opaque null Origin is rejected."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {"Host": "127.0.0.1:8765", "Origin": "null"},
+        )
+        self.assertEqual(err, "Origin not allowed")
+
+    def test_post_rejects_bad_referer_when_no_origin(self):
+        """Referer is checked when Origin is absent."""
+        from utils.workstation.security import local_mutating_request_error
+
+        err = local_mutating_request_error(
+            "POST",
+            {
+                "Host": "127.0.0.1:8765",
+                "Referer": "https://evil.example/page",
+            },
+        )
+        self.assertEqual(err, "Referer not allowed")
+
+    def test_ipv6_loopback_host(self):
+        """Bracketed IPv6 loopback Host is accepted."""
+        from utils.workstation.security import local_mutating_request_error
+
+        self.assertIsNone(local_mutating_request_error("POST", {"Host": "[::1]:8765"}))
+
+
+class TestWorkstationPathIsWithin(unittest.TestCase):
+    """Unit tests for path containment used by workstation file serving."""
+
+    def test_allows_base_and_descendants(self):
+        """Base itself and files under it are allowed."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "jobs" / "abc"
+            base.mkdir(parents=True)
+            child = base / "viewer" / "index.html"
+            child.parent.mkdir(parents=True)
+            child.write_text("ok", encoding="utf-8")
+            self.assertTrue(path_is_within(base, base))
+            self.assertTrue(path_is_within(child, base))
+
+    def test_rejects_prefix_sibling(self):
+        """A sibling that only shares a string prefix is rejected."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "jobs" / "abc"
+            sibling = Path(tmp) / "jobs" / "abc-evil" / "secret"
+            base.mkdir(parents=True)
+            sibling.parent.mkdir(parents=True)
+            sibling.write_text("nope", encoding="utf-8")
+            self.assertFalse(path_is_within(sibling, base))
+            # Classic startswith would incorrectly allow this:
+            self.assertTrue(str(sibling.resolve()).startswith(str(base.resolve())))
+
+    def test_rejects_parent_escape(self):
+        """Resolved paths that escape via .. are rejected."""
+        from utils.workstation.security import path_is_within
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "static"
+            base.mkdir()
+            outside = Path(tmp) / "secret.txt"
+            outside.write_text("nope", encoding="utf-8")
+            escaped = (base / ".." / "secret.txt").resolve()
+            self.assertFalse(path_is_within(escaped, base))
+
+
+class TestWorkstationAssertChainsKnown(unittest.TestCase):
+    """Unit tests for client chain-id validation."""
+
+    def test_accepts_known_chains(self):
+        """Known ids are returned stripped."""
+        from utils.workstation.chains import assert_chains_known
+
+        self.assertEqual(
+            assert_chains_known([" A ", "B"], ["A", "B", "C"], side="reference"),
+            ["A", "B"],
+        )
+
+    def test_rejects_unknown_chains(self):
+        """Unknown ids raise a clear ValueError."""
+        from utils.workstation.chains import assert_chains_known
+
+        with self.assertRaises(ValueError) as ctx:
+            assert_chains_known(["A", "Z"], ["A", "B"], side="model")
+        message = str(ctx.exception)
+        self.assertIn("Unknown model chain(s): Z", message)
+        self.assertIn("Available: A, B", message)
+
+
+class TestWorkstationCatalog(unittest.TestCase):
+    """Unit tests for catalog list/write behaviour."""
+
+    def test_list_jobs_does_not_rewrite_catalog(self):
+        """GET-style listing must not rewrite catalog.json as a side effect."""
+        from utils.workstation.catalog import Catalog
+
+        with tempfile.TemporaryDirectory() as tmp:
+            catalog = Catalog(Path(tmp))
+            job_id = "job-1"
+            catalog.write_meta(
+                job_id,
+                {
+                    "id": job_id,
+                    "mode": "draw",
+                    "label": "one",
+                    "status": "ready",
+                },
+            )
+            stamp = catalog.catalog_path.stat().st_mtime_ns
+            content = catalog.catalog_path.read_bytes()
+            listed = catalog.list_jobs()
+            self.assertEqual(len(listed), 1)
+            self.assertEqual(catalog.catalog_path.stat().st_mtime_ns, stamp)
+            self.assertEqual(catalog.catalog_path.read_bytes(), content)
+
+    def test_write_meta_is_atomic_and_refreshes_catalog(self):
+        """write_meta updates meta.json and rewrites catalog.json."""
+        import json
+
+        from utils.workstation.catalog import Catalog, atomic_write_text
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "meta.json"
+            atomic_write_text(target, '{"ok": true}\n')
+            self.assertEqual(target.read_text(encoding="utf-8"), '{"ok": true}\n')
+            self.assertEqual(list(root.glob(".meta.json.*.tmp")), [])
+
+            catalog = Catalog(root)
+            catalog.write_meta(
+                "job-a",
+                {"id": "job-a", "mode": "pdb", "label": "a", "status": "queued"},
+            )
+            payload = json.loads(catalog.catalog_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(payload["jobs"]), 1)
+            self.assertEqual(payload["jobs"][0]["id"], "job-a")
 
 
 class TestTravelerUtilsResolution(unittest.TestCase):
