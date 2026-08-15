@@ -118,13 +118,13 @@ As with the single-structure viewer, every file is fetched via a relative URL â€
 
 ## Running via Docker
 
-`pdb_2d_3d` is not in a released image yet, so use the pull-request build that has the code baked in (`rnacentral/r2dt:pr-219`). Mount an output directory to get the results back on your host:
+`pdb_2d_3d` is not in a released image yet, so use the development build that has the code baked in (`rnacentral/r2dt:develop`; switch to `rnacentral/r2dt:latest` once a release includes it). Mount an output directory to get the results back on your host:
 
 ```bash
 docker run --rm \
     -v $(pwd)/output:/rna/r2dt/output \
     -w /rna/r2dt \
-    rnacentral/r2dt:pr-219 \
+    rnacentral/r2dt:develop \
     ./r2dt.py pdb_2d_3d 9RJA output/9RJA_2d3d
 ```
 

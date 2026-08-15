@@ -3,11 +3,11 @@
 # Double-click in Finder, or run: ./Start-macOS.command
 set -euo pipefail
 
-# TODO(maintainer): rnacentral/r2dt:pr-219 is a temporary PR-preview tag --
-# switch the default below to rnacentral/r2dt:latest once that PR merges and
-# a release build includes the workstation command. Override without editing
-# this file via R2DT_WORKSTATION_IMAGE.
-IMAGE="${R2DT_WORKSTATION_IMAGE:-rnacentral/r2dt:pr-219}"
+# TODO(maintainer): switch the default below to rnacentral/r2dt:latest once a
+# release build includes the workstation command; until then the develop tag
+# is the only published image with it. Override without editing this file via
+# R2DT_WORKSTATION_IMAGE.
+IMAGE="${R2DT_WORKSTATION_IMAGE:-rnacentral/r2dt:develop}"
 PORT="8765"
 WS="${R2DT_WORKSPACE:-$HOME/.r2dt-workstation}"
 URL="http://127.0.0.1:${PORT}/compare"

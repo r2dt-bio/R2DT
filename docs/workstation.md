@@ -131,7 +131,7 @@ Defaults to `--bind 127.0.0.1`. Use `--bind 0.0.0.0` only inside Docker with `-p
 | `R2DT_WORKSPACE` | Cache directory (default `~/.r2dt-workstation`) |
 | `R2DT_WORKSTATION_NO_OPEN=1` | Do not auto-open the browser |
 
-Curator launchers currently pull `rnacentral/r2dt:pr-219`. Contributors usually mount the checkout over `rnacentral/r2dt:latest` via `just workstation`.
+Curator launchers currently pull `rnacentral/r2dt:develop` (switch to `rnacentral/r2dt:latest` once a release includes the workstation). Contributors usually mount the checkout over `rnacentral/r2dt:latest` via `just workstation`.
 
 Rebuild the curator download zip after editing launchers:
 

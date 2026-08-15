@@ -3,14 +3,14 @@ REM Windows launcher for curator testing (no git checkout).
 REM Double-click Start-Windows.bat
 setlocal EnableExtensions
 
-REM TODO(maintainer): rnacentral/r2dt:pr-219 is a temporary PR-preview tag --
-REM switch the default below to rnacentral/r2dt:latest once that PR merges and
-REM a release build includes the workstation command. Override without
-REM editing this file via the R2DT_WORKSTATION_IMAGE environment variable.
+REM TODO(maintainer): switch the default below to rnacentral/r2dt:latest once
+REM a release build includes the workstation command; until then the develop
+REM tag is the only published image with it. Override without editing this
+REM file via the R2DT_WORKSTATION_IMAGE environment variable.
 if defined R2DT_WORKSTATION_IMAGE (
   set "IMAGE=%R2DT_WORKSTATION_IMAGE%"
 ) else (
-  set "IMAGE=rnacentral/r2dt:pr-219"
+  set "IMAGE=rnacentral/r2dt:develop"
 )
 set "PORT=8765"
 if defined R2DT_WORKSPACE (
