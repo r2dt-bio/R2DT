@@ -439,9 +439,10 @@
   // cameraClipping.radius looks to be recomputed continuously from the camera
   // view every frame rather than a static setting, so nothing short of a
   // per-frame override would pin it. Re-asserting all three on an interval is
-  // a best-effort, not a confirmed fix, for the latter two -- see
-  // .ai/molstar-fog-occlusion-clipping.md for the full investigation before
-  // spending more time on this.
+  // a best-effort, not a confirmed fix, for the latter two. Investigated
+  // options that did NOT work before settling on this: one-shot setProps
+  // after load, and re-asserting on specific load events -- both get
+  // silently reverted by later Mol* internal resets.
   function keepFogAndOcclusionOff(molstar) {
     const apply = () => {
       if (molstar && molstar.plugin && molstar.plugin.canvas3d) {

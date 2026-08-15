@@ -43,10 +43,10 @@ def official(*filenames):
     return {"kind": "official", "files": list(filenames)}
 
 
-# CASP16 (2024). 15-of-~44 RNA targets have a public deposited reference —
-# see .ai/casp16-dashboard-plan.md. No official CASP-hosted RNA reference
-# archive was found for CASP16 (unlike CASP15, below) — RCSB is the only
-# source. No multi-state targets in this set.
+# CASP16 (2024). 15-of-~44 RNA targets have a public deposited reference
+# (the rest are unreleased or have no PDB deposition). No official
+# CASP-hosted RNA reference archive was found for CASP16 (unlike CASP15,
+# below) — RCSB is the only source. No multi-state targets in this set.
 _CASP16_TARGET_PDB = {
     "R1203": [("", rcsb("8uo6"))],
     "R1205": [("", rcsb("9cfn"))],
@@ -65,11 +65,12 @@ _CASP16_TARGET_PDB = {
     "D1273": [("", rcsb("9hio"))],
 }
 
-# CASP15 (2022). All 12 RNA targets have an official CASP reference — see
-# .ai/casp15-dashboard-plan.md "Follow-up finding" for how this archive was
-# found, and .ai/casp15-official-refs-and-chain-ui-plan.md for the file-by-file
-# verification (coordinates cross-checked bit-for-bit against RCSB, chain
-# naming/content confirmed). Multi-state targets: R1136 (2 states — file names
+# CASP15 (2022). All 12 RNA targets have an official CASP reference: the
+# archive below sits in the Prediction Center's public download area under
+# targets/_4invitees/. Each file was verified individually — coordinates
+# cross-checked bit-for-bit against the corresponding RCSB entries where
+# they exist, chain naming/content confirmed by inspection — before being
+# trusted here. Multi-state targets: R1136 (2 states — file names
 # don't indicate which is apo/holo, so labelled v1/v2 rather than guessing),
 # R1138 (young/mature RNA-origami folding intermediate, confirmed by filename),
 # R1149 and R1156 (map-fitting *ensembles*, not single structures — 10 and
