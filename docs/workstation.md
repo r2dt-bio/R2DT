@@ -98,7 +98,7 @@ Ready jobs have an **Export** menu:
 1. **R2DT work package** (`.r2dt-job.zip`) — full job for another workstation (inputs, results, edits). Re-open with **Import** on a dashboard.
 2. **Shareable HTML** (`.r2dt-viewer.zip`) — static interactive viewer with edits baked in. Unzip and open `index.html`, or [embed it](./pdb-2d-3d-viewer.md#embedding-on-your-own-site). No workstation required to view.
 
-On Compare pages, the INF bar also has a **Download scores** dropdown (**JSON** / **CSV**) for the INF values and the base-pair lists used to compute them.
+On Compare pages, the INF bar also has a **Download scores** dropdown (**JSON** / **CSV**) for the INF values and the base-pair lists used to compute them. After you edit pairs, those downloads follow the live (edited) scores — not the original pre-edit files.
 
 Shareable HTML is for jobs with an interactive viewer (typically **2D + 3D** and **Compare**). Draw and alignment jobs use work packages / SVG pages.
 

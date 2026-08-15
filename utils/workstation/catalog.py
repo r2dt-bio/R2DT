@@ -150,8 +150,14 @@ class Catalog:
         return None
 
     def refresh_metrics(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Copy INF / BP-diff from viewer/metrics.json into meta."""
-        metrics_path = self.job_dir(job_id) / "viewer" / "metrics.json"
+        """Copy INF / BP-diff from viewer/metrics.json into meta.
+
+        Prefer ``edits/metrics.json`` when present (post-edit overlay).
+        """
+        job_dir = self.job_dir(job_id)
+        metrics_path = job_dir / "edits" / "metrics.json"
+        if not metrics_path.is_file():
+            metrics_path = job_dir / "viewer" / "metrics.json"
         if not metrics_path.is_file():
             return self.read_meta(job_id)
         try:

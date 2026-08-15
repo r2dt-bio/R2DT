@@ -40,7 +40,10 @@ from utils.workstation.jobs import (
     require_runtime,
 )
 from utils.workstation.package import export_job_bytes, import_job_bytes
-from utils.workstation.publish import export_shareable_html_bytes
+from utils.workstation.publish import (
+    export_shareable_html_bytes,
+    persist_live_inf_overlay,
+)
 from utils.workstation.security import local_mutating_request_error, path_is_within
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -693,6 +696,11 @@ class WorkstationHandler(BaseHTTPRequestHandler):
                 "model_count": counts["model_count"],
             },
         )
+        try:
+            persist_live_inf_overlay(self.app.catalog.job_dir(job_id))
+            self.app.catalog.refresh_metrics(job_id)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            rprint(f"[yellow]INF overlay update failed for {job_id}: {exc}[/yellow]")
         self._send(*_json_bytes({"ok": True, **saved, **counts}))
         return True
 
@@ -910,6 +918,17 @@ class WorkstationHandler(BaseHTTPRequestHandler):
             live = self.app.viewer_assets / name
             if live.is_file():
                 self._send_file(live)
+                return
+        # Prefer post-edit INF/metrics overlay under edits/ so Download scores
+        # matches the live INF bar without mutating CASP symlink viewers.
+        if (name := Path(rel).name) in {
+            "metrics.json",
+            "inf-pairs.json",
+            "inf-pairs.csv",
+        }:
+            overlay = self.app.catalog.job_dir(job_id) / "edits" / name
+            if overlay.is_file():
+                self._send_file(overlay)
                 return
         base = (self.app.catalog.job_dir(job_id) / "viewer").resolve()
         if not base.is_dir():

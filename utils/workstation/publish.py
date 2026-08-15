@@ -224,6 +224,49 @@ def _recompute_metrics(
     return metrics, inf_report
 
 
+def persist_live_inf_overlay(job_dir: Path) -> bool:
+    """Write edits/metrics.json + inf-pairs.* from current overrides.
+
+    Download links in the live viewer still point at ``./inf-pairs.json``;
+    the workstation serves these overlay files preferentially so a Download
+    after editing matches the INF bar. Overlay lives under ``edits/`` so
+    CASP-imported symlink viewers are never mutated in place.
+    """
+    viewer = job_dir / "viewer"
+    if not viewer.is_dir():
+        return False
+    overrides = load_overrides(job_dir)
+    if not (overrides.get("ref") or overrides.get("model")):
+        # No edits — drop any stale overlay so downloads fall back to originals.
+        edits = job_dir / "edits"
+        for name in ("metrics.json", "inf-pairs.json", "inf-pairs.csv"):
+            path = edits / name
+            if path.is_file():
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+        return False
+
+    baked = _bake_fr3d_files(viewer.resolve(), overrides)
+    metrics, inf_report = _recompute_metrics(viewer.resolve(), baked, overrides)
+    if metrics is None:
+        return False
+    edits = job_dir / "edits"
+    edits.mkdir(parents=True, exist_ok=True)
+    (edits / "metrics.json").write_text(
+        json.dumps(metrics, indent=2) + "\n", encoding="utf-8"
+    )
+    if inf_report is not None:
+        (edits / "inf-pairs.json").write_text(
+            json.dumps(inf_report, indent=2) + "\n", encoding="utf-8"
+        )
+        (edits / "inf-pairs.csv").write_text(
+            inf_report_to_csv(inf_report), encoding="utf-8"
+        )
+    return True
+
+
 def _boundaries_from_metrics(
     metrics: Dict[str, Any],
 ) -> List[Tuple[str, int, int]]:

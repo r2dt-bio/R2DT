@@ -161,6 +161,115 @@
     return scopes;
   }
 
+  function boundariesFromChainIds(chainIds) {
+    var out = [];
+    if (!chainIds || !chainIds.length) return out;
+    var start = 0;
+    var cur = chainIds[0];
+    for (var i = 1; i <= chainIds.length; i++) {
+      if (i === chainIds.length || chainIds[i] !== cur) {
+        out.push({ chain: String(cur), start: start, end: i });
+        if (i < chainIds.length) {
+          cur = chainIds[i];
+          start = i;
+        }
+      }
+    }
+    return out;
+  }
+
+  function exportPairRows(pairs, chainIds) {
+    return (pairs || []).map(function (p) {
+      var i = Math.min(+p.i, +p.j);
+      var j = Math.max(+p.i, +p.j);
+      return {
+        i: i,
+        j: j,
+        family: p.family || 'cWW',
+        chain_i: chainAtFromIds(chainIds, i),
+        chain_j: chainAtFromIds(chainIds, j),
+      };
+    }).sort(function (a, b) {
+      return a.i - b.i || a.j - b.j;
+    });
+  }
+
+  function buildLiveInfReport(refPairs, modelPairs, chainIds, meta) {
+    var scopes = computeInfScopes(refPairs, modelPairs, chainIds);
+    var boundaries = boundariesFromChainIds(chainIds);
+    var chains = [];
+    var seen = {};
+    (chainIds || []).forEach(function (c) {
+      if (c != null && !seen[c]) {
+        seen[c] = true;
+        chains.push(String(c));
+      }
+    });
+    return {
+      structure_id: (meta && meta.structureId) || '',
+      model_id: (meta && meta.modelId) || '',
+      chains: chains,
+      boundaries: boundaries,
+      inf: (scopes[0] && scopes[0].inf) || computeInf(refPairs, modelPairs),
+      scopes: scopes,
+      reference_pairs: exportPairRows(refPairs, chainIds),
+      model_pairs: exportPairRows(modelPairs, chainIds),
+      edited: true,
+    };
+  }
+
+  function csvEscape(val) {
+    if (val == null) return '';
+    var s = String(val);
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function infReportToCsv(report) {
+    var rows = [[
+      'section', 'scope_id', 'scope_label', 'metric', 'inf', 'ppv', 'sty',
+      'tp', 'fp', 'fn', 'pair_kind', 'i', 'j', 'family', 'family_ref',
+      'family_model', 'chain_i', 'chain_j',
+    ]];
+    (report.scopes || []).forEach(function (scope) {
+      var sid = scope.id || '';
+      var slabel = scope.label || '';
+      var inf = scope.inf || {};
+      ['wc', 'nwc', 'all'].forEach(function (metric) {
+        var m = inf[metric] || {};
+        rows.push([
+          'score', sid, slabel, metric, m.inf, m.ppv, m.sty, m.tp, m.fp, m.fn,
+          '', '', '', '', '', '', '', '',
+        ]);
+      });
+    });
+    function pairSection(kind, pairs) {
+      (pairs || []).forEach(function (p) {
+        rows.push([
+          'pair', '', '', '', '', '', '', '', '', '',
+          kind, p.i, p.j, p.family || '', '', '', p.chain_i || '', p.chain_j || '',
+        ]);
+      });
+    }
+    pairSection('reference', report.reference_pairs);
+    pairSection('model', report.model_pairs);
+    return rows.map(function (row) {
+      return row.map(csvEscape).join(',');
+    }).join('\n') + '\n';
+  }
+
+  function triggerBlobDownload(filename, text, mime) {
+    var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   function diffCounts(refPairs, modelPairs) {
     var ref = new Set((refPairs || []).map(function (p) { return pairKey(p.i, p.j); }));
     var model = new Set((modelPairs || []).map(function (p) { return pairKey(p.i, p.j); }));
@@ -651,11 +760,51 @@
     var addFirst = null;
     var selected = null; // { panel, i, j, family }
     var saveTimer = null;
+    var liveInfReport = null;
     var chromes = surfaces.map(function (surface, idx) {
       var chrome = buildPanelChrome(idx);
       surface.panel2d.appendChild(chrome);
       return chrome;
     });
+
+    function currentChainIds() {
+      return (panelCtxs[0] && panelCtxs[0].apiData && panelCtxs[0].apiData.chain_ids) || null;
+    }
+
+    function refreshLiveInfDownloads(refPairs, modelPairs) {
+      if (single) return;
+      liveInfReport = buildLiveInfReport(refPairs, modelPairs, currentChainIds(), {
+        structureId: panelCtxs[0] && panelCtxs[0].STRUCTURE_ID,
+        modelId: panelCtxs[1] && panelCtxs[1].STRUCTURE_ID,
+      });
+    }
+
+    function bindLiveInfDownloads() {
+      var bar = document.querySelector('.mc-inf');
+      if (!bar || bar.dataset.r2dtLiveInfBound) return;
+      bar.dataset.r2dtLiveInfBound = '1';
+      bar.addEventListener('click', function (ev) {
+        var link = ev.target.closest('a.mc-inf-download');
+        if (!link || !bar.contains(link)) return;
+        if (!liveInfReport) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var href = link.getAttribute('href') || '';
+        if (/\.csv(\?|$)/i.test(href) || /csv/i.test(link.download || '')) {
+          triggerBlobDownload(
+            'inf-pairs.csv',
+            infReportToCsv(liveInfReport),
+            'text/csv;charset=utf-8'
+          );
+        } else {
+          triggerBlobDownload(
+            'inf-pairs.json',
+            JSON.stringify(liveInfReport, null, 2) + '\n',
+            'application/json;charset=utf-8'
+          );
+        }
+      });
+    }
 
     function panelName(idx) { return idx === 0 ? 'ref' : 'model'; }
 
@@ -806,8 +955,9 @@
       var refPairs = annsToPairs(anns0);
       var modelPairs = annsToPairs(anns1);
       var infMetrics = computeInf(refPairs, modelPairs);
-      var chainIds = (panelCtxs[0] && panelCtxs[0].apiData && panelCtxs[0].apiData.chain_ids) || null;
+      var chainIds = currentChainIds();
       updateInfBar(infMetrics, computeInfScopes(refPairs, modelPairs, chainIds));
+      refreshLiveInfDownloads(refPairs, modelPairs);
       var diff = diffCounts(refPairs, modelPairs);
       setStatus(
         'edits ' + overrides.ref.length + '/' + overrides.model.length +
@@ -991,6 +1141,7 @@
       .then(function (data) {
         overrides.ref = data.ref || [];
         overrides.model = data.model || [];
+        bindLiveInfDownloads();
         refreshAll();
         refreshChrome();
         setStatus('Click Edit on a 2D to curate pairs', 'ok');
