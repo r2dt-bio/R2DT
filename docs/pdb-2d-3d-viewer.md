@@ -314,16 +314,17 @@ Several `viewer/` folders can be combined into a browsable gallery with `utils/b
 ## Interaction model
 
 - **2D → 3D.** Clicking a nucleotide in the 2D diagram selects and focuses the corresponding residue in the 3D view.
-- **2D → 3D (base pairs).** Clicking a base-pair line selects both partner residues in 3D and highlights the line with the panel selection colour. The matching row in the base-pair list is marked selected. Only one base pair stays highlighted at a time.
-- **Compare TP/FP/FN colours.** In compare mode, true-positive pairs are green, false negatives blue, and false positives red — the same colours in the base-pair list, 2D diagram, and LBN.
+- **2D → 3D (base pairs).** Clicking a base-pair line selects both partner residues in 3D. The line keeps its TP/FP/FN (or default) colour and is marked selected with a thicker stroke plus a brighter same-hue glow; selected letters stay black with a pale structure-tinted badge (reference green / model blue in compare mode). The matching row in the base-pair list is outlined. Only one base pair stays highlighted at a time.
+- **Compare TP/FP/FN colours.** In compare mode, true-positive pairs are green, false negatives blue, and false positives red — the same colours in the base-pair list, 2D diagram, and LBN. Selection does not recolour those strokes. Reference green / model blue on selection badges mark which panel is active; pair strokes keep TP/FN meaning.
 - **Multi-chain pair list.** When more than one chain is present, the base-pair list is grouped into per-chain and between-chain sections; the INF bar can expand a by-chain score breakdown. **Download scores** (JSON / CSV) exports `inf-pairs.json` / `inf-pairs.csv` with the scores and the underlying pair lists.
 - **3D → 2D.** Clicking or hovering a residue in molstar highlights the matching nucleotide in the 2D diagram.
 - **Hover does nothing in 2D.** Hovering nucleotides or base pairs in the 2D diagram has no effect — only clicks drive a 3D response.
 - **Backbone path overlay.** A faint line tracing the backbone is drawn under the nucleotide letters, on by default. A "Backbone" toggle in the toolbar shows or hides it.
-- **Base-pair family filter.** Only families actually present in this structure are listed in the filter, and they are all enabled by default.
+- **Base-pair family filter.** Only families actually present in this structure are listed in the filter, and they are all enabled by default. In compare mode each panel's filter is scoped to that panel (duplicate plugin checkbox ids are not shared across panels).
 - **Layered dot-bracket notation (LBN).** Below the 2D+3D panes, a scrollable panel shows the sequence and per-family dot-bracket rows; clicks highlight the corresponding residues in 2D and 3D.
 - **Unresolved residues are dimmed.** Nucleotides missing from the 3D coordinates are shown in grey, consistent with the `pdb` command's behaviour (see [missing nucleotides in PDB structures](./pdb.md#missing-nucleotides-in-pdb-structures)).
 - **Pseudoknot Watson–Crick pairs are lightened** so they don't dominate the nested cWW ladder.
+- **Short-span LW glyphs.** Base-pair symbols between nearby nucleotides (e.g. adjacent stacking contacts) are shrunk and nudged off the letters so the sequence stays readable.
 
 ## Examples
 

@@ -562,11 +562,9 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         # above for when mixed-molecule targets get per-component colouring.
         molstar["baseColor"] = _CASP_RNA_GREEN
         molstar["overlays"] = overlays
-        # Give the 2D panels' click-to-highlight colour the same per-structure
-        # colour as the 3D pane (reference green / model blue), so a 2D
-        # selection reads as the same colour in both views. Only when a real
-        # 3D overlay exists — otherwise the 3D pane has no per-structure
-        # colour to match.
+        # Optional panel baseColor is structure-identity chrome only (3D /
+        # legends). 2D letter selection stays orange so it does not collide
+        # with TP green / FN blue on pair strokes.
         panels[0]["baseColor"] = _CASP_RNA_GREEN
         panels[1]["baseColor"] = _CASP_MODEL_BLUE
     heading = f"{structure_id} — reference vs {model_tag}"

@@ -122,7 +122,7 @@
       selectionBgs.set(key, rect);
     }
 
-    function applySelectionTypography(el, pdbId, label, color) {
+    function applySelectionTypography(el, pdbId, label, color, preFill) {
       if (!el || el.nodeName !== 'text') return;
       const isPartner = svc.__r2dtPartnerLabels && svc.__r2dtPartnerLabels.has(label);
       const key = mapKey(pdbId, label);
@@ -130,6 +130,7 @@
         origStyle.set(key, {
           fw: el.getAttribute('font-weight'),
           fs: el.getAttribute('font-size'),
+          fill: preFill !== undefined ? preFill : el.getAttribute('fill'),
           stroke: el.getAttribute('stroke'),
           sw: el.getAttribute('stroke-width'),
           slj: el.getAttribute('stroke-linejoin'),
@@ -148,9 +149,10 @@
       el.setAttribute('stroke-width', isPartner ? PARTNER_HALO_WIDTH : HALO_WIDTH);
       el.setAttribute('stroke-linejoin', 'round');
       el.setAttribute('paint-order', 'stroke fill');
-      // Compare mode passes an `rgb(...)` selection colour (per-structure
-      // green/blue) -- tint the badge to match. The standalone viewer's
-      // 'orange'/'#ffab40' fallbacks keep their original neutral badge.
+      // Letter stays black; structure/selection hue is only on the badge.
+      el.setAttribute('fill', '#000000');
+      // rgb(...) (compare ref green / model blue) → pale same-hue badge.
+      // orange / #ffab40 (standalone) → neutral yellow / peach badges.
       const tint = /^rgb\(/.test(color || '')
         ? paleTintFor(color, isPartner ? 0.88 : 0.85)
         : null;
@@ -171,6 +173,7 @@
       if (el && el.nodeName === 'text') {
         setOrRemove(el, 'font-weight', stored.fw);
         setOrRemove(el, 'font-size', stored.fs);
+        setOrRemove(el, 'fill', stored.fill);
         setOrRemove(el, 'stroke', stored.stroke);
         setOrRemove(el, 'stroke-width', stored.sw);
         setOrRemove(el, 'stroke-linejoin', stored.slj);
@@ -181,9 +184,11 @@
 
     const origColor = svc.colorNucleotide.bind(svc);
     svc.colorNucleotide = function (pdbId, label, color, mode) {
+      const el = mode === 'selection' ? nucleotideEl(pdbId, label) : null;
+      const preFill = el ? el.getAttribute('fill') : undefined;
       origColor(pdbId, label, color, mode);
       if (mode === 'selection') {
-        applySelectionTypography(nucleotideEl(pdbId, label), pdbId, label, color);
+        applySelectionTypography(el, pdbId, label, color, preFill);
       }
     };
 
@@ -497,12 +502,11 @@
   // Fallback highlight (deep pink) for any structure without its own base colour.
   const SELECTION_COLOR = { r: 233, g: 30, b: 99 };
 
-  // Per-structure highlight colour: a vivid, brightened version of the
-  // structure's own base colour, so a highlighted reference nt reads as bright
-  // green (base is CASP green) and a highlighted model nt as bright blue (base
-  // is CASP navy). Same hue as the structure it belongs to → the colour itself
-  // says "this is the reference" vs "this is the model", while staying clearly
-  // distinct from the (darker, less saturated) base colour around it.
+  // Per-structure highlight colour for 3D (and related chrome): a vivid,
+  // brightened version of the structure's own base colour, so a highlighted
+  // reference nt reads as bright green (CASP green) and a highlighted model
+  // nt as bright blue (CASP navy). 2D letter selection does not use these —
+  // it stays orange so it does not collide with TP/FN pair colours.
   function rgbToHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -558,8 +562,8 @@
     return `rgb(${c.r},${c.g},${c.b})`;
   }
   // Parses the small set of colour formats this file ever hands to
-  // colorNucleotide: the literal 'orange'/'#ffab40' fallbacks (standalone
-  // viewer) or an `rgb(r,g,b)` string (compare-mode per-structure colour).
+  // colorNucleotide: the literal 'orange'/'#ffab40' 2D selection colours, or
+  // an `rgb(r,g,b)` string if a caller passes one.
   function parseCssColor(css) {
     if (!css) return null;
     if (css === 'orange') return { r: 255, g: 165, b: 0 };
@@ -1030,17 +1034,27 @@
   }
 
   function isBpFamilyFilterOn(family) {
-    const all = root.querySelector('#Checkbox_All');
-    if (all?.checked) return true;
     const f = String(family || '');
     if (!f) return true;
+    // Prefer the per-family checkbox. Never let Checkbox_All short-circuit
+    // this — with All still checked, unchecking one family must hide that
+    // family (All is only a bulk control, not an override).
     const ids = new Set([f, pluginLwFamily(f)]);
     for (const id of ids) {
       const cb = root.querySelector(`#Checkbox_${id}`);
-      if (cb?.checked) return true;
+      if (cb) return cb.checked;
     }
-    // Families the filter UI doesn't list (ncWW etc.) stay visible when All
-    // is off only if no family boxes exist yet.
+    const ui = rnaPlugin.uiTemplateService;
+    if (ui?.baseStrs) {
+      for (const id of ids) {
+        const st = ui.baseStrs.get(id);
+        if (st) return !!st[0];
+      }
+    }
+    const all = root.querySelector('#Checkbox_All');
+    if (all) return all.checked;
+    // Families the filter UI doesn't list (ncWW etc.) stay visible when no
+    // family boxes exist yet.
     return root.querySelectorAll('input[id^="Checkbox_"]').length === 0;
   }
 
@@ -1057,20 +1071,13 @@
    *  (hide crossing / pseudoknot contacts). */
   function shouldShowBpPath(pathId, annByKey) {
     if (!pathId) return false;
-    const ui = rnaPlugin.uiTemplateService;
-    if (!ui) return true;
-    const nestedOnly = !!(nestedBpInput() && nestedBpInput().checked);
-    const displayHtml = nestedOnly ? ui.displayNestedBaseStrs : ui.displayBaseStrs;
-    const visibleIds = pathIdsInDisplayHtml(displayHtml);
-    if (visibleIds.has(pathId)) return true;
-    // Refamily: same pair, new LW class — keep if the original pair was shown.
-    const key = bpPairKeyFromPathId(pathId);
-    if (pairKeysInDisplayHtml(displayHtml).has(key)) return true;
-    // Newly added pairs aren't in the plugin display strings.
     const family = familyFromPathId(pathId);
     if (!isBpFamilyFilterOn(family)) return false;
+    const nestedOnly = !!(nestedBpInput() && nestedBpInput().checked);
+    if (!nestedOnly) return true;
+    const key = bpPairKeyFromPathId(pathId);
     const ann = annByKey.get(key);
-    if (nestedOnly && isCrossingAnn(ann)) return false;
+    if (isCrossingAnn(ann)) return false;
     return true;
   }
 
@@ -1323,6 +1330,91 @@
       bpPathsMaterialized = false;
       origPathOrNucleotide();
     };
+  }
+
+  // Compare mode mounts two toolbars with identical Checkbox_* / checkboxes
+  // ids. The plugin's changeBP uses document.getElementById, and label[for]
+  // also resolves document-wide — both hit the first panel. Scope checkbox
+  // updates to this plugin's container, and drop redundant for= attrs so a
+  // label click toggles its own nested input.
+  if (uiSvc?.changeBP && !uiSvc._r2dtChangeBpPatched) {
+    uiSvc._r2dtChangeBpPatched = true;
+    uiSvc.changeBP = function r2dtChangeBP(family) {
+      const host = uiSvc.containerElement || root;
+      const box = (id) => host.querySelector(`#${CSS.escape(id)}`);
+      uiSvc.displayBaseStrs = '';
+      uiSvc.displayNestedBaseStrs = '';
+      if (family === 'All') {
+        const allChecked = !!box('Checkbox_All')?.checked;
+        uiSvc.baseStrs.forEach((val, key) => {
+          uiSvc.baseStrs.set(key, [allChecked, val[1]]);
+          const nested = uiSvc.nestedBaseStrs.get(key);
+          uiSvc.nestedBaseStrs.set(key, [allChecked, nested[1]]);
+          const cb = box(`Checkbox_${key}`);
+          if (cb) cb.checked = allChecked;
+          if (allChecked) {
+            uiSvc.displayBaseStrs += val[1].join('');
+            uiSvc.displayNestedBaseStrs += nested[1].join('');
+          }
+        });
+      } else {
+        const cur = uiSvc.baseStrs.get(family);
+        if (!cur) {
+          uiSvc.pathOrNucleotide();
+          return;
+        }
+        // Trust the checkbox the user just toggled (browser already flipped
+        // it) instead of inverting the Map — avoids desync with All.
+        const cb = box(`Checkbox_${family}`);
+        const next = cb ? !!cb.checked : !cur[0];
+        uiSvc.baseStrs.set(family, [next, cur[1]]);
+        const nested = uiSvc.nestedBaseStrs.get(family);
+        uiSvc.nestedBaseStrs.set(family, [next, nested[1]]);
+        uiSvc.baseStrs.forEach((val, key) => {
+          if (!val[0]) return;
+          uiSvc.displayBaseStrs += val[1].join('');
+          uiSvc.displayNestedBaseStrs += uiSvc.nestedBaseStrs.get(key)[1].join('');
+        });
+        const allCb = box('Checkbox_All');
+        if (allCb) {
+          const famBoxes = [...host.querySelectorAll('input[id^="Checkbox_"]')]
+            .filter((el) => el.id !== 'Checkbox_All' && isFilterCheckboxVisible(el));
+          allCb.checked = famBoxes.length > 0 && famBoxes.every((el) => el.checked);
+        }
+      }
+      uiSvc.pathOrNucleotide();
+    };
+  }
+
+  function neutralizeFilterLabelForAttrs() {
+    root.querySelectorAll('#checkboxes label[for^="Checkbox_"]').forEach((label) => {
+      const input = label.querySelector('input[type="checkbox"]');
+      if (input && label.contains(input)) label.removeAttribute('for');
+    });
+  }
+
+  // Plugin binds change listeners to changeBP at create time; replace those
+  // with handlers that call our container-scoped patch (clone drops the
+  // original listener).
+  function rebindFilterCheckboxHandlers() {
+    const host = root.querySelector('#checkboxes');
+    if (!host || !uiSvc?.changeBP) return;
+    const all = host.querySelector('#Checkbox_All');
+    if (all && !all.dataset.r2dtChangeBound) {
+      const fresh = all.cloneNode(true);
+      fresh.dataset.r2dtChangeBound = '1';
+      all.replaceWith(fresh);
+      fresh.addEventListener('change', () => { uiSvc.changeBP('All'); });
+    }
+    host.querySelectorAll('input[id^="Checkbox_"]').forEach((cb) => {
+      if (cb.id === 'Checkbox_All' || cb.dataset.r2dtChangeBound) return;
+      const family = cb.id.slice('Checkbox_'.length);
+      const fresh = cb.cloneNode(true);
+      fresh.dataset.r2dtChangeBound = '1';
+      cb.replaceWith(fresh);
+      fresh.addEventListener('change', () => { uiSvc.changeBP(family); });
+    });
+    neutralizeFilterLabelForAttrs();
   }
 
   // Render a faint backbone path overlay UNDER the nucleotide letters,
@@ -1705,6 +1797,97 @@
     el.setAttribute('d', `M${mx} ${my} ${bx} ${by}`);
   }
 
+  // LW glyphs (and non-canonical cWW circles) sit at the partner midpoint at
+  // radius ~i/3. Adjacent nucleotides are only ~1–2i apart, so the glyph
+  // covers both letters (e.g. model U51–C52 cSH). Shrink and nudge short-span
+  // glyphs off the pair axis so the LW type stays readable.
+  const SHORT_BP_SPAN_FACTOR = 2.8;
+  const SHORT_BP_MIN_SCALE = 0.32;
+
+  function isSimpleBpConnectorPath(el) {
+    const d = el.getAttribute('d') || '';
+    if (isCwwLineGlyphD(d)) return false;
+    if ((d.match(/M/gi) || []).length !== 1) return false;
+    // Anything beyond a two-point "M x y x y" line is a glyph.
+    if (/[aAlLhHvVcCsSqQtT]/i.test(d.slice(d.search(/[Mm]/) + 1))) return false;
+    const nums = d.match(/-?\d[\d.eE+-]*/g);
+    return !!(nums && nums.length === 4);
+  }
+
+  function restoreBpGlyphTransform(el) {
+    if (el.dataset.r2dtOrigTransform === undefined) return;
+    const orig = el.dataset.r2dtOrigTransform;
+    if (orig) el.setAttribute('transform', orig);
+    else el.removeAttribute('transform');
+    delete el.dataset.r2dtOrigTransform;
+  }
+
+  function fixShortSpanBpGlyph(el, aId, bId) {
+    if (isSimpleBpConnectorPath(el)) {
+      restoreBpGlyphTransform(el);
+      return;
+    }
+    const p1 = getResidueLocation(aId);
+    const p2 = getResidueLocation(bId);
+    if (!p1 || !p2) return;
+    const i = getBaseBpStrokeWidth() * 6;
+    if (!(i > 0)) return;
+    // Same coordinate frame the plugin uses for glyph placement.
+    const x1 = p1[0] + i / 2.5;
+    const y1 = p1[1] - i / 2.5;
+    const x2 = p2[0] + i / 2.5;
+    const y2 = p2[1] - i / 2.5;
+    const len = Math.hypot(x1 - x2, y1 - y2) || 1;
+    if (el.dataset.r2dtOrigTransform === undefined) {
+      el.dataset.r2dtOrigTransform = el.getAttribute('transform') || '';
+    }
+    const orig = el.dataset.r2dtOrigTransform;
+    if (len >= SHORT_BP_SPAN_FACTOR * i) {
+      if (orig) el.setAttribute('transform', orig);
+      else el.removeAttribute('transform');
+      return;
+    }
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const scale = Math.max(
+      SHORT_BP_MIN_SCALE,
+      Math.min(1, len / (SHORT_BP_SPAN_FACTOR * i))
+    );
+    const dx = (x2 - x1) / len;
+    const dy = (y2 - y1) / len;
+    // Stable perpendicular side from sequence order.
+    const side = +aId <= +bId ? 1 : -1;
+    const offset = (1 - scale) * i * 0.95;
+    const ox = side * offset * -dy;
+    const oy = side * offset * dx;
+    const adj =
+      `translate(${ox.toFixed(2)} ${oy.toFixed(2)}) `
+      + `translate(${mx.toFixed(2)} ${my.toFixed(2)}) `
+      + `scale(${scale.toFixed(3)}) `
+      + `translate(${(-mx).toFixed(2)} ${(-my).toFixed(2)})`;
+    el.setAttribute('transform', orig ? `${adj} ${orig}` : adj);
+  }
+
+  // Paint nucleotide letters above base-pair paths so a residual glyph
+  // overlap cannot hide the sequence characters.
+  function raiseNucleotideLettersAboveBps() {
+    const inner = root.querySelector(`.rnaTopoSvg_${PDB_LOWER}`);
+    if (!inner) return;
+    const kids = [...inner.children];
+    const needsRaise = kids.some((el, idx) => (
+      el.matches?.('text.rnaviewEle')
+      && kids.slice(idx + 1).some((n) => n.matches?.('path.rnaviewBP'))
+    ));
+    if (!needsRaise) return;
+    inner.querySelectorAll('text.rnaviewEle').forEach((t) => {
+      const prev = t.previousElementSibling;
+      if (prev && prev.classList?.contains('r2dt-nt-selection-bg')) {
+        inner.appendChild(prev);
+      }
+      inner.appendChild(t);
+    });
+  }
+
   function applyFixups() {
     let any = false;
     unobserved.forEach((seqId) => {
@@ -1725,14 +1908,16 @@
         // Rescue base-pair lines the narrow-helix layout collapsed to a dot.
         fixCollapsedCwwLine(el, parsed.a, parsed.b);
       }
-      if (isCrossing) {
+      // Leave the selected path's thickened stroke alone (selection cue).
+      if (isCrossing && !bpHighlightedPaths.has(el)) {
         el.setAttribute('stroke-width', getCrossingBpStrokeWidth());
       }
       // Compare-mode: paint TP/FN/FP with the same colours as the list badges
       // and LBN rows. Runs after the cWW default colouring above, for every
       // family. Preserve open (fill:none) vs filled glyphs — only recolour a
-      // fill that was actually painted. Skip selected pairs so the selection
-      // colour wins; store the diff colour as the restore value.
+      // fill that was actually painted. Skip the selected path so a pending
+      // selection thickness/glow is not wiped; store the diff colour as the
+      // idle stroke for restore after clear.
       if (!bpHighlightedPaths.has(el)) {
         const kind = classifyBpPair(+parsed.a, +parsed.b);
         const color = kind && DIFF_COLORS[kind];
@@ -1743,8 +1928,10 @@
           el.dataset.r2dtOrigStroke = color;
         }
       }
+      fixShortSpanBpGlyph(el, parsed.a, parsed.b);
       any = true;
     });
+    raiseNucleotideLettersAboveBps();
     return any;
   }
 
@@ -2538,6 +2725,7 @@
       }
     }
     ensureFilterPanelTitle();
+    rebindFilterCheckboxHandlers();
     injectFilterGlyphs();
     mountFilterLegend();
     updateFilterBadge();
@@ -2631,11 +2819,9 @@
   // 2D diagram (via the Nested toggle or the family checkboxes).
   let lbnVisibilityFn = null;
 
-  // Compare mode: match the 2D click highlight to this panel's own 3D colour
-  // (reference green / model blue) instead of a colour-neutral orange, so the
-  // 2D and 3D highlights read as the same selection. Falls back to the
-  // original orange for the standalone viewer, which has no reference/model
-  // structure colour to match.
+  // Compare panels: selection badge follows structure colour (ref green /
+  // model blue); the letter itself stays black (see applySelectionTypography).
+  // Standalone keeps orange / #ffab40 badges.
   const baseColor = ctx.baseColor || null;
   const BP_SELECTED_COLOR = baseColor ? rgbToCss(highlightColorFor(baseColor)) : 'orange';
   const RESIDUE_PARTNER_COLOR = baseColor
@@ -2657,18 +2843,47 @@
 
   function clearBasePairHighlights() {
     bpHighlightedPaths.forEach((el) => {
-      const prevOrig = el.dataset.r2dtOrigStroke;
-      if (prevOrig !== undefined) el.setAttribute('stroke', prevOrig);
+      el.classList.remove('r2dt-bp-selected');
+      el.style.filter = '';
+      // Selection keeps the idle TP/FP/FN stroke colour; restore width only.
+      if (el.dataset.r2dtOrigStrokeWidth !== undefined) {
+        const prevW = el.dataset.r2dtOrigStrokeWidth;
+        if (prevW === '') el.removeAttribute('stroke-width');
+        else el.setAttribute('stroke-width', prevW);
+        delete el.dataset.r2dtOrigStrokeWidth;
+      }
     });
     bpHighlightedPaths.clear();
   }
 
+  // Same-hue selection glow from the path's current stroke (TP green / FN
+  // blue / FP red, or grey in standalone) so the agreement colour stays
+  // readable under the highlight.
+  function selectionGlowForStroke(stroke) {
+    const rgb = parseCssColor(stroke);
+    if (!rgb) return 'rgba(255, 112, 67, 0.9)';
+    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    // Brighter / more saturated sibling of the same hue.
+    const glow = hslToRgb(h, Math.min(1, Math.max(s, 0.55) * 1.1), Math.min(0.7, l + 0.22));
+    return `rgb(${glow.r},${glow.g},${glow.b})`;
+  }
+
+  // Mark the selected base-pair path without overwriting its TP/FP/FN (or
+  // default) stroke colour — thicken it and add a same-hue glow.
   function highlightBPPath(pathEl) {
     if (!pathEl) return;
-    if (pathEl.dataset.r2dtOrigStroke === undefined) {
-      pathEl.dataset.r2dtOrigStroke = pathEl.getAttribute('stroke') || '';
+    if (pathEl.dataset.r2dtOrigStrokeWidth === undefined) {
+      pathEl.dataset.r2dtOrigStrokeWidth = pathEl.getAttribute('stroke-width') || '';
     }
-    pathEl.setAttribute('stroke', BP_SELECTED_COLOR);
+    const baseW = parseFloat(pathEl.dataset.r2dtOrigStrokeWidth || '2') || 2;
+    pathEl.setAttribute('stroke-width', String(baseW * 2.25));
+    const stroke = pathEl.getAttribute('stroke')
+      || pathEl.dataset.r2dtOrigStroke
+      || '';
+    const glow = selectionGlowForStroke(stroke);
+    pathEl.style.filter =
+      `drop-shadow(0 0 1.25px ${glow}) drop-shadow(0 0 3px ${glow})`;
+    pathEl.classList.add('r2dt-bp-selected');
     bpHighlightedPaths.add(pathEl);
   }
 
@@ -2847,10 +3062,10 @@
   document.addEventListener('keydown', onDeselectKey);
   ctx.cleanup.push(() => document.removeEventListener('keydown', onDeselectKey));
 
-  // Select a base pair: colour its 2D line orange (if its path is in the
-  // DOM) and select both partner residues in 3D. `pathEl` may be null --
-  // e.g. when triggered from the base-pair list while that pair's line
-  // isn't currently rendered.
+  // Select a base pair: thicken + orange-glow its 2D line (keeping TP/FP/FN
+  // colour) if the path is in the DOM, and select both partner residues in
+  // 2D/3D. `pathEl` may be null -- e.g. when triggered from the base-pair
+  // list while that pair's line isn't currently rendered.
   function selectBasePair(a, b, pathEl) {
     lastResidueSelection = null;
     clearBasePairHighlights();
@@ -3738,6 +3953,8 @@
         fr3dData: panelData.fr3dData,
         lbnData,
         bpCompare,
+        // baseColor is reserved for structure identity in 3D / chrome; 2D
+        // letter selection stays orange (see BP_SELECTED_COLOR in initViewer).
         baseColor: pOpts.baseColor || null,
         showLbn: false,
         link3d: false,
