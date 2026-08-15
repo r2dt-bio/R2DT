@@ -14,7 +14,7 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or D
 
 1. Install Docker Desktop and open it. Wait until it shows as running.
 2. Download the starter pack:
-   :download:`r2dt-workstation-start.zip </files/r2dt-workstation-start.zip>`
+   {download}`r2dt-workstation-start.zip </files/r2dt-workstation-start.zip>`
    (the same files are in [`scripts/workstation/`](https://github.com/r2dt-bio/R2DT/tree/main/scripts/workstation) on GitHub).
 3. Unzip it. Open `README.txt`, then start the launcher for your system:
 

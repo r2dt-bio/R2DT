@@ -64,7 +64,7 @@ html_logo = "images/r2dt-banner-logo.png"
 # -- Workstation starter-pack download ----------------------------------------
 # docs/files/r2dt-workstation-start.zip is generated here, at build time, from
 # scripts/workstation/ -- it is deliberately not committed, so it can never go
-# stale. workstation.md links it with :download:. `just workstation-pack`
+# stale. workstation.md links it with {download}. `just workstation-pack`
 # builds the same zip locally.
 
 
