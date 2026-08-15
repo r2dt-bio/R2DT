@@ -30,7 +30,7 @@ MAX_INSERTIONS = 100
 def get_r2dt_version_header():
     """Return a welcome message including release information."""
     header = """# R2DT :: visualise RNA secondary structure using templates
-# Version 2.2 (2026)
+# Version 2.3 (2026)
 # https://github.com/r2dt-bio/R2DT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"""
     return header
@@ -576,3 +576,19 @@ def sanitise_fasta(filename):
             sanitised_filename = f_fasta.name
             return sanitised_filename
     return filename
+
+
+def ensure_fasta_index(input_fasta_path):
+    """
+    Ensure fasta_path.ssi exists and is at least as new as fasta_path.
+    Rebuilds the index if missing or stale. esl-sfetch --index will not
+    overwrite an existing SSI, so a stale one must be removed first.
+    """
+    ssi_path = f"{input_fasta_path}.ssi"
+    if os.path.exists(ssi_path) and os.path.getmtime(ssi_path) >= os.path.getmtime(
+        input_fasta_path
+    ):
+        return
+    if os.path.exists(ssi_path):
+        os.remove(ssi_path)
+    runner.run(f"esl-sfetch --index {input_fasta_path}")

@@ -185,8 +185,7 @@ def get_subset_fasta(fasta_input, output_filename, seq_ids):
         for seq_id in seq_ids:
             f_out.write(f"{seq_id}\n")
     runner.run(f"esl-sfetch -o {output_filename} -f {fasta_input} {index_filename}")
-    if not os.path.exists(f"{output_filename}.ssi"):
-        runner.run(f"esl-sfetch --index {output_filename}")
+    shared.ensure_fasta_index(output_filename)
     os.remove(index_filename)
 
 
@@ -291,8 +290,7 @@ def draw(
 
     hits = set()
     subset_fasta = os.path.join(output_folder, "subset.fasta")
-    if not os.path.exists(f"{fasta_input}.ssi"):
-        runner.run(f"esl-sfetch --index {fasta_input}")
+    shared.ensure_fasta_index(fasta_input)
 
     def get_output_subfolder(method_name):
         """Get folder within the output folder for a given method."""
@@ -322,8 +320,7 @@ def draw(
         else:
             subset = all_seq_ids
             shutil.copy(fasta_input, subset_fasta)
-            if not os.path.exists(f"{subset_fasta}.ssi"):
-                runner.run(f"esl-sfetch --index {subset_fasta}")
+            shared.ensure_fasta_index(subset_fasta)
         if subset:
             with Timer(f"{method_name}", quiet):
                 if not quiet:
@@ -1064,8 +1061,7 @@ def force_draw(
         rprint(
             f"Visualising sequence {seq_id} using the {model_id} model from {model_type}"
         )
-    if not os.path.exists(f"{fasta_input}.ssi"):
-        runner.run(f"esl-sfetch --index {fasta_input}")
+    shared.ensure_fasta_index(fasta_input)
 
     output = os.path.join(output_folder, model_type.replace("_", "-"))
 
