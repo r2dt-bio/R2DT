@@ -52,12 +52,17 @@ download data_version="2.1":
 sync-lbn:
     #!/usr/bin/env bash
     set -euo pipefail
-    base="https://raw.githubusercontent.com/na-hackathon/na-hackathon-2026/main/workstreams/ws2-prediction-non-Watson-Crick/layered-bp-notation"
+    repo="https://raw.githubusercontent.com/na-hackathon/na-hackathon-2026/main"
+    base="$repo/workstreams/ws2-prediction-non-Watson-Crick/layered-bp-notation"
     dest="utils/layered_bp_notation"
     for f in common.py standalone_lbn_script.py; do
         curl -fsSL "$base/$f" -o "$dest/$f"
         echo "✓ synced $dest/$f"
     done
+    # The MIT license lives at the upstream repo root and must travel with
+    # the vendored code.
+    curl -fsSL "$repo/LICENSE" -o "$dest/LICENSE"
+    echo "✓ synced $dest/LICENSE"
 
 # Run shell in docker
 run tag=default_tag:
@@ -252,7 +257,9 @@ workstation tag=default_tag ws_port="8765":
             --bind 0.0.0.0 \
             --docker-image {{ image }}:{{ tag }}
 
-# Rebuild docs/files/r2dt-workstation-start.zip from scripts/workstation/.
+# Build docs/files/r2dt-workstation-start.zip from scripts/workstation/ for
+# local testing. The zip is gitignored; ReadTheDocs regenerates it on every
+# docs build (see docs/conf.py), so it cannot go stale.
 workstation-pack:
     #!/usr/bin/env bash
     set -euo pipefail

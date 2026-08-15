@@ -15,7 +15,7 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or D
 1. Install Docker Desktop and open it. Wait until it shows as running.
 2. Download the starter pack:
    :download:`r2dt-workstation-start.zip </files/r2dt-workstation-start.zip>`
-   (or the same file from [`docs/files/r2dt-workstation-start.zip`](https://github.com/r2dt-bio/r2dt/raw/2d-3d-viewer/docs/files/r2dt-workstation-start.zip) on GitHub).
+   (the same files are in [`scripts/workstation/`](https://github.com/r2dt-bio/R2DT/tree/main/scripts/workstation) on GitHub).
 3. Unzip it. Open `README.txt`, then start the launcher for your system:
 
    | Computer | Start this file |
@@ -156,7 +156,7 @@ Do not publish the port beyond loopback (for example `-p 0.0.0.0:8765:8765` or `
 
 ### Related documentation
 
-- Starter pack source: `scripts/workstation/` (zipped for download as `docs/files/r2dt-workstation-start.zip`)
+- Starter pack source: `scripts/workstation/` (zipped into the download above at docs build time — see `docs/conf.py`)
 - [Command line reference](./usage.md) — `draw`, `pdb`, alignments, and other CLI commands
 - [PDB structures](./pdb.md) — structure pipeline options
 - [Interactive 2D + 3D viewer](./pdb-2d-3d-viewer.md) — `viewer/` layout, embed API, galleries

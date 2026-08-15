@@ -6,10 +6,16 @@ artefacts are not published on a CDN or npm.
 
 | File | Source | License |
 | --- | --- | --- |
-| `pdb-rna-viewer-plugin-0.3.0.js` | [PDBeurope/pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.3.0 release | Apache-2.0 (see `*.LICENSE.txt`) |
+| `pdb-rna-viewer-plugin-0.3.0.js` | [PDBeurope/pdb-rna-viewer](https://github.com/PDBeurope/pdb-rna-viewer) v0.3.0 release | Apache-2.0 (see `pdb-rna-viewer.LICENSE`) |
 | `pdb-rna-viewer-0.3.0.css` | same | Apache-2.0 |
 | `r2dt-2d-3d-viewer.js` | R2DT (this repository) | Apache-2.0 |
 | `r2dt-2d-3d-viewer.css` | R2DT (this repository) | Apache-2.0 |
+
+`pdb-rna-viewer.LICENSE` is the upstream license verbatim: Apache-2.0 plus an
+EMBL-EBI acknowledgement clause requiring that reuse acknowledge the original
+source — which this README and the generated viewer pages do. The bundled
+`pdb-rna-viewer-plugin-0.3.0.js.LICENSE.txt` is the tslib banner webpack
+extracted from the upstream build, kept alongside as shipped.
 
 `r2dt-2d-3d-viewer.js` exposes `R2DTViewer.create()` — the glue that wires
 pdb-rna-viewer (2D) to pdbe-molstar (3D). Generated `index.html` calls it

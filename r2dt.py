@@ -4108,7 +4108,10 @@ def _copy_viewer_assets(viewer_dir: Path) -> None:
             f"Missing vendored viewer assets in {src}: {', '.join(missing)}. "
             "The R2DT checkout looks incomplete."
         )
-    for name in wanted:
+    # License texts travel with the assets: pdb-rna-viewer's Apache-2.0 (with
+    # EMBL-EBI acknowledgement clause) and the tslib banner from its build.
+    licenses = tuple(path.name for path in src.glob("*.LICENSE*"))
+    for name in wanted + licenses:
         shutil.copyfile(src / name, viewer_dir / name)
 
 

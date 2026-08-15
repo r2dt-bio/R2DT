@@ -16,6 +16,15 @@ for [`--basepairs cif`](../cif_basepairs.py) rather than adding a dependency.
 Only these two files are synced from upstream. Do not edit them in place for
 R2DT-specific behaviour — change upstream or wrap from `utils/cif_basepairs.py`.
 
+## License
+
+The upstream repository is MIT-licensed (code) by the NA Hackathon 2026
+contributors; the upstream `LICENSE` is vendored verbatim in this directory
+alongside the code it covers. MIT code may be redistributed inside
+Apache-2.0-licensed R2DT provided the notice is retained — which this
+directory does. (The upstream `LICENSE-docs` CC BY 4.0 applies only to their
+documentation, none of which is vendored here.)
+
 ## Refreshing from upstream
 
 ```bash

@@ -71,7 +71,8 @@ _TEMPLATE = """<!DOCTYPE html>
 <body>
 <h1>{structure_id} — chain {chain_id}</h1>
 <div class="meta">
-  2D diagram by <a href="https://r2dt.bio" target="_blank" rel="noopener">R2DT</a>,
+  2D diagram by <a href="https://r2dt.bio" target="_blank" rel="noopener">R2DT</a>
+  rendered with <a href="https://github.com/PDBeurope/pdb-rna-viewer" target="_blank" rel="noopener">pdb-rna-viewer</a>,
   3D by <a href="https://github.com/molstar/pdbe-molstar" target="_blank" rel="noopener">pdbe-molstar</a>,
   base-pair annotations from {annotation_source}.
   Unresolved residues are dimmed.
