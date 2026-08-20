@@ -53,8 +53,15 @@ FROM build AS traveler
 # Install Traveler
 RUN \
     git clone https://github.com/cusbg/traveler
+
+# Local patches applied on top of the pinned Traveler commit.
+# See patches/README.md for provenance and removal criteria.
+COPY patches/ /patches/
+
 RUN \
-    cd traveler/src && git checkout ${traveler_COMMIT} && \
+    cd traveler && git checkout ${traveler_COMMIT} && \
+    git apply --verbose /patches/traveler-pr20-pk-per-bp.patch && \
+    cd src && \
     make build && mkdir -p /install/utils && cp ../bin/traveler /install/traveler
 RUN \
     cp -rv traveler/utils/* /install/utils/
