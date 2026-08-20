@@ -20,8 +20,8 @@ ENV VENV=$RNA/venv
 ENV PATH="$VENV/bin:$PATH"
 RUN python3 -m venv $VENV && pip3 install --upgrade pip
 
-ADD requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt --no-cache-dir
+ADD requirements.txt requirements-minimal.txt requirements-dev.txt /tmp/
+RUN pip3 install -r /tmp/requirements-dev.txt --no-cache-dir
 
 # Install FR3D-python
 RUN pip3 install --no-cache-dir https://github.com/BGSU-RNA/fr3d-python/archive/3c7dc20.tar.gz

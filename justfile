@@ -20,7 +20,7 @@ default:
 # Prepare and activate Python virtual environment
 venv:
     python3 -m venv .venv
-    pip3 install -r requirements.txt
+    pip3 install -r requirements-dev.txt
     source .venv/bin/activate
 
 # Download precomputed data from GitHub
