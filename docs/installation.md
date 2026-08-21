@@ -82,6 +82,24 @@ Running `r2dt.py draw --force_template <model_id>` (including [custom templates]
 - [Infernal](http://eddylab.org/infernal/) (also provides the `esl-*` Easel programs)
 - [Bio-Easel](https://github.com/nawrockie/Bio-Easel) (provides `esl-alidepair.pl` and the Perl modules used by the jiffy scripts)
 - [jiffy-infernal-hmmer-scripts](https://github.com/nawrockie/jiffy-infernal-hmmer-scripts) (provides `ali-pfam-lowercase-rf-gap-columns.pl` and `ali-pfam-sindi2dot-bracket.pl`)
-- the Python packages from [requirements.txt](https://github.com/r2dt-bio/R2DT/blob/main/requirements.txt)
+- the Python packages from [requirements-minimal.txt](https://github.com/r2dt-bio/R2DT/blob/main/requirements-minimal.txt):
+
+    ```bash
+    pip install -r requirements-minimal.txt
+    ```
+
+    These are all pure Python, so they install without a build toolchain on any
+    supported Python version. In particular ViennaRNA, Biopython, NumPy, Pillow,
+    scikit-image and CairoSVG are **not** needed for this code path — they are
+    imported lazily and only when the features that use them are invoked.
 
 tRNAscan-SE, Ribovore, RNAView, RNArtist, R-scape, and RNAstructure are not used by this code path. Note that template selection (running `draw` without `--force_template`) and template-free mode require the full installation.
+
+The other requirements files are:
+
+| File | Purpose |
+| --- | --- |
+| `requirements-minimal.txt` | drawing with known templates (`draw --force_template`) |
+| `requirements.txt` | full runtime, adds ViennaRNA (constraint folding, RNApuzzler) and Biopython (`pdb` base-pair extraction) |
+| `requirements-dev.txt` | everything needed to run `r2dt.py test` |
+| `requirements-docs.txt` | building the documentation |

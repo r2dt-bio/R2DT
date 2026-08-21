@@ -17,7 +17,6 @@ import tempfile
 from pathlib import Path
 
 import requests  # pylint: disable=import-error
-import RNA  # pylint: disable=import-error
 from colorhash import ColorHash  # pylint: disable=import-error
 
 from . import config
@@ -298,6 +297,10 @@ def get_full_constraint(filename):
 # pylint: disable-next=too-many-locals
 def fold_insertions_only(sequence, constraint, filename):
     """Use RNAfold to fold insertions."""
+    # ViennaRNA is only needed when folding with constraints, so it is
+    # imported lazily to keep it off the plain drawing path.
+    import RNA  # pylint: disable=import-error,import-outside-toplevel
+
     match = get_insertions(filename)
     list_seq = list(sequence)
     list_con = list(constraint)
@@ -370,6 +373,10 @@ def handle_exclusion(exclusion, r2dt_constraint):
 # pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, too-many-positional-arguments
 def fold_insertions(input_fasta, exclusion, source, filename, model_id, fold_type):
     """Fold insertions using RNAfold."""
+    # ViennaRNA is only needed when folding with constraints, so it is
+    # imported lazily to keep it off the plain drawing path.
+    import RNA  # pylint: disable=import-error,import-outside-toplevel
+
     with open(input_fasta, "r", encoding="utf-8") as f_fasta:
         orig = f_fasta.readlines()
     r2dt_constraint = orig[2].strip()

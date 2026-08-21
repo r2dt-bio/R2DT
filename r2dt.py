@@ -29,7 +29,6 @@ from pathlib import Path
 import click  # pylint: disable=import-error
 from rich import print as rprint
 
-from tests import tests
 from utils import config, core
 from utils import fr3d as fr3d_utils
 from utils import generate_cm_library as gcl
@@ -2382,6 +2381,10 @@ def test(test_name):
     """
     os.environ["R2DT_KEEP_TEST_RESULTS"] = "1"
 
+    # tests.tests is not imported here on purpose: unittest resolves it by
+    # name, and importing it pulls in numpy, Pillow, scikit-image, cairosvg
+    # and Jinja2, which are not needed to draw diagrams.
+
     # Discover and run the tests
     loader = unittest.TestLoader()
 
@@ -2398,6 +2401,9 @@ def test(test_name):
 @click.argument("test_name", required=True, type=click.STRING)
 def update_test_examples(test_name):
     """Update test examples for a given test."""
+    # Imported lazily, see the `test` command above.
+    from tests import tests  # pylint: disable=import-outside-toplevel
+
     try:
         class_ = getattr(tests, test_name)
     except AttributeError:

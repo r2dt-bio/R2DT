@@ -13,8 +13,6 @@ Reference:
 import re
 from pathlib import Path
 
-import RNA  # ViennaRNA Python bindings  # pylint: disable=import-error
-
 from .runner import runner
 
 # ViennaRNA layout type constants
@@ -144,6 +142,10 @@ def generate_layout_svg(sequence, structure, output_dir):
     Returns:
         Path to the generated SVG file.
     """
+    # ViennaRNA is only needed for RNApuzzler layouts, so it is imported
+    # lazily to keep it off the plain drawing path.
+    import RNA  # pylint: disable=import-error,import-outside-toplevel
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     svg_path = output_dir / "rnapuzzler.svg"

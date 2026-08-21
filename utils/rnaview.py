@@ -3,8 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from Bio.PDB import PDBParser
-
 
 def extract_sequence(pdb_file, model_id=0, chain_id=None, quiet=False):
     """
@@ -21,6 +19,9 @@ def extract_sequence(pdb_file, model_id=0, chain_id=None, quiet=False):
     Returns:
         str: The extracted sequence as a string.
     """
+    # Biopython is only needed for RNAView-based extraction.
+    from Bio.PDB import PDBParser  # pylint: disable=import-outside-toplevel
+
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("RNA", pdb_file)
     sequence = []
@@ -283,6 +284,9 @@ def get_structure_info(pdb_file):
     Returns:
         tuple: (structure, list of model_ids with RNA chains)
     """
+    # Biopython is only needed for RNAView-based extraction.
+    from Bio.PDB import PDBParser  # pylint: disable=import-outside-toplevel
+
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("RNA", pdb_file)
 
