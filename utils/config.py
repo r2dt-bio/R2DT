@@ -12,10 +12,37 @@ limitations under the License.
 """
 
 import os
+import shutil
 
 here = os.path.realpath(os.path.dirname(__file__))
 PROJECT_HOME = os.path.dirname(here)
 DATA = os.path.join(PROJECT_HOME, "data")
+
+
+def find_traveler_utils():
+    """
+    Locate the utils folder of the Traveler installation, which provides
+    infernal2mapping.py, enrich_json.py, json2svg.py, and bpseq2fasta.py.
+    Candidates are checked in order: the R2DT_TRAVELER_UTILS environment
+    variable, the location used in the Docker image, and the installation
+    folder of the traveler executable found in PATH. Returns None when no
+    candidate contains infernal2mapping.py.
+    """
+    candidates = []
+    if env_path := os.environ.get("R2DT_TRAVELER_UTILS"):
+        candidates.append(env_path)
+    candidates.append("/rna/traveler/utils")
+    if traveler_bin := shutil.which("traveler"):
+        traveler_home = os.path.dirname(os.path.dirname(os.path.realpath(traveler_bin)))
+        candidates.append(os.path.join(traveler_home, "utils"))
+    for candidate in candidates:
+        if os.path.isfile(os.path.join(candidate, "infernal2mapping.py")):
+            return candidate
+    return None
+
+
+TRAVELER_UTILS = find_traveler_utils()
+COLORSCHEME_JSON = os.path.join(here, "colorscheme.json")
 
 CRW_CM_LIBRARY = os.path.join(DATA, "crw")
 CRW_PS_LIBRARY = os.path.join(DATA, "crw-ps")

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import requests
 
+from . import config
 from .runner import runner
 
 
@@ -25,7 +26,14 @@ def convert_bpseq_to_fasta(bpseq):
     """Use a Traveler script to convert from BPSEQ to FASTA."""
     fasta = bpseq.replace(".bpseq", ".fasta")
     if not os.path.exists(fasta):
-        runner.run(f"python /rna/traveler/utils/bpseq2fasta.py -i {bpseq} -o {fasta}")
+        if not config.TRAVELER_UTILS:
+            raise ValueError(
+                "Traveler utils folder not found, cannot run bpseq2fasta.py. "
+                "Set the R2DT_TRAVELER_UTILS environment variable to the "
+                "utils folder of your Traveler installation."
+            )
+        bpseq2fasta = os.path.join(config.TRAVELER_UTILS, "bpseq2fasta.py")
+        runner.run(f"python {bpseq2fasta} -i {bpseq} -o {fasta}")
     return fasta
 
 

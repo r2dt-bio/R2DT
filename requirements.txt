@@ -1,19 +1,15 @@
-click==7.0
-colorhash==1.2.1
-requests==2.31.0
-sphinx==6.2.1
-myst-parser==2.0.0
-sphinx-rtd-theme==3.0.2
-pre-commit==4.2.0
-sphinx-autobuild==2021.3.14
-viennarna==2.6.4
-rich==13.5.2
-cairosvg==2.7.1
-Pillow>=11.0,<13
-scikit-image>=0.24.0
-Jinja2==3.1.6
-numpy>=2.0.0
-tqdm==4.66.5
+# Full R2DT runtime dependencies.
+#
+# For the drawing-only subset (r2dt.py draw --force_template) see
+# requirements-minimal.txt. Development/test and documentation dependencies
+# live in requirements-dev.txt and requirements-docs.txt.
+
+-r requirements-minimal.txt
+
+# Constraint folding (--constraint) and RNApuzzler template-free layouts.
+# Imported lazily, see utils/shared.py and utils/rnapuzzler.py.
+viennarna==2.7.2
+
+# RNAView and FR3D base-pair extraction (r2dt.py pdb).
+# Imported lazily, see utils/rnaview.py and utils/fr3d.py.
 biopython==1.84
-scipy==1.17.0
-mmcif-pdbx==2.0.1
