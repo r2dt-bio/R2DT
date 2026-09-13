@@ -182,6 +182,10 @@ class Catalog:
             "lost": diff.get("lost"),
             "added": diff.get("added"),
             "superpose_rmsd": raw.get("superpose_rmsd"),
+            "display_chains": raw.get("display_chains"),
+            "score_chains": raw.get("score_chains"),
+            "model_chains": raw.get("model_chains"),
+            "display_widened": raw.get("display_widened"),
         }
         return self.update_meta(job_id, metrics=metrics)
 
@@ -205,12 +209,19 @@ class Catalog:
     def _scan_jobs(self) -> List[Dict[str, Any]]:
         """Scan ``jobs/`` and return meta dicts, newest first."""
         jobs = []
-        for child in sorted(self.jobs_dir.iterdir(), reverse=True):
+        for child in self.jobs_dir.iterdir():
             if not child.is_dir():
                 continue
             meta = self.read_meta(child.name)
             if meta:
                 jobs.append(meta)
+        jobs.sort(
+            key=lambda meta: (
+                str(meta.get("created") or ""),
+                str(meta.get("id") or ""),
+            ),
+            reverse=True,
+        )
         return jobs
 
     def _refresh_catalog(self) -> None:

@@ -976,6 +976,29 @@
     // dimer) -- for an ordinary single-chain structure it'd just be noise.
     const hasMultipleChains = new Set(Object.values(labelToChain)).size > 1;
 
+    function ntAtLabel(label) {
+      const seq = apiData.sequence || '';
+      const i = (+label) - 1;
+      if (i >= 0 && i < seq.length) return seq[i];
+      return 'N';
+    }
+
+    // 3D residue id: chain + nucleotide + author number, e.g. "0:G23".
+    // seqId is the 1-based 2D concatenated label used internally for SVG paths.
+    function formatChainNtAuth(seqId, nt) {
+      const letter = String(nt || ntAtLabel(seqId) || 'N').charAt(0).toUpperCase() || 'N';
+      const auth = labelToAuth[seqId] != null ? labelToAuth[seqId] : seqId;
+      const chain = labelToChain[seqId];
+      if (chain != null && chain !== '') {
+        return `${chain}:${letter}${auth}`;
+      }
+      return `${letter}${auth}`;
+    }
+
+    function formatBpPairLabel(seq1, seq2, nt1, nt2) {
+      return `${formatChainNtAuth(seq1, nt1)} – ${formatChainNtAuth(seq2, nt2)}`;
+    }
+
   // --- 2D viewer ---
   const rnaPlugin = new PdbRnaViewerPlugin();
   await rnaPlugin.render(
@@ -2150,29 +2173,44 @@
     if (!dialog) return;
     dialog.querySelectorAll('ul > li').forEach((li) => {
       if (li.classList.contains('r2dt-bp-list-section')) return;
-      if (li.querySelector('.r2dt-bp-list-pair')) return;
+      const existingPair = li.querySelector('.r2dt-bp-list-pair');
+      if (existingPair) {
+        const a = +li.dataset.r2dtBpA;
+        const b = +li.dataset.r2dtBpB;
+        if (a && b) existingPair.textContent = formatBpPairLabel(a, b);
+        return;
+      }
       const raw = (li.textContent || '').trim();
       const m = raw.match(/^(.+?)\s*;\s*(\S+)\s*$/);
       if (!m) return;
       const pairText = m[1].trim();
       const familyText = pluginLwFamily(m[2]);
       const ntMatch = pairText.match(/([A-Z])(\d+)\s*-\s*([A-Z])(\d+)/i);
-      const canonical = ntMatch
-        ? isCanonicalWatsonCrick(familyText, ntMatch[1], ntMatch[3])
+      const seqA = li.dataset.r2dtBpA ? +li.dataset.r2dtBpA
+        : (ntMatch ? +ntMatch[2] : NaN);
+      const seqB = li.dataset.r2dtBpB ? +li.dataset.r2dtBpB
+        : (ntMatch ? +ntMatch[4] : NaN);
+      const nt1 = ntMatch ? ntMatch[1] : (seqA ? ntAtLabel(seqA) : 'N');
+      const nt2 = ntMatch ? ntMatch[3] : (seqB ? ntAtLabel(seqB) : 'N');
+      const canonical = seqA && seqB
+        ? isCanonicalWatsonCrick(familyText, nt1, nt2)
         : familyText === 'cWW';
+      const displayPair = (seqA && seqB)
+        ? formatBpPairLabel(seqA, seqB, nt1, nt2)
+        : pairText;
 
       li.textContent = '';
       const pair = document.createElement('span');
       pair.className = 'r2dt-bp-list-pair';
-      pair.textContent = pairText;
+      pair.textContent = displayPair;
       const family = document.createElement('span');
       family.className = 'r2dt-bp-list-family';
       family.textContent = familyText;
 
       // TP/FP/FN badge (compare mode): does this pair exist in the other structure?
       let cmp = null;
-      if (bpCompareKeys && ntMatch) {
-        const kind = classifyBpPair(+ntMatch[2], +ntMatch[4]);
+      if (bpCompareKeys && seqA && seqB) {
+        const kind = classifyBpPair(seqA, seqB);
         if (kind) {
           cmp = document.createElement('span');
           cmp.className = `r2dt-bp-list-cmp r2dt-bp-list-cmp--${kind.toLowerCase()}`;
@@ -2203,9 +2241,9 @@
       // pair flex-grows so non-WC, family and the TP/FP/FN badge pin to the
       // right edge and line up in their own aligned columns.
       li.append(pair, tag, family, ...(cmp ? [cmp] : []));
-      if (ntMatch) {
-        li.dataset.r2dtBpA = String(+ntMatch[2]);
-        li.dataset.r2dtBpB = String(+ntMatch[4]);
+      if (seqA && seqB) {
+        li.dataset.r2dtBpA = String(seqA);
+        li.dataset.r2dtBpB = String(seqB);
       }
     });
     groupBpListByChain();
@@ -2374,10 +2412,12 @@
         const nt1 = a.nt1 || a.unit1 || 'N';
         const nt2 = a.nt2 || a.unit2 || 'N';
         const fam = a.bp || 'cWW';
-        li.textContent = `${nt1}${a.seq_id1} - ${nt2}${a.seq_id2} ; ${fam}`;
-        li.style.cursor = 'pointer';
         const i = +a.seq_id1;
         const j = +a.seq_id2;
+        li.dataset.r2dtBpA = String(i);
+        li.dataset.r2dtBpB = String(j);
+        li.textContent = `${nt1}${i} - ${nt2}${j} ; ${fam}`;
+        li.style.cursor = 'pointer';
         li.addEventListener('mouseenter', () => {
           findBPPath(i, j)?.dispatchEvent(
             new Event('mouseover', { bubbles: true })
@@ -2896,35 +2936,14 @@
   // selectResidueRange's 3rd argument is a sequence letter for the tooltip,
   // not a colour — pass colours via UiActionsService.selectNucleotide instead.
   function updateSelectionTooltip(labels) {
-    const svc = window.UiActionsService;
     const tip = document.getElementById(`${PDB_LOWER}-rnaTopologyTooltip`);
-    if (!tip || !svc?.buildResidueLabel) return;
+    if (!tip) return;
     if (!labels || labels.length === 0) {
       tip.style.display = 'none';
       return;
     }
     tip.style.display = 'inline';
-    let text = svc.buildResidueLabel(labels, undefined);
-    if (hasMultipleChains) {
-      // Grouped by chain (not a flat "(chains 1, 0)" list) so which residue
-      // is on which chain is unambiguous -- a flat list's order isn't
-      // guaranteed to match buildResidueLabel's own (possibly re-sorted)
-      // residue-number order above, which could misattribute a residue to
-      // the wrong chain at a glance.
-      const byChain = new Map();
-      labels.forEach((l) => {
-        const c = labelToChain[l];
-        if (c == null) return;
-        if (!byChain.has(c)) byChain.set(c, []);
-        byChain.get(c).push(l);
-      });
-      if (byChain.size === 1) {
-        text += ` (chain ${byChain.keys().next().value})`;
-      } else if (byChain.size > 1) {
-        const parts = Array.from(byChain, ([c, ls]) => `chain ${c}: ${ls.join(', ')}`);
-        text += ` (${parts.join('; ')})`;
-      }
-    }
+    const text = labels.map((l) => formatChainNtAuth(l)).join(', ');
     tip.innerHTML =
       `<strong>Selected ${text}</strong>`
       + ' <button type="button" class="r2dt-deselect-btn"'
@@ -3160,12 +3179,9 @@
     const li = ev.target.closest?.('#' + bpListId + ' li');
     if (!li || !root.contains(li)) return;
     if (li.classList.contains('r2dt-bp-list-section')) return;
-    const pairText =
-      li.querySelector('.r2dt-bp-list-pair')?.textContent || li.textContent || '';
-    const m = pairText.match(/(\d+)\D*?-\D*?(\d+)/);
-    if (!m) return;
-    const a = parseInt(m[1]);
-    const b = parseInt(m[2]);
+    const a = +li.dataset.r2dtBpA;
+    const b = +li.dataset.r2dtBpB;
+    if (!a || !b) return;
     selectBasePair(a, b, findBPPath(a, b));
   });
   // The plugin re-renders bp paths when the filter changes, so reattach.

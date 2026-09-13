@@ -215,6 +215,36 @@
     return box ? box.value : "";
   }
 
+  function chainDetails(info) {
+    if (!info) return [];
+    if (info.chain_details && info.chain_details.length) return info.chain_details;
+    return (info.chains || []).map(function (id) {
+      return { id: id, length: 0, preview: "" };
+    });
+  }
+
+  function chainLabelInner(d) {
+    var meta = [];
+    if (d.length) meta.push(d.length + " nt");
+    if (d.auth_start && d.auth_end) {
+      meta.push("residues " + d.auth_start + "–" + d.auth_end);
+    }
+    if (d.same_sequence_as && d.same_sequence_as.length) {
+      meta.push("same sequence as " + d.same_sequence_as.map(function (id) {
+        return "chain " + id;
+      }).join(", "));
+    }
+    var html = '<span class="chain-meta"><span class="chain-id">chain ' +
+      esc(d.id) + "</span>";
+    if (meta.length) {
+      html += '<span class="chain-sub">' + esc(meta.join(" · ")) + "</span>";
+    }
+    if (d.preview) {
+      html += '<span class="chain-seq">' + esc(d.preview) + "</span>";
+    }
+    return html + "</span>";
+  }
+
   function renderChainPicker(info) {
     var el = $("struct-chains");
     if (!info) {
@@ -223,18 +253,18 @@
       return;
     }
     el.classList.remove("hidden");
-    var chains = info.chains || [];
+    var details = chainDetails(info);
     var html = "";
-    if (!chains.length) {
+    if (!details.length) {
       html += '<p class="err">No RNA chains detected.</p>';
       el.innerHTML = html;
       return;
     }
     html += '<p class="hint">Select one RNA chain for the interactive viewer.</p>';
-    chains.forEach(function (c, idx) {
+    details.forEach(function (d, idx) {
       var checked = idx === 0 ? " checked" : "";
       html += '<label class="chain"><input type="radio" name="pdb-chain" value="' +
-        esc(c) + '"' + checked + "> " + esc(c) + "</label>";
+        esc(d.id) + '"' + checked + "> " + chainLabelInner(d) + "</label>";
     });
     el.innerHTML = html;
   }

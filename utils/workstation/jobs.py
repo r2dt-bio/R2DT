@@ -32,7 +32,10 @@ from utils.workstation.align import (
 )
 from utils.workstation.catalog import Catalog, utc_now
 from utils.workstation.chains import (
+    assert_chains_known,
+    assert_concatenated_lengths,
     ensure_mmcif,
+    list_rna_chains,
     normalize_suffix,
     require_rna_chains,
     structure_stem,
@@ -770,13 +773,20 @@ def create_job_from_uploads(  # pylint: disable=too-many-arguments,too-many-loca
 
     ref_src = _resolve_upload(catalog, ref_upload_id)
     model_src = _resolve_upload(catalog, model_upload_id)
-    chains = require_rna_chains(ref_src, chains, side="reference")
-    model_chains = require_rna_chains(model_src, model_chains, side="model")
-    if len(chains) != len(model_chains):
-        raise ValueError(
-            "Reference and model must have the same number of chains "
-            f"(got {len(chains)} vs {len(model_chains)})"
-        )
+    ref_info = list_rna_chains(ref_src)
+    model_info = list_rna_chains(model_src)
+    chains = assert_chains_known(chains, ref_info.get("chains") or [], side="reference")
+    model_chains = assert_chains_known(
+        model_chains, model_info.get("chains") or [], side="model"
+    )
+    # Counts may differ (e.g. dimer reference vs one concatenated model chain)
+    # as long as the concatenated sequences match in that order.
+    assert_concatenated_lengths(
+        ref_info.get("chain_details") or [],
+        chains,
+        model_info.get("chain_details") or [],
+        model_chains,
+    )
 
     chains_csv = ",".join(chains)
     model_chains_csv = ",".join(model_chains)

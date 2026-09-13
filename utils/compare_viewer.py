@@ -60,6 +60,48 @@ _CASP_PROTEIN_YELLOW = {"r": 255, "g": 204, "b": 0}
 _CASP_MODEL_BLUE = {"r": 26, "g": 58, "b": 140}
 
 
+def chain_phrase(chain_ids) -> str:
+    """Human-readable chain list: ``chain 0`` or ``chains 0+1``."""
+    ids = [str(cid) for cid in (chain_ids or []) if cid is not None and str(cid) != ""]
+    if not ids:
+        return "chains"
+    if len(ids) == 1:
+        return f"chain {ids[0]}"
+    return f"chains {'+'.join(ids)}"
+
+
+def compare_page_subtitle(display_ids, score_ids, model_ids, *, widened: bool) -> str:
+    """Page meta line: mapping, optional widened-display note, shared 3D."""
+    if widened:
+        extra = (
+            "interacting partner included, not scored"
+            if len(display_ids) - len(score_ids) == 1
+            else "interacting partners included, not scored"
+        )
+        return (
+            f"scored {chain_phrase(score_ids)} → {chain_phrase(model_ids)} · "
+            f"display {chain_phrase(display_ids)} ({extra}) · shared 3D"
+        )
+    return f"{chain_phrase(display_ids)} · shared 3D"
+
+
+def overlay_scored_chain_ids(api_data: dict, model_result, score_offsets) -> dict:
+    """Write the model's chain ids onto scored residues in ``api_data``.
+
+    Shared-layout model panels start as a copy of the reference diagram, so
+    ``chain_ids`` would otherwise be the reference's. Unscored (widened)
+    positions keep the reference chain id.
+    """
+    chain_ids = list(api_data.get("chain_ids") or [])
+    model_chain_of = getattr(model_result, "chain_of", None) or []
+    for index, pos in enumerate(score_offsets):
+        label = pos + 1
+        if 0 <= label < len(chain_ids) and index < len(model_chain_of):
+            chain_ids[label] = model_chain_of[index]
+    api_data["chain_ids"] = chain_ids
+    return api_data
+
+
 def layout_multichain_structure(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     ctx,
     *,
@@ -187,11 +229,10 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
     # clickable model content. The reference panel keeps the plain api_data
     # — those residues are real reference data, nothing to greyed there.
     unscored_labels = sorted(p + 1 for p in range(n) if p not in score_positions)
-    model_api_data = (
-        {**api_data, "unobserved_label_seq_ids": unscored_labels}
-        if unscored_labels
-        else api_data
-    )
+    # Always copy: the model panel may later overlay its own chain ids.
+    model_api_data = {**api_data}
+    if unscored_labels:
+        model_api_data["unobserved_label_seq_ids"] = unscored_labels
     ref_fr3d = viewer_export.build_pairs_fr3d_data(
         result.nested_pairs,
         result.crossing_pairs,
@@ -246,6 +287,7 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         model_crossing = _remap_pairs(model_result.crossing_pairs)
         model_all_pairs = _remap_all_pairs(model_result.all_pairs)
         model_is_simulated = False
+        overlay_scored_chain_ids(model_api_data, model_result, score_offsets)
     else:
         model_id = f"{structure_id}_model"
         model_pairs = multichain.simulate_model_pairs(ref_pairs, n, seed=simulate_seed)
@@ -394,7 +436,12 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
             }
         )
 
-    chains_label = "+".join(result.order)
+    display_ids = list(result.order)
+    score_ids = list(score_chains) if score_chains else display_ids
+    model_ids = list(model_result.order) if model_result is not None else score_ids
+    display_widened = bool(score_chains and score_ids != display_ids)
+    display_phrase = chain_phrase(display_ids)
+    model_phrase = chain_phrase(model_ids)
     model_tag = "model, simulated" if model_is_simulated else "model"
 
     # The viewer uses structureId as the 2D plugin's pdbId, which is interpolated
@@ -522,7 +569,7 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
     panels = [
         {
             "title": f"{structure_id} (reference)",
-            "subtitle": f"2D · chains {chains_label}",
+            "subtitle": f"2D · {display_phrase}",
             "structureId": _safe_id(structure_id),
             "chainId": "",
             "baseUrl": "ref/",
@@ -532,7 +579,7 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         },
         {
             "title": f"{model_id} ({model_tag})",
-            "subtitle": f"2D · chains {chains_label}",
+            "subtitle": f"2D · {model_phrase}",
             "structureId": _safe_id(model_id),
             "chainId": "",
             "baseUrl": "model/",
@@ -586,6 +633,7 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         ref_pairs=scoped_ref_all_pairs,
         model_pairs=model_all_pairs,
         inf=inf_metrics,
+        auth_of=result.auth_of,
         extra={
             "model_simulated": model_is_simulated,
             "model_own_layout": bool(model_own_layout),
@@ -596,7 +644,9 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         viewer_dir,
         page_title=f"{structure_id} — reference vs model",
         heading=heading,
-        subtitle=f"chains {chains_label} · shared 3D",
+        subtitle=compare_page_subtitle(
+            display_ids, score_ids, model_ids, widened=display_widened
+        ),
         panels=panels,
         molstar=molstar,
         metrics=inf_metrics,
@@ -635,6 +685,10 @@ def emit_compare_viewer(  # pylint: disable=too-many-arguments,too-many-position
         "model_simulated": model_is_simulated,
         "model_own_layout": bool(model_own_layout),
         "chains": [cid for cid, _s, _e in score_boundaries],
+        "display_chains": display_ids,
+        "score_chains": score_ids,
+        "model_chains": model_ids,
+        "display_widened": display_widened,
         "boundaries": [
             {"chain": cid, "start": start, "end": end}
             for cid, start, end in score_boundaries

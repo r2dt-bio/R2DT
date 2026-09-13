@@ -620,6 +620,7 @@ td.actions-col {
   vertical-align: middle;
 }
 tr:hover td { background: rgba(57, 49, 133, 0.03); }
+tr.is-highlight td { background: #f4f3fb; }
 a { color: inherit; }
 .badge {
   display: inline-block;
@@ -722,17 +723,77 @@ label > textarea {
   color: var(--muted);
   font-size: 13px;
   background: #f8f9fa;
-}
-.chains .hint { margin: 0 0 6px; }
-.chains label.chain {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  margin: 0 12px 6px 0;
+}
+.chains .hint { margin: 0; }
+.chains label.chain {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
   color: var(--fg);
+  cursor: pointer;
+}
+.chains label.chain.suggested {
+  border-color: rgba(57, 49, 133, 0.45);
+  background: #f4f3fb;
+}
+.chains label.chain input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.chains .chain-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chains .chain-id {
+  font-weight: 650;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.chains .chain-sub,
+.chains .chain-seq {
+  color: var(--muted);
+  font-size: 12px;
+}
+.chains .chain-seq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
 }
 .chains .warn { color: var(--warn); }
 .chains .err { color: var(--danger); }
+
+.chain-map-hint {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #f8f9fc;
+  font-size: 13px;
+  color: var(--fg);
+}
+.chain-map-hint.ok {
+  border-color: rgba(21, 128, 61, 0.35);
+  background: #f0fdf4;
+}
+.chain-map-hint.warn {
+  border-color: rgba(161, 98, 7, 0.35);
+  background: #fffbeb;
+}
+.chain-map-hint.err {
+  border-color: rgba(185, 28, 28, 0.35);
+  background: #fef2f2;
+  color: var(--danger);
+}
+.chain-map-hint p { margin: 0 0 6px; }
+.chain-map-hint p:last-child { margin: 0; }
 
 .ws-drop-label {
   margin: 0 0 6px;

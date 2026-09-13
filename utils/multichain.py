@@ -684,6 +684,14 @@ def _chain_at(boundaries: List[Tuple[str, int, int]], pos: int) -> str:
     return ""
 
 
+def _auth_at(auth_of: Optional[List[Optional[int]]], pos: int) -> int:
+    """Author residue number at 0-based concatenated ``pos``, else 1-based serial."""
+    if auth_of is None or pos < 0 or pos >= len(auth_of):
+        return pos + 1
+    value = auth_of[pos]
+    return pos + 1 if value is None else int(value)
+
+
 def pair_scope(
     i: int, j: int, boundaries: List[Tuple[str, int, int]]
 ) -> Tuple[str, Tuple[str, ...]]:
@@ -749,6 +757,7 @@ def _classify_pair_lists(
     boundaries: Optional[List[Tuple[str, int, int]]] = None,
     *,
     one_based: bool = False,
+    auth_of: Optional[List[Optional[int]]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Build TP / FP / FN pair detail lists for a downloadable report.
 
@@ -763,16 +772,20 @@ def _classify_pair_lists(
         return pos - 1 if one_based else pos
 
     def _row(a: int, b: int, kind: str) -> Dict[str, Any]:
+        pos_a = _lookup_pos(a)
+        pos_b = _lookup_pos(b)
         row: Dict[str, Any] = {
             "i": a + shift,
             "j": b + shift,
             "kind": kind,
             "family_ref": ref_idx.get((a, b)),
             "family_model": model_idx.get((a, b)),
+            "auth_i": _auth_at(auth_of, pos_a),
+            "auth_j": _auth_at(auth_of, pos_b),
         }
         if boundaries:
-            row["chain_i"] = _chain_at(boundaries, _lookup_pos(a))
-            row["chain_j"] = _chain_at(boundaries, _lookup_pos(b))
+            row["chain_i"] = _chain_at(boundaries, pos_a)
+            row["chain_j"] = _chain_at(boundaries, pos_b)
         return row
 
     return {
@@ -820,6 +833,7 @@ def compute_inf_scopes(
     boundaries: List[Tuple[str, int, int]],
     *,
     one_based: bool = False,
+    auth_of: Optional[List[Optional[int]]] = None,
 ) -> List[Dict[str, Any]]:
     """INF for the full set plus every intra-/inter-chain subset.
 
@@ -838,7 +852,9 @@ def compute_inf_scopes(
             "type": "all",
             "chains": [cid for cid, _s, _e in boundaries],
             "inf": compute_inf(ref_pairs, model_pairs),
-            "pairs": _classify_pair_lists(ref_pairs, model_pairs, boundaries),
+            "pairs": _classify_pair_lists(
+                ref_pairs, model_pairs, boundaries, auth_of=auth_of
+            ),
         }
     ]
     if len(boundaries) < 2:
@@ -854,7 +870,9 @@ def compute_inf_scopes(
                 "type": kind,
                 "chains": list(chains),
                 "inf": compute_inf(r_sub, m_sub),
-                "pairs": _classify_pair_lists(r_sub, m_sub, boundaries),
+                "pairs": _classify_pair_lists(
+                    r_sub, m_sub, boundaries, auth_of=auth_of
+                ),
             }
         )
     return scopes
@@ -871,9 +889,12 @@ def build_inf_report(  # pylint: disable=too-many-arguments,too-many-positional-
     inf: Optional[Dict[str, Dict[str, Optional[float]]]] = None,
     one_based: bool = False,
     extra: Optional[Dict[str, Any]] = None,
+    auth_of: Optional[List[Optional[int]]] = None,
 ) -> Dict[str, Any]:
     """Full downloadable INF report: scores, scopes, and underlying pairs."""
-    scopes = compute_inf_scopes(ref_pairs, model_pairs, boundaries, one_based=one_based)
+    scopes = compute_inf_scopes(
+        ref_pairs, model_pairs, boundaries, one_based=one_based, auth_of=auth_of
+    )
     if one_based:
         ref0 = [(i - 1, j - 1, fam) for i, j, fam in ref_pairs]
         model0 = [(i - 1, j - 1, fam) for i, j, fam in model_pairs]
@@ -893,6 +914,8 @@ def build_inf_report(  # pylint: disable=too-many-arguments,too-many-positional-
                     "family": fam,
                     "chain_i": _chain_at(boundaries, a),
                     "chain_j": _chain_at(boundaries, b),
+                    "auth_i": _auth_at(auth_of, a),
+                    "auth_j": _auth_at(auth_of, b),
                 }
             )
         rows.sort(key=lambda r: (int(r["i"]), int(r["j"])))
@@ -942,6 +965,8 @@ def inf_report_to_csv(report: Dict[str, Any]) -> str:
             "family_model",
             "chain_i",
             "chain_j",
+            "auth_i",
+            "auth_j",
         ]
     )
     for scope in report.get("scopes") or []:
@@ -962,6 +987,8 @@ def inf_report_to_csv(report: Dict[str, Any]) -> str:
                     m.get("tp"),
                     m.get("fp"),
                     m.get("fn"),
+                    "",
+                    "",
                     "",
                     "",
                     "",
@@ -995,6 +1022,8 @@ def inf_report_to_csv(report: Dict[str, Any]) -> str:
                         row.get("family_model"),
                         row.get("chain_i"),
                         row.get("chain_j"),
+                        row.get("auth_i"),
+                        row.get("auth_j"),
                     ]
                 )
     for side, key in (("reference", "reference_pairs"), ("model", "model_pairs")):
@@ -1019,6 +1048,8 @@ def inf_report_to_csv(report: Dict[str, Any]) -> str:
                     "",
                     row.get("chain_i"),
                     row.get("chain_j"),
+                    row.get("auth_i"),
+                    row.get("auth_j"),
                 ]
             )
     return buf.getvalue()

@@ -73,10 +73,26 @@
   }
 
   function chainAtFromIds(chainIds, label1based) {
-    if (!chainIds || !chainIds.length) return null;
-    var idx = (+label1based) - 1;
-    if (idx < 0 || idx >= chainIds.length) return null;
-    return chainIds[idx];
+    return lookupPadded(chainIds, label1based);
+  }
+
+  function authAtFromIds(authIds, label1based) {
+    var v = lookupPadded(authIds, label1based);
+    return v == null ? +label1based : v;
+  }
+
+  // apiData.chain_ids / auth_seq_ids are padded [null, ...residues..., null],
+  // indexed by the 1-based concatenated label. Unpadded arrays index at label-1.
+  function lookupPadded(arr, label1based) {
+    if (!arr || !arr.length) return null;
+    var label = +label1based;
+    if (arr[0] == null) {
+      if (label >= 0 && label < arr.length) return arr[label];
+      return null;
+    }
+    var idx = label - 1;
+    if (idx >= 0 && idx < arr.length) return arr[idx];
+    return null;
   }
 
   function pairScopeFromIds(chainIds, i, j) {
@@ -178,7 +194,7 @@
     return out;
   }
 
-  function exportPairRows(pairs, chainIds) {
+  function exportPairRows(pairs, chainIds, authIds) {
     return (pairs || []).map(function (p) {
       var i = Math.min(+p.i, +p.j);
       var j = Math.max(+p.i, +p.j);
@@ -188,13 +204,15 @@
         family: p.family || 'cWW',
         chain_i: chainAtFromIds(chainIds, i),
         chain_j: chainAtFromIds(chainIds, j),
+        auth_i: authAtFromIds(authIds, i),
+        auth_j: authAtFromIds(authIds, j),
       };
     }).sort(function (a, b) {
       return a.i - b.i || a.j - b.j;
     });
   }
 
-  function buildLiveInfReport(refPairs, modelPairs, chainIds, meta) {
+  function buildLiveInfReport(refPairs, modelPairs, chainIds, authIds, meta) {
     var scopes = computeInfScopes(refPairs, modelPairs, chainIds);
     var boundaries = boundariesFromChainIds(chainIds);
     var chains = [];
@@ -212,8 +230,8 @@
       boundaries: boundaries,
       inf: (scopes[0] && scopes[0].inf) || computeInf(refPairs, modelPairs),
       scopes: scopes,
-      reference_pairs: exportPairRows(refPairs, chainIds),
-      model_pairs: exportPairRows(modelPairs, chainIds),
+      reference_pairs: exportPairRows(refPairs, chainIds, authIds),
+      model_pairs: exportPairRows(modelPairs, chainIds, authIds),
       edited: true,
     };
   }
@@ -229,7 +247,7 @@
     var rows = [[
       'section', 'scope_id', 'scope_label', 'metric', 'inf', 'ppv', 'sty',
       'tp', 'fp', 'fn', 'pair_kind', 'i', 'j', 'family', 'family_ref',
-      'family_model', 'chain_i', 'chain_j',
+      'family_model', 'chain_i', 'chain_j', 'auth_i', 'auth_j',
     ]];
     (report.scopes || []).forEach(function (scope) {
       var sid = scope.id || '';
@@ -239,7 +257,7 @@
         var m = inf[metric] || {};
         rows.push([
           'score', sid, slabel, metric, m.inf, m.ppv, m.sty, m.tp, m.fp, m.fn,
-          '', '', '', '', '', '', '', '',
+          '', '', '', '', '', '', '', '', '', '',
         ]);
       });
     });
@@ -248,6 +266,7 @@
         rows.push([
           'pair', '', '', '', '', '', '', '', '', '',
           kind, p.i, p.j, p.family || '', '', '', p.chain_i || '', p.chain_j || '',
+          p.auth_i == null ? '' : p.auth_i, p.auth_j == null ? '' : p.auth_j,
         ]);
       });
     }
@@ -771,12 +790,18 @@
       return (panelCtxs[0] && panelCtxs[0].apiData && panelCtxs[0].apiData.chain_ids) || null;
     }
 
+    function currentAuthIds() {
+      return (panelCtxs[0] && panelCtxs[0].apiData && panelCtxs[0].apiData.auth_seq_ids) || null;
+    }
+
     function refreshLiveInfDownloads(refPairs, modelPairs) {
       if (single) return;
-      liveInfReport = buildLiveInfReport(refPairs, modelPairs, currentChainIds(), {
-        structureId: panelCtxs[0] && panelCtxs[0].STRUCTURE_ID,
-        modelId: panelCtxs[1] && panelCtxs[1].STRUCTURE_ID,
-      });
+      liveInfReport = buildLiveInfReport(
+        refPairs, modelPairs, currentChainIds(), currentAuthIds(), {
+          structureId: panelCtxs[0] && panelCtxs[0].STRUCTURE_ID,
+          modelId: panelCtxs[1] && panelCtxs[1].STRUCTURE_ID,
+        }
+      );
     }
 
     function bindLiveInfDownloads() {

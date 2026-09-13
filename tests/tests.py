@@ -1434,6 +1434,30 @@ class TestInfScopes(unittest.TestCase):
         )
         self.assertEqual(report["reference_pairs"][0]["i"], 1)
         self.assertEqual(report["reference_pairs"][0]["chain_i"], "0")
+        # Two chains of 4 nt, each numbered from 1 in 3D: concatenated 2D
+        # index 6 (1-based) is chain 1 residue 2.
+        auth_of = [10, 11, 12, 13, 20, 21, 22, 23]
+        report_auth = build_inf_report(
+            structure_id="ref",
+            model_id="model",
+            chains=["0", "1"],
+            boundaries=boundaries,
+            ref_pairs=ref,
+            model_pairs=model,
+            one_based=True,
+            auth_of=auth_of,
+        )
+        first = report_auth["reference_pairs"][0]
+        self.assertEqual(first["auth_i"], 10)
+        self.assertEqual(first["auth_j"], 13)
+        second = report_auth["reference_pairs"][1]
+        self.assertEqual(second["i"], 2)
+        self.assertEqual(second["j"], 6)
+        self.assertEqual(second["chain_j"], "1")
+        self.assertEqual(second["auth_j"], 21)
+        csv_text = inf_report_to_csv(report_auth)
+        self.assertIn("auth_i", csv_text)
+        self.assertIn("auth_j", csv_text)
         scope_ids = [s["id"] for s in report["scopes"]]
         self.assertIn("intra:0", scope_ids)
         self.assertIn("inter:0-1", scope_ids)
@@ -1441,6 +1465,41 @@ class TestInfScopes(unittest.TestCase):
         self.assertIn("intra:0", csv_text)
         self.assertIn("score", csv_text)
         self.assertIn("pair", csv_text)
+
+
+class TestCompareViewerHelpers(unittest.TestCase):
+    """Chain-label helpers for the compare viewer."""
+
+    def test_chain_phrase(self):
+        """Single vs multiple chain ids."""
+        from utils.compare_viewer import chain_phrase
+
+        self.assertEqual(chain_phrase(["0"]), "chain 0")
+        self.assertEqual(chain_phrase(["0", "1"]), "chains 0+1")
+        self.assertEqual(chain_phrase([]), "chains")
+
+    def test_compare_page_subtitle_widened(self):
+        """Widened dimer names scored mapping vs full display."""
+        from utils.compare_viewer import compare_page_subtitle
+
+        text = compare_page_subtitle(["0", "1"], ["1"], ["0"], widened=True)
+        self.assertIn("scored chain 1 → chain 0", text)
+        self.assertIn("display chains 0+1", text)
+        self.assertIn("not scored", text)
+        plain = compare_page_subtitle(["0", "1"], ["0", "1"], ["0", "1"], widened=False)
+        self.assertEqual(plain, "chains 0+1 · shared 3D")
+
+    def test_overlay_scored_chain_ids(self):
+        """Scored residues take the model's chain id; others keep the reference."""
+        from utils.compare_viewer import overlay_scored_chain_ids
+
+        api = {"chain_ids": [None, "0", "0", "1", "1", None]}
+
+        class _Model:  # pylint: disable=too-few-public-methods
+            chain_of = ["X", "X"]
+
+        overlay_scored_chain_ids(api, _Model(), score_offsets=[2, 3])
+        self.assertEqual(api["chain_ids"], [None, "0", "0", "X", "X", None])
 
 
 class TestPdbCommand(unittest.TestCase):
@@ -2613,6 +2672,100 @@ class TestWorkstationAssertChainsKnown(unittest.TestCase):
         message = str(ctx.exception)
         self.assertIn("Unknown model chain(s): Z", message)
         self.assertIn("Available: A, B", message)
+
+
+class TestWorkstationChainMapping(unittest.TestCase):
+    """Unit tests for chain-picker matching and length checks."""
+
+    @staticmethod
+    def _detail(chain_id, sequence):
+        from utils.workstation.chains import sequence_preview
+
+        return {
+            "id": chain_id,
+            "length": len(sequence),
+            "sequence": sequence,
+            "preview": sequence_preview(sequence),
+            "auth_start": "1",
+            "auth_end": str(len(sequence)),
+            "same_sequence_as": [],
+        }
+
+    def test_sequence_preview_short_is_unellipsized(self):
+        """Short sequences are shown in full."""
+        from utils.workstation.chains import sequence_preview
+
+        self.assertEqual(sequence_preview("ACGUACGU"), "ACGUACGU")
+
+    def test_sequence_preview_long_uses_ellipsis(self):
+        """Long sequences keep a 5′ head and 3′ tail."""
+        from utils.workstation.chains import sequence_preview
+
+        seq = "A" * 10 + "C" * 8 + "G" * 6
+        self.assertEqual(sequence_preview(seq), "AAAAAAAAAA…GGGGGG")
+
+    def test_homodimer_reference_maps_one_chain_onto_monomer_model(self):
+        """CASP-style dimer vs one predicted chain scores one monomer."""
+        from utils.workstation.chains import suggest_chain_mapping
+
+        seq = "GGGGGCCACUGCAGCUGCG"
+        ref = [self._detail("0", seq), self._detail("1", seq)]
+        model = [self._detail("0", seq)]
+        suggestion = suggest_chain_mapping(ref, model)
+        self.assertIsNotNone(suggestion)
+        self.assertEqual(suggestion["ref_chains"], ["0"])
+        self.assertEqual(suggestion["model_chains"], ["0"])
+        self.assertEqual(suggestion["summary"], "0 → 0")
+        self.assertEqual(len(suggestion["alternatives"]), 1)
+        self.assertEqual(suggestion["alternatives"][0]["ref_chains"], ["1"])
+        self.assertIn("Chain 1 has the same sequence", suggestion["reason"])
+
+    def test_concatenated_model_maps_both_reference_chains(self):
+        """One long model chain can match two reference chains concatenated."""
+        from utils.workstation.chains import suggest_chain_mapping
+
+        left = "GGGGGCCACUGCAGCUGCG"
+        right = "AAAUUUCCCGGGAAAUUUC"
+        ref = [self._detail("0", left), self._detail("1", right)]
+        model = [self._detail("0", left + right)]
+        suggestion = suggest_chain_mapping(ref, model)
+        self.assertEqual(suggestion["ref_chains"], ["0", "1"])
+        self.assertEqual(suggestion["model_chains"], ["0"])
+        self.assertEqual(suggestion["summary"], "0+1 → 0")
+
+    def test_pairwise_same_count_keeps_file_order(self):
+        """Two-vs-two matching stays in chain order."""
+        from utils.workstation.chains import suggest_chain_mapping
+
+        ref = [self._detail("A", "GGGAACCC"), self._detail("B", "UUUAAAUU")]
+        model = [self._detail("X", "GGGAACCC"), self._detail("Y", "UUUAAAUU")]
+        suggestion = suggest_chain_mapping(ref, model)
+        self.assertEqual(suggestion["ref_chains"], ["A", "B"])
+        self.assertEqual(suggestion["model_chains"], ["X", "Y"])
+
+    def test_length_fallback_when_sequences_differ(self):
+        """Same length still suggests a mapping when identity is low."""
+        from utils.workstation.chains import suggest_chain_mapping
+
+        ref = [self._detail("A", "AAAAAAAA"), self._detail("B", "CCCCCCCCCCCC")]
+        model = [self._detail("0", "GGGGGGGG")]
+        suggestion = suggest_chain_mapping(ref, model)
+        self.assertEqual(suggestion["ref_chains"], ["A"])
+        self.assertEqual(suggestion["by"], "length")
+
+    def test_length_mismatch_mentions_suggested_mapping(self):
+        """Selecting both dimer chains against a monomer fails with a hint."""
+        from utils.workstation.chains import assert_concatenated_lengths
+
+        seq = "GGGGGCCACUGCAGCUGCG"
+        ref = [self._detail("0", seq), self._detail("1", seq)]
+        model = [self._detail("0", seq)]
+        with self.assertRaises(ValueError) as ctx:
+            assert_concatenated_lengths(ref, ["0", "1"], model, ["0"])
+        message = str(ctx.exception)
+        self.assertIn("38 nt", message)
+        self.assertIn("19 nt", message)
+        self.assertIn("Suggested mapping: 0 → 0", message)
 
 
 class TestWorkstationCatalog(unittest.TestCase):

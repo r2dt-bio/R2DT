@@ -80,8 +80,11 @@ Compare mode needs an mmCIF reference and an explicit chain selection (multi-cha
 r2dt.py pdb reference.cif output/ --chains A --compare --model model.pdb
 
 # --model implies --compare; --model-chains maps the model's own chain ids
-# when they differ from the reference's (default: same order as --chains)
+# when they differ from the reference's (default: all RNA chains in file order).
+# Counts may differ: a single concatenated model chain can match several
+# reference chains if the total sequence length (and order) agrees.
 r2dt.py pdb reference.cif output/ --chains A,B --model model.cif --model-chains X,Y
+r2dt.py pdb dimer.cif output/ --chains 0,1 --model concat.pdb --model-chains 0
 
 # Without --model, --compare alone shows a randomly perturbed copy of the
 # reference standing in for the model (useful for previewing the diff UI)

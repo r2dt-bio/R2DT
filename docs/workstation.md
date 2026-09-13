@@ -60,7 +60,7 @@ Use the header to switch modes. Each mode has its own job list and a **New …**
 
 1. Open **Compare** (or **New comparison**).
 2. Drop a **reference** structure and a **model** (PDB or mmCIF).
-3. Select the same number of RNA chains on each side (order = diagram order).
+3. Select the RNA chain(s) on each side. The picker shows each chain's length, residue range, and a short sequence so you can tell monomers apart. After both files are uploaded it auto-selects a mapping that matches by sequence (or by length if sequences differ). A homodimer plus a one-chain model maps one reference monomer onto that model — not both chains concatenated. Counts may differ when one model chain concatenates several reference chains of the same total length. If the reference is a multi-chain complex, unselected chains that base-pair with your selection can still appear in the reference view; they are not scored.
 4. Run the job; open it when the status is ready.
 5. Edit base pairs in the viewer if needed, then **Export** (below).
 

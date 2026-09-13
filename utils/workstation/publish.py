@@ -205,6 +205,7 @@ def _recompute_metrics(
             model_pairs=model_pairs,
             inf=metrics["inf"],
             one_based=True,
+            auth_of=_auth_of_from_api(viewer),
             extra={
                 "model_simulated": metrics.get("model_simulated"),
                 "model_own_layout": metrics.get("model_own_layout"),
@@ -290,6 +291,38 @@ def _boundaries_from_metrics(
         # Single-chain fallback when older metrics.json lacks boundaries.
         return [(str(chains[0]), 0, 10**9)]
     return out
+
+
+def _auth_of_from_api(viewer: Path) -> Optional[List[Optional[int]]]:
+    """Unpadded author residue numbers from the reference panel's api.json."""
+    for rel in ("ref/api.json", "api.json"):
+        path = viewer / rel
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        auth = data.get("auth_seq_ids") or []
+        if not isinstance(auth, list) or not auth:
+            continue
+        if auth[0] is None:
+            auth = auth[1:]
+            if auth and auth[-1] is None:
+                auth = auth[:-1]
+        out: List[Optional[int]] = []
+        for value in auth:
+            if value is None:
+                out.append(None)
+                continue
+            try:
+                out.append(int(value))
+            except (TypeError, ValueError):
+                out.append(None)
+        return out
+    return None
 
 
 def _read_fr3d(path: Path) -> Optional[Dict[str, Any]]:

@@ -2564,7 +2564,11 @@ def generate_template(json_file, quiet):
     "model_chains",
     type=str,
     default=None,
-    help="RNA chains of --model, in order matching --chains (default: all).",
+    help=(
+        "RNA chains of --model, in concatenation order matching --chains "
+        "(default: all). Count may differ when one model chain concatenates "
+        "several reference chains of the same total length."
+    ),
 )
 @click.option("--quiet", "-q", is_flag=True, default=False)
 @click.pass_context
